@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>תיק נגר · בנאי</title>
+  <meta name="description" content="אב-טיפוס P2: תיק נגר להדפסה, נגזר מהמודל. שרטוטים, מבט מפוצץ, רשימת חיתוך, שיבוץ לוחות, פרזול ואומדן.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./dossier.css">
+</head>
+<body>
+  <header class="viewer-bar">
+    <a class="vb-btn vb-btn--quiet" href="../p1-workspace/">
+      <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8 4.5L13.5 10 8 15.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      חזרה לעריכה
+    </a>
+    <div class="vb-title">
+      <strong>תיק נגר</strong>
+      <span id="vbMeta"></span>
+    </div>
+    <button type="button" class="vb-btn vb-btn--primary" id="printBtn">
+      <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 7.5V3h9v4.5M5.5 14H3.5v-6.5h13V14h-2M5.5 11.5h9V17h-9z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      הדפסה / שמירה כ-PDF
+    </button>
+  </header>
+  <main class="pages" id="pages" aria-label="עמודי התיק"></main>
+  <script type="module" src="./js/dossier.js"></script>
+</body>
+</html>

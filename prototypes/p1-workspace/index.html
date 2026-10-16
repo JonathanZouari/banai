@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>בנאי · סביבת עבודה</title>
+  <meta name="description" content="אב-טיפוס P1: סביבת העבודה של בנאי. תלת-ממד חי, שכבת ייעוץ מבוססת מחקר ורינדור path tracing.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
+      "three/examples/jsm/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
+      "three-mesh-bvh": "https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.9.15/src/index.js",
+      "three-gpu-pathtracer": "https://cdn.jsdelivr.net/npm/three-gpu-pathtracer@0.0.26/src/index.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <svg class="brand-mark" viewBox="0 0 28 28" aria-hidden="true">
+          <rect x="1" y="1" width="26" height="26" rx="7" fill="#1d1d1f"/>
+          <rect x="7" y="6.5" width="14" height="15" rx="1.6" fill="none" stroke="#f5f5f7" stroke-width="1.6"/>
+          <path d="M14 6.5v15M12 13v2.4M16 13v2.4" stroke="#f5f5f7" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+        <div class="brand-text">
+          <span class="brand-name">בנאי</span>
+          <span class="brand-project">ארון חדר שינה · טיוטה</span>
+        </div>
+      </div>
+
+      <nav class="journey" aria-label="שלבי התכנון">
+        <button type="button" data-step="site">המרחב</button>
+        <button type="button" data-step="body">גוף</button>
+        <button type="button" data-step="doors">דלתות</button>
+        <button type="button" data-step="interior">פנים</button>
+        <button type="button" data-step="decor">חומרים</button>
+        <button type="button" data-step="review">סקירה</button>
+        <button type="button" data-step="pdf">תיק נגר</button>
+      </nav>
+
+      <div class="actions">
+        <div class="history" role="group" aria-label="היסטוריה">
+          <button type="button" class="icon-tool" id="undoBtn" aria-label="ביטול (Ctrl+Z)" title="ביטול · Ctrl+Z" disabled>
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 6H7.2a4 4 0 0 0 0 8h5.3M12.5 6l-3-3M12.5 6l-3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button type="button" class="icon-tool" id="redoBtn" aria-label="ביצוע שוב (Ctrl+Shift+Z)" title="ביצוע שוב · Ctrl+Shift+Z" disabled>
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 6H7.2a4 4 0 0 0 0 8h5.3M12.5 6l-3-3M12.5 6l-3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" transform="translate(20 0) scale(-1 1)"/></svg>
+          </button>
+        </div>
+        <button type="button" class="btn btn--quiet" id="pdfBtn">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 2.5h5.5L15 6v11.5H6z M11.5 2.5V6H15 M8.5 10h4M8.5 13h4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>
+          תיק נגר
+        </button>
+        <button type="button" class="btn btn--primary" id="renderBtn">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5l1.6 4.4 4.4 1.6-4.4 1.6L10 14.5l-1.6-4.4L4 8.5l4.4-1.6zM15.5 13l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z" fill="currentColor"/></svg>
+          רינדור
+        </button>
+      </div>
+    </header>
+
+    <aside class="panel inspector" id="inspector" aria-label="מאפייני הארון">
+      <section class="group" id="sec-site" data-step="site">
+        <h2 class="group-title">המרחב</h2>
+        <p class="group-hint">מידות משוערות. הנגר מאמת באתר.</p>
+        <div class="card" data-fields="site"></div>
+      </section>
+
+      <section class="group" id="sec-body" data-step="body">
+        <h2 class="group-title">גוף</h2>
+        <div class="card" data-fields="body"></div>
+      </section>
+
+      <section class="group" id="sec-doors" data-step="doors">
+        <h2 class="group-title">דלתות</h2>
+        <div class="card">
+          <div class="row row--stack">
+            <span class="row-label">סוג</span>
+            <div class="seg" id="doorType" role="radiogroup" aria-label="סוג דלתות"></div>
+          </div>
+          <div class="row row--stack">
+            <span class="row-label">ידית</span>
+            <div class="seg" id="handle" role="radiogroup" aria-label="סוג ידית"></div>
+          </div>
+          <div class="row">
+            <span class="row-label">מראה בדלת המרכזית</span>
+            <button type="button" class="switch" id="mirror" role="switch" aria-checked="false" aria-label="מראה בדלת המרכזית"><span class="knob"></span></button>
+          </div>
+        </div>
+      </section>
+
+      <section class="group" id="sec-interior" data-step="interior">
+        <div class="group-head">
+          <h2 class="group-title">פנים</h2>
+          <div class="stepper" role="group" aria-label="מספר תאים">
+            <button type="button" id="compMinus" aria-label="הסר תא">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            </button>
+            <output id="compCount">3</output>
+            <button type="button" id="compPlus" aria-label="הוסף תא">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9M8 3.5v9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+        </div>
+        <p class="group-hint">בחרו תא כאן או בלחיצה על הארון.</p>
+        <div class="comp-strip" id="compStrip"></div>
+        <div class="card comp-detail" id="compDetail" hidden>
+          <div class="row row--stack">
+            <span class="row-label" id="compDetailTitle">תא</span>
+            <div class="preset-grid" id="presetGrid" role="radiogroup" aria-label="סידור פנים"></div>
+          </div>
+          <div class="row row--stack">
+            <span class="row-label">רכיבים</span>
+            <div class="insert-grid" id="insertGrid" role="group" aria-label="רכיבים בתא"></div>
+          </div>
+          <div class="row" id="splitRow">
+            <span class="row-label">שתי דלתות לתא</span>
+            <button type="button" class="switch" id="split" role="switch" aria-checked="false" aria-label="שתי דלתות לתא"><span class="knob"></span></button>
+          </div>
+        </div>
+      </section>
+
+      <section class="group" id="sec-decor" data-step="decor">
+        <h2 class="group-title">חומרים</h2>
+        <div class="card">
+          <div class="row row--stack">
+            <div class="decor-head"><span class="row-label">גוף ופנים</span><span class="decor-name" id="bodyDecorName"></span></div>
+            <div class="swatches" id="bodyDecor" role="radiogroup" aria-label="דקור לגוף"></div>
+          </div>
+          <div class="row row--stack">
+            <div class="decor-head"><span class="row-label">חזיתות</span><span class="decor-name" id="frontDecorName"></span></div>
+            <div class="swatches" id="frontDecor" role="radiogroup" aria-label="דקור לחזיתות"></div>
+          </div>
+        </div>
+        <p class="group-hint">קודי הדקור להמחשה. טקסטורות עץ: סריקות CC0 של Poly Haven, בקנה מידה אמיתי.</p>
+      </section>
+    </aside>
+
+    <main class="stage" id="stage">
+      <div class="viewport" id="viewport"></div>
+
+      <div class="sel-chip glass" id="selChip" hidden>
+        <span id="selText"></span>
+        <button type="button" class="icon-btn" id="selClear" aria-label="בטל בחירה">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <div class="render-hud glass" id="renderHud" hidden>
+        <svg class="ring" viewBox="0 0 28 28" aria-hidden="true">
+          <circle class="ring-track" cx="14" cy="14" r="11"/>
+          <circle class="ring-bar" id="ringBar" cx="14" cy="14" r="11"/>
+        </svg>
+        <div class="hud-text">
+          <span class="hud-title" id="hudTitle">רינדור פוטוריאליסטי</span>
+          <span class="hud-sub" id="hudSub">טוען מנוע רינדור…</span>
+        </div>
+        <button type="button" class="btn btn--small btn--primary" id="saveImg" hidden>שמירת תמונה</button>
+        <button type="button" class="btn btn--small btn--quiet" id="exitRender">חזרה לעריכה</button>
+      </div>
+
+      <div class="toolbar glass" role="toolbar" aria-label="תצוגה">
+        <div class="seg seg--dark" id="viewSeg" role="radiogroup" aria-label="זווית מצלמה"></div>
+        <span class="toolbar-sep" aria-hidden="true"></span>
+        <button type="button" class="tool" id="doorsToggle" aria-pressed="false">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 3.5h8v13H4zM12 3.5l4 1.6v10.3l-4 1.1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="10" cy="10.5" r=".9" fill="currentColor"/></svg>
+          <span>פתח דלתות</span>
+        </button>
+        <button type="button" class="tool" id="dimsToggle" aria-pressed="true">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 13.5L13.5 3l3.5 3.5L6.5 17z M6.5 10l1.6 1.6M9 7.5l1.6 1.6M11.5 5l1.6 1.6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg>
+          <span>מידות</span>
+        </button>
+        <span class="toolbar-sep" aria-hidden="true"></span>
+        <button type="button" class="tool" id="versionBtn">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 3.5h8v13l-4-3-4 3z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+          <span>שמור גרסה</span>
+        </button>
+        <div class="compare" id="compareGroup" hidden>
+          <button type="button" class="tool tool--hold" id="compareBtn" aria-label="החזיקו כדי לראות את הגרסה השמורה">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v14M3.5 6.5h4v7h-4zM12.5 6.5h4v7h-4z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+            <span>החזק להשוואה</span>
+          </button>
+          <button type="button" class="icon-btn" id="versionClear" aria-label="מחק גרסה שמורה">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="compare-card glass" id="compareCard" hidden>
+        <span class="cc-title">גרסה שמורה</span>
+        <ul class="cc-list" id="compareList"></ul>
+        <span class="cc-hint">שחררו כדי לחזור לתכנון הנוכחי</span>
+      </div>
+
+      <div class="loading glass" id="loading" role="status">
+        <span class="spinner" aria-hidden="true"></span>
+        טוען חומרים וטקסטורות…
+      </div>
+    </main>
+
+    <aside class="panel advisor" aria-label="ייעוץ ושיחה">
+      <div class="seg side-tabs" id="sideTabs" role="tablist" aria-label="ייעוץ או שיחה"></div>
+
+      <section class="chat" id="chatView" hidden aria-label="שיחה עם בנאי">
+        <header class="chat-head">
+          <span class="chat-avatar" aria-hidden="true">ב</span>
+          <div>
+            <b>בנאי</b>
+            <span>רואה את התכנון הנוכחי · מציע, ואתם מאשרים</span>
+          </div>
+        </header>
+        <div class="chat-log" id="chatLog" aria-live="polite"></div>
+        <form class="composer" id="composer" autocomplete="off">
+          <div class="composer-field">
+            <textarea id="chatInput" rows="1" placeholder="כתבו לבנאי, או החזיקו את המיקרופון ודברו" aria-label="הודעה"></textarea>
+            <div class="voice-ui" id="voiceUi" aria-hidden="true">
+              <span class="voice-bars" id="voiceBars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+              <span class="voice-hint" id="voiceHint">משחררים לשליחה · גוררים הצידה לביטול</span>
+            </div>
+          </div>
+          <button type="button" class="mic" id="micBtn" aria-label="החזיקו כדי לדבר">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="7.2" y="2.5" width="5.6" height="9.5" rx="2.8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M4.5 9.5a5.5 5.5 0 0 0 11 0M10 15v2.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          </button>
+          <button type="submit" class="send" id="sendBtn" aria-label="שליחה" disabled>
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 16V4.5M5 9.5l5-5 5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </form>
+        <p class="chat-note">אב-טיפוס: הסוכן כאן מבוסס כללים. בייצור הוא מחובר ל-OpenAI דרך השרת, עם אותו פרוטוקול של הצעה ואישור.</p>
+      </section>
+
+      <div class="advisor-view" id="advisorView">
+      <header class="advisor-head">
+        <div>
+          <h2 class="advisor-title">ייעוץ מקצועי</h2>
+          <p class="advisor-sub">מתעדכן עם כל שינוי · מבוסס על 116 מקורות</p>
+        </div>
+        <div class="counts" id="counts" aria-live="polite"></div>
+      </header>
+      <div class="advice-list" id="adviceList"></div>
+      <footer class="advisor-foot">
+        הנחיה כללית, לא אישור הנדסי. דרגת הראיה והמקור מופיעים בכל הערה. מספרי המקור מפנים למסמך המחקר.
+      </footer>
+      </div>
+    </aside>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
