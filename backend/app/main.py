@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import ai_settings, chat, health, reference
+from app.body_limit import BodySizeLimitMiddleware
 from app.config import get_settings
 
 
@@ -15,6 +16,8 @@ def create_app() -> FastAPI:
         redoc_url=None if is_production else "/redoc",
         openapi_url=None if is_production else "/openapi.json",
     )
+    # Added before CORS so CORS wraps it: a 413 still carries the headers the browser needs to read it.
+    app.add_middleware(BodySizeLimitMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,

@@ -17,6 +17,7 @@ router = APIRouter(prefix="/api")
 MAX_MESSAGE_LENGTH = 2000  # matches the composer limit in frontend/src/chat/chatModel.js
 MAX_HISTORY = 40
 # A cheap DoS guard on an unauthenticated endpoint: a few agent turns at a time per process.
+# A request never waits for a slot: waiting would pin a worker thread shared by every sync endpoint.
 _slots = threading.BoundedSemaphore(4)
 
 
@@ -48,7 +49,7 @@ def chat(body: ChatRequest, runner=Depends(get_chat_runner)):
         return _error(400, "INVALID_FORMAT", "Add a valid OpenAI API key in AI settings.")
     if body.messages[-1].role != "user":
         return _error(400, "INVALID_HISTORY", "The last message must come from the customer.")
-    if not _slots.acquire(timeout=2):
+    if not _slots.acquire(blocking=False):
         return _error(429, "BUSY", "The AI designer is busy. Try again in a moment.")
     try:
         messages = [{"role": m.role, "content": m.content} for m in body.messages]

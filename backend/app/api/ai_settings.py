@@ -13,8 +13,10 @@ from app.config import get_settings
 
 router = APIRouter(prefix="/api/settings/ai")
 
-# One OpenAI check at a time per process: a cheap DoS guard on an unauthenticated endpoint.
-_verify_lock = threading.Lock()
+# A cheap DoS guard on an unauthenticated endpoint: two OpenAI checks at a time per process.
+# A request never waits for a slot. Waiting would pin one of the worker threads that every sync
+# endpoint shares, so a burst of checks could stall the whole API.
+_verify_slots = threading.BoundedSemaphore(2)
 
 
 class VerifyRequest(BaseModel):
@@ -37,12 +39,12 @@ def verify_key(body: VerifyRequest, verifier=Depends(get_verifier)):
     api_key = body.apiKey.strip()
     if not KEY_PATTERN.fullmatch(api_key):
         return _error(400, "INVALID_FORMAT", "That doesn't look like an OpenAI API key (it starts with sk-).")
-    if not _verify_lock.acquire(timeout=15):
+    if not _verify_slots.acquire(blocking=False):
         return _error(429, "BUSY", "Another key check is running. Try again in a moment.")
     try:
         result = verifier(api_key, get_settings().openai_chat_model or None)
     finally:
-        _verify_lock.release()
+        _verify_slots.release()
     return {
         "success": True,
         "data": {

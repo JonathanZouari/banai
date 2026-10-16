@@ -7,6 +7,9 @@ const WEB_PORT = 5183;
 export default defineConfig({
   testDir: 'tests/e2e',
   fullyParallel: false,
+  // One browser at a time: each renders WebGL on the CPU (SwiftShader), and several at once starve
+  // each other into timeouts. Serial is also faster here (about 1 min against 3 to 4.5 min).
+  workers: 1,
   retries: 0,
   reporter: [['list']],
   use: {

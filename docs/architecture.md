@@ -88,7 +88,8 @@ Revision and persistence metadata (`revision`, `designId`) stay **outside** the 
 | GET | `/api/health` | liveness |
 | GET | `/api/catalog` | materials, colors, finishes (backend owns the catalog) |
 | GET | `/api/designs/default` | basic wardrobe template |
-| POST | `/api/chat` | agent turn → reply + optional signed proposal |
+| POST | `/api/settings/ai/verify` | `{apiKey}` → `{status, model, maskedKey, checkedAt}`. Checks the customer's OpenAI key with one free OpenAI metadata call and stores nothing. `status` is `connected`, `invalid_key`, `model_unavailable` or `unreachable`; a malformed key is a 400 `INVALID_FORMAT` and never reaches OpenAI |
+| POST | `/api/chat` | agent turn → reply + optional signed proposal. **Built so far (text only):** `{apiKey, messages}` → `{reply, model}`, where `messages` is 1–40 `{role: user\|assistant, content ≤ 2000 chars}` ending with a user message. Wardrobe topics only, plus the fixed-location Jerusalem weather tool. `{design, revision}` and the signed proposal arrive in Phase 5 |
 | POST | `/api/proposals/apply` | verify, check stale, apply → new design |
 | POST | `/api/designs/validate` | server validation of a manual design (used before save) |
 | POST | `/api/designs` | create → `{designId, accessToken, revision}` |
@@ -97,6 +98,8 @@ Revision and persistence metadata (`revision`, `designId`) stay **outside** the 
 | POST | `/api/render` | `{design, imagePngBase64}` → `{imageBase64, disclaimer}` (does not touch state) |
 
 CORS is restricted to the frontend origin for each environment. Rate limiting (slowapi) applies to `/chat` and `/render`.
+
+The OpenAI key is the customer's own and lives only in their browser's localStorage (`banai.openaiApiKey`). It travels in the body of each `/api/settings/ai/verify` and `/api/chat` request and is never stored or logged; responses show only a masked key, and OpenAI's own error messages are never passed on (they can echo part of the key). Limits on these unauthenticated routes today: request bodies over 1 MiB are refused with 413 `PAYLOAD_TOO_LARGE` before parsing, and each process runs at most 2 key checks and 4 chat turns at once. Extra requests get 429 `BUSY` at once instead of waiting for a worker thread. Per-client rate limiting is not built yet.
 
 ## 7. Supabase schema and security
 Migration `supabase/migrations/<ts>_designs.sql`, created with `supabase migration new`:
