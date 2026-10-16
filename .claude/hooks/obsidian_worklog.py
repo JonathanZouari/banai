@@ -8,7 +8,7 @@ Configuration (environment variables, all optional):
   OBSIDIAN_API_KEY     REST API key. Falls back to the `obsidian` MCP server
                        entry in ~/.claude.json, so no secret lives in the repo.
   OBSIDIAN_BASE_URL    Default: https://127.0.0.1:27124
-  OBSIDIAN_WORKLOG     Vault path. Default: BanAI/10 - Work Log.md
+  OBSIDIAN_WORKLOG     Vault path. Default: banai/10 - Work Log.md
 
 Never blocks the agent: every failure is reported on stderr and exits 0.
 """
@@ -26,7 +26,7 @@ from datetime import datetime
 from pathlib import Path
 
 DEFAULT_BASE_URL = "https://127.0.0.1:27124"
-DEFAULT_WORKLOG = "BanAI/10 - Work Log.md"
+DEFAULT_WORKLOG = "banai/10 - Work Log.md"
 MAX_PROMPT_CHARS = 600
 MAX_REPLY_CHARS = 2500
 REQUEST_TIMEOUT_SECONDS = 5
