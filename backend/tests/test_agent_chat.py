@@ -16,23 +16,23 @@ from app.main import app
 KEY = "sk-proj-abcdefghijklmnopqrstuvwxyz0123456789WXYZ"
 
 
-def reply(content=None, tool_calls=None):
-    return NS(choices=[NS(message=NS(content=content, tool_calls=tool_calls))])
+def reply(text=None, calls=()):
+    return NS(output=list(calls), output_text=text or "")
 
 
 def tool_call(call_id="c1", name="get_jerusalem_weather"):
-    return NS(id=call_id, function=NS(name=name, arguments="{}"))
+    return NS(type="function_call", id=f"fc_{call_id}", call_id=call_id, name=name, arguments="{}")
 
 
 class FakeClient:
     def __init__(self, *responses):
-        self.responses = list(responses)
+        self.responses_queue = list(responses)
         self.calls = []
-        self.chat = NS(completions=NS(create=self._create))
+        self.responses = NS(create=self._create)
 
     def _create(self, **kwargs):
-        self.calls.append({**kwargs, "messages": list(kwargs["messages"])})
-        return self.responses.pop(0)
+        self.calls.append({**kwargs, "input": list(kwargs["input"])})
+        return self.responses_queue.pop(0)
 
 
 def test_prompt_sets_language_scope_and_the_jerusalem_exception():
@@ -42,26 +42,28 @@ def test_prompt_sets_language_scope_and_the_jerusalem_exception():
     assert "Never say a design is manufacturable" in SYSTEM_PROMPT
 
 
-def test_plain_reply_sends_the_system_prompt_first():
+def test_plain_reply_uses_the_responses_api_without_storing_the_conversation():
     client = FakeClient(reply("שלום! איך אפשר לעזור עם הארון?"))
     text = run_chat(client, "m", [{"role": "user", "content": "היי"}])
     assert text == "שלום! איך אפשר לעזור עם הארון?"
-    sent = client.calls[0]["messages"]
-    assert sent[0] == {"role": "system", "content": SYSTEM_PROMPT}
-    assert sent[1] == {"role": "user", "content": "היי"}
+    call = client.calls[0]
+    assert call["instructions"] == SYSTEM_PROMPT
+    assert call["input"] == [{"role": "user", "content": "היי"}]
+    assert call["store"] is False
+    assert call["tools"][0]["name"] == "get_jerusalem_weather" and call["tools"][0]["strict"] is True
 
 
 def test_weather_tool_result_is_fed_back_to_the_model():
-    client = FakeClient(reply(tool_calls=[tool_call()]), reply("בירושלים 21°C ושמשי."))
+    client = FakeClient(reply(calls=[tool_call()]), reply("בירושלים 21°C ושמשי."))
     text = run_chat(client, "m", [{"role": "user", "content": "מה מזג האוויר בירושלים?"}], weather=lambda: {"temperatureC": 21})
     assert text == "בירושלים 21°C ושמשי."
-    second = client.calls[1]["messages"]
-    assert second[-2]["tool_calls"][0]["function"]["name"] == "get_jerusalem_weather"
-    assert second[-1] == {"role": "tool", "tool_call_id": "c1", "content": '{"temperatureC": 21}'}
+    second = client.calls[1]["input"]
+    assert second[-2] == {"type": "function_call", "call_id": "c1", "name": "get_jerusalem_weather", "arguments": "{}"}
+    assert second[-1] == {"type": "function_call_output", "call_id": "c1", "output": '{"temperatureC": 21}'}
 
 
 def test_tool_rounds_are_bounded_and_the_last_call_disables_tools():
-    client = FakeClient(*[reply(tool_calls=[tool_call(f"c{i}")]) for i in range(2)], reply("done"))
+    client = FakeClient(*[reply(calls=[tool_call(f"c{i}")]) for i in range(2)], reply("done"))
     weather_calls = []
     assert run_chat(client, "m", [{"role": "user", "content": "x"}], weather=lambda: weather_calls.append(1) or {"t": 1}) == "done"
     assert [c["tool_choice"] for c in client.calls] == ["auto", "auto", "none"]
@@ -69,9 +71,9 @@ def test_tool_rounds_are_bounded_and_the_last_call_disables_tools():
 
 
 def test_unknown_tools_get_an_error_result():
-    client = FakeClient(reply(tool_calls=[tool_call(name="fetch_url")]), reply("ok"))
+    client = FakeClient(reply(calls=[tool_call(name="fetch_url")]), reply("ok"))
     run_chat(client, "m", [{"role": "user", "content": "x"}], weather=lambda: pytest.fail("weather must not run"))
-    assert client.calls[1]["messages"][-1]["content"] == '{"error": "Unknown tool."}'
+    assert client.calls[1]["input"][-1]["output"] == '{"error": "Unknown tool."}'
 
 
 def test_weather_parses_open_meteo_and_reports_failures():
@@ -170,3 +172,13 @@ def test_answer_uses_the_configured_model_and_closes_the_client(monkeypatch):
     result = agent_chat.answer(KEY, [{"role": "user", "content": "x"}], "my-model", client_factory=lambda **kw: fake)
     assert result == ChatResult("hi", "my-model")
     assert fake.calls[0]["model"] == "my-model" and fake.closed
+
+
+def test_bad_request_details_are_logged_without_the_key():
+    request = httpx2.Request("POST", "https://api.openai.com/v1/responses")
+    body = {"message": "Unsupported value for reasoning_effort.", "type": "invalid_request_error", "param": "reasoning_effort", "code": None}
+    error = openai.BadRequestError("x", response=httpx2.Response(400, request=request), body=body)
+    summary = agent_chat.describe_error(error, "gpt-x")
+    assert "BadRequestError status=400 model=gpt-x" in summary and "reasoning_effort" in summary
+    auth = openai.AuthenticationError("x", response=httpx2.Response(401, request=request), body={"message": "Incorrect API key provided: sk-abc***wxyz"})
+    assert "sk-" not in agent_chat.describe_error(auth, "gpt-x")

@@ -4,6 +4,7 @@ Text replies only. Design proposals (signed ops) arrive in Phase 5.
 """
 
 import json
+import logging
 from dataclasses import dataclass
 
 import openai
@@ -15,13 +16,14 @@ from app.agent.weather import get_jerusalem_weather
 WEATHER_TOOL_NAME = "get_jerusalem_weather"
 WEATHER_TOOL = {
     "type": "function",
-    "function": {
-        "name": WEATHER_TOOL_NAME,
-        "description": "Current weather in Jerusalem, Israel. The only weather the assistant may report.",
-        "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
-    },
+    "name": WEATHER_TOOL_NAME,
+    "description": "Current weather in Jerusalem, Israel. The only weather the assistant may report.",
+    "parameters": {"type": "object", "properties": {}, "required": [], "additionalProperties": False},
+    "strict": True,
 }
 MAX_TOOL_ROUNDS = 2
+
+logger = logging.getLogger("banai.agent")
 
 
 @dataclass(frozen=True)
@@ -39,32 +41,30 @@ class AgentError(Exception):
 
 
 def run_chat(client, model: str, messages: list[dict], weather=get_jerusalem_weather) -> str:
-    """Calls the model, runs at most MAX_TOOL_ROUNDS of weather lookups, and returns the reply text."""
-    conversation = [{"role": "system", "content": SYSTEM_PROMPT}, *messages]
+    """Calls the model (Responses API), runs at most MAX_TOOL_ROUNDS of weather lookups, returns the reply.
+
+    store=False: OpenAI keeps no copy of the conversation. Function calls are echoed back without
+    their item ids, so no stored reasoning items are needed between rounds.
+    """
+    items = list(messages)
     weather_result = None
     for round_number in range(MAX_TOOL_ROUNDS + 1):
         last_round = round_number == MAX_TOOL_ROUNDS
-        response = client.chat.completions.create(
-            model=model, messages=conversation, tools=[WEATHER_TOOL], tool_choice="none" if last_round else "auto",
+        response = client.responses.create(
+            model=model, instructions=SYSTEM_PROMPT, input=items, tools=[WEATHER_TOOL],
+            tool_choice="none" if last_round else "auto", store=False,
         )
-        message = response.choices[0].message
-        if not message.tool_calls:
-            return (message.content or "").strip()
-        conversation.append({
-            "role": "assistant",
-            "content": message.content,
-            "tool_calls": [
-                {"id": call.id, "type": "function", "function": {"name": call.function.name, "arguments": call.function.arguments}}
-                for call in message.tool_calls
-            ],
-        })
-        for call in message.tool_calls:
-            if call.function.name == WEATHER_TOOL_NAME:
+        calls = [item for item in response.output if item.type == "function_call"]
+        if not calls:
+            return (response.output_text or "").strip()
+        for call in calls:
+            if call.name == WEATHER_TOOL_NAME:
                 weather_result = weather_result or weather()
                 result = weather_result
             else:
                 result = {"error": "Unknown tool."}
-            conversation.append({"role": "tool", "tool_call_id": call.id, "content": json.dumps(result, ensure_ascii=False)})
+            items.append({"type": "function_call", "call_id": call.call_id, "name": call.name, "arguments": call.arguments})
+            items.append({"type": "function_call_output", "call_id": call.call_id, "output": json.dumps(result, ensure_ascii=False)})
     return ""
 
 
@@ -79,14 +79,29 @@ def to_agent_error(error: openai.OpenAIError) -> AgentError:
     return AgentError(502, "UPSTREAM", "The AI service is unavailable right now. Try again in a moment.")
 
 
+def describe_error(error: openai.OpenAIError, model: str | None) -> str:
+    """Key-free summary for the server log: class, HTTP status and OpenAI's error code/type/param.
+
+    The message is logged only for 400s: request errors describe our parameters, never the key
+    (key problems are 401s, whose messages can echo part of it).
+    """
+    body = getattr(error, "body", None)
+    details = {k: body.get(k) for k in ("code", "type", "param")} if isinstance(body, dict) else {}
+    if isinstance(error, openai.BadRequestError) and isinstance(body, dict):
+        details["message"] = str(body.get("message", ""))[:300]
+    return f"{type(error).__name__} status={getattr(error, 'status_code', None)} model={model} {details}"
+
+
 def answer(api_key: str, messages: list[dict], configured_model: str | None, client_factory=openai.OpenAI) -> ChatResult:
     client = client_factory(api_key=api_key, timeout=45.0, max_retries=1)
+    model = None
     try:
         model = chat_model_for(client, api_key, configured_model)
         if not model:
             raise AgentError(400, "MODEL_UNAVAILABLE", "Your OpenAI key has no chat model available.")
         reply = run_chat(client, model, messages)
     except openai.OpenAIError as error:
+        logger.warning("Chat turn failed: %s", describe_error(error, model))
         raise to_agent_error(error) from None
     finally:
         client.close()
