@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi.errors import RateLimitExceeded
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from slowapi.middleware import SlowAPIMiddleware
 
 from app.api import chat, health, proposals, reference
@@ -13,6 +14,10 @@ from app.config import get_settings
 def _validation_failed(_request, _error: RequestValidationError):
     # Never echo the rejected input back (it may be large or crafted).
     return fail(422, "INVALID_REQUEST", "The request is not valid.")
+
+
+def _http_failed(_request, error: StarletteHTTPException):
+    return fail(error.status_code, "HTTP_ERROR", "The request could not be processed.")
 
 
 def create_app() -> FastAPI:
@@ -28,6 +33,9 @@ def create_app() -> FastAPI:
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
     app.add_exception_handler(RequestValidationError, _validation_failed)
+    app.add_exception_handler(StarletteHTTPException, _http_failed)
+    # The last middleware added is the outermost: CORS wraps everything, so even a 413 carries its headers.
+    app.add_middleware(BodyLimitMiddleware, max_bytes=settings.max_body_bytes)
     app.add_middleware(SlowAPIMiddleware)
     app.add_middleware(
         CORSMiddleware,
@@ -35,7 +43,6 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST", "PUT"],
         allow_headers=["Authorization", "Content-Type", "If-Match"],
     )
-    app.add_middleware(BodyLimitMiddleware, max_bytes=settings.max_body_bytes)
     app.include_router(health.router)
     app.include_router(reference.router)
     app.include_router(chat.router)

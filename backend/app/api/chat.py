@@ -46,7 +46,7 @@ class ChatRequest(BaseModel):
 
 @lru_cache
 def _client(api_key: str) -> openai.OpenAI:
-    return openai.OpenAI(api_key=api_key, timeout=45.0, max_retries=1)
+    return openai.OpenAI(api_key=api_key, timeout=30.0, max_retries=0)
 
 
 def get_agent_client(settings: Annotated[Settings, Depends(get_settings)]) -> openai.OpenAI | None:

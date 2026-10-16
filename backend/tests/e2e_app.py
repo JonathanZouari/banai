@@ -8,6 +8,9 @@ from app.config import Settings, get_settings
 from app.main import app
 from tests.agent.fakes import FakeOpenAI, call, reply
 
+if get_settings().app_env != "e2e":  # it carries a public signing key: never load it anywhere else
+    raise RuntimeError("tests.e2e_app is only for the Playwright suite (APP_ENV=e2e)")
+
 SETTINGS = Settings(
     openai_api_key="e2e", openai_chat_model="e2e", proposal_signing_key="e" * 64, chat_rate_limit="1000/minute"
 )

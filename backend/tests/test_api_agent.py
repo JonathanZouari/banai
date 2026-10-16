@@ -1,6 +1,7 @@
 """/api/chat and /api/proposals/apply with a scripted OpenAI client: the whole confirm/cancel/stale protocol."""
 
 import copy
+from types import SimpleNamespace
 
 import openai
 import pytest
@@ -221,3 +222,41 @@ def test_cancel_is_client_only_there_is_no_server_state():
     # The server stored nothing: an unrelated request leaves the design as it was and the proposal stays valid.
     assert http.get("/api/designs/default").json()["data"]["design"] == basic_wardrobe()
     assert http.post("/api/proposals/apply", json=apply_body(proposal)).status_code == 200
+
+
+# ---- hardening from the Phase 5 security review ------------------------------------------------
+
+def test_weak_signing_keys_are_refused_at_startup():
+    with pytest.raises(ValueError, match="at least 32"):
+        Settings(proposal_signing_key="changeme")
+    assert Settings(proposal_signing_key="").proposal_signing_key == ""
+
+
+def test_the_e2e_app_cannot_be_loaded_outside_the_e2e_environment():
+    import importlib
+
+    with pytest.raises(RuntimeError, match="Playwright"):
+        importlib.import_module("tests.e2e_app")
+
+
+def test_a_slow_turn_stops_repairing(monkeypatch):
+    from app.agent import orchestrator
+    from tests.agent.fakes import call as tool_call
+
+    clock = iter([0, 1000, 1000, 1000])
+    # Replace the module's `time` (not time.monotonic itself): the event loop shares the real clock.
+    monkeypatch.setattr(orchestrator, "time", SimpleNamespace(monotonic=lambda: next(clock)))
+    client = FakeOpenAI(reply(None, [tool_call("add_shelf", compartmentId="cmp_missing", y=500)]))
+    use_client(client)
+    data = http.post("/api/chat", json=chat_body()).json()["data"]
+    assert data["proposal"] is None and len(client.requests) == 1
+
+
+def test_413_and_http_errors_keep_cors_headers_and_the_envelope():
+    origin = {"Origin": "http://localhost:5173"}
+    big = http.post("/api/chat", content=b"x" * 300_000, headers={"content-type": "application/json", **origin})
+    assert big.status_code == 413 and big.headers["access-control-allow-origin"] == "http://localhost:5173"
+    missing = http.get("/api/nope")
+    assert missing.status_code == 404 and missing.json()["error"]["code"] == "HTTP_ERROR"
+    unparsable = http.post("/api/chat", content=b"{not json", headers={"content-type": "application/json"})
+    assert unparsable.json()["success"] is False

@@ -6,6 +6,7 @@ validated, id-complete op batch; signing and the apply/stale protocol live in th
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass, field
 
 from app.agent.prompts import build_system_prompt
@@ -14,6 +15,7 @@ from app.agent.tools import CLARIFY, MAX_QUESTION, OP_NAMES, TOOLS
 from app.domain.errors import INVALID_OP, SCHEMA_INVALID, DomainError
 
 MAX_REPAIRS = 2  # extra model calls after a rejected batch
+MAX_TURN_SECONDS = 60  # no repair call starts after this (a request holds a worker thread)
 MAX_COMPLETION_TOKENS = 4000
 MAX_REPLY = 1000
 MAX_ARGUMENT_CHARS = 20_000
@@ -74,7 +76,10 @@ def _assistant_message(message) -> dict:
 def run_agent(client, model: str, design: dict, history: list[dict], catalog: dict) -> AgentResult:
     """`history` is [{role: user|assistant, content}] ending with the customer's latest message."""
     conversation = [{"role": "system", "content": build_system_prompt(design, catalog)}, *history]
+    started = time.monotonic()
     for attempt in range(MAX_REPAIRS + 1):
+        if attempt and time.monotonic() - started > MAX_TURN_SECONDS:
+            return AgentResult(reply=CLARIFY_FALLBACK, warnings=["turn time budget exceeded"])
         completion = client.chat.completions.create(
             model=model, messages=conversation, tools=TOOLS, max_completion_tokens=MAX_COMPLETION_TOKENS,
         )
