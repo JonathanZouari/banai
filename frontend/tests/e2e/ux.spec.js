@@ -106,12 +106,9 @@ test.describe('UX pass', () => {
     await expect(front).toHaveAttribute('aria-pressed', 'true');
   });
 
-  // KNOWN APP BUG (reported, not fixed here): setView() moves the camera but leaves the
-  // OrbitControls damping momentum from the drag in place, so the camera keeps coasting after the
-  // animation and ends far from the requested pose. test.fail() keeps this documented without
-  // breaking the run; when viewer.js discards the momentum this test passes and must be un-failed.
+  // Regression: moveTo() must settle the OrbitControls damping momentum left by the drag,
+  // or the camera keeps coasting after the animation and ends far from the requested pose.
   test('a view button pressed straight after an orbit drag still lands exactly on the 3/4 pose', async ({ page }) => {
-    test.fail(true, 'viewer.js: applyPose() keeps applying OrbitControls damping momentum after a view change');
     test.setTimeout(90_000);
     await settledCamera(page);
     const loaded = await cameraPose(page);

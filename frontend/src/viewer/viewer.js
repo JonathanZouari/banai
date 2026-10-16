@@ -117,7 +117,16 @@ export function createViewer(container, store) {
     const offset = camera.position.clone().sub(controls.target);
     return offset.lengthSq() > 1e-9 ? offset.normalize().toArray() : [...VIEWS.threeQuarter];
   };
+  // OrbitControls keeps decaying drag momentum after a release. Settle it before a programmatic
+  // move, or it keeps coasting the camera off the requested pose.
+  const flushMomentum = () => {
+    if (!controls.enableDamping) return;
+    controls.enableDamping = false;
+    controls.update();
+    controls.enableDamping = true;
+  };
   const moveTo = (pose, animate) => {
+    flushMomentum();
     const direction = new THREE.Vector3(...pose.position).sub(new THREE.Vector3(...pose.target)).normalize().toArray();
     if (!animate || reducedMotion()) {
       animation = null;
