@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { buildWardrobe, disposeWardrobe } from './buildWardrobe.js';
+import { ease, frameView } from './camera.js';
 import { frameOf } from './builders/frame.js';
 import { createDimensions } from './dimensions.js';
 import { createHighlighter } from './highlight.js';
@@ -24,10 +25,36 @@ function createScene() {
   const fill = new THREE.DirectionalLight('#ffffff', 0.9);
   fill.position.set(-2, 2, 5);
   scene.add(fill);
-  const grid = new THREE.GridHelper(12, 24, '#c9ccc8', '#dcdfdb');
-  grid.position.y = -0.0005;
+  const grid = new THREE.GridHelper(12, 48, '#d6d8d4', '#e2e4e0');
+  grid.position.y = -0.001;
   scene.add(grid);
   return scene;
+}
+
+/** A soft radial "contact shadow" under the wardrobe (a textured plane, no shadow maps). */
+function createFloorShadow() {
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext('2d');
+  const gradient = context.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  gradient.addColorStop(0, 'rgba(40, 36, 30, 0.32)');
+  gradient.addColorStop(0.55, 'rgba(40, 36, 30, 0.12)');
+  gradient.addColorStop(1, 'rgba(40, 36, 30, 0)');
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, size, size);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(1, 1),
+    new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false }),
+  );
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.y = 0.0005;
+  mesh.renderOrder = -1;
+  mesh.raycast = () => {}; // never pickable
+  return mesh;
 }
 
 /** Map a raycast hit to a selectable component id (the back panel selects its compartment). */
@@ -60,16 +87,40 @@ export function createViewer(container, store) {
   const materials = createMaterials(store.getState().catalog);
   const highlighter = createHighlighter(scene);
   const dimensions = createDimensions(scene);
+  const floorShadow = createFloorShadow();
+  scene.add(floorShadow);
   let group = null;
   let rendered = { design: null, doorsVisible: null, selection: undefined, dimsKey: null };
+  let view = 'angle';
+  let tween = null;
 
-  const fitCamera = (design) => {
-    const { width, height, depth } = design.dimensions;
-    const center = new THREE.Vector3(toM(width / 2), toM(height / 2), toM(-depth / 2));
-    const distance = (toM(Math.max(width, height)) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)))) * 1.35;
-    camera.position.set(center.x + distance * 0.35, center.y + distance * 0.12, distance);
-    controls.target.copy(center);
-    controls.update();
+  /** Frame the wardrobe from a preset; animated unless `instant`. */
+  const fitCamera = (design, { instant = false } = {}) => {
+    const { target, position } = frameView(design.dimensions, { fovDeg: camera.fov, aspect: camera.aspect, view });
+    const to = { position: new THREE.Vector3(...position), target: new THREE.Vector3(...target) };
+    if (instant) {
+      tween = null;
+      camera.position.copy(to.position);
+      controls.target.copy(to.target);
+      controls.update();
+      return;
+    }
+    tween = { from: { position: camera.position.clone(), target: controls.target.clone() }, to, start: performance.now(), duration: 450 };
+  };
+
+  const stepTween = (now) => {
+    if (!tween) return;
+    const t = Math.min((now - tween.start) / tween.duration, 1);
+    const k = ease(t);
+    camera.position.lerpVectors(tween.from.position, tween.to.position, k);
+    controls.target.lerpVectors(tween.from.target, tween.to.target, k);
+    if (t === 1) tween = null;
+  };
+
+  const placeFloorShadow = (design) => {
+    const { width, depth } = design.dimensions;
+    floorShadow.scale.set(toM(width) * 1.5 + 0.4, toM(depth) * 2.2 + 0.4, 1);
+    floorShadow.position.set(toM(width / 2), 0.0005, toM(-depth / 2));
   };
 
   const sync = (state) => {
@@ -85,7 +136,10 @@ export function createViewer(container, store) {
       materials.retainOnly(new Set(group.children.map((mesh) => mesh.material)));
       const { width, height, depth } = design.dimensions;
       const dimsKey = `${width}x${height}x${depth}`;
-      if (dimsKey !== rendered.dimsKey) fitCamera(design);
+      if (dimsKey !== rendered.dimsKey) {
+        fitCamera(design, { instant: rendered.dimsKey === null });
+        placeFloorShadow(design);
+      }
       rendered = { ...rendered, design, doorsVisible: ui.doorsVisible, dimsKey };
     }
     if (geometryChanged || selection !== rendered.selection) {
@@ -115,7 +169,11 @@ export function createViewer(container, store) {
   const unsubscribe = store.subscribe(sync);
   sync(store.getState());
 
-  renderer.setAnimationLoop(() => {
+  // Any manual orbit or zoom cancels a running camera transition.
+  controls.addEventListener('start', () => { tween = null; });
+
+  renderer.setAnimationLoop((now) => {
+    stepTween(now);
     controls.update();
     renderer.render(scene, camera);
     labels.render(scene, camera);
@@ -125,6 +183,18 @@ export function createViewer(container, store) {
     camera,
     controls,
     canvas: renderer.domElement,
+    /** Move to a view preset ('front' | 'angle' | 'side' | 'top'); re-frames the wardrobe. */
+    setView(name) {
+      view = name;
+      fitCamera(store.getState().design);
+    },
+    /** Re-frame the wardrobe from the current preset. */
+    fit() {
+      fitCamera(store.getState().design);
+    },
+    get view() {
+      return view;
+    },
     meshOf: (componentId) => group?.children.find((mesh) => mesh.userData.componentId === componentId) ?? null,
     /** Client (page) coordinates of a component's centre, for tests and tooling. */
     screenPointOf(componentId) {
@@ -141,6 +211,9 @@ export function createViewer(container, store) {
       resizeObserver.disconnect();
       if (group) disposeWardrobe(group);
       highlighter.dispose();
+      floorShadow.geometry.dispose();
+      floorShadow.material.map.dispose();
+      floorShadow.material.dispose();
       dimensions.dispose();
       materials.dispose();
       controls.dispose();
