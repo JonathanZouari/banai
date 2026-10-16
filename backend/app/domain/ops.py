@@ -17,6 +17,8 @@ from app.domain.schema import (
     CompartmentId,
     DoorId,
     DrawerId,
+    HandleFinish,
+    HandleStyle,
     Int,
     PartitionId,
     RailId,
@@ -28,6 +30,8 @@ from app.domain.schema import (
 
 MAX_OPS = 100
 Target = Annotated[str, Field(pattern=r"^(carcass|doors|(cmp|prt|shf|drw|rail|dr)_[A-Za-z0-9_-]{1,40})$")]
+# `all` addresses the design-wide handles; ids are checked for shape only (the handler rejects kinds without handles).
+HandlesTarget = Annotated[str, Field(pattern=r"^(all|(cmp|prt|shf|drw|rail|dr)_[A-Za-z0-9_-]{1,40})$")]
 
 
 class CreateWardrobe(StrictModel):
@@ -61,6 +65,13 @@ class ConfigureDoors(StrictModel):
     doors: Annotated[list[DoorSpec], Field(max_length=MAX_LIST)] | None = None
     count: Int | None = None
     ids: Annotated[list[DoorId], Field(max_length=MAX_LIST)] | None = None
+
+
+class ModifyDoor(StrictModel):
+    op: Literal["modify_door"]
+    id: DoorId
+    hinge_side: Literal["left", "right"] | None = None
+    mirror: bool | None = None
 
 
 class AddCompartment(StrictModel):
@@ -146,15 +157,23 @@ class SetMaterial(StrictModel):
     clear: bool = False
 
 
+class SetHandles(StrictModel):
+    op: Literal["set_handles"]
+    target: HandlesTarget
+    style: HandleStyle | None = None
+    finish: HandleFinish | None = None
+    clear: bool = False
+
+
 class RemoveComponent(StrictModel):
     op: Literal["remove_component"]
     id: AnyId
 
 
 Op = Annotated[
-    CreateWardrobe | UpdateDimensions | ConfigureDoors | AddCompartment | ModifyCompartment
+    CreateWardrobe | UpdateDimensions | ConfigureDoors | ModifyDoor | AddCompartment | ModifyCompartment
     | AddPartition | ModifyPartition | AddShelf | ModifyShelf | AddDrawer | ModifyDrawer
-    | AddRail | ModifyRail | SetMaterial | RemoveComponent,
+    | AddRail | ModifyRail | SetMaterial | SetHandles | RemoveComponent,
     Field(discriminator="op"),
 ]
 

@@ -1,102 +1,57 @@
-# Design System: "Nordic Atelier" (Google Stitch)
+# Design System: Apple-inspired (2026-10-16, user decision; replaces Nordic Atelier; not a Stitch run)
 
-- **Source:** Stitch project "BanAI Wardrobe Designer" (`projects/3881887321601714246`), generated 2026-10-14.
-- **Implementation:** vanilla CSS in `frontend/src/styles/{tokens,layout,controls}.css`.
+- **Implementation:** vanilla CSS in `frontend/src/styles/{tokens,layout,controls}.css`. Every colour, radius, shadow, material and easing is a token in `tokens.css`.
+- **Intent:** a calm, precise desktop tool in the style of Apple's interfaces: grouped inset cards on a light grey background, translucent chrome, one blue accent, restrained motion.
 
-## Intent
-This is a Scandinavian cabinetmaker's atelier turned into a precision desktop tool. It aims for calm, precise and uncluttered surfaces, with hairline structure instead of heavy shadows and one warm accent.
-
-## Tokens (as implemented)
+## Tokens
 
 | Token | Value | Role |
 |---|---|---|
-| `--color-bg` | `#F4F2EE` | Warm paper chrome |
-| `--color-surface` | `#FFFFFF` | Panels, inputs, cards |
-| `--color-ink` | `#1F2328` | Primary text |
-| `--color-muted` | `#5B6470` | Labels, units, secondary text |
-| `--color-border` | `#E3E0DA` | 1px hairlines |
-| `--color-accent` | `#B4532A` (hover `#9C4420`) | Burnt Oak: selection, primary actions, focus |
-| `--color-success` | `#4F7A5A` | Sage |
-| `--color-danger` | `#A33A2B` | Brick: validation and destructive actions |
+| `--color-bg` | `#f5f5f7` | Page and side-column background (grouped background) |
+| `--color-surface` | `#ffffff` | Cards, inputs, selected segment |
+| `--color-ink` | `#1d1d1f` | Primary text |
+| `--color-muted` | `#6e6e73` | Secondary text. 5.07:1 on white, 4.66:1 on `--color-bg`. Not used on the viewer colour (4.35:1) or on grey fills; ink is used there |
+| `--color-border` | `rgba(0,0,0,.10)` | Separators between regions |
+| `--color-hairline` | `rgba(0,0,0,.05)` | Card rims |
+| `--color-border-control` | `#86868b` | Edges of text fields, selects, colour input, switch track. 3.62:1 on white, 3.33:1 on `--color-bg` (WCAG 1.4.11) |
+| `--color-fill` / `-hover` / `-subtle` | `rgba(118,118,128,.12 / .20 / .08)` | Segmented track, secondary button, row hover |
+| `--color-accent` | `#0071e3` (4.70:1 on white) | Apple blue: fills, rings, white-on-accent text |
+| `--color-accent-hover` / `-pressed` | `#0066cc` / `#005bb5` | Hover darkens: white text stays at 5.57:1 (Apple's lighter `#0077ed` hover would be 4.32:1) |
+| `--color-accent-text` | `#0066cc` | Accent-coloured text: 5.57:1 on white, 4.99:1 on the soft tint |
+| `--color-accent-soft` / `-hover` | `rgba(0,113,227,.08 / .12)` | Tinted buttons, selected rows, chips |
+| `--color-danger` | `#d70015` | 5.38:1 on white, 4.72:1 on `--color-danger-soft` (`#fdecee`) |
+| `--color-success` | `#1f7d36` | Reserved |
+| `--color-viewer` | `#eceeec` | 3D viewer background. Also the Three.js clear colour |
 
-- **Type:** Inter. Numbers use `tabular-nums`. Section labels are 11px uppercase with letter spacing.
-- **Shape:** 8px radius on inputs and cards, 6px on buttons, segmented controls, chips and swatches.
-- **Spacing:** 8px grid with a 4px sub-grid.
+- **Typography:** `--font-ui` is `-apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif`. Self-hosted Inter (imported in `main.js`) is the fallback on non-Apple platforms. Sizes in rem: 12 / 13 / 14 / 17px. Tracking is size-specific: titles -0.014em, 14px body -0.006em, 13px controls 0, 12px captions +0.01em, uppercase section labels +0.05em. Leading 1.2 on titles, 1.35 on labels, 1.45 on running text. Hierarchy comes from weight and size. Numbers use `tabular-nums`.
+- **Shape:** 8px on controls, 6px on segments inside a segmented track, 12px on cards, panels and the floating toolbar, pills for chips and dimension labels, circles for swatches.
+- **Spacing:** rem-based 4px grid (`--space-1..5`). Controls are 2rem (1.75rem small).
+- **Layout (unchanged):** AI column 320px expanded / 48px rail, properties column `clamp(300px, 26vw, 360px)`, toolbar top-right inside the viewer.
 
-## Component rules (from Stitch)
-- **Inputs:** 32px high, numbers right-aligned, unit suffix in muted text. Focus shows an accent border plus a 1px inner ring.
-- **Buttons:**
-  - Primary: solid accent.
-  - Secondary: white with a hairline border; the hover fills with the background colour.
-  - Ghost: transparent.
-  - Focus: 2px offset accent outline.
-- **Segmented controls:** the active option is a solid accent fill with white text.
-- **Swatches:** 40px squares, 6px radius. The selected swatch has a 2px accent border and a 2px white inner margin.
-- **List rows:** hover fills with the background colour. The selected row gets an 8% accent tint and a 2px left bar.
-- **Selection in 3D:** accent outline plus an accent label tag.
+## Materials and depth
+- **Top bar** and **viewer toolbar** are translucent: `rgba(255,255,255,.72)` with `backdrop-filter: blur(20px) saturate(180%)` and a 1px light top highlight. The top bar has no divider, only a faint hairline and soft shadow. Its blur sits on a `::before` so the help popover (its child) can blur the page behind it.
+- **Toolbar** has a soft layered shadow (`--shadow-toolbar`). The **help popover** is a thicker material (82%, blur 24px) with a deeper shadow.
+- **Dimension labels** are white translucent pills with no backdrop blur (they move every frame). The selected label is solid accent.
+- `@media (prefers-reduced-transparency: reduce)`: solid backgrounds, no blur. `@media (prefers-contrast: more)`: solid backgrounds, darker borders and muted text, defined edges on fills. `@supports not (backdrop-filter)`: 94% white. A `forced-colors` block keeps the switch, segments and swatches visible.
+
+## Controls
+- **Property sections:** white 12px cards on the grey panel; small uppercase secondary titles; the Selected card has an accent ring.
+- **Text fields and selects:** white, 8px, `--color-border-control` edge. Focus: accent border, 1px inner ring and a 3px soft halo. Invalid: danger border. Selects use a custom chevron.
+- **Segmented control:** grey track, white raised selected segment with a small shadow and semibold label. Full width in the panel, inline in the toolbar.
+- **Buttons:** primary = filled accent; secondary = grey fill; ghost = tinted accent; danger = tinted red; link = text with underline on hover.
+- **Switch:** real `<input type="checkbox">` drawn with `appearance: none`; 36x22 track, 18px white knob with shadow, accent when checked, knob stretches slightly while pressed.
+- **Swatches:** 28px circles with an inset hairline; the selected one gets a white gap and a 2px accent ring.
+- **Keyboard focus** (everything except text fields): solid 2px accent outline, 2px offset.
+
+## Motion
+- Only `transform` and `opacity` move; colour and shadow changes are short crossfades. 100-200ms, `cubic-bezier(0.23, 1, 0.32, 1)`. No `transition: all`.
+- Press feedback: `:active { transform: scale(0.97) }`. Hover styles only inside `@media (hover: hover) and (pointer: fine)`.
+- The help popover scales 0.96 to 1 and fades in (180ms) from its trigger.
+- `prefers-reduced-motion`: no transforms; the popover fades only.
 
 ## Deliberately not implemented
-These parts of the Stitch output are outside the agreed MVP scope:
-- **"Cutlist & cost estimation" bottom shelf:** pricing and manufacturing exports are excluded.
-- **Project breadcrumb and "Save":** persistence arrives in Phase 7.
-- **"Clearance verification" status:** feasibility checks are excluded.
-- **"Export JSON" suggestion:** not requested.
+- Cutlist and cost estimation, project breadcrumb and Save, clearance verification, JSON export: outside the agreed MVP scope. The AI column shows an empty state and tips until the agent is built (Phase 5).
 
-The left chat panel shows an empty state and getting-started tips only until the agent is built in Phase 5.
-
-## Extensions (2026-10-16 UX pass — extends Nordic Atelier; not a new Stitch run)
-These additions come from a usability pass on the running app. They reuse the Nordic Atelier tokens, radii and spacing and were not generated in Stitch. Nothing above was changed.
-
-### New tokens (`frontend/src/styles/tokens.css`)
-
-| Token | Value | Role |
-|---|---|---|
-| `--color-border-control` | `#8D877D` | Edges of interactive controls (inputs, buttons, segmented options, swatches, switch track). 3.56:1 on white, which meets WCAG 1.4.11 (3:1 for UI components). `--color-border` stays for decorative hairlines. |
-| `--z-loading` | `10` | Loading overlay in the viewer |
-| `--z-toolbar` | `20` | Viewer toolbar |
-| `--z-popover` | `30` | "Controls" help popover |
-| `--shadow-toolbar` | `0 1px 2px rgba(31,35,40,.08), 0 4px 12px rgba(31,35,40,.08)` | Floating viewer toolbar |
-| `--shadow-popover` | `0 2px 4px rgba(31,35,40,.08), 0 8px 24px rgba(31,35,40,.14)` | Help popover |
-
-Shadows are the only exception to "hairlines instead of heavy shadows", and only for surfaces that float above other content.
-
-### Viewer toolbar
-- A floating group in the **top-right** of the 3D viewer: white at 94% opacity, hairline border, 8px radius, `--shadow-toolbar`.
-- Contents, left to right:
-  - A small segmented control for the camera view: **3/4** (default), **Front**, **Side**.
-  - A **Fit** button that re-frames the wardrobe from the current direction.
-  - The **Show interior** switch (moved here from the top bar).
-- The active view uses the standard segmented style (solid accent, white text). After a manual orbit, pan or zoom no view is pressed.
-- The toolbar wraps on a narrow viewer and never exceeds the viewer width.
-
-### AI column rail
-- The left AI column is 320px wide. **Below 1280px it starts collapsed** to a 48px rail with a vertical "AI Designer" label.
-- The user's choice (expand or collapse, from the "AI designer" toggle in the top bar or the rail) is **remembered** and overrides the width-based default.
-- The expanded column also shows short "Getting started" tips in muted text.
-
-### "Controls" help popover
-- A top-bar button (28px, hairline border) opens a 240px popover with the mouse and keyboard controls: drag, right-drag, scroll, click a part, Esc.
-- It uses `--shadow-popover` and `--z-popover`. It closes on Esc (when focus is inside it), on an outside click, and when its button is pressed again.
-- The top bar shows plain "Units: cm".
-
-### Collapsible property sections
-- **Wardrobe**, **Materials** and **Compartments** are collapsible. The summary is the usual 11px uppercase section label with a small chevron that rotates when open.
-- The open or closed state of each section is **remembered**.
-- The **Selected · …** section is never collapsible, and its title stays accent-coloured.
-
-### Selection context line and compartment row highlight
-- Under the "Selected · …" title, a small muted line says where the part is, for example `Compartment 1 · Shelf 2 of 4`, `Compartment 3 · Drawer 1 of 2`, `Between compartments 1 and 2` or `Covers compartments 1–2`.
-- The row of the related compartment in the Compartments list is marked with `aria-current="true"` and a quieter version of the selected-row style: a left bar at 45% accent and a 4% accent tint (the selected row keeps its 2px full-accent bar and 8% tint). If the selection is the compartment itself, the full selected style applies.
-
-### Selection and hover in 3D
-- **Hover:** a lighter accent outline (45% opacity) and a pointer cursor. The selected part does not get the hover outline.
-- **Selection:** the accent outline plus a translucent accent fill (12% opacity). This updates the earlier "accent outline plus label tag" rule; the label tag is unchanged.
-- Right-click does not select, so it stays free for panning.
-
-### Soft shadows and panel edge lines in the viewer
-- The wardrobe casts a **soft shadow** onto an otherwise invisible floor, which separates the object from the grid. It is low-contrast and blurred, not a hard drop shadow.
-- Every panel has **subtle edge lines** in a warm grey at low opacity, so adjacent white panels (shelf against side, door against door) stay distinguishable. They are never picked.
-
-### Focus
-- **Text fields and selects** keep the Stitch focus style, an accent border plus a 1px **inner** ring, so the ring is never clipped by a neighbouring control.
-- **Everything else** (buttons, summaries, checkboxes, colour inputs, the AI column heading) shows a `:focus-visible` ring: `--focus-outline` (2px accent) with a 2px offset. Segmented options draw the ring inside (offset −2px) because the group clips its overflow. Mouse clicks do not show these rings.
+## History
+- **Nordic Atelier (2026-10-14):** the first system, generated in Google Stitch (project "BanAI Wardrobe Designer", `projects/3881887321601714246`): warm paper `#F4F2EE`, ink `#1F2328`, Burnt Oak accent `#B4532A`, Inter, hairline structure instead of shadows, 6-8px radii.
+- **UX pass (2026-10-16, extended Nordic Atelier):** floating viewer toolbar (3/4, Front, Side, Fit, Show interior switch), collapsible AI column rail that remembers its state, "Controls" help popover, collapsible property sections that remember their state, selection context line with a highlighted compartment row, hover/selection outlines in 3D, soft floor shadow and panel edge lines, `--color-border-control` for 3:1 control edges, `:focus-visible` rings. Behaviour is unchanged by the Apple restyle; only the visuals were replaced.

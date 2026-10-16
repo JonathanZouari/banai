@@ -6,6 +6,7 @@ import { createStore } from './state/store.js';
 import { mountPanel } from './editor/panel.js';
 import { readChatCollapsed, writeChatCollapsed } from './editor/uiPrefs.js';
 import { createViewer } from './viewer/viewer.js';
+import { bindQuickControls, stepDimension } from './quickControls.js';
 
 const byId = (id) => document.getElementById(id);
 
@@ -109,9 +110,10 @@ async function boot() {
   }
   // Validates the server data before anything is rendered (throws on invalid data).
   const store = createStore({ design: initial.design, revision: initial.revision, catalog });
-  const viewer = createViewer(byId('viewer'), store);
+  const viewer = createViewer(byId('viewer'), store, { onDimensionStep: (step) => stepDimension(store, step) });
   bindInteriorToggle(store);
   bindViewToolbar(viewer);
+  bindQuickControls(store, viewer, byId('viewer'));
   mountPanel(byId('properties-content'), store);
   activeStore = store;
   removeLoading();

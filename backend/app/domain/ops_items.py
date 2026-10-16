@@ -1,4 +1,4 @@
-"""Handlers for interior items (shelves, drawers, rails) and appearance ops."""
+"""Handlers for interior items (shelves, drawers, rails), door tweaks, appearance and handle ops."""
 
 from __future__ import annotations
 
@@ -6,10 +6,10 @@ from app.domain import ids
 from app.domain import ops as op_types
 from app.domain.defaults import DEFAULT_SHELF_THICKNESS
 from app.domain.errors import INVALID_OP, NOT_FOUND, DomainError
-from app.domain.lookup import compartment_index, find_item, locate
+from app.domain.lookup import compartment_index, find_door, find_item, locate
 
 APPEARANCE_FIELDS = ("material", "color", "finish")
-
+HANDLE_FIELDS = ("style", "finish")
 
 
 def add_shelf(draft: dict, op: op_types.AddShelf, path: str) -> dict:
@@ -34,7 +34,7 @@ def modify_shelf(draft: dict, op: op_types.ModifyShelf, path: str) -> dict:
 def add_drawer(draft: dict, op: op_types.AddDrawer, path: str) -> dict:
     index = compartment_index(draft, op.compartment_id, f"{path}.compartmentId")
     draft["compartments"][index]["drawers"].append(
-        {"id": op.id or ids.new_id(ids.DRAWER), "y": op.y, "height": op.height, "appearance": None}
+        {"id": op.id or ids.new_id(ids.DRAWER), "y": op.y, "height": op.height, "appearance": None, "handle": None}
     )
     return draft
 
@@ -46,6 +46,17 @@ def modify_drawer(draft: dict, op: op_types.ModifyDrawer, path: str) -> dict:
         drawer["y"] = op.y
     if op.height is not None:
         drawer["height"] = op.height
+    return draft
+
+
+def modify_door(draft: dict, op: op_types.ModifyDoor, path: str) -> dict:
+    _require_any(path, op.hinge_side, op.mirror)
+    door = find_door(draft, op.id, f"{path}.id")
+    # A hinge side that does not fit the door type is rejected by the door validation after the op.
+    if op.hinge_side is not None:
+        door["hingeSide"] = op.hinge_side
+    if op.mirror is not None:
+        door["mirror"] = op.mirror
     return draft
 
 
@@ -79,6 +90,36 @@ def set_material(draft: dict, op: op_types.SetMaterial, path: str) -> dict:
     return draft
 
 
+def set_handles(draft: dict, op: op_types.SetHandles, path: str) -> dict:
+    changes = {f: getattr(op, f) for f in HANDLE_FIELDS if getattr(op, f) is not None}
+    if not changes and not op.clear:
+        raise DomainError(INVALID_OP, path, "give style, finish or clear")
+    if op.clear and changes:
+        raise DomainError(INVALID_OP, path, "clear cannot be combined with new values")
+
+    if op.target == "all":
+        if op.clear:
+            raise DomainError(INVALID_OP, f"{path}.clear", "the design-wide handles cannot be cleared")
+        draft["handles"] = {**draft["handles"], **changes}
+        return draft
+
+    owner = _handle_owner(draft, op.target, f"{path}.target")
+    owner["handle"] = None if op.clear else {**(owner["handle"] or draft["handles"]), **changes}
+    return draft
+
+
+def _handle_owner(draft: dict, target: str, path: str) -> dict:
+    found = locate(draft, target)
+    if found is None:
+        raise DomainError(NOT_FOUND, path, "no component with this id")
+    kind, index, item_index = found
+    if kind == "door":
+        return draft["doors"]["items"][index]
+    if kind == "drawers":
+        return draft["compartments"][index][kind][item_index]
+    raise DomainError(INVALID_OP, path, "only doors and drawers have handles")
+
+
 def _appearance_owner(draft: dict, target: str, path: str) -> tuple[dict, dict]:
     found = locate(draft, target)
     if found is None:
@@ -104,4 +145,6 @@ ITEM_HANDLERS = {
     op_types.AddRail: add_rail,
     op_types.ModifyRail: modify_rail,
     op_types.SetMaterial: set_material,
+    op_types.ModifyDoor: modify_door,
+    op_types.SetHandles: set_handles,
 }

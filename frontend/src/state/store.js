@@ -36,7 +36,8 @@ export function createStore({ design, revision = 1, catalog }) {
     throw new DomainError('SCHEMA_INVALID', 'revision', 'invalid revision');
   }
   let state = deepFreeze({
-    design: validDesign, revision, catalog: validCatalog, selection: null, ui: { doorsVisible: true },
+    design: validDesign, revision, catalog: validCatalog, selection: null,
+    ui: { doorsVisible: true, doorsOpen: false, showClothes: true },
   });
   const listeners = new Set();
 
@@ -69,12 +70,22 @@ export function createStore({ design, revision = 1, catalog }) {
 
     select(id) {
       const selection = id === null ? null : resolveSelection(state.design, id);
-      const hideDoors = selection !== null && INTERIOR_KINDS.has(selection.kind) && state.ui.doorsVisible;
+      // Open doors already reveal the interior, so selecting inside keeps them in place.
+      const hideDoors = selection !== null && INTERIOR_KINDS.has(selection.kind)
+        && state.ui.doorsVisible && !state.ui.doorsOpen;
       commit({ selection, ui: hideDoors ? { ...state.ui, doorsVisible: false } : state.ui });
     },
 
     setDoorsVisible(doorsVisible) {
       commit({ ui: { ...state.ui, doorsVisible } });
+    },
+
+    setDoorsOpen(doorsOpen) {
+      commit({ ui: { ...state.ui, doorsOpen: Boolean(doorsOpen) } });
+    },
+
+    setShowClothes(showClothes) {
+      commit({ ui: { ...state.ui, showClothes: Boolean(showClothes) } });
     },
   };
 }

@@ -1,7 +1,14 @@
 // Door panels in front of the carcass (z > 0). Hinged doors span the x-range of the
 // compartments they cover; sliding panels split the interior width on two tracks.
-import { VISUAL } from '../units.js';
+// Each door remembers what door motion needs (userData.closed, .hinge or .slide; metres).
+import { VISUAL, toM } from '../units.js';
 import { box } from './frame.js';
+
+function withMotion(mesh, extra) {
+  mesh.userData.closed = { position: mesh.position.toArray(), rotationY: 0 };
+  Object.assign(mesh.userData, extra);
+  return mesh;
+}
 
 export function buildDoors(design, frame, materials) {
   const { doors } = design;
@@ -16,23 +23,26 @@ export function buildDoors(design, frame, materials) {
     return doors.items.map((door) => {
       const x0 = rangeOf.get(door.compartmentIds[0])[0];
       const x1 = rangeOf.get(door.compartmentIds.at(-1))[1];
-      return box({
+      const mesh = box({
         size: [x1 - x0 - 2 * gap, height, t],
         center: [(x0 + x1) / 2, y, t / 2],
         material: materialOf(door),
         userData: { componentId: door.id, kind: 'door', hingeSide: door.hingeSide },
       });
+      const half = toM((x1 - x0 - 2 * gap) / 2);
+      const hingeX = mesh.position.x + (door.hingeSide === 'right' ? half : -half);
+      return withMotion(mesh, { hinge: { x: hingeX, z: mesh.position.z - toM(t) / 2 } });
     });
   }
 
   if (doors.type === 'sliding') {
     const panelWidth = frame.innerWidth / doors.items.length;
-    return doors.items.map((door, i) => box({
+    return doors.items.map((door, i) => withMotion(box({
       size: [panelWidth, height, t],
       center: [frame.panel + panelWidth * (i + 0.5), y, i % 2 === 0 ? t / 2 : t * 1.5 + VISUAL.slidingTrackGap],
       material: materialOf(door),
       userData: { componentId: door.id, kind: 'door' },
-    }));
+    }), { slide: { index: i, count: doors.items.length, width: toM(panelWidth) } }));
   }
 
   return [];

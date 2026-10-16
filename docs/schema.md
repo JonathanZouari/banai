@@ -28,12 +28,14 @@ Both engines must behave identically. `shared/fixtures/ops/*.json` is run by bot
   "compartments": [            // ordered left → right, at least 1
     { "id": "cmp_…", "width": 643,
       "shelves": [{ "id": "shf_…", "y": 400, "thickness": 18, "appearance": Appearance|null }],
-      "drawers": [{ "id": "drw_…", "y": 0, "height": 200, "appearance": Appearance|null }],
+      "drawers": [{ "id": "drw_…", "y": 0, "height": 200, "appearance": Appearance|null, "handle": Handle|null }],
       "rails":   [{ "id": "rail_…", "y": 1900 }] }
   ],
   "partitions": [{ "id": "prt_…", "thickness": 18 }],   // partitions[i] sits between compartments i and i+1
   "doors": { "type": "hinged|sliding|none", "appearance": Appearance,
-             "items": [{ "id": "dr_…", "compartmentIds": ["cmp_…"], "hingeSide": "left|right|null", "appearance": Appearance|null }] }
+             "items": [{ "id": "dr_…", "compartmentIds": ["cmp_…"], "hingeSide": "left|right|null", "appearance": Appearance|null,
+                         "handle": Handle|null, "mirror": false }] },
+  "handles": { "style": "bar", "finish": "steel" }       // Handle; the design-wide default
 }
 ```
 **Appearance** is `{ material: Ref, color: Ref, finish: Ref }`, where each Ref is one of:
@@ -44,6 +46,14 @@ An item override of `null` means the item inherits:
 - shelves and drawers inherit from `carcass.appearance`
 - doors inherit from `doors.appearance`
 - rails and partitions have no appearance of their own
+
+**Handle** is `{ style, finish }`, and both keys are always present:
+- `style` is one of `bar`, `knob`, `edge`, `cup`, `groove`, `none`
+- `finish` is one of `steel`, `black`, `brass`
+
+The root `handles` is required in canonical output, with the default `{ "style": "bar", "finish": "steel" }`. A design that omits it is accepted and gets the default, like every other defaulted field. `door.handle` and `drawer.handle` are a Handle override or `null`, and `null` (the default) means the item inherits the root `handles`. Overrides are always complete: a partial update starts from the inherited root value. Changing the root `handles` never touches existing overrides.
+
+`door.mirror` is a boolean (default `false`) and is a strict boolean, so `"yes"` and `1` are `SCHEMA_INVALID`. It is a pure presentation flag with no validation rule, so it is allowed on hinged and sliding doors alike.
 
 **IDs** are stable and typed (`cmp_`, `prt_`, `shf_`, `drw_`, `rail_`, `dr_` + 1–40 `[A-Za-z0-9_-]`), and unique within a design. Generated ids are `<prefix>_<8 hex>`.
 
@@ -91,6 +101,8 @@ These are data and rendering-safety checks. **They are not manufacturing or feas
 | `add_drawer` / `modify_drawer` | compartmentId, y, height, id? / id, y?, height? | |
 | `add_rail` / `modify_rail` | compartmentId, y, id? / id, y | |
 | `set_material` | target (`carcass`, `doors`, or a door/shelf/drawer id), material?, color?, finish?, clear? | Partial appearance update. An item override starts from the inherited appearance. `clear` removes an override. Covers both "change material" and "change color". |
+| `modify_door` | id, hingeSide? (`left`/`right`), mirror? | Changes only the given fields and keeps every other door field (covered compartments, appearance and handle overrides). It needs at least one of the two fields, otherwise `INVALID_OP` at `ops[i]`. An unknown door → `NOT_FOUND` at `ops[i].id`. A `hingeSide` that does not fit the door type is rejected by the normal door validation (`DOOR_INVALID` at `doors.items[j].hingeSide`, because sliding doors have no hinge side). `mirror` is allowed on hinged and sliding doors. `configure_doors` is unchanged: the doors it builds start with `handle: null` and `mirror: false`. |
+| `set_handles` | target (`all`, or a door/drawer id), style?, finish?, clear? | Partial handle update, modelled on `set_material`. `all` edits the root `handles`. A door or drawer override starts from the inherited root value, so setting only `style` keeps the current `finish`. `clear: true` resets an item override to `null`. Errors: nothing given and not clearing → `INVALID_OP` at `ops[i]`; `clear` with new values → `INVALID_OP` at `ops[i]`; `clear` with `all` → `INVALID_OP` at `ops[i].clear`; an unknown door or drawer → `NOT_FOUND` at `ops[i].target`; any other typed id (shelf, rail, compartment, partition) → `INVALID_OP` at `ops[i].target`; `carcass` and `doors` are not targets (`SCHEMA_INVALID`). |
 | `remove_component` | id | See the removal rules below. |
 
 `remove_component` removal rules:
@@ -107,7 +119,7 @@ Op-level error paths use `ops[i]` or `ops[i].<field>`. Issues found while valida
 - Keys are camelCase only. Unknown keys → `SCHEMA_INVALID`, reported at the key itself.
 - `custom` must be the boolean `true`, and `schemaVersion` the integer `1`, so `1 == true` confusion is rejected.
 - A Ref is tagged by the presence of `custom` on both sides, so errors come from the same branch.
-- Every id in an op is pattern-checked for its type. An empty or mismatched id is a schema error and is never silently replaced. `target` is `carcass`, `doors` or a typed id.
+- Every id in an op is pattern-checked for its type. An empty or mismatched id is a schema error and is never silently replaced. `target` is `carcass`, `doors` or a typed id (`set_handles`: `all` or a typed id).
 - Optional op fields accept explicit `null`, meaning absent.
 - `catalogId` must match `^[a-z0-9_]{1,40}$`.
 - Custom `name` must be visible text: no control characters, zero-width characters, line or paragraph separators, bidi overrides, BOM, Unicode tag characters, or lone surrogates, and it can't be whitespace-only. Hebrew and other scripts are accepted.
@@ -125,6 +137,7 @@ These live in `defaults.py` / `defaults.js` and are mirrored on both sides:
 - panel and shelf thickness of 18 mm
 - 2 sliding doors by default
 - the default appearance (melamine, white, matte)
+- the default handles (`bar`, `steel`)
 - the basic wardrobe (`shared/fixtures/designs/basic.json`): 2000×2400×600 with 3 compartments and hinged doors
 
-The catalog contents (`catalog.json`) are placeholder prototype data.
+The catalog contents (`catalog.json`) are placeholder prototype data. A color entry may carry an optional `grain` (`oak`, `ash`, `cherry`, `teak`, `wenge` or `walnut`) that names the wood-texture family a renderer can use for it. Plain colors have no `grain`. The JS `parseCatalog` keeps `grain` when it is one of those values and rejects anything else. The engines do not use it for validation. Catalog ids are append-only: existing ids keep their position, and new colors are added after them.

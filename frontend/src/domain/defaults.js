@@ -22,6 +22,9 @@ export const DEFAULT_PANEL_THICKNESS = 18;
 export const DEFAULT_SHELF_THICKNESS = 18;
 export const DEFAULT_SLIDING_DOOR_COUNT = 2;
 
+/** Root handle style/finish of a new design (doors and drawers inherit it). */
+export const defaultHandles = () => ({ style: 'bar', finish: 'steel' });
+
 export const defaultAppearance = () => ({
   material: { catalogId: 'melamine' },
   color: { catalogId: 'white' },

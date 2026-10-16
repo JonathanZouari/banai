@@ -23,7 +23,7 @@ You want a working MVP of an AI wardrobe designer. A chat agent (OpenAI), a manu
 - Default basic wardrobe: 2000 W × 2400 H × 600 D, 18 mm panels, 3 equal compartments, hinged doors, white matte.
 - Validation ranges (rendering safety only): width 300–6000, height 300–3500, depth 200–1200 mm.
 - LLM and image models come from `OPENAI_CHAT_MODEL` and `OPENAI_IMAGE_MODEL` env vars. Current models are checked against the OpenAI docs at M5 and M8, with image-edit-capable `gpt-image-*` as the candidate.
-- Starter material catalog: about 6 colors × 3 finishes, plus a "custom" entry (free name, hex, finish) flagged `custom: true`.
+- Starter material catalog: about 12 colors (plain colors plus wood colors with an optional `grain` texture family) × 3 finishes, plus a "custom" entry (free name, hex, finish) flagged `custom: true`.
 - Environment names follow your Railway brief: `production` and `dev`. These replace the skill's default `staging`.
 
 ## 3. Architecture
@@ -42,7 +42,7 @@ Browser (vanilla JS + Three.js, Vite)
 ```
 **Single operation protocol.** Every change, whether manual or AI, is a list of typed ops, for example `{op:"add_shelf", compartmentId, y, …}`. The ops engine exists in Python (authoritative, used for AI validation and save) and in JS (instant manual editing). **Parity is guaranteed by shared golden fixtures** in `shared/fixtures/ops/*.json` (input design + ops → expected design or error), run by both pytest and vitest. Each op is pure: `(design) → newDesign`. Nothing is mutated.
 
-Op set: `create_wardrobe, update_dimensions, configure_doors, add_compartment, modify_compartment, add_partition, modify_partition, add_shelf, modify_shelf, add_drawer, modify_drawer, add_rail, modify_rail, set_material, remove_component`.
+Op set: `create_wardrobe, update_dimensions, configure_doors, modify_door, add_compartment, modify_compartment, add_partition, modify_partition, add_shelf, modify_shelf, add_drawer, modify_drawer, add_rail, modify_rail, set_material, set_handles, remove_component`.
 
 ## 4. Canonical schema (v1, JSON/JSONB)
 ```jsonc

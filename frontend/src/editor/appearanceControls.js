@@ -13,6 +13,7 @@ function swatches({ catalog, appearance, run, target }) {
       attrs: { type: 'button', title: color.name, 'aria-label': color.name, 'aria-pressed': String(isCatalog(appearance.color, color.id)), 'data-key': `Colour/${color.name}` },
     });
     swatch.style.backgroundColor = color.hex; // validated #rrggbb from the parsed catalog
+    if (color.grain) swatch.dataset.grain = color.grain; // wood: CSS paints the grain over the colour
     swatch.addEventListener('click', () => run(materialOps(target, 'color', { catalogId: color.id })));
     row.append(swatch);
   });

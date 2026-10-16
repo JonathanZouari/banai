@@ -98,6 +98,14 @@ Editing rules:
 - **Scroll.** When the selected component changes (a different `kind:id`), the panel scrolls to the top so the "Selected" section is visible (`smooth`, or `auto` when the user prefers reduced motion). Otherwise its previous `scrollTop` is restored.
 - The hint under "Properties" switches between "Click a component…" and "Press Esc or click empty space to deselect."
 
+### Sliders, handles and mirror
+- **Sliders.** `cmField({ range: { min, max, step = 10 } })` (mm) adds an `input[type=range]` (`data-testid` `<field>-slider`, `aria-label` "<label> slider", `aria-valuetext` "200.0 cm"). Dragging fills the text field at once and dispatches the latest value at most once per animation frame (`liveSlider.js` `createLiveCommit`), so the 3D view follows 1:1; `change` commits the final value. A rejected value is not applied: the text keeps the last accepted value, the inline error shows, and the thumb snaps back on release. Arrows move 1 cm; PageUp/PageDown move 10 cm. Ranges come from `sliderRanges.js` (W/H/D from `LIMITS`; shelf/drawer/rail `y` up to the interior height minus the item; compartment width up to where its neighbour hits the minimum). W/H/D sliders sit in a stack under the three numbers so Tab order stays Width, Height, Depth.
+- **No fight with re-renders.** `panel.js` holds a drag gate (`createDragGate`): while a pointer is down on a slider the render is skipped (the values of the other inputs are patched in place), and the full render runs once the pointer is released.
+- **Handles.** The Wardrobe section has a Handles group (`handles-style` select, `handles-finish` segmented) dispatching `set_handles { target: 'all' }`. A selected door or drawer has the same block (`door-handle-*` / `drawer-handle-*`, showing the inherited value while it has no override) and a "Use wardrobe handles" button (`*-handle-reset`, `set_handles { target, clear: true }`) shown only with an override.
+- **Door.** Hinge side is `modify_door { id, hingeSide }` (other doors and overrides are kept); "Mirror front" (`door-mirror`) is `modify_door { id, mirror }`.
+- **Grain.** Wood swatches (catalog colours with `grain`) get `data-grain`; CSS paints streaks over the colour.
+- **Viewer stepper CSS.** `.dim-label-group`, `.dim-step`, `.dim-step--minus/--plus` and the `.viewer-toolbar--quick` bar are styled in `layout.css`.
+
 ### Selection context (`selectionContext.js`)
 `describeSelection(design, selection)` returns `{ compartmentId, text }` and never throws or mutates the design. `text` is empty (and `compartmentId` is `null`) for no selection, an unknown id, or an id that does not match its kind.
 

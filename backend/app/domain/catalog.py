@@ -6,6 +6,9 @@ from pathlib import Path
 
 CATALOG_PATH = Path(__file__).with_name("catalog.json")
 
+# Wood-grain texture families a color may name (optional `grain` key on color entries).
+GRAINS = ("oak", "ash", "cherry", "teak", "wenge", "walnut")
+
 # Appearance field -> catalog section.
 SECTIONS = {"material": "materials", "color": "colors", "finish": "finishes"}
 

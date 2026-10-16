@@ -26,18 +26,35 @@ export function doorTypeOps(type, count) {
   return [{ op: 'configure_doors', type }];
 }
 
-/** Change one hinged door's hinge side by re-stating every door (ids preserved). */
-export function doorHingeOps(design, doorId, hingeSide) {
-  return [{
-    op: 'configure_doors',
-    type: 'hinged',
-    doors: design.doors.items.map((door) => ({
-      id: door.id,
-      compartmentIds: [...door.compartmentIds],
-      hingeSide: door.id === doorId ? hingeSide : door.hingeSide,
-    })),
-  }];
-}
+/** Change one door in place (hinge side and/or mirror); every other door and override is kept. */
+export const modifyDoorOps = (id, changes) => [{ op: 'modify_door', id, ...changes }];
+
+/** Change one hinged door's hinge side. The `design` argument is no longer needed and is ignored. */
+export const doorHingeOps = (_design, doorId, hingeSide) => modifyDoorOps(doorId, { hingeSide });
+
+/** Turn the mirror front of one door on or off. */
+export const doorMirrorOps = (doorId, mirror) => modifyDoorOps(doorId, { mirror });
+
+// Handle styles and finishes as offered in the editor (ids from the domain schema).
+export const HANDLE_STYLE_OPTIONS = Object.freeze([
+  { value: 'bar', label: 'Bar' },
+  { value: 'knob', label: 'Knob' },
+  { value: 'edge', label: 'Edge' },
+  { value: 'cup', label: 'Cup' },
+  { value: 'groove', label: 'Groove' },
+  { value: 'none', label: 'None' },
+]);
+export const HANDLE_FINISH_OPTIONS = Object.freeze([
+  { value: 'steel', label: 'Steel' },
+  { value: 'black', label: 'Black' },
+  { value: 'brass', label: 'Brass' },
+]);
+
+/** Set the handle style and/or finish of `target`: 'all' (the wardrobe), a door id or a drawer id. */
+export const handleOps = (target, changes) => [{ op: 'set_handles', target, ...changes }];
+
+/** Remove a door's or drawer's own handle so it follows the wardrobe handles again. */
+export const clearHandleOps = (target) => [{ op: 'set_handles', target, clear: true }];
 
 export const materialOps = (target, field, ref) => [{ op: 'set_material', target, [field]: ref }];
 

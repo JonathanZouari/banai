@@ -8,7 +8,13 @@ from __future__ import annotations
 
 from app.domain import ids
 from app.domain import ops as op_types
-from app.domain.defaults import DEFAULT_PANEL_THICKNESS, DEFAULT_SLIDING_DOOR_COUNT, LIMITS, default_appearance
+from app.domain.defaults import (
+    DEFAULT_PANEL_THICKNESS,
+    DEFAULT_SLIDING_DOOR_COUNT,
+    LIMITS,
+    default_appearance,
+    default_handles,
+)
 from app.domain.errors import INVALID_OP, NOT_FOUND, OUT_OF_RANGE, DomainError
 from app.domain.geometry import partition_left_edge
 from app.domain.lookup import ITEM_KINDS, compartment_index, locate, partition_index, require_range
@@ -23,7 +29,8 @@ def _empty_compartment(compartment_id: str, width: int) -> dict:
 
 
 def _door(door_id: str, compartment_ids: list[str], hinge_side: str | None) -> dict:
-    return {"id": door_id, "compartmentIds": compartment_ids, "hingeSide": hinge_side, "appearance": None}
+    return {"id": door_id, "compartmentIds": compartment_ids, "hingeSide": hinge_side, "appearance": None,
+            "handle": None, "mirror": False}
 
 
 def _ids_or_new(given: list[str] | None, count: int, prefix: str, path: str) -> list[str]:
@@ -67,6 +74,7 @@ def create_wardrobe(_draft: dict | None, op: op_types.CreateWardrobe, path: str)
         "compartments": [_empty_compartment(cid, w) for cid, w in zip(compartment_ids, widths)],
         "partitions": [{"id": pid, "thickness": partition} for pid in partition_ids],
         "doors": {"type": "none", "appearance": default_appearance(), "items": []},
+        "handles": default_handles(),
     }
 
 

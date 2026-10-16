@@ -36,10 +36,11 @@ BanAI is an MVP AI wardrobe designer for standard straight wardrobes only. Three
 - **Phased delivery.** Work proceeds Phase 1 → 10 (`docs/architecture.md` §10a). After each phase, stop, report (what was implemented, files changed, real test output, known issues, next step), and wait for the user's approval. Never roll into the next phase on your own.
 - **Branches.** All work lands on `dev`, which Railway auto-deploys to the `dev` environment. Pushing or merging to `main` deploys **production** and needs explicit user approval.
 - **Excluded features (do not build):** pricing, quotes, orders, accounts or registration, dashboards, manufacturing/CNC export, feasibility rules, room design, image uploads, voice, mobile-first layout, drag-and-drop geometry, and any AI change applied without approval. The app must never claim a design is manufacturable.
+  - **User decisions (2026-10-16) that extend the brief:** handles (5 styles + none, global with per-door/drawer overrides) and mirror door fronts are part of the design model. The viewer may show a decorative **room backdrop** (a self-hosted CC0 photo in `frontend/public/env/`), decorative clothes, and animated door opening. These are visual only: no room editing, no uploads. On-canvas `−`/`+` steppers are allowed; they are click-based, not drag-and-drop geometry.
 - **Mandatory stack.**
   - Frontend: vanilla JS ES modules + Three.js, bundled with Vite. **No React, Vue, or R3F.**
   - Backend: FastAPI + Pydantic.
-  - UI design comes from Google Stitch MCP, adapted to vanilla HTML/CSS.
+  - UI design: the original "Nordic Atelier" system came from Google Stitch MCP. Since 2026-10-16 (user decision) the UI is **Apple-inspired** (Apple blue `#0071e3`, translucent materials, system font), documented in `.stitch/DESIGN.md`. Keep new UI consistent with that file.
 - **Defaults are not business rules.** Units, default dimensions, catalog contents, and model names are configurable defaults documented in Obsidian `04 - Decisions & Assumptions`. Label them that way.
 
 ## Commands
@@ -68,9 +69,9 @@ npm run build                                  # vite build -> dist/
 
 ## Architecture (target design; implemented incrementally by phase)
 
-- **Single operation protocol.** Every change is a list of typed, pure ops (`(design) -> newDesign`, no mutation). That covers manual edits and AI edits alike: `update_dimensions`, `configure_doors`, `add_*` / `modify_*` for compartments, partitions, shelves, drawers, and rails, `set_material`, and `remove_component`. The ops engine exists twice:
+- **Single operation protocol.** Every change is a list of typed, pure ops (`(design) -> newDesign`, no mutation). That covers manual edits and AI edits alike: `update_dimensions`, `configure_doors`, `modify_door`, `add_*` / `modify_*` for compartments, partitions, shelves, drawers, and rails, `set_material`, `set_handles`, and `remove_component`. The ops engine exists twice:
   - `backend/app/domain/`: the authoritative version, used for AI validation and saves.
-  - `frontend/src/state/`: used for instant manual editing.
+  - `frontend/src/domain/`: used for instant manual editing (the store in `frontend/src/state/` wraps it).
   - Parity between them is enforced by golden fixtures in `shared/fixtures/ops/*.json`, which both pytest and vitest run. If you change an op on one side, change the other side and the fixtures too.
 - **Canonical schema.**
   - All lengths are integer **millimetres**.

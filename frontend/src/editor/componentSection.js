@@ -1,8 +1,10 @@
 // Properties of the selected component; only the fields that apply to its kind.
 import { appearanceControls } from './appearanceControls.js';
-import { actionResult, button, cmField, el, section, segmented } from './fields.js';
-import { addItemOps, clearAppearanceOps, doorHingeOps, removeOps } from './opsFromForm.js';
+import { actionResult, button, cmField, el, section, segmented, switchField } from './fields.js';
+import { handleControls } from './handleControls.js';
+import { addItemOps, clearAppearanceOps, doorMirrorOps, modifyDoorOps, removeOps } from './opsFromForm.js';
 import { describeSelection } from './selectionContext.js';
+import { compartmentWidthRange, itemYRange } from './sliderRanges.js';
 import { partitionLeftEdge } from '../domain/geometry.js';
 
 const TITLES = Object.freeze({
@@ -26,13 +28,25 @@ function overrideControls({ catalog, design, item, inherited, run, label }) {
   ];
 }
 
+// The handle block of a door or drawer: its own style/finish, or the wardrobe's while it has none.
+function handleOverride({ design, item, kind, run }) {
+  return handleControls({
+    label: kind === 'door' ? 'Door handle' : 'Drawer handle',
+    testPrefix: `${kind}-handle`,
+    target: item.id,
+    inherited: design.handles,
+    override: item.handle ?? null,
+    run,
+  });
+}
+
 function fieldsFor(kind, { design, catalog, selection, run, runAction }) {
   const { id } = selection;
   const move = (op, field) => (mm) => run([{ op, id, [field]: mm }]);
   if (kind === 'shelf') {
     const shelf = findItem(design, kind, id);
     return [
-      cmField({ label: 'Height from base', mm: shelf.y, testId: 'shelf-y', onCommit: move('modify_shelf', 'y') }),
+      cmField({ label: 'Height from base', mm: shelf.y, testId: 'shelf-y', onCommit: move('modify_shelf', 'y'), range: itemYRange(design, kind, shelf) }),
       cmField({ label: 'Thickness', mm: shelf.thickness, testId: 'shelf-thickness', onCommit: move('modify_shelf', 'thickness') }),
       ...overrideControls({ catalog, design, item: shelf, inherited: design.carcass.appearance, run: runAction, label: 'Shelf finish' }),
     ];
@@ -40,19 +54,23 @@ function fieldsFor(kind, { design, catalog, selection, run, runAction }) {
   if (kind === 'drawer') {
     const drawer = findItem(design, kind, id);
     return [
-      cmField({ label: 'Height from base', mm: drawer.y, testId: 'drawer-y', onCommit: move('modify_drawer', 'y') }),
+      cmField({ label: 'Height from base', mm: drawer.y, testId: 'drawer-y', onCommit: move('modify_drawer', 'y'), range: itemYRange(design, kind, drawer) }),
       cmField({ label: 'Drawer height', mm: drawer.height, testId: 'drawer-height', onCommit: move('modify_drawer', 'height') }),
       ...overrideControls({ catalog, design, item: drawer, inherited: design.carcass.appearance, run: runAction, label: 'Drawer front' }),
+      handleOverride({ design, item: drawer, kind, run: runAction }),
     ];
   }
   if (kind === 'rail') {
     const rail = findItem(design, kind, id);
-    return [cmField({ label: 'Height from base', mm: rail.y, testId: 'rail-y', onCommit: move('modify_rail', 'y') })];
+    return [cmField({ label: 'Height from base', mm: rail.y, testId: 'rail-y', onCommit: move('modify_rail', 'y'), range: itemYRange(design, kind, rail) })];
   }
   if (kind === 'compartment') {
     const compartment = design.compartments.find((c) => c.id === id);
     return [
-      cmField({ label: 'Width', mm: compartment.width, testId: 'compartment-width', onCommit: (mm) => run([{ op: 'modify_compartment', compartmentId: id, width: mm }]) }),
+      cmField({
+        label: 'Width', mm: compartment.width, testId: 'compartment-width', range: compartmentWidthRange(design, id),
+        onCommit: (mm) => run([{ op: 'modify_compartment', compartmentId: id, width: mm }]),
+      }),
       el('div', { className: 'button-row' }, ['shelf', 'drawer', 'rail'].map((item) =>
         button(`+ ${item === 'rail' ? 'Rail' : item[0].toUpperCase() + item.slice(1)}`, () => runAction(addItemOps(design, id, item)), { testId: `add-${item}` }))),
     ];
@@ -70,9 +88,14 @@ function fieldsFor(kind, { design, catalog, selection, run, runAction }) {
       ...(design.doors.type === 'hinged' ? [segmented({
         label: 'Hinge side', value: door.hingeSide, testId: 'hinge-side',
         options: [{ value: 'left', label: 'Left' }, { value: 'right', label: 'Right' }],
-        onChange: (side) => runAction(doorHingeOps(design, id, side)),
+        onChange: (side) => runAction(modifyDoorOps(id, { hingeSide: side })),
       })] : []),
+      switchField({
+        label: 'Mirror front', checked: door.mirror === true, testId: 'door-mirror',
+        onChange: (mirror) => runAction(doorMirrorOps(id, mirror)),
+      }),
       ...overrideControls({ catalog, design, item: door, inherited: design.doors.appearance, run: runAction, label: 'Door finish' }),
+      handleOverride({ design, item: door, kind, run: runAction }),
     ];
   }
   return [el('p', { className: 'panel__note', text: 'Edit the overall dimensions and materials in the Wardrobe section.' })];

@@ -1,7 +1,8 @@
 // Compartment list: widths, selection, add and remove.
-import { actionResult, button, cmField, collapsibleSection, el } from './fields.js';
+import { actionResult, button, cmFieldParts, collapsibleSection, el } from './fields.js';
 import { addCompartmentOps, removeOps } from './opsFromForm.js';
 import { describeSelection } from './selectionContext.js';
+import { compartmentWidthRange } from './sliderRanges.js';
 
 export function compartmentsSection({ design, selection, run, select }) {
   const list = el('ol', { className: 'compartment-list' });
@@ -14,15 +15,18 @@ export function compartmentsSection({ design, selection, run, select }) {
     const inContext = contextId === compartment.id;
     const row = el('li', { className: `compartment-row${selected ? ' is-selected' : ''}${inContext ? ' compartment-row--context' : ''}` });
     if (inContext) row.setAttribute('aria-current', 'true');
+    // The slider is the row's last child: it spans the full width on a line of its own (CSS).
+    const { field, slider } = cmFieldParts({
+      label: 'Width', mm: compartment.width, testId: `width-${compartment.id}`, range: compartmentWidthRange(design, compartment.id),
+      onCommit: (mm) => run([{ op: 'modify_compartment', compartmentId: compartment.id, width: mm }]),
+    });
     row.append(
       button(`Compartment ${index + 1}`, () => select(compartment.id), { variant: 'link', testId: `select-${compartment.id}` }),
-      cmField({
-        label: 'Width', mm: compartment.width, testId: `width-${compartment.id}`,
-        onCommit: (mm) => run([{ op: 'modify_compartment', compartmentId: compartment.id, width: mm }]),
-      }),
+      field,
       button('Remove', () => actionResult(row, run(removeOps(compartment.id))), {
         variant: 'danger-quiet', disabled: single, testId: `remove-${compartment.id}`,
       }),
+      ...(slider ? [slider] : []),
     );
     list.append(row);
   });

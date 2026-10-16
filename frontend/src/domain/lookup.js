@@ -26,6 +26,12 @@ export function findItem(design, kind, itemId, path) {
   throw new DomainError(NOT_FOUND, path, `no ${kind.slice(0, -1)} with this id`);
 }
 
+export function findDoor(design, doorId, path) {
+  const door = design.doors.items.find((d) => d.id === doorId);
+  if (!door) throw new DomainError(NOT_FOUND, path, 'no door with this id');
+  return door;
+}
+
 /** Returns [kind, index, itemIndex] for any component id, or null. */
 export function locate(design, componentId) {
   for (const [ci, compartment] of design.compartments.entries()) {

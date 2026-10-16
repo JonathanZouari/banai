@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { frameOf } from './builders/frame.js';
 import { toM } from './units.js';
 
-export const ACCENT = '#b4532a';
+export const ACCENT = '#0071e3';
 
 const noRaycast = () => {};
 
@@ -17,10 +17,10 @@ export function createHighlighter(scene) {
   hoverLayer.name = 'hover';
   scene.add(selectionLayer, hoverLayer);
 
-  const outlineMaterial = new THREE.LineBasicMaterial({ color: ACCENT, depthTest: false, transparent: true });
-  const hoverMaterial = new THREE.LineBasicMaterial({ color: ACCENT, depthTest: false, transparent: true, opacity: 0.45 });
+  const outlineMaterial = new THREE.LineBasicMaterial({ color: ACCENT, depthTest: false, transparent: true, toneMapped: false });
+  const hoverMaterial = new THREE.LineBasicMaterial({ color: ACCENT, depthTest: false, transparent: true, opacity: 0.45, toneMapped: false });
   const fillMaterial = new THREE.MeshBasicMaterial({
-    color: ACCENT, transparent: true, opacity: 0.12, depthWrite: false,
+    color: ACCENT, transparent: true, opacity: 0.12, depthWrite: false, toneMapped: false,
     polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
   });
 
@@ -86,6 +86,11 @@ export function createHighlighter(scene) {
         : group.children.find((mesh) => mesh.userData.componentId === id)?.userData.kind;
       if (!kind) return;
       fill(hoverLayer, group, design, { id, kind }, { lines: hoverMaterial, fill: null });
+    },
+    /** Hide/show both overlay layers (hidden while doors animate, since overlays copy the mesh's transform). */
+    setVisible(visible) {
+      selectionLayer.visible = visible;
+      hoverLayer.visible = visible;
     },
     dispose() {
       clearLayer(selectionLayer);

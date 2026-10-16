@@ -24,6 +24,11 @@ DEFAULT_SHELF_THICKNESS = 18
 DEFAULT_SLIDING_DOOR_COUNT = 2
 
 
+def default_handles() -> dict:
+    """Root handle style/finish of a new design (doors and drawers inherit it)."""
+    return {"style": "bar", "finish": "steel"}
+
+
 def default_appearance() -> dict:
     return {
         "material": {"catalogId": "melamine"},
