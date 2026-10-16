@@ -1,8 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
 // Dedicated ports so E2E never collides with a running dev server.
-const API_PORT = 8010;
-const WEB_PORT = 5183;
+const API_PORT = Number(process.env.E2E_API_PORT ?? 8010);
+const WEB_PORT = Number(process.env.E2E_WEB_PORT ?? 5183);
 
 export default defineConfig({
   testDir: 'tests/e2e',
@@ -24,7 +24,8 @@ export default defineConfig({
       command: `uv run uvicorn app.main:app --port ${API_PORT}`,
       cwd: '../backend',
       url: `http://localhost:${API_PORT}/api/health`,
-      env: { APP_ENV: 'e2e', CORS_ORIGINS: `http://localhost:${WEB_PORT}` },
+      // OPENAI_API_KEY is blanked so E2E never reaches OpenAI (routes are mocked or get a 503).
+      env: { APP_ENV: 'e2e', CORS_ORIGINS: `http://localhost:${WEB_PORT}`, OPENAI_API_KEY: '' },
       reuseExistingServer: false,
       timeout: 60_000,
     },

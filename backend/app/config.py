@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,9 +12,25 @@ class Settings(BaseSettings):
     app_env: str = "local"
     cors_origins: str = "http://localhost:5173"
 
+    # AI agent. The key is server-only; it is never logged or returned.
+    openai_api_key: SecretStr | None = None
+    # ASSUMPTION: a configurable default, not a business rule.
+    openai_chat_model: str = "gpt-4.1-mini"
+    proposal_signing_key: SecretStr | None = None
+    chat_timeout_s: float = 30.0
+    chat_rate_limit: str = "20/minute"
+    # Global ceiling on OpenAI-backed requests per hour (all clients), a spend guard.
+    chat_hourly_cap: int = 300
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def agent_configured(self) -> bool:
+        key = self.openai_api_key.get_secret_value().strip() if self.openai_api_key else ""
+        sign = self.proposal_signing_key.get_secret_value().strip() if self.proposal_signing_key else ""
+        return bool(key) and len(sign) >= 32
 
 
 @lru_cache

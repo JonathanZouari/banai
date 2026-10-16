@@ -5,7 +5,9 @@ import '@fontsource/dm-sans/400.css';
 import '@fontsource/dm-sans/500.css';
 import '@fontsource/dm-sans/600.css';
 import '@fontsource/dm-sans/700.css';
-import { getCatalog, getDefaultDesign } from './api/client.js';
+import { applyProposal, getCatalog, getDefaultDesign, postChat } from './api/client.js';
+import { describeOps } from './chat/describeOps.js';
+import { createLanguage } from './i18n/strings.js';
 import { createStore } from './state/store.js';
 import { mountPanel } from './editor/panel.js';
 import { createViewer } from './viewer/viewer.js';
@@ -29,6 +31,24 @@ function bindInteriorToggle(store) {
   store.subscribe((state) => { toggle.checked = !state.ui.doorsVisible; });
 }
 
+function bindLanguageSwitch(language) {
+  const buttons = [...document.querySelectorAll('#lang-switch [data-lang]')];
+  const sync = () => buttons.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.lang === language.get())));
+  buttons.forEach((b) => b.addEventListener('click', () => language.set(b.dataset.lang)));
+  language.subscribe(sync);
+  sync();
+}
+
+function bindUndo(store, chatModel, language) {
+  const button = document.getElementById('undo');
+  const sync = () => { button.disabled = !store.canUndo(); };
+  button.addEventListener('click', () => {
+    if (store.undo().ok) chatModel.note(language.t('undone'));
+  });
+  store.subscribe(sync);
+  sync();
+}
+
 function bindDialogs() {
   const save = createSaveDialog();
   const render = createRenderDialog();
@@ -39,6 +59,8 @@ function bindDialogs() {
 async function boot() {
   document.getElementById('topbar-logo').append(createLogo({ size: 34, tagline: 'Wardrobe Designer' }));
   installRipple();
+  const language = createLanguage();
+  bindLanguageSwitch(language);
   let catalog;
   let initial;
   try {
@@ -54,12 +76,33 @@ async function boot() {
   mountPanel(document.getElementById('properties-content'), store);
   bindDialogs();
 
-  const chatModel = createChatModel({ getRevision: () => store.getState().revision });
-  // The agent is not connected yet, so a proposal can only come from the dev-only demo below.
+  // The agent only proposes. The server signs proposals, and Confirm sends the signed proposal back
+  // to be verified and applied; the committed design never changes until then.
+  const agent = async ({ messages, design, revision }) => {
+    const { reply, proposal } = await postChat({ messages, design, revision, language: language.get() });
+    return {
+      reply,
+      proposal: proposal && { ...proposal, id: proposal.signature, changes: describeOps(proposal.ops, language.get()) },
+    };
+  };
+  const chatModel = createChatModel({ getRevision: () => store.getState().revision, getDesign: () => store.getState().design, agent, language });
   const chat = mountChat(document.getElementById('chat-panel'), {
     model: chatModel,
-    onConfirm: () => chatModel.resolveProposal('The AI agent is not connected yet, so nothing was applied.'),
+    connected: true,
+    language,
+    onConfirm: async (proposal) => {
+      const { design, revision } = store.getState();
+      const { id, changes, ...signed } = proposal;
+      try {
+        const result = await applyProposal({ design, revision, proposal: signed });
+        store.replace(result.design, result.revision);
+        chatModel.resolveProposal(language.t('applied'));
+      } catch (error) {
+        chatModel.resolveProposal(error?.status === 409 ? language.t('stale') : language.t('applyFailed'));
+      }
+    },
   });
+  bindUndo(store, chatModel, language);
   // A manual edit changes the revision, which may turn a pending proposal stale.
   store.subscribe(() => chat.refresh());
 

@@ -6,7 +6,10 @@ export const test = base.extend({
     const problems = [];
     page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`));
     page.on('console', (message) => {
-      if (message.type() === 'error') problems.push(`console: ${message.text()}`);
+      if (message.type() !== 'error') return;
+      // The browser logs every non-2xx response; the agent's handled API errors are expected.
+      if (/Failed to load resource: the server responded with a status of (409|429|502|503|504)\b/.test(message.text())) return;
+      problems.push(`console: ${message.text()}`);
     });
     await use(page);
     expect(problems, problems.join('\n')).toEqual([]);

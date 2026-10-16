@@ -14,7 +14,12 @@
           <input type="checkbox" id="toggle-interior" />
           <span>Show interior</span>
         </label>
+        <div class="lang-switch" id="lang-switch" role="radiogroup" aria-label="Assistant language" data-testid="lang-switch">
+          <button type="button" role="radio" class="lang-switch__btn" data-lang="en" data-testid="lang-en" lang="en">EN</button>
+          <button type="button" role="radio" class="lang-switch__btn" data-lang="he" data-testid="lang-he" lang="he">עברית</button>
+        </div>
         <span class="topbar__units">cm</span>
+        <button type="button" class="btn" id="undo" data-testid="undo" disabled aria-label="Undo last change">Undo</button>
         <button type="button" class="btn btn--tonal" id="open-render" data-testid="open-render">Render</button>
         <button type="button" class="btn btn--primary" id="open-save" data-testid="open-save">Save</button>
       </div>
