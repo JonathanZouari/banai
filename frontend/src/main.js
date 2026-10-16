@@ -5,11 +5,12 @@ import '@fontsource/dm-sans/400.css';
 import '@fontsource/dm-sans/500.css';
 import '@fontsource/dm-sans/600.css';
 import '@fontsource/dm-sans/700.css';
-import { getCatalog, getDefaultDesign } from './api/client.js';
+import { applyProposal, getCatalog, getDefaultDesign, postChat } from './api/client.js';
+import { describeOps } from './chat/describeOps.js';
 import { createStore } from './state/store.js';
 import { mountPanel } from './editor/panel.js';
 import { createViewer } from './viewer/viewer.js';
-import { createChatModel } from './chat/chatModel.js';
+import { createChatModel, STALE_MESSAGE } from './chat/chatModel.js';
 import { mountChat } from './chat/chatPanel.js';
 import { mountStartScreen } from './entry/startScreen.js';
 import { createSaveDialog } from './share/saveDialog.js';
@@ -27,6 +28,16 @@ function bindInteriorToggle(store) {
   const toggle = document.getElementById('toggle-interior');
   toggle.addEventListener('change', () => store.setDoorsVisible(!toggle.checked));
   store.subscribe((state) => { toggle.checked = !state.ui.doorsVisible; });
+}
+
+function bindUndo(store, chatModel) {
+  const button = document.getElementById('undo');
+  const sync = () => { button.disabled = !store.canUndo(); };
+  button.addEventListener('click', () => {
+    if (store.undo().ok) chatModel.note('Last change undone.');
+  });
+  store.subscribe(sync);
+  sync();
 }
 
 function bindDialogs() {
@@ -54,12 +65,32 @@ async function boot() {
   mountPanel(document.getElementById('properties-content'), store);
   bindDialogs();
 
-  const chatModel = createChatModel({ getRevision: () => store.getState().revision });
-  // The agent is not connected yet, so a proposal can only come from the dev-only demo below.
+  // The agent only proposes. The server signs proposals, and Confirm sends the signed proposal back
+  // to be verified and applied; the committed design never changes until then.
+  const agent = async ({ messages, design, revision }) => {
+    const { reply, proposal } = await postChat({ messages, design, revision });
+    return {
+      reply,
+      proposal: proposal && { ...proposal, id: proposal.signature, changes: describeOps(proposal.ops) },
+    };
+  };
+  const chatModel = createChatModel({ getRevision: () => store.getState().revision, getDesign: () => store.getState().design, agent });
   const chat = mountChat(document.getElementById('chat-panel'), {
     model: chatModel,
-    onConfirm: () => chatModel.resolveProposal('The AI agent is not connected yet, so nothing was applied.'),
+    connected: true,
+    onConfirm: async (proposal) => {
+      const { design, revision } = store.getState();
+      const { id, changes, ...signed } = proposal;
+      try {
+        const result = await applyProposal({ design, revision, proposal: signed });
+        store.replace(result.design, result.revision);
+        chatModel.resolveProposal('Changes applied to your design.');
+      } catch (error) {
+        chatModel.resolveProposal(error?.status === 409 ? STALE_MESSAGE : (error?.message || 'The changes could not be applied.'));
+      }
+    },
   });
+  bindUndo(store, chatModel);
   // A manual edit changes the revision, which may turn a pending proposal stale.
   store.subscribe(() => chat.refresh());
 

@@ -6,7 +6,7 @@ import { icon } from '../ui/icons.js';
 import { MAX_MESSAGE_LENGTH, SUGGESTIONS } from './chatModel.js';
 import { renderProposalCard } from './proposalCard.js';
 
-export function mountChat(container, { model, onConfirm }) {
+export function mountChat(container, { model, onConfirm, connected = false }) {
   container.classList.add('panel--chat');
 
   const header = el('header', { className: 'chat__header' }, [
@@ -15,7 +15,7 @@ export function mountChat(container, { model, onConfirm }) {
       el('h2', { className: 'chat__title', text: 'AI Designer' }),
       el('p', { className: 'chat__subtitle', text: 'Design assistant' }),
     ]),
-    el('span', { className: 'chat__status', text: 'Coming soon', attrs: { title: 'The AI agent is not connected yet (planned for Phase 5).' } }),
+    el('span', { className: 'chat__status', text: connected ? 'Online' : 'Not connected', attrs: { title: connected ? 'The AI agent proposes changes; nothing is applied until you confirm.' : 'The AI agent is not connected.' } }),
   ]);
 
   const input = el('textarea', { className: 'chat__input', attrs: { rows: '2', maxlength: String(MAX_MESSAGE_LENGTH), placeholder: 'Describe your wardrobe…', 'aria-label': 'Message to the AI designer' } });
@@ -44,9 +44,13 @@ export function mountChat(container, { model, onConfirm }) {
   const list = el('div', { className: 'chat__messages', attrs: { role: 'log', 'aria-live': 'polite', 'aria-label': 'Conversation' } });
   list.dataset.testid = 'chat-messages';
   const proposalSlot = el('div', { className: 'chat__proposal' });
+  const typing = el('div', { className: 'chat__bubble chat__bubble--assistant chat__typing', text: 'Thinking…', attrs: { role: 'status' } });
+  typing.dataset.testid = 'chat-typing';
+  typing.hidden = true;
 
   const submit = () => {
     if (model.send(input.value).ok) input.value = '';
+    sendButton.disabled = model.isBusy();
   };
   composer.addEventListener('submit', (event) => {
     event.preventDefault();
@@ -77,6 +81,10 @@ export function mountChat(container, { model, onConfirm }) {
       list.append(bubble);
     });
     renderedCount = messages.length;
+    typing.hidden = !model.isBusy();
+    sendButton.disabled = model.isBusy();
+    if (!typing.hidden) list.append(typing); // keep the indicator last
+    list.hidden = messages.length === 0 && typing.hidden;
     list.scrollTop = list.scrollHeight;
 
     // Re-render the card only when the proposal or its status changed (keeps its entrance animation calm).

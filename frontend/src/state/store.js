@@ -29,6 +29,8 @@ export function resolveSelection(design, id) {
  * Create the store. The initial catalog and design are validated first (applyOps with
  * no ops = parse + full validation); invalid data throws instead of being rendered.
  */
+const MAX_HISTORY = 50;
+
 export function createStore({ design, revision = 1, catalog }) {
   const validCatalog = parseCatalog(catalog);
   const validDesign = applyOps(design, [], validCatalog);
@@ -39,6 +41,9 @@ export function createStore({ design, revision = 1, catalog }) {
     design: validDesign, revision, catalog: validCatalog, selection: null, ui: { doorsVisible: true },
   });
   const listeners = new Set();
+  // Previous committed designs (newest last) for Undo. Not part of the design or the revision.
+  const history = [];
+  const remember = () => { history.push(state.design); if (history.length > MAX_HISTORY) history.shift(); };
 
   const commit = (patch) => {
     state = deepFreeze({ ...state, ...patch });
@@ -63,7 +68,27 @@ export function createStore({ design, revision = 1, catalog }) {
         throw error;
       }
       const selection = state.selection && resolveSelection(next, state.selection.id);
+      remember();
       commit({ design: next, revision: state.revision + 1, selection });
+      return { ok: true };
+    },
+
+    /** Commit a design the server applied (already validated there); re-validated here before use. */
+    replace(design, revision) {
+      const next = applyOps(design, [], state.catalog);
+      const selection = state.selection && resolveSelection(next, state.selection.id);
+      remember();
+      commit({ design: next, revision, selection });
+    },
+
+    canUndo: () => history.length > 0,
+
+    /** Restore the previous design. The revision still moves forward, so a pending proposal goes stale. */
+    undo() {
+      const previous = history.pop();
+      if (!previous) return { ok: false };
+      const selection = state.selection && resolveSelection(previous, state.selection.id);
+      commit({ design: previous, revision: state.revision + 1, selection });
       return { ok: true };
     },
 

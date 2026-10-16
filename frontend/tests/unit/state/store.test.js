@@ -96,3 +96,46 @@ describe('store input validation (Phase 3 security review M1)', () => {
     expect(() => createStore({ design: loadDesign('basic'), revision: 0, catalog })).toThrow();
   });
 });
+
+describe('store undo', () => {
+  it('restores the previous design, moves the revision forward and can undo repeatedly', () => {
+    const store = makeStore();
+    const original = store.getState().design;
+    expect(store.canUndo()).toBe(false);
+    expect(store.undo()).toEqual({ ok: false });
+    store.dispatch([{ op: 'modify_shelf', id: 'shf_l1', y: 450 }]);
+    store.dispatch([{ op: 'modify_shelf', id: 'shf_l1', y: 500 }]);
+    expect(store.canUndo()).toBe(true);
+    expect(store.undo()).toEqual({ ok: true });
+    expect(store.getState().design.compartments[0].shelves[0].y).toBe(450);
+    expect(store.getState().revision).toBe(4);
+    store.undo();
+    expect(store.getState().design).toEqual(original);
+    expect(store.canUndo()).toBe(false);
+  });
+
+  it('does not record failed ops, and undoes a design replaced by the server', () => {
+    const store = makeStore();
+    store.dispatch([{ op: 'modify_shelf', id: 'nope', y: 1 }]);
+    expect(store.canUndo()).toBe(false);
+    const before = store.getState().design;
+    store.replace(store.getState().design, 7);
+    expect(store.canUndo()).toBe(true);
+    store.undo();
+    expect(store.getState().design).toEqual(before);
+    expect(store.getState().revision).toBe(8);
+  });
+
+  it('notifies subscribers and keeps at most 50 steps', () => {
+    const store = makeStore();
+    const listener = vi.fn();
+    store.dispatch([{ op: 'modify_shelf', id: 'shf_l1', y: 450 }]);
+    store.subscribe(listener);
+    store.undo();
+    expect(listener).toHaveBeenCalledTimes(1);
+    for (let i = 0; i < 60; i += 1) store.dispatch([{ op: 'modify_shelf', id: 'shf_l1', y: 400 + i }]);
+    let undone = 0;
+    while (store.undo().ok) undone += 1;
+    expect(undone).toBe(50);
+  });
+});
