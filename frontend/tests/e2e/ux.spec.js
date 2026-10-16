@@ -31,18 +31,7 @@ test.describe('start screen', () => {
   });
 });
 
-test.describe('AI chat panel (agent not connected yet)', () => {
-  test('sending a message gets an honest reply and never changes the design', async ({ page }) => {
-    await openDesigner(page);
-    const before = await page.evaluate(() => window.__banai.store.getState().revision);
-    await page.getByTestId('chat-input').fill('make it 3 m wide');
-    await page.getByTestId('chat-send').click();
-    const messages = page.getByTestId('chat-messages');
-    await expect(messages).toContainText('make it 3 m wide');
-    await expect(messages).toContainText("isn't connected yet");
-    expect(await page.evaluate(() => window.__banai.store.getState().revision)).toBe(before);
-  });
-
+test.describe('AI chat panel', () => {
   test('a proposal shows Confirm/Cancel, goes stale after a manual edit, and Cancel changes nothing', async ({ page }) => {
     await openDesigner(page);
     await page.evaluate(() => {

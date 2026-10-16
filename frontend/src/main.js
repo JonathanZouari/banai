@@ -5,11 +5,11 @@ import '@fontsource/dm-sans/400.css';
 import '@fontsource/dm-sans/500.css';
 import '@fontsource/dm-sans/600.css';
 import '@fontsource/dm-sans/700.css';
-import { getCatalog, getDefaultDesign } from './api/client.js';
+import { applyProposal, getCatalog, getDefaultDesign, sendChat } from './api/client.js';
 import { createStore } from './state/store.js';
 import { mountPanel } from './editor/panel.js';
 import { createViewer } from './viewer/viewer.js';
-import { createChatModel } from './chat/chatModel.js';
+import { createChatModel, STALE_MESSAGE } from './chat/chatModel.js';
 import { mountChat } from './chat/chatPanel.js';
 import { mountStartScreen } from './entry/startScreen.js';
 import { createSaveDialog } from './share/saveDialog.js';
@@ -54,12 +54,37 @@ async function boot() {
   mountPanel(document.getElementById('properties-content'), store);
   bindDialogs();
 
-  const chatModel = createChatModel({ getRevision: () => store.getState().revision });
-  // The agent is not connected yet, so a proposal can only come from the dev-only demo below.
-  const chat = mountChat(document.getElementById('chat-panel'), {
-    model: chatModel,
-    onConfirm: () => chatModel.resolveProposal('The AI agent is not connected yet, so nothing was applied.'),
-  });
+  // The agent only ever sees the committed design and revision as they are when the message is sent.
+  const agent = {
+    respond: (messages) => {
+      const { design, revision } = store.getState();
+      return sendChat({ messages, design, revision });
+    },
+  };
+  const chatModel = createChatModel({ getRevision: () => store.getState().revision, agent });
+  let applying = false;
+  // Confirm: the server verifies the signature and that the design is still the one the proposal was
+  // made for; only then are the same ops dispatched locally. Any doubt leaves the design untouched.
+  async function confirmProposal(proposal) {
+    if (applying || chatModel.getProposal() !== proposal || chatModel.getProposalStatus() !== 'pending') return;
+    applying = true;
+    const { design, revision } = store.getState();
+    try {
+      await applyProposal({ design, revision, proposal: proposal.raw });
+    } catch (error) {
+      chatModel.resolveProposal(error.code === 'STALE' ? STALE_MESSAGE : 'The changes could not be applied, so nothing was changed.');
+      applying = false;
+      return;
+    }
+    applying = false;
+    if (store.getState().revision !== revision) {
+      chatModel.resolveProposal(STALE_MESSAGE); // edited by hand while the server was checking
+      return;
+    }
+    const result = store.dispatch(proposal.raw.ops);
+    chatModel.resolveProposal(result.ok ? 'Changes applied.' : 'The changes could not be applied, so nothing was changed.');
+  }
+  const chat = mountChat(document.getElementById('chat-panel'), { model: chatModel, onConfirm: confirmProposal });
   // A manual edit changes the revision, which may turn a pending proposal stale.
   store.subscribe(() => chat.refresh());
 

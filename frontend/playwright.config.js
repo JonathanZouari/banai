@@ -21,10 +21,11 @@ export default defineConfig({
   }],
   webServer: [
     {
-      command: `uv run uvicorn app.main:app --port ${API_PORT}`,
+      // The real app with a scripted stand-in for OpenAI (backend/tests/e2e_app.py): no key, no network.
+      command: `uv run uvicorn tests.e2e_app:app --port ${API_PORT}`,
       cwd: '../backend',
       url: `http://localhost:${API_PORT}/api/health`,
-      env: { APP_ENV: 'e2e', CORS_ORIGINS: `http://localhost:${WEB_PORT}` },
+      env: { APP_ENV: 'e2e', CORS_ORIGINS: `http://localhost:${WEB_PORT}`, CHAT_RATE_LIMIT: '1000/minute' },
       reuseExistingServer: false,
       timeout: 60_000,
     },

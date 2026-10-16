@@ -19,3 +19,44 @@ export const getCatalog = (fetchImpl = fetch) => getJson('/api/catalog', fetchIm
 
 /** Returns { design, revision } for the predefined basic wardrobe. */
 export const getDefaultDesign = (fetchImpl = fetch) => getJson('/api/designs/default', fetchImpl);
+
+/** Error thrown for a failed API call: `status` is the HTTP status, `code` the server's error code. */
+export class ApiError extends Error {
+  constructor(status, code, message) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+  }
+}
+
+async function postJson(path, payload, fetchImpl) {
+  if (!API_BASE_URL) throw new ApiError(0, 'NO_API', 'The API base URL is not configured');
+  let response;
+  try {
+    response = await fetchImpl(`${API_BASE_URL}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    throw new ApiError(0, 'NETWORK', 'Could not reach the design service');
+  }
+  let body = null;
+  try {
+    body = await response.json();
+  } catch {
+    body = null;
+  }
+  if (!response.ok || !body || body.success !== true) {
+    const error = body && body.error ? body.error : {};
+    throw new ApiError(response.status, error.code ?? 'UNKNOWN', error.message ?? `Request to ${path} failed with status ${response.status}`);
+  }
+  return body.data;
+}
+
+/** One agent turn. Returns { reply, proposal | null }; the design is never changed by this call. */
+export const sendChat = ({ messages, design, revision }, fetchImpl = fetch) => postJson('/api/chat', { messages, design, revision }, fetchImpl);
+
+/** Ask the server to verify and apply a signed proposal. Returns { design, revision }; 409 STALE throws. */
+export const applyProposal = ({ design, revision, proposal }, fetchImpl = fetch) => postJson('/api/proposals/apply', { design, revision, proposal }, fetchImpl);

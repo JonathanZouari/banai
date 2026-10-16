@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
-  createChatModel, MAX_MESSAGE_LENGTH, NOT_CONNECTED_MESSAGE, proposalStatus, SUGGESTIONS,
+  AGENT_ERRORS, createChatModel, MAX_MESSAGE_LENGTH, NOT_CONNECTED_MESSAGE, proposalStatus, SUGGESTIONS,
 } from '../../../src/chat/chatModel.js';
 
 const proposal = (baseRevision = 1) => ({
@@ -89,5 +89,78 @@ describe('suggestions', () => {
       expect(text.length).toBeLessThan(MAX_MESSAGE_LENGTH);
     });
     expect(new Set(SUGGESTIONS).size).toBe(SUGGESTIONS.length);
+  });
+});
+
+describe('chat model with an agent', () => {
+  const raw = {
+    id: 'abc', baseRevision: 1, baseHash: 'h', signature: 's', ops: [{ op: 'add_shelf' }],
+    summary: '1 change to your wardrobe', changes: [{ title: 'Add shelf', detail: 'In compartment 2' }],
+  };
+  const flush = () => new Promise((resolve) => { setTimeout(resolve, 0); });
+
+  it('sends only user/assistant turns, shows the reply, and keeps the signed proposal as raw', async () => {
+    const respond = vi.fn().mockResolvedValue({ reply: 'Sure.', proposal: raw });
+    const model = createChatModel({ getRevision: () => 1, agent: { respond } });
+    expect(model.send('add a shelf')).toEqual({ ok: true });
+    expect(model.isBusy()).toBe(true);
+    await flush();
+    expect(respond).toHaveBeenCalledWith([{ role: 'user', content: 'add a shelf' }]);
+    expect(model.getMessages().map((m) => m.role)).toEqual(['user', 'assistant']);
+    expect(model.getProposal().raw).toBe(raw);
+    expect(model.getProposal().changes).toEqual(raw.changes);
+    expect(model.getProposalStatus()).toBe('pending');
+    expect(model.isBusy()).toBe(false);
+  });
+
+  it('keeps earlier turns in the history but leaves out system notes', async () => {
+    const respond = vi.fn().mockResolvedValue({ reply: 'ok', proposal: null });
+    const model = createChatModel({ getRevision: () => 1, agent: { respond } });
+    model.send('one');
+    await flush();
+    model.setProposal(proposal());
+    model.cancelProposal(); // adds a system note
+    model.send('two');
+    await flush();
+    expect(respond.mock.calls[1][0]).toEqual([
+      { role: 'user', content: 'one' }, { role: 'assistant', content: 'ok' }, { role: 'user', content: 'two' },
+    ]);
+  });
+
+  it('ignores a second message while the agent is thinking', async () => {
+    let finish;
+    const respond = vi.fn(() => new Promise((resolve) => { finish = resolve; }));
+    const model = createChatModel({ getRevision: () => 1, agent: { respond } });
+    model.send('first');
+    expect(model.send('second')).toEqual({ ok: false, reason: 'busy' });
+    finish({ reply: 'done', proposal: null });
+    await flush();
+    expect(model.send('third').ok).toBe(true);
+    expect(respond).toHaveBeenCalledTimes(2);
+  });
+
+  it('turns agent failures into a friendly note and leaves no proposal', async () => {
+    const respond = vi.fn()
+      .mockRejectedValueOnce(Object.assign(new Error('x'), { status: 429 }))
+      .mockRejectedValueOnce(new Error('boom'));
+    const model = createChatModel({ getRevision: () => 1, agent: { respond } });
+    model.send('a');
+    await flush();
+    model.send('b');
+    await flush();
+    const notes = model.getMessages().filter((m) => m.role === 'system').map((m) => m.text);
+    expect(notes).toEqual([AGENT_ERRORS[429], AGENT_ERRORS.default]);
+    expect(model.getProposal()).toBeNull();
+    expect(model.isBusy()).toBe(false);
+  });
+
+  it('a proposal made for an older revision is stale as soon as it arrives', async () => {
+    let revision = 1;
+    const respond = vi.fn(async () => { revision = 2; return { reply: '', proposal: raw }; });
+    const model = createChatModel({ getRevision: () => revision, agent: { respond } });
+    model.send('go');
+    await flush();
+    expect(model.getProposalStatus()).toBe('stale');
+    expect(model.getMessages().map((m) => m.role)).toEqual(['user']);
   });
 });

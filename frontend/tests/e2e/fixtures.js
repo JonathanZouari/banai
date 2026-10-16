@@ -6,7 +6,8 @@ export const test = base.extend({
     const problems = [];
     page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`));
     page.on('console', (message) => {
-      if (message.type() === 'error') problems.push(`console: ${message.text()}`);
+      // The browser logs every non-2xx response; the agent specs assert these refusals on purpose.
+      if (message.type() === 'error' && !/status of (403|409|429|503)/.test(message.text())) problems.push(`console: ${message.text()}`);
     });
     await use(page);
     expect(problems, problems.join('\n')).toEqual([]);
