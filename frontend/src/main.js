@@ -5,12 +5,14 @@ import '@fontsource/dm-sans/400.css';
 import '@fontsource/dm-sans/500.css';
 import '@fontsource/dm-sans/600.css';
 import '@fontsource/dm-sans/700.css';
-import { applyProposal, getCatalog, getDefaultDesign, sendChat } from './api/client.js';
+import { applyProposal, getCatalog, getDefaultDesign, sendChat, speakText, transcribeAudio } from './api/client.js';
 import { createStore } from './state/store.js';
 import { mountPanel } from './editor/panel.js';
 import { createViewer } from './viewer/viewer.js';
 import { createChatModel, STALE_MESSAGE } from './chat/chatModel.js';
 import { mountChat } from './chat/chatPanel.js';
+import { createRecorder, isRecordingSupported } from './voice/recorder.js';
+import { createVoiceModel, spokenText } from './voice/voiceModel.js';
 import { mountStartScreen } from './entry/startScreen.js';
 import { createSaveDialog } from './share/saveDialog.js';
 import { createRenderDialog } from './render/renderDialog.js';
@@ -34,6 +36,44 @@ function bindDialogs() {
   const render = createRenderDialog();
   document.getElementById('open-save').addEventListener('click', save.open);
   document.getElementById('open-render').addEventListener('click', render.open);
+}
+
+function safeStorage() {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+/** Plays an audio Blob. Returns { stop }. `onEnd` runs when playback finishes or fails. */
+function playAudio(blob, onEnd) {
+  const url = URL.createObjectURL(blob);
+  const audio = new Audio(url);
+  const finish = () => {
+    URL.revokeObjectURL(url);
+    onEnd();
+  };
+  audio.addEventListener('ended', finish, { once: true });
+  audio.addEventListener('error', finish, { once: true });
+  audio.play().catch(finish);
+  return { stop: () => { audio.pause(); URL.revokeObjectURL(url); } };
+}
+
+/** Reads each new assistant turn (and its proposal's changes) aloud while "read replies" is on. */
+function bindSpokenReplies(chatModel, voice) {
+  let lastId = 0;
+  let lastProposalId = null;
+  chatModel.subscribe(() => {
+    const messages = chatModel.getMessages();
+    const proposal = chatModel.getProposal();
+    const fresh = messages.filter((message) => message.id > lastId && message.role === 'assistant');
+    lastId = messages.length ? messages.at(-1).id : lastId;
+    const newProposal = proposal && proposal.id !== lastProposalId ? proposal : null;
+    if (proposal) lastProposalId = proposal.id;
+    if (!fresh.length && !newProposal) return;
+    voice.speakReply(spokenText(fresh.map((message) => message.text).join(' '), newProposal ? newProposal.changes : []));
+  });
 }
 
 async function boot() {
@@ -84,7 +124,16 @@ async function boot() {
     const result = store.dispatch(proposal.raw.ops);
     chatModel.resolveProposal(result.ok ? 'Changes applied.' : 'The changes could not be applied, so nothing was changed.');
   }
-  const chat = mountChat(document.getElementById('chat-panel'), { model: chatModel, onConfirm: confirmProposal });
+  const voice = isRecordingSupported() ? createVoiceModel({
+    recorder: createRecorder(),
+    transcribe: transcribeAudio,
+    speak: speakText,
+    play: playAudio,
+    sendText: (text) => chatModel.send(text),
+    storage: safeStorage(),
+  }) : null;
+  const chat = mountChat(document.getElementById('chat-panel'), { model: chatModel, onConfirm: confirmProposal, voice });
+  if (voice) bindSpokenReplies(chatModel, voice);
   // A manual edit changes the revision, which may turn a pending proposal stale.
   store.subscribe(() => chat.refresh());
 

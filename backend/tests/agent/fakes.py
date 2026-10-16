@@ -20,10 +20,23 @@ def reply(content: str | None = None, calls: list | None = None):
 class FakeOpenAI:
     """Returns the scripted completions in order and records every request."""
 
-    def __init__(self, *completions):
+    def __init__(self, *completions, transcript: str = "hello", speech: bytes = b"ID3-fake-mp3"):
         self._completions = list(completions)
         self.requests: list[dict] = []
+        self.audio_requests: list[dict] = []  # transcription and speech calls, in order
+        self._transcript, self._speech = transcript, speech
         self.chat = SimpleNamespace(completions=SimpleNamespace(create=self._create))
+        self.audio = SimpleNamespace(
+            transcriptions=SimpleNamespace(create=self._transcribe), speech=SimpleNamespace(create=self._speak)
+        )
+
+    def _transcribe(self, **kwargs):
+        self.audio_requests.append({"kind": "transcribe", **kwargs})
+        return SimpleNamespace(text=self._transcript)
+
+    def _speak(self, **kwargs):
+        self.audio_requests.append({"kind": "speak", **kwargs})
+        return SimpleNamespace(content=self._speech)
 
     def _create(self, **kwargs):
         self.requests.append(kwargs)

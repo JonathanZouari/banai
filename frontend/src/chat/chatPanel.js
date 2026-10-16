@@ -4,8 +4,9 @@ import { el } from '../editor/fields.js';
 import { icon } from '../ui/icons.js';
 import { MAX_MESSAGE_LENGTH, SUGGESTIONS } from './chatModel.js';
 import { renderProposalCard } from './proposalCard.js';
+import { createVoiceControls } from '../voice/voiceControls.js';
 
-export function mountChat(container, { model, onConfirm }) {
+export function mountChat(container, { model, onConfirm, voice = null }) {
   container.classList.add('panel--chat');
 
   const header = el('header', { className: 'chat__header' }, [
@@ -25,7 +26,8 @@ export function mountChat(container, { model, onConfirm }) {
   input.dataset.testid = 'chat-input';
   const sendButton = el('button', { className: 'icon-btn icon-btn--filled chat__send', attrs: { type: 'submit', 'aria-label': 'Send message' } }, [icon('send')]);
   sendButton.dataset.testid = 'chat-send';
-  const composer = el('form', { className: 'chat__composer' }, [input, sendButton]);
+  const controls = voice ? createVoiceControls(voice) : null;
+  const composer = el('form', { className: 'chat__composer' }, controls ? [input, controls.mic, sendButton] : [input, sendButton]);
   const hint = el('p', { className: 'chat__hint', text: 'Enter to send · Shift+Enter for a new line' });
 
   const chips = SUGGESTIONS.map((text) => {
@@ -102,7 +104,7 @@ export function mountChat(container, { model, onConfirm }) {
     }
   }
 
-  container.replaceChildren(header, el('div', { className: 'chat__body' }, [welcome, list, thinking, proposalSlot]), el('div', { className: 'chat__footer' }, [composer, hint]));
+  container.replaceChildren(header, el('div', { className: 'chat__body' }, [welcome, list, thinking, proposalSlot]), el('div', { className: 'chat__footer' }, controls ? [composer, controls.row, hint, controls.privacy] : [composer, hint]));
   model.subscribe(render);
   render();
 

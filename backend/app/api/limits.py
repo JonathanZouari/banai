@@ -22,16 +22,18 @@ def rate_limit_handler(_request: Request, _error: RateLimitExceeded):
 class BodyLimitMiddleware:
     """Refuse request bodies above `max_bytes` (by Content-Length, and by counting streamed bytes)."""
 
-    def __init__(self, app: ASGIApp, max_bytes: int) -> None:
+    def __init__(self, app: ASGIApp, max_bytes: int, path_limits: dict[str, int] | None = None) -> None:
         self.app = app
         self.max_bytes = max_bytes
+        self.path_limits = path_limits or {}  # exact path -> its own cap (audio uploads)
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
+        limit = self.path_limits.get(scope["path"], self.max_bytes)
         declared = dict(scope["headers"]).get(b"content-length")
-        if declared is not None and declared.isdigit() and int(declared) > self.max_bytes:
+        if declared is not None and declared.isdigit() and int(declared) > limit:
             await self._too_large(scope, receive, send)
             return
 
@@ -40,12 +42,12 @@ class BodyLimitMiddleware:
         async def limited_receive() -> Message:
             # A streamed body past the cap is cut off: the app then sees invalid JSON and answers 422.
             nonlocal seen
-            if seen > self.max_bytes:
+            if seen > limit:
                 return {"type": "http.request", "body": b"", "more_body": False}
             message = await receive()
             if message["type"] == "http.request":
                 seen += len(message.get("body", b""))
-                if seen > self.max_bytes:
+                if seen > limit:
                     return {"type": "http.request", "body": b"", "more_body": False}
             return message
 

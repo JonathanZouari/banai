@@ -17,6 +17,12 @@ class Settings(BaseSettings):
     openai_chat_model: str = ""
     openai_temperature: float | None = 0.2  # configurable default (a number; None omits it for models that reject it)
     proposal_signing_key: str = ""
+    # Voice chat (configurable defaults, not business rules): speech-to-text, text-to-speech, voice.
+    openai_transcribe_model: str = "gpt-transcribe"
+    openai_tts_model: str = "gpt-4o-mini-tts"
+    openai_tts_voice: str = "alloy"
+    voice_rate_limit: str = "30/minute"
+    max_audio_bytes: int = 1_000_000  # about 30 s of compressed speech
     chat_rate_limit: str = "20/minute"  # configurable default, per client address
     max_body_bytes: int = 262_144  # request bodies above this are refused before parsing
 

@@ -12,7 +12,8 @@ if get_settings().app_env != "e2e":  # it carries a public signing key: never lo
     raise RuntimeError("tests.e2e_app is only for the Playwright suite (APP_ENV=e2e)")
 
 SETTINGS = Settings(
-    openai_api_key="e2e", openai_chat_model="e2e", proposal_signing_key="e" * 64, chat_rate_limit="1000/minute"
+    openai_api_key="e2e", openai_chat_model="e2e", proposal_signing_key="e" * 64,
+    chat_rate_limit="1000/minute", voice_rate_limit="1000/minute",
 )
 
 
@@ -20,7 +21,7 @@ class ScriptedAgent(FakeOpenAI):
     """Answers by keyword in the customer's latest message."""
 
     def __init__(self) -> None:
-        super().__init__()
+        super().__init__(transcript="please add a shelf in the middle")  # what the fake microphone "says"
 
     def _create(self, **kwargs):
         text = next(m["content"] for m in reversed(kwargs["messages"]) if m["role"] == "user").lower()

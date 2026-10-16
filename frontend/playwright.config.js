@@ -7,6 +7,7 @@ const WEB_PORT = 5183;
 export default defineConfig({
   testDir: 'tests/e2e',
   fullyParallel: false,
+  workers: 1, // software WebGL (SwiftShader) makes parallel browsers slower and flaky, not faster
   retries: 0,
   reporter: [['list']],
   use: {
@@ -17,7 +18,8 @@ export default defineConfig({
   projects: [{
     name: 'chromium',
     use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 },
-      launchOptions: { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] } },
+      permissions: ['microphone'],
+      launchOptions: { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] } },
   }],
   webServer: [
     {
@@ -25,7 +27,7 @@ export default defineConfig({
       command: `uv run uvicorn tests.e2e_app:app --port ${API_PORT}`,
       cwd: '../backend',
       url: `http://localhost:${API_PORT}/api/health`,
-      env: { APP_ENV: 'e2e', CORS_ORIGINS: `http://localhost:${WEB_PORT}`, CHAT_RATE_LIMIT: '1000/minute' },
+      env: { APP_ENV: 'e2e', CORS_ORIGINS: `http://localhost:${WEB_PORT}`, CHAT_RATE_LIMIT: '1000/minute', VOICE_RATE_LIMIT: '1000/minute' },
       reuseExistingServer: false,
       timeout: 60_000,
     },
