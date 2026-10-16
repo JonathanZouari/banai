@@ -79,8 +79,8 @@
 
 .chat__messages { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-1) 0; }
 .chat__bubble { max-width: 90%; padding: var(--space-3) var(--space-4); border-radius: 18px; font: var(--md-sys-typescale-body-medium); overflow-wrap: anywhere; white-space: pre-wrap; animation: pop-in 260ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
-.chat__bubble--user { align-self: flex-end; border-bottom-right-radius: 6px; background: linear-gradient(135deg, #c8602f 0%, #b4532a 100%); color: var(--md-sys-color-on-primary); box-shadow: 0 4px 12px rgba(180, 83, 42, 0.25); }
-.chat__bubble--assistant { align-self: flex-start; border-bottom-left-radius: 6px; background: var(--md-sys-color-surface-container-high); }
+.chat__bubble--user { align-self: flex-end; border-end-end-radius: 6px; background: linear-gradient(135deg, #c8602f 0%, #b4532a 100%); color: var(--md-sys-color-on-primary); box-shadow: 0 4px 12px rgba(180, 83, 42, 0.25); }
+.chat__bubble--assistant { align-self: flex-start; border-end-start-radius: 6px; background: var(--md-sys-color-surface-container-high); }
 .chat__bubble--system { display: flex; align-items: flex-start; gap: var(--space-2); align-self: stretch; max-width: 100%; border-radius: var(--md-sys-shape-medium); background: #fff6dc; color: #3d2f00; font: var(--md-sys-typescale-body-small); }
 .chat__bubble--system .icon { margin-top: 1px; color: #8a6a00; }
 .chat__proposal:empty { display: none; }
@@ -215,3 +215,21 @@
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-delay: 0ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* Assistant language switch (English / Hebrew) */
+.lang-switch { display: inline-flex; border: 1px solid var(--md-sys-color-outline); border-radius: var(--md-sys-shape-small); overflow: hidden; }
+.lang-switch__btn {
+  padding: 4px var(--space-3);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: var(--md-sys-typescale-label-medium);
+  cursor: pointer;
+}
+.lang-switch__btn + .lang-switch__btn { border-inline-start: 1px solid var(--md-sys-color-outline); }
+.lang-switch__btn[aria-checked='true'] { background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); }
+.lang-switch__btn:focus-visible { outline: 2px solid var(--md-sys-color-primary); outline-offset: -2px; }
+
+/* The chat panel follows the selected language direction (dir is set on the panel). */
+.panel--chat[dir='rtl'] .chat__input,
+.panel--chat[dir='rtl'] .chat__hint { text-align: start; }

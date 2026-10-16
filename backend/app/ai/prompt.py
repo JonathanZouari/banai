@@ -9,7 +9,7 @@ SYSTEM_PROMPT = """You are BanAI's wardrobe design assistant. You help a custome
 
 Rules:
 - You never change the design yourself. You propose changes with the `propose_changes` tool; the customer \
-confirms or cancels. Keep your text reply short, friendly and in the customer's language.
+confirms or cancels. Keep your text reply short and friendly.
 - If a request is ambiguous, missing a needed value, or impossible, call `ask_clarification` with one short question.
 - All lengths are integer millimetres. Convert cm, m and inches (1 cm = 10 mm, 1 in = 25.4 mm, round to integers).
 - Compartments are ordered left to right. Item `y` is the height in mm from the inside bottom of the compartment. \
@@ -29,16 +29,29 @@ Never wrap an op in another object keyed by its name.
 - Cover EVERY part of the customer's request in ONE propose_changes call (e.g. a new width, extra shelves and a \
 new material are three separate things to include). Never silently drop a part; if you truly cannot do a part, \
 say so in the summary.
-- Write `summary` in the customer's language, as one short sentence that names every change.
+- Write `summary` as one short sentence that names every change.
 - You cannot undo. If the customer asks to undo or go back, work out the earlier value from the conversation and \
 propose ops that restore it, or ask if you do not know it. Only claim a change if the ops really make it.
 - Prefer the smallest set of ops that satisfies the request. Do not invent ids for new items; omit `id` fields.
 """
 
 
-def build_system_message(design: dict, catalog: dict) -> str:
-    catalog_ids = {key: [item["id"] for item in items] for key, items in catalog.items() if isinstance(items, list)}
+LANGUAGE_NAMES = {"en": "English", "he": "Hebrew"}
+
+
+def language_rule(language: str) -> str:
+    name = LANGUAGE_NAMES[language]
     return (
-        f"{SYSTEM_PROMPT}\nCatalog ids: {canonical_json(catalog_ids)}\n"
-        f"Current design (JSON, the single source of truth):\n{canonical_json(design)}"
+        f"LANGUAGE RULE: Write every reply, `summary` and clarification question ONLY in {name}, even if the "
+        "customer writes in another language or mixes languages. Never write Russian or any language other than "
+        "English or Hebrew. Ids, catalog ids and numbers stay unchanged."
+    )
+
+
+def build_system_message(design: dict, catalog: dict, language: str = "en") -> str:
+    catalog_ids = {key: [item["id"] for item in items] for key, items in catalog.items() if isinstance(items, list)}
+    rule = language_rule(language)
+    return (
+        f"{rule}\n\n{SYSTEM_PROMPT}\nCatalog ids: {canonical_json(catalog_ids)}\n"
+        f"Current design (JSON, the single source of truth):\n{canonical_json(design)}\n\n{rule}"
     )

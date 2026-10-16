@@ -4,6 +4,8 @@
 // A proposal is { id, baseRevision, summary, changes: [{ title, detail }] }. It is kept apart from
 // the committed design and is only ever "pending" or "stale" (the design changed after it was made).
 
+import { errorMessage, translate } from '../i18n/strings.js';
+
 export const NOT_CONNECTED_MESSAGE =
   "The AI agent isn't connected yet (planned for Phase 5). You can design manually in the Properties panel.";
 export const UNAVAILABLE_MESSAGE = "The AI agent isn't available right now. You can keep designing manually in the Properties panel.";
@@ -26,7 +28,9 @@ export function proposalStatus(proposal, currentRevision) {
  * `agent` (optional) is async ({ messages, design, revision }) -> { reply, proposal | null } and may
  * throw an error with `.code`. Without it the panel stays honest and says the agent isn't connected.
  */
-export function createChatModel({ getRevision, getDesign, agent = null }) {
+export function createChatModel({ getRevision, getDesign, agent = null, language = null }) {
+  const t = (key) => (language ? language.t(key) : translate('en', key));
+  const lang = () => (language ? language.get() : 'en');
   let busy = false;
   let nextId = 1;
   let proposal = null;
@@ -70,7 +74,7 @@ export function createChatModel({ getRevision, getDesign, agent = null }) {
       if (busy) return { ok: false, reason: 'busy' };
       push('user', text);
       if (!agent) {
-        push('system', NOT_CONNECTED_MESSAGE);
+        push('system', t('notConnected'));
         notify();
         return { ok: true };
       }
@@ -85,9 +89,9 @@ export function createChatModel({ getRevision, getDesign, agent = null }) {
           push('assistant', result.reply);
           // A manual edit during the request makes the answer stale: only keep it if still current.
           if (result.proposal && result.proposal.baseRevision === getRevision()) proposal = result.proposal;
-          else if (result.proposal) push('system', STALE_MESSAGE);
+          else if (result.proposal) push('system', t('stale'));
         })
-        .catch((error) => push('system', error?.code === 'AGENT_NOT_CONFIGURED' ? NOT_CONNECTED_MESSAGE : (error?.message || UNAVAILABLE_MESSAGE)))
+        .catch((error) => push('system', errorMessage(lang(), error)))
         .finally(() => { busy = false; notify(); });
       return { ok: true };
     },
@@ -102,7 +106,7 @@ export function createChatModel({ getRevision, getDesign, agent = null }) {
     cancelProposal() {
       if (!proposal) return false;
       proposal = null;
-      push('system', 'Proposal cancelled. No changes were made.');
+      push('system', t('cancelled'));
       notify();
       return true;
     },
