@@ -73,4 +73,20 @@ describe('localized chat model and ops', () => {
     expect(change).toEqual({ title: 'מידות', detail: 'רוחב 240 ס״מ' });
     expect(describeOps([{ op: 'update_dimensions', width: 2400 }])[0].title).toBe('Dimensions');
   });
+
+  it('uses Hebrew names for default compartments and component types, with no English words', () => {
+    const rows = describeOps([
+      { op: 'modify_compartment', compartmentId: 'cmp_middle', width: 772 },
+      { op: 'add_shelf', compartmentId: 'cmp_left', y: 1000 },
+      { op: 'modify_shelf', id: 'shf_l1', y: 500 },
+      { op: 'add_rail', compartmentId: 'cmp_right', y: 1500 },
+    ], 'he');
+    expect(rows.map((r) => r.detail)).toEqual([
+      'תא אמצעי ל-77.2 ס״מ',
+      'בתא שמאלי בגובה 100 ס״מ',
+      'מדף l1 ל-50 ס״מ',
+      'בתא ימני בגובה 150 ס״מ',
+    ]);
+    expect(rows.slice(0, 2).some((r) => /middle|left/.test(r.detail))).toBe(false);
+  });
 });

@@ -20,6 +20,19 @@ const DESCRIBE = {
   remove_component: (o) => ['Remove', label(o.id)],
 };
 
+// Default compartment names and component types in Hebrew; any other id keeps its own short name.
+const HE_SIDE = { left: 'שמאלי', middle: 'אמצעי', right: 'ימני' };
+const HE_NOUN = { cmp: 'תא', prt: 'מחיצה', shf: 'מדף', drw: 'מגירה', rail: 'מוט', dr: 'דלת' };
+function heLabel(id) {
+  const [prefix, ...rest] = String(id ?? '').split('_');
+  const name = rest.join(' ');
+  const noun = HE_NOUN[prefix];
+  if (!noun) return label(id);
+  if (prefix === 'cmp' && HE_SIDE[name]) return `${noun} ${HE_SIDE[name]}`;
+  return name ? `${noun} ${name}` : noun;
+}
+const inHe = (id) => `ב${heLabel(id)}`;
+
 const HE_DIMENSION = { width: 'רוחב', height: 'גובה', depth: 'עומק' };
 const HE_UNIT = 'ס״מ';
 const hcm = (mm) => cm(mm, HE_UNIT);
@@ -29,17 +42,17 @@ const DESCRIBE_HE = {
   update_dimensions: (o) => ['מידות', ['width', 'height', 'depth'].filter((k) => o[k] != null).map((k) => `${HE_DIMENSION[k]} ${hcm(o[k])}`).join(', ')],
   configure_doors: (o) => ['דלתות', o.type === 'none' ? 'ללא דלתות' : `${o.type}${o.count ? `, ${o.count} דלתות` : ''}`],
   add_compartment: (o) => ['הוספת תא', `ברוחב ${hcm(o.width)} במקום ${o.position + 1}`],
-  modify_compartment: (o) => ['שינוי גודל תא', `${label(o.compartmentId)} ל-${hcm(o.width)}`],
-  add_partition: (o) => ['הוספת מחיצה', `ב-${label(o.compartmentId)}, ${hcm(o.offset)} מהשמאל`],
-  modify_partition: (o) => ['שינוי מחיצה', label(o.partitionId)],
-  add_shelf: (o) => ['הוספת מדף', `ב-${label(o.compartmentId)} בגובה ${hcm(o.y)}`],
-  modify_shelf: (o) => ['הזזת מדף', `${label(o.id)}${o.y != null ? ` ל-${hcm(o.y)}` : ''}`],
-  add_drawer: (o) => ['הוספת מגירה', `ב-${label(o.compartmentId)} בגובה ${hcm(o.y)}, גובה המגירה ${hcm(o.height)}`],
-  modify_drawer: (o) => ['שינוי מגירה', label(o.id)],
-  add_rail: (o) => ['הוספת מוט תלייה', `ב-${label(o.compartmentId)} בגובה ${hcm(o.y)}`],
-  modify_rail: (o) => ['הזזת מוט תלייה', `${label(o.id)} ל-${hcm(o.y)}`],
+  modify_compartment: (o) => ['שינוי גודל תא', `${heLabel(o.compartmentId)} ל-${hcm(o.width)}`],
+  add_partition: (o) => ['הוספת מחיצה', `${inHe(o.compartmentId)}, ${hcm(o.offset)} מהשמאל`],
+  modify_partition: (o) => ['שינוי מחיצה', heLabel(o.partitionId)],
+  add_shelf: (o) => ['הוספת מדף', `${inHe(o.compartmentId)} בגובה ${hcm(o.y)}`],
+  modify_shelf: (o) => ['הזזת מדף', `${heLabel(o.id)}${o.y != null ? ` ל-${hcm(o.y)}` : ''}`],
+  add_drawer: (o) => ['הוספת מגירה', `${inHe(o.compartmentId)} בגובה ${hcm(o.y)}, גובה המגירה ${hcm(o.height)}`],
+  modify_drawer: (o) => ['שינוי מגירה', heLabel(o.id)],
+  add_rail: (o) => ['הוספת מוט תלייה', `${inHe(o.compartmentId)} בגובה ${hcm(o.y)}`],
+  modify_rail: (o) => ['הזזת מוט תלייה', `${heLabel(o.id)} ל-${hcm(o.y)}`],
   set_material: (o) => ['חומר', [o.material, o.color, o.finish].filter(Boolean).map((r) => r.catalogId ?? r.name).join(', ') || (o.clear ? 'איפוס' : '')],
-  remove_component: (o) => ['הסרה', label(o.id)],
+  remove_component: (o) => ['הסרה', heLabel(o.id)],
 };
 
 const TABLES = { en: DESCRIBE, he: DESCRIBE_HE };
