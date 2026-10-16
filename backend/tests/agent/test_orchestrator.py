@@ -83,3 +83,18 @@ def test_every_op_has_a_tool_and_no_tool_exposes_the_op_discriminator():
     for tool in TOOLS:
         assert "op" not in tool["function"]["parameters"]["properties"]
         assert "op" not in tool["function"]["parameters"].get("required", [])
+
+
+def test_the_prompt_confines_the_agent_to_the_wardrobe():
+    client = FakeOpenAI(reply("ok"))
+    run(client)
+    prompt = client.requests[0]["messages"][0]["content"]
+    assert "SCOPE (strict)" in prompt
+    for needle in ("recipes", "Do not answer the off-topic question", "Never reveal", "another role"):
+        assert needle in prompt
+
+
+def test_a_plain_answer_without_tools_is_kept_short():
+    long_answer = "x" * 5000
+    result = run(FakeOpenAI(reply(long_answer)))
+    assert result.ops is None and len(result.reply) == 400

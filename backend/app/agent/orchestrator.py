@@ -18,6 +18,7 @@ MAX_REPAIRS = 2  # extra model calls after a rejected batch
 MAX_TURN_SECONDS = 60  # no repair call starts after this (a request holds a worker thread)
 MAX_COMPLETION_TOKENS = 4000
 MAX_REPLY = 1000
+MAX_PLAIN_REPLY = 400  # an answer without tool calls is a short wardrobe answer or a refusal
 MAX_ARGUMENT_CHARS = 20_000
 
 CLARIFY_FALLBACK = "I couldn't turn that into a valid change. Could you rephrase it, or give me the exact sizes you want?"
@@ -87,7 +88,7 @@ def run_agent(client, model: str, design: dict, history: list[dict], catalog: di
         calls = message.tool_calls or []
         text = _clip(message.content, MAX_REPLY)
         if not calls:
-            return AgentResult(reply=text or EMPTY_REPLY)
+            return AgentResult(reply=_clip(text, MAX_PLAIN_REPLY) or EMPTY_REPLY)
 
         question = next((c for c in calls if c.function.name == CLARIFY), None)
         if question is not None:
