@@ -1,11 +1,14 @@
-// Pure chat view-model (no DOM). The agent arrives in Phase 5; until then a sent message gets
-// an honest "not connected" reply and nothing is ever applied to the design.
+// Pure chat view-model (no DOM). With an OpenAI key the agent answers in text (any language,
+// wardrobe topics only); without one a sent message gets an honest "not connected" reply.
+// Nothing here is ever applied to the design: design proposals arrive in Phase 5.
 //
 // A proposal is { id, baseRevision, summary, changes: [{ title, detail }] }. It is kept apart from
 // the committed design and is only ever "pending" or "stale" (the design changed after it was made).
 
 export const NOT_CONNECTED_MESSAGE =
-  "The AI agent isn't connected yet (planned for Phase 5). You can design manually in the Properties panel.";
+  "The AI agent isn't connected yet. Add your OpenAI key in AI settings, or design manually in the Properties panel.";
+export const AGENT_ERROR_MESSAGE = 'The AI designer could not answer. Please try again.';
+const HISTORY_LIMIT = 20;
 export const STALE_MESSAGE = 'Design changed. Ask the agent to re-propose.';
 export const MAX_MESSAGE_LENGTH = 2000;
 
@@ -21,9 +24,14 @@ export function proposalStatus(proposal, currentRevision) {
   return proposal.baseRevision === currentRevision ? 'pending' : 'stale';
 }
 
-export function createChatModel({ getRevision, agentConnected = false }) {
+/**
+ * `agent` (optional): { isReady(): boolean, reply(history): Promise<string> }, where history is
+ * [{ role: 'user'|'assistant', content }] ending with the new customer message.
+ */
+export function createChatModel({ getRevision, agent = null }) {
   let nextId = 1;
   let proposal = null;
+  let thinking = false;
   const messages = [];
   const listeners = new Set();
   const notify = () => listeners.forEach((listener) => listener());
@@ -40,16 +48,35 @@ export function createChatModel({ getRevision, agentConnected = false }) {
     getMessages: () => [...messages],
     getProposal: () => proposal,
     getProposalStatus: () => proposalStatus(proposal, getRevision()),
+    isThinking: () => thinking,
 
-    /** A customer message. Returns { ok } and never touches the design. */
+    /** A customer message. Returns { ok, done? } and never touches the design. */
     send(rawText) {
       const text = String(rawText ?? '').trim();
       if (!text) return { ok: false, reason: 'empty' };
       if (text.length > MAX_MESSAGE_LENGTH) return { ok: false, reason: 'too-long' };
+      if (thinking) return { ok: false, reason: 'busy' };
       push('user', text);
-      if (!agentConnected) push('system', NOT_CONNECTED_MESSAGE);
+      if (!agent?.isReady()) {
+        push('system', NOT_CONNECTED_MESSAGE);
+        notify();
+        return { ok: true };
+      }
+      const history = messages
+        .filter((m) => m.role === 'user' || m.role === 'assistant')
+        .slice(-HISTORY_LIMIT)
+        .map((m) => ({ role: m.role, content: m.text }));
+      thinking = true;
       notify();
-      return { ok: true };
+      const done = Promise.resolve()
+        .then(() => agent.reply(history))
+        .then((answer) => push('assistant', answer))
+        .catch((error) => push('system', error?.message || AGENT_ERROR_MESSAGE))
+        .finally(() => {
+          thinking = false;
+          notify();
+        });
+      return { ok: true, done };
     },
 
     /** Set by the agent integration (Phase 5) or the dev-only demo. */

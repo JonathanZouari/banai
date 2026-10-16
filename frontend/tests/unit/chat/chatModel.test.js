@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   createChatModel, MAX_MESSAGE_LENGTH, NOT_CONNECTED_MESSAGE, proposalStatus, SUGGESTIONS,
 } from '../../../src/chat/chatModel.js';
@@ -89,5 +89,48 @@ describe('suggestions', () => {
       expect(text.length).toBeLessThan(MAX_MESSAGE_LENGTH);
     });
     expect(new Set(SUGGESTIONS).size).toBe(SUGGESTIONS.length);
+  });
+});
+
+describe('chat model with the agent', () => {
+  const readyAgent = (reply) => ({ isReady: () => true, reply: vi.fn(reply) });
+
+  it('sends the conversation (user and assistant only) and adds the reply', async () => {
+    const agent = readyAgent(async () => 'שלום! איך אפשר לעזור?');
+    const model = createChatModel({ getRevision: () => 1, agent });
+    const { done } = model.send('היי');
+    expect(model.isThinking()).toBe(true);
+    await done;
+    expect(model.isThinking()).toBe(false);
+    expect(agent.reply).toHaveBeenCalledWith([{ role: 'user', content: 'היי' }]);
+    expect(model.getMessages().map((m) => [m.role, m.text])).toEqual([['user', 'היי'], ['assistant', 'שלום! איך אפשר לעזור?']]);
+
+    await model.send('3 shelves').done;
+    expect(agent.reply).toHaveBeenLastCalledWith([
+      { role: 'user', content: 'היי' }, { role: 'assistant', content: 'שלום! איך אפשר לעזור?' }, { role: 'user', content: '3 shelves' },
+    ]);
+  });
+
+  it('refuses a second message while the agent is answering', async () => {
+    const model = createChatModel({ getRevision: () => 1, agent: readyAgent(async () => 'ok') });
+    const first = model.send('one');
+    expect(model.send('two')).toEqual({ ok: false, reason: 'busy' });
+    await first.done;
+    expect(model.getMessages()).toHaveLength(2);
+  });
+
+  it('shows the server error as a system note and never touches the design', async () => {
+    const model = createChatModel({ getRevision: () => 1, agent: readyAgent(async () => { throw new Error('OpenAI rejected the API key.'); }) });
+    await model.send('hi').done;
+    expect(model.getMessages().at(-1)).toMatchObject({ role: 'system', text: 'OpenAI rejected the API key.' });
+    expect(model.getProposal()).toBeNull();
+  });
+
+  it('falls back to the not-connected note when the agent is not ready', () => {
+    const agent = { isReady: () => false, reply: vi.fn() };
+    const model = createChatModel({ getRevision: () => 1, agent });
+    expect(model.send('hi')).toEqual({ ok: true });
+    expect(model.getMessages().at(-1).text).toBe(NOT_CONNECTED_MESSAGE);
+    expect(agent.reply).not.toHaveBeenCalled();
   });
 });
