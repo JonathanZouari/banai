@@ -10,7 +10,7 @@
     <header class="topbar">
       <h1 class="topbar__title">BanAI <span>Wardrobe Designer</span></h1>
       <div class="topbar__actions">
-        <label class="toggle">
+        <label class="toggle toggle--switch">
           <input type="checkbox" id="toggle-interior" />
           <span>Show interior</span>
         </label>
@@ -24,7 +24,17 @@
         <p class="panel__note">Describe the wardrobe you want, and the agent will propose changes for you to confirm.</p>
         <div class="empty-state">The conversational design agent is not connected yet (planned for Phase 5). You can design manually in the Properties panel.</div>
       </aside>
-      <section class="viewer" id="viewer" aria-label="3D viewer"></section>
+      <section class="viewer" id="viewer" aria-label="3D viewer">
+        <div class="viewer-toolbar" role="toolbar" aria-label="Camera views">
+          <button type="button" class="viewer-toolbar__btn" data-view="front">Front</button>
+          <button type="button" class="viewer-toolbar__btn is-active" data-view="angle">3/4</button>
+          <button type="button" class="viewer-toolbar__btn" data-view="side">Side</button>
+          <button type="button" class="viewer-toolbar__btn" data-view="top">Top</button>
+          <span class="viewer-toolbar__sep"></span>
+          <button type="button" class="viewer-toolbar__btn" data-fit>Fit</button>
+        </div>
+        <p class="viewer-hint">Drag to rotate · Scroll to zoom · Click a part to select</p>
+      </section>
       <aside class="panel panel--properties" id="properties-panel" aria-label="Properties">
         <h2 class="panel__title">Properties</h2>
         <p class="panel__hint">Click a component in the 3D view to edit it.</p>
