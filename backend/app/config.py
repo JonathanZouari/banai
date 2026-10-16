@@ -10,6 +10,11 @@ class Settings(BaseSettings):
 
     app_env: str = "local"
     cors_origins: str = "http://localhost:5173"
+    openai_api_key: str = ""
+    openai_chat_model: str = ""
+    proposal_signing_key: str = ""
+    chat_rate_limit: str = "20/minute"  # configurable default, per client address
+    max_body_bytes: int = 262_144  # request bodies above this are refused before parsing
 
     @property
     def cors_origin_list(self) -> list[str]:

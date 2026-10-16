@@ -1,8 +1,18 @@
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
-from app.api import health, reference
+from app.api import chat, health, proposals, reference
+from app.api.envelope import fail
+from app.api.limits import BodyLimitMiddleware, limiter, rate_limit_handler
 from app.config import get_settings
+
+
+def _validation_failed(_request, _error: RequestValidationError):
+    # Never echo the rejected input back (it may be large or crafted).
+    return fail(422, "INVALID_REQUEST", "The request is not valid.")
 
 
 def create_app() -> FastAPI:
@@ -15,14 +25,21 @@ def create_app() -> FastAPI:
         redoc_url=None if is_production else "/redoc",
         openapi_url=None if is_production else "/openapi.json",
     )
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
+    app.add_exception_handler(RequestValidationError, _validation_failed)
+    app.add_middleware(SlowAPIMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,
         allow_methods=["GET", "POST", "PUT"],
         allow_headers=["Authorization", "Content-Type", "If-Match"],
     )
+    app.add_middleware(BodyLimitMiddleware, max_bytes=settings.max_body_bytes)
     app.include_router(health.router)
     app.include_router(reference.router)
+    app.include_router(chat.router)
+    app.include_router(proposals.router)
     return app
 
 
