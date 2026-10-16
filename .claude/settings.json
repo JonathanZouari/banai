@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/obsidian_worklog.py\"",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/obsidian_worklog.py\"",
             "timeout": 15,
             "statusMessage": "Logging turn to Obsidian"
           }
