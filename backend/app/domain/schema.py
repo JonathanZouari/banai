@@ -1,4 +1,7 @@
-"""Canonical wardrobe schema (v1). Units: integer millimetres.
+"""Canonical wardrobe schema (v2; v1 input is upgraded). Units: integer millimetres.
+
+v2 adds `site`, `carcass.plinthHeight` and `compartments[].inserts`, all with defaults,
+so a v1 design parses unchanged and comes out as v2.
 
 Structural shape only; cross-field rules live in validation.py. Mirrored by the
 zod schema in frontend/src/domain/schema.js. Inputs are untrusted (they may come
@@ -33,7 +36,8 @@ INT_BOUND = 1_000_000
 MAX_LIST = 100  # items of one kind in one compartment
 MAX_COMPARTMENTS = 20
 MAX_DOORS = 20
-MAX_ITEMS_TOTAL = 300  # shelves + drawers + rails across the whole design
+MAX_ITEMS_TOTAL = 300  # shelves + drawers + rails + inserts across the whole design
+MAX_INSERTS = 4  # at most one insert of each type per compartment
 
 # Free text from customers / the LLM: no control or bidi-override characters.
 SAFE_TEXT_PATTERN = r"^[^\x00-\x1f\x7f-\x9f\u200b-\u200d\u2028\u2029\u202a-\u202e\u2066-\u2069\ufeff]+$"
@@ -67,6 +71,7 @@ ShelfId = Annotated[str, _typed_id(ids.SHELF)]
 DrawerId = Annotated[str, _typed_id(ids.DRAWER)]
 RailId = Annotated[str, _typed_id(ids.RAIL)]
 DoorId = Annotated[str, _typed_id(ids.DOOR)]
+InsertId = Annotated[str, _typed_id(ids.INSERT)]
 AnyId = Annotated[str, Field(pattern=ids.ANY_ID_PATTERN)]
 
 
@@ -137,6 +142,7 @@ class Dimensions(StrictModel):
 class Carcass(StrictModel):
     panel_thickness: Int
     appearance: Appearance
+    plinth_height: Int = 0  # v1 designs have no plinth
 
 
 class Shelf(StrictModel):
@@ -159,12 +165,33 @@ class Rail(StrictModel):
     y: Int
 
 
+InsertType = Literal["pulldown", "shoes", "trousers", "led"]
+
+
+class Insert(StrictModel):
+    """An interior insert. Which of y/tiers/height apply depends on the type (checked in validation)."""
+
+    id: InsertId
+    type: InsertType
+    y: Int | None = None
+    tiers: Int | None = None
+    height: Int | None = None
+
+
+class Site(StrictModel):
+    """Customer's estimated site measurements (mm). The carpenter verifies them on site."""
+
+    ceiling: Int | None = None
+    niche: Int | None = None
+
+
 class Compartment(StrictModel):
     id: CompartmentId
     width: Int
     shelves: list[Shelf] = Field(max_length=MAX_LIST)
     drawers: list[Drawer] = Field(max_length=MAX_LIST)
     rails: list[Rail] = Field(max_length=MAX_LIST)
+    inserts: list[Insert] = Field(default_factory=list, max_length=MAX_INSERTS)
 
 
 class Partition(StrictModel):
@@ -188,7 +215,7 @@ class Doors(StrictModel):
 
 
 class Design(StrictModel):
-    schema_version: Literal[1]
+    schema_version: Literal[1, 2]
     units: Literal["mm"]
     dimensions: Dimensions
     carcass: Carcass
@@ -196,11 +223,12 @@ class Design(StrictModel):
     partitions: list[Partition] = Field(max_length=MAX_COMPARTMENTS)
     doors: Doors
     handles: Handle = Field(default_factory=_default_handles)
+    site: Site | None = None
 
     @field_validator("compartments")
     @classmethod
     def _cap_total_items(cls, compartments: list[Compartment]) -> list[Compartment]:
-        total = sum(len(c.shelves) + len(c.drawers) + len(c.rails) for c in compartments)
+        total = sum(len(c.shelves) + len(c.drawers) + len(c.rails) + len(c.inserts) for c in compartments)
         if total > MAX_ITEMS_TOTAL:
             raise ValueError("too many interior items")
         return compartments
@@ -209,8 +237,13 @@ class Design(StrictModel):
     @classmethod
     def _version_not_bool(cls, value: object) -> object:
         if isinstance(value, bool):  # `True == 1` would otherwise pass Literal[1]
-            raise ValueError("schemaVersion must be the integer 1")
+            raise ValueError("schemaVersion must be the integer 1 or 2")
         return value
+
+    @field_validator("schema_version")
+    @classmethod
+    def _upgrade_version(cls, value: int) -> int:
+        return 2  # a v1 design is upgraded: its v2 fields took their defaults
 
 
 def format_loc(loc: tuple) -> str:

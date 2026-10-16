@@ -10,6 +10,7 @@ from app.domain import ids
 from app.domain import ops as op_types
 from app.domain.defaults import (
     DEFAULT_PANEL_THICKNESS,
+    DEFAULT_PLINTH_HEIGHT,
     DEFAULT_SLIDING_DOOR_COUNT,
     LIMITS,
     default_appearance,
@@ -25,7 +26,7 @@ def _given(value, fallback):
 
 
 def _empty_compartment(compartment_id: str, width: int) -> dict:
-    return {"id": compartment_id, "width": width, "shelves": [], "drawers": [], "rails": []}
+    return {"id": compartment_id, "width": width, "shelves": [], "drawers": [], "rails": [], "inserts": []}
 
 
 def _door(door_id: str, compartment_ids: list[str], hinge_side: str | None) -> dict:
@@ -59,6 +60,8 @@ def create_wardrobe(_draft: dict | None, op: op_types.CreateWardrobe, path: str)
     require_range(op.compartment_count, "compartmentCount", f"{path}.compartmentCount")
     n = op.compartment_count
     panel = _given(op.panel_thickness, DEFAULT_PANEL_THICKNESS)
+    plinth = _given(op.plinth_height, DEFAULT_PLINTH_HEIGHT)
+    require_range(plinth, "plinthHeight", f"{path}.plinthHeight")
     partition = _given(op.partition_thickness, panel)
     available = op.width - 2 * panel - (n - 1) * partition
     base, remainder = available // n, available % n
@@ -67,21 +70,25 @@ def create_wardrobe(_draft: dict | None, op: op_types.CreateWardrobe, path: str)
     compartment_ids = _ids_or_new(op.compartment_ids, n, ids.COMPARTMENT, f"{path}.compartmentIds")
     partition_ids = _ids_or_new(op.partition_ids, n - 1, ids.PARTITION, f"{path}.partitionIds")
     return {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "units": "mm",
         "dimensions": {"width": op.width, "height": op.height, "depth": op.depth},
-        "carcass": {"panelThickness": panel, "appearance": default_appearance()},
+        "carcass": {"panelThickness": panel, "appearance": default_appearance(), "plinthHeight": plinth},
         "compartments": [_empty_compartment(cid, w) for cid, w in zip(compartment_ids, widths)],
         "partitions": [{"id": pid, "thickness": partition} for pid in partition_ids],
         "doors": {"type": "none", "appearance": default_appearance(), "items": []},
         "handles": default_handles(),
+        "site": None,
     }
 
 
 def update_dimensions(draft: dict, op: op_types.UpdateDimensions, path: str) -> dict:
-    if op.width is None and op.height is None and op.depth is None:
-        raise DomainError(INVALID_OP, path, "give at least one of width, height, depth")
+    if op.width is None and op.height is None and op.depth is None and op.plinth_height is None:
+        raise DomainError(INVALID_OP, path, "give at least one of width, height, depth, plinthHeight")
     _require_dimension_ranges(op, path)
+    if op.plinth_height is not None:
+        require_range(op.plinth_height, "plinthHeight", f"{path}.plinthHeight")
+        draft["carcass"]["plinthHeight"] = op.plinth_height
     if op.width is not None:
         compartments = draft["compartments"]
         fixed = 2 * draft["carcass"]["panelThickness"] + sum(p["thickness"] for p in draft["partitions"])
@@ -212,7 +219,7 @@ def remove_component(draft: dict, op: op_types.RemoveComponent, path: str) -> di
     if found is None:
         raise DomainError(NOT_FOUND, f"{path}.id", "no component with this id")
     kind, index, item_index = found
-    if kind in ITEM_KINDS:
+    if kind in ITEM_KINDS or kind == "inserts":
         del draft["compartments"][index][kind][item_index]
     elif kind == "compartment":
         _remove_compartment(draft, index, f"{path}.id")
@@ -247,7 +254,7 @@ def _merge_at_partition(draft: dict, j: int) -> None:
     compartments = draft["compartments"]
     left, right = compartments[j], compartments[j + 1]
     left["width"] += draft["partitions"][j]["thickness"] + right["width"]
-    for kind in ITEM_KINDS:
+    for kind in (*ITEM_KINDS, "inserts"):
         left[kind] = left[kind] + right[kind]
     del compartments[j + 1]
     del draft["partitions"][j]

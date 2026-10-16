@@ -1,0 +1,1182 @@
+[
+  {
+    "name": "a v1 design is upgraded to v2 with defaults",
+    "base": {
+      "schemaVersion": 1,
+      "units": "mm",
+      "dimensions": {
+        "width": 1000,
+        "height": 2000,
+        "depth": 500
+      },
+      "carcass": {
+        "panelThickness": 20,
+        "appearance": {
+          "material": {
+            "catalogId": "melamine"
+          },
+          "color": {
+            "catalogId": "white"
+          },
+          "finish": {
+            "catalogId": "matte"
+          }
+        }
+      },
+      "compartments": [
+        {
+          "id": "cmp_a",
+          "width": 470,
+          "shelves": [
+            {
+              "id": "shf_1",
+              "y": 500,
+              "thickness": 20,
+              "appearance": null
+            }
+          ],
+          "drawers": [
+            {
+              "id": "drw_1",
+              "y": 0,
+              "height": 200,
+              "appearance": null,
+              "handle": null
+            }
+          ],
+          "rails": []
+        },
+        {
+          "id": "cmp_b",
+          "width": 470,
+          "shelves": [],
+          "drawers": [],
+          "rails": [
+            {
+              "id": "rail_1",
+              "y": 1700
+            }
+          ]
+        }
+      ],
+      "partitions": [
+        {
+          "id": "prt_ab",
+          "thickness": 20
+        }
+      ],
+      "doors": {
+        "type": "hinged",
+        "appearance": {
+          "material": {
+            "catalogId": "melamine"
+          },
+          "color": {
+            "catalogId": "white"
+          },
+          "finish": {
+            "catalogId": "matte"
+          }
+        },
+        "items": [
+          {
+            "id": "dr_a",
+            "compartmentIds": [
+              "cmp_a"
+            ],
+            "hingeSide": "left",
+            "appearance": null,
+            "handle": null,
+            "mirror": false
+          },
+          {
+            "id": "dr_b",
+            "compartmentIds": [
+              "cmp_b"
+            ],
+            "hingeSide": "right",
+            "appearance": null,
+            "handle": null,
+            "mirror": false
+          }
+        ]
+      },
+      "handles": {
+        "style": "bar",
+        "finish": "steel"
+      }
+    },
+    "ops": [],
+    "expect": {
+      "match": {
+        "schemaVersion": 2,
+        "site": null,
+        "carcass": {
+          "plinthHeight": 0
+        },
+        "compartments": [
+          {
+            "inserts": []
+          },
+          {
+            "inserts": []
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "create_wardrobe takes a plinth and emits v2",
+    "base": null,
+    "ops": [
+      {
+        "op": "create_wardrobe",
+        "width": 2400,
+        "height": 2400,
+        "depth": 600,
+        "compartmentCount": 3,
+        "panelThickness": 17,
+        "plinthHeight": 60,
+        "compartmentIds": [
+          "cmp_1",
+          "cmp_2",
+          "cmp_3"
+        ],
+        "partitionIds": [
+          "prt_1",
+          "prt_2"
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "schemaVersion": 2,
+        "site": null,
+        "carcass": {
+          "panelThickness": 17,
+          "plinthHeight": 60
+        },
+        "compartments": [
+          {
+            "width": 778,
+            "inserts": []
+          },
+          {
+            "width": 777
+          },
+          {
+            "width": 777
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "plinth over 300 is out of range",
+    "base": null,
+    "ops": [
+      {
+        "op": "create_wardrobe",
+        "width": 2400,
+        "height": 2400,
+        "depth": 600,
+        "compartmentCount": 3,
+        "panelThickness": 17,
+        "plinthHeight": 301,
+        "compartmentIds": [
+          "cmp_1",
+          "cmp_2",
+          "cmp_3"
+        ],
+        "partitionIds": [
+          "prt_1",
+          "prt_2"
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_RANGE",
+        "path": "ops[0].plinthHeight"
+      }
+    }
+  },
+  {
+    "name": "update_dimensions sets the plinth",
+    "base": "two",
+    "ops": [
+      {
+        "op": "update_dimensions",
+        "plinthHeight": 100
+      }
+    ],
+    "expect": {
+      "match": {
+        "carcass": {
+          "plinthHeight": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "a plinth that pushes a rail out of the interior is rejected",
+    "base": "two",
+    "ops": [
+      {
+        "op": "update_dimensions",
+        "plinthHeight": 300
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_BOUNDS",
+        "path": "compartments[1].rails[0].y"
+      }
+    }
+  },
+  {
+    "name": "set_site stores ceiling and niche",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "ceiling": 2600,
+        "niche": 1060
+      }
+    ],
+    "expect": {
+      "match": {
+        "site": {
+          "ceiling": 2600,
+          "niche": 1060
+        }
+      }
+    }
+  },
+  {
+    "name": "set_site merges partial updates",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "ceiling": 2600
+      },
+      {
+        "op": "set_site",
+        "niche": 1100
+      }
+    ],
+    "expect": {
+      "match": {
+        "site": {
+          "ceiling": 2600,
+          "niche": 1100
+        }
+      }
+    }
+  },
+  {
+    "name": "set_site clear removes the site",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "ceiling": 2600
+      },
+      {
+        "op": "set_site",
+        "clear": true
+      }
+    ],
+    "expect": {
+      "match": {
+        "site": null
+      }
+    }
+  },
+  {
+    "name": "a ceiling under 1500 is out of range",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "ceiling": 1000
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_RANGE",
+        "path": "ops[0].ceiling"
+      }
+    }
+  },
+  {
+    "name": "set_site needs a value or clear",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[0]"
+      }
+    }
+  },
+  {
+    "name": "set_site clear cannot carry values",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "ceiling": 2600,
+        "clear": true
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[0]"
+      }
+    }
+  },
+  {
+    "name": "apply_preset long: hat shelf and a rail, deterministic ids",
+    "base": "two",
+    "ops": [
+      {
+        "op": "apply_preset",
+        "compartmentId": "cmp_b",
+        "preset": "long"
+      }
+    ],
+    "expect": {
+      "match": {
+        "compartments": [
+          {},
+          {
+            "shelves": [
+              {
+                "id": "shf_b_1",
+                "y": 1630,
+                "thickness": 20
+              }
+            ],
+            "rails": [
+              {
+                "id": "rail_b_1",
+                "y": 1560
+              }
+            ],
+            "drawers": []
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "apply_preset double: two shelves and two rails",
+    "base": "two",
+    "ops": [
+      {
+        "op": "apply_preset",
+        "compartmentId": "cmp_b",
+        "preset": "double"
+      }
+    ],
+    "expect": {
+      "match": {
+        "compartments": [
+          {},
+          {
+            "shelves": [
+              {
+                "y": 902
+              },
+              {
+                "y": 1630
+              }
+            ],
+            "rails": [
+              {
+                "y": 832
+              },
+              {
+                "y": 1560
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "apply_preset shelves replaces drawers and shelves",
+    "base": "two",
+    "ops": [
+      {
+        "op": "apply_preset",
+        "compartmentId": "cmp_a",
+        "preset": "shelves"
+      }
+    ],
+    "expect": {
+      "match": {
+        "compartments": [
+          {
+            "shelves": [
+              {
+                "id": "shf_a_1",
+                "y": 392
+              },
+              {
+                "y": 784
+              },
+              {
+                "y": 1176
+              },
+              {
+                "y": 1568
+              }
+            ],
+            "drawers": [],
+            "rails": []
+          },
+          {}
+        ]
+      }
+    }
+  },
+  {
+    "name": "apply_preset drawers rounds half up like Math.round",
+    "base": "two",
+    "ops": [
+      {
+        "op": "apply_preset",
+        "compartmentId": "cmp_b",
+        "preset": "drawers"
+      }
+    ],
+    "expect": {
+      "match": {
+        "compartments": [
+          {},
+          {
+            "drawers": [
+              {
+                "id": "drw_b_1",
+                "y": 0,
+                "height": 224
+              },
+              {
+                "y": 230
+              },
+              {
+                "y": 460
+              }
+            ],
+            "shelves": [
+              {
+                "y": 700
+              },
+              {
+                "y": 1015
+              },
+              {
+                "y": 1330
+              },
+              {
+                "y": 1645
+              }
+            ],
+            "rails": []
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "apply_preset keeps the LED and drops zone inserts",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "led",
+        "id": "ins_led"
+      },
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "shoes",
+        "id": "ins_s"
+      },
+      {
+        "op": "apply_preset",
+        "compartmentId": "cmp_b",
+        "preset": "long"
+      }
+    ],
+    "expect": {
+      "match": {
+        "compartments": [
+          {},
+          {
+            "inserts": [
+              {
+                "id": "ins_led",
+                "type": "led"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "add_insert shoes takes default tiers from the floor",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "shoes",
+        "id": "ins_s"
+      }
+    ],
+    "expect": {
+      "match": {
+        "compartments": [
+          {},
+          {
+            "inserts": [
+              {
+                "id": "ins_s",
+                "type": "shoes",
+                "y": 0,
+                "tiers": 3,
+                "height": null
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "shoes over an existing shelf overlap",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_a",
+        "type": "shoes",
+        "id": "ins_s"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OVERLAP",
+        "path": "compartments[0].inserts[0]"
+      }
+    }
+  },
+  {
+    "name": "add_insert trousers takes the default height",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "trousers",
+        "id": "ins_t"
+      }
+    ],
+    "expect": {
+      "match": {
+        "compartments": [
+          {},
+          {
+            "inserts": [
+              {
+                "type": "trousers",
+                "y": 0,
+                "height": 700,
+                "tiers": null
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "add_insert pulldown defaults below the interior top",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "pulldown",
+        "id": "ins_p"
+      }
+    ],
+    "expect": {
+      "match": {
+        "compartments": [
+          {},
+          {
+            "inserts": [
+              {
+                "type": "pulldown",
+                "y": 1560,
+                "tiers": null,
+                "height": null
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "an LED takes no position",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "led",
+        "y": 100
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[0].y"
+      }
+    }
+  },
+  {
+    "name": "shoes take no height",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "shoes",
+        "height": 500
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[0].height"
+      }
+    }
+  },
+  {
+    "name": "one insert of each type per compartment",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "shoes",
+        "id": "ins_s1"
+      },
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "shoes",
+        "y": 800,
+        "id": "ins_s2"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INSERT_INVALID",
+        "path": "compartments[1].inserts[1].type"
+      }
+    }
+  },
+  {
+    "name": "shoe tiers over 6 are out of range",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "shoes",
+        "tiers": 7
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_RANGE",
+        "path": "compartments[1].inserts[0].tiers"
+      }
+    }
+  },
+  {
+    "name": "shoes above the interior top are out of bounds",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "shoes",
+        "y": 1500
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_BOUNDS",
+        "path": "compartments[1].inserts[0].y"
+      }
+    }
+  },
+  {
+    "name": "a rail inside the trouser zone overlaps",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_rail",
+        "compartmentId": "cmp_b",
+        "y": 300,
+        "id": "rail_low"
+      },
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "trousers"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OVERLAP",
+        "path": "compartments[1].rails[1]"
+      }
+    }
+  },
+  {
+    "name": "a pull-down rail inside the shoe zone overlaps",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "shoes"
+      },
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "pulldown",
+        "y": 500
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OVERLAP",
+        "path": "compartments[1].inserts[1]"
+      }
+    }
+  },
+  {
+    "name": "modify_insert changes the tiers",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "shoes",
+        "id": "ins_s"
+      },
+      {
+        "op": "modify_insert",
+        "id": "ins_s",
+        "tiers": 4
+      }
+    ],
+    "expect": {
+      "match": {
+        "compartments": [
+          {},
+          {
+            "inserts": [
+              {
+                "tiers": 4
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "modify_insert rejects a field the type does not take",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "shoes",
+        "id": "ins_s"
+      },
+      {
+        "op": "modify_insert",
+        "id": "ins_s",
+        "height": 500
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[1].height"
+      }
+    }
+  },
+  {
+    "name": "modify_insert needs a change",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "shoes",
+        "id": "ins_s"
+      },
+      {
+        "op": "modify_insert",
+        "id": "ins_s"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[1]"
+      }
+    }
+  },
+  {
+    "name": "modify_insert of an unknown insert",
+    "base": "two",
+    "ops": [
+      {
+        "op": "modify_insert",
+        "id": "ins_nope",
+        "y": 10
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "NOT_FOUND",
+        "path": "ops[0].id"
+      }
+    }
+  },
+  {
+    "name": "remove_component removes an insert",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "led",
+        "id": "ins_l"
+      },
+      {
+        "op": "remove_component",
+        "id": "ins_l"
+      }
+    ],
+    "expect": {
+      "match": {
+        "compartments": [
+          {
+            "inserts": []
+          },
+          {
+            "inserts": []
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "merging at a partition keeps both compartments' inserts",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_a",
+        "type": "led",
+        "id": "ins_la"
+      },
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "pulldown",
+        "id": "ins_pb"
+      },
+      {
+        "op": "remove_component",
+        "id": "prt_ab"
+      }
+    ],
+    "expect": {
+      "match": {
+        "compartments": [
+          {
+            "inserts": [
+              {
+                "id": "ins_la"
+              },
+              {
+                "id": "ins_pb"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "an unknown insert type is a schema error",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "safe"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "SCHEMA_INVALID",
+        "path": "ops[0]"
+      }
+    }
+  },
+  {
+    "name": "an insert id needs the ins_ prefix",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "led",
+        "id": "shf_x"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "SCHEMA_INVALID",
+        "path": "ops[0]"
+      }
+    }
+  },
+  {
+    "name": "split_door makes a left/right pair over one compartment",
+    "base": "two",
+    "ops": [
+      {
+        "op": "split_door",
+        "id": "dr_a",
+        "newId": "dr_a2"
+      }
+    ],
+    "expect": {
+      "match": {
+        "doors": {
+          "items": [
+            {
+              "id": "dr_a",
+              "compartmentIds": [
+                "cmp_a"
+              ],
+              "hingeSide": "left"
+            },
+            {
+              "id": "dr_a2",
+              "compartmentIds": [
+                "cmp_a"
+              ],
+              "hingeSide": "right",
+              "mirror": false
+            },
+            {
+              "id": "dr_b"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "a compartment can only be split once",
+    "base": "two",
+    "ops": [
+      {
+        "op": "split_door",
+        "id": "dr_a",
+        "newId": "dr_a2"
+      },
+      {
+        "op": "split_door",
+        "id": "dr_a2"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[1].id"
+      }
+    }
+  },
+  {
+    "name": "sliding doors cannot be split",
+    "base": "two",
+    "ops": [
+      {
+        "op": "configure_doors",
+        "type": "sliding",
+        "ids": [
+          "dr_s1",
+          "dr_s2"
+        ]
+      },
+      {
+        "op": "split_door",
+        "id": "dr_s1"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[1]"
+      }
+    }
+  },
+  {
+    "name": "a door over two compartments cannot be split",
+    "base": "two",
+    "ops": [
+      {
+        "op": "configure_doors",
+        "type": "hinged",
+        "doors": [
+          {
+            "id": "dr_ab",
+            "compartmentIds": [
+              "cmp_a",
+              "cmp_b"
+            ],
+            "hingeSide": "left"
+          }
+        ]
+      },
+      {
+        "op": "split_door",
+        "id": "dr_ab"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[1].id"
+      }
+    }
+  },
+  {
+    "name": "two single leaves over one compartment are a valid pair",
+    "base": "two",
+    "ops": [
+      {
+        "op": "configure_doors",
+        "type": "hinged",
+        "doors": [
+          {
+            "id": "dr_1",
+            "compartmentIds": [
+              "cmp_a"
+            ],
+            "hingeSide": "left"
+          },
+          {
+            "id": "dr_2",
+            "compartmentIds": [
+              "cmp_a"
+            ],
+            "hingeSide": "right"
+          },
+          {
+            "id": "dr_3",
+            "compartmentIds": [
+              "cmp_b"
+            ],
+            "hingeSide": "left"
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "doors": {
+          "items": [
+            {
+              "id": "dr_1"
+            },
+            {
+              "id": "dr_2"
+            },
+            {
+              "id": "dr_3"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "a third leaf over one compartment is invalid",
+    "base": "two",
+    "ops": [
+      {
+        "op": "configure_doors",
+        "type": "hinged",
+        "doors": [
+          {
+            "id": "dr_1",
+            "compartmentIds": [
+              "cmp_a"
+            ],
+            "hingeSide": "left"
+          },
+          {
+            "id": "dr_2",
+            "compartmentIds": [
+              "cmp_a"
+            ],
+            "hingeSide": "right"
+          },
+          {
+            "id": "dr_3",
+            "compartmentIds": [
+              "cmp_a"
+            ],
+            "hingeSide": "left"
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "DOOR_INVALID",
+        "path": "doors.items[2].compartmentIds"
+      }
+    }
+  }
+]

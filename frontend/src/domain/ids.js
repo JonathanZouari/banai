@@ -6,9 +6,10 @@ export const SHELF = 'shf';
 export const DRAWER = 'drw';
 export const RAIL = 'rail';
 export const DOOR = 'dr';
+export const INSERT = 'ins';
 
 const SUFFIX = '[A-Za-z0-9_-]{1,40}';
-export const ANY_ID_PATTERN = new RegExp(`^(cmp|prt|shf|drw|rail|dr)_${SUFFIX}$`);
+export const ANY_ID_PATTERN = new RegExp(`^(cmp|prt|shf|drw|rail|dr|ins)_${SUFFIX}$`);
 export const TARGET_PATTERN = new RegExp(`^(carcass|doors|(cmp|prt|shf|drw|rail|dr)_${SUFFIX})$`);
 
 // `all` addresses the design-wide handles; ids are checked for shape only (the handler rejects kinds without handles).

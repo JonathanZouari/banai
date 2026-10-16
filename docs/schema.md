@@ -141,3 +141,42 @@ These live in `defaults.py` / `defaults.js` and are mirrored on both sides:
 - the basic wardrobe (`shared/fixtures/designs/basic.json`): 2000×2400×600 with 3 compartments and hinged doors
 
 The catalog contents (`catalog.json`) are placeholder prototype data. A color entry may carry an optional `grain` (`oak`, `ash`, `cherry`, `teak`, `wenge` or `walnut`) that names the wood-texture family a renderer can use for it. Plain colors have no `grain`. The JS `parseCatalog` keeps `grain` when it is one of those values and rejects anything else. The engines do not use it for validation. Catalog ids are append-only: existing ids keep their position, and new colors are added after them.
+
+## Schema v2 (bobHabanai)
+
+v2 is additive. A v1 design parses unchanged and comes out with `schemaVersion: 2`, and its new fields take their defaults. Golden cases: `shared/fixtures/ops/v2.json`.
+
+| Field | Default | Meaning |
+|---|---|---|
+| `site: { ceiling, niche } \| null` | `null` | Customer's estimated site measurements in mm (each may be `null`). The carpenter verifies them on site. |
+| `carcass.plinthHeight` | `0` | Plinth under the bottom panel. **Interior height** = `height − 2·panelThickness − plinthHeight`. |
+| `compartments[].inserts[]` | `[]` | Interior inserts, at most one of each type (≤ 4). |
+
+**Insert** = `{ id: "ins_…", type, y, tiers, height }`. Which fields apply depends on the type, and the rest must be `null`:
+
+| `type` | Fields | Occupies |
+|---|---|---|
+| `shoes` | `y`, `tiers` (1–6) | the zone `[y, y + tiers·240]`, sloped shoe shelves (tier 220–260 mm, research [35]) |
+| `trousers` | `y`, `height` (200–1500) | the zone `[y, y + height]`, a pull-out rack |
+| `pulldown` | `y` | a point (like a rail): a pull-down hanging rail |
+| `led` | none | no zone: LED strip with a door sensor |
+
+**New validation:**
+- Insert fields must match the type, and a type may appear only once per compartment (`INSERT_INVALID`).
+- Zones lie within the interior (`OUT_OF_BOUNDS`) and don't overlap shelves, drawers or each other. A rail or pull-down may not sit strictly inside a zone (`OVERLAP`).
+- Ranges: `plinthHeight` 0–300, `site.ceiling` 1500–5000, `site.niche` 300–10000.
+- **Split doors:** a compartment may carry two hinged leaves when both doors cover only that compartment. A third leaf, or a split leaf that spans more, is still `DOOR_INVALID`.
+
+**New ops:**
+
+| Op | Fields | Semantics |
+|---|---|---|
+| `create_wardrobe`, `update_dimensions` | + `plinthHeight?` | Range-checked. A plinth that pushes items out of the interior is rejected. |
+| `set_site` | `ceiling?`, `niche?`, `clear?` | Partial update, merged into the existing site. `clear` removes it. |
+| `apply_preset` | `compartmentId`, `preset` (`long`/`double`/`shelves`/`drawers`) | Replaces the compartment's shelves, rails and drawers with the preset. Ids are deterministic (`shf_<tag>_1`…, where `<tag>` is the compartment id without `cmp_`). Shelves take the panel thickness. Zone inserts are dropped and the LED stays. Rounding is half-up in integers in both engines (`_half_up` / `halfUp`), never Python's banker's `round()`. |
+| `add_insert` | `compartmentId`, `type`, `y?`, `tiers?`, `height?`, `id?` | Defaults: shoes `y 0, tiers 3`; trousers `y 0, height 700`; pull-down `y = interior − 400`. A field the type doesn't take → `INVALID_OP` at that field. |
+| `modify_insert` | `id`, `y?`, `tiers?`, `height?` | Same field rules. |
+| `split_door` | `id`, `newId?` | Hinged only, and only a door over one compartment that isn't split yet. Result: left leaf hinged left, new right leaf hinged right (it copies the appearance and handle, `mirror: false`). |
+| `remove_component` | `ins_…` ids | Removes an insert. Merging at a partition keeps both compartments' inserts. |
+
+Op-level schema errors keep reporting at `ops[i]`, as in v1.

@@ -17,11 +17,24 @@ LIMITS: dict[str, tuple[int, int]] = {
     "drawerHeight": (50, 1000),
     "compartmentCount": (1, 20),
     "slidingDoorCount": (1, 6),
+    # schema v2
+    "plinthHeight": (0, 300),
+    "ceiling": (1500, 5000),
+    "niche": (300, 10000),
+    "shoeTiers": (1, 6),
+    "insertHeight": (200, 1500),
 }
 
 DEFAULT_PANEL_THICKNESS = 18
 DEFAULT_SHELF_THICKNESS = 18
 DEFAULT_SLIDING_DOOR_COUNT = 2
+DEFAULT_PLINTH_HEIGHT = 0  # no plinth unless asked for; new designs from the UI pass one explicitly
+
+# Schema v2 interior inserts. A shoe tier is 220-260 mm in the research [35].
+SHOE_TIER = 240
+DEFAULT_SHOE_TIERS = 3
+DEFAULT_TROUSER_HEIGHT = 700
+PULLDOWN_DROP = 400  # default pull-down rail height below the interior top
 
 
 def default_handles() -> dict:

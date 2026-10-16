@@ -17,6 +17,8 @@ from app.domain.schema import (
     CompartmentId,
     DoorId,
     DrawerId,
+    InsertId,
+    InsertType,
     HandleFinish,
     HandleStyle,
     Int,
@@ -42,6 +44,7 @@ class CreateWardrobe(StrictModel):
     compartment_count: Int
     panel_thickness: Int | None = None
     partition_thickness: Int | None = None
+    plinth_height: Int | None = None
     compartment_ids: Annotated[list[CompartmentId], Field(max_length=MAX_LIST)] | None = None
     partition_ids: Annotated[list[PartitionId], Field(max_length=MAX_LIST)] | None = None
 
@@ -51,6 +54,7 @@ class UpdateDimensions(StrictModel):
     width: Int | None = None
     height: Int | None = None
     depth: Int | None = None
+    plinth_height: Int | None = None
 
 
 class DoorSpec(StrictModel):
@@ -170,10 +174,49 @@ class RemoveComponent(StrictModel):
     id: AnyId
 
 
+# ---- schema v2 ----
+class SetSite(StrictModel):
+    op: Literal["set_site"]
+    ceiling: Int | None = None
+    niche: Int | None = None
+    clear: bool = False
+
+
+class ApplyPreset(StrictModel):
+    op: Literal["apply_preset"]
+    compartment_id: CompartmentId
+    preset: Literal["long", "double", "shelves", "drawers"]
+
+
+class AddInsert(StrictModel):
+    op: Literal["add_insert"]
+    compartment_id: CompartmentId
+    type: InsertType
+    y: Int | None = None
+    tiers: Int | None = None
+    height: Int | None = None
+    id: InsertId | None = None
+
+
+class ModifyInsert(StrictModel):
+    op: Literal["modify_insert"]
+    id: InsertId
+    y: Int | None = None
+    tiers: Int | None = None
+    height: Int | None = None
+
+
+class SplitDoor(StrictModel):
+    op: Literal["split_door"]
+    id: DoorId
+    new_id: DoorId | None = None
+
+
 Op = Annotated[
     CreateWardrobe | UpdateDimensions | ConfigureDoors | ModifyDoor | AddCompartment | ModifyCompartment
     | AddPartition | ModifyPartition | AddShelf | ModifyShelf | AddDrawer | ModifyDrawer
-    | AddRail | ModifyRail | SetMaterial | SetHandles | RemoveComponent,
+    | AddRail | ModifyRail | SetMaterial | SetHandles | RemoveComponent
+    | SetSite | ApplyPreset | AddInsert | ModifyInsert | SplitDoor,
     Field(discriminator="op"),
 ]
 

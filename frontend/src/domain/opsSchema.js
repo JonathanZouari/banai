@@ -5,7 +5,7 @@
 import { z } from 'zod';
 import { DomainError, SCHEMA_INVALID } from './errors.js';
 import * as ids from './ids.js';
-import { handleFinish, handleStyle, int, list, ref, schemaError, typedId } from './schema.js';
+import { handleFinish, handleStyle, insertType, int, list, ref, schemaError, typedId } from './schema.js';
 
 export const MAX_OPS = 100;
 
@@ -16,10 +16,10 @@ const cmpId = () => typedId(ids.COMPARTMENT);
 export const opSchema = z.discriminatedUnion('op', [
   op('create_wardrobe', {
     width: int(), height: int(), depth: int(), compartmentCount: int(),
-    panelThickness: opt(int()), partitionThickness: opt(int()),
+    panelThickness: opt(int()), partitionThickness: opt(int()), plinthHeight: opt(int()),
     compartmentIds: opt(list(cmpId())), partitionIds: opt(list(typedId(ids.PARTITION))),
   }),
-  op('update_dimensions', { width: opt(int()), height: opt(int()), depth: opt(int()) }),
+  op('update_dimensions', { width: opt(int()), height: opt(int()), depth: opt(int()), plinthHeight: opt(int()) }),
   op('configure_doors', {
     type: z.enum(['hinged', 'sliding', 'none']),
     doors: opt(list(z.strictObject({
@@ -54,6 +54,14 @@ export const opSchema = z.discriminatedUnion('op', [
     clear: z.boolean().default(false),
   }),
   op('remove_component', { id: z.string().regex(ids.ANY_ID_PATTERN) }),
+  // ---- schema v2 ----
+  op('set_site', { ceiling: opt(int()), niche: opt(int()), clear: z.boolean().default(false) }),
+  op('apply_preset', { compartmentId: cmpId(), preset: z.enum(['long', 'double', 'shelves', 'drawers']) }),
+  op('add_insert', {
+    compartmentId: cmpId(), type: insertType, y: opt(int()), tiers: opt(int()), height: opt(int()), id: opt(typedId(ids.INSERT)),
+  }),
+  op('modify_insert', { id: typedId(ids.INSERT), y: opt(int()), tiers: opt(int()), height: opt(int()) }),
+  op('split_door', { id: typedId(ids.DOOR), newId: opt(typedId(ids.DOOR)) }),
 ]);
 
 /** Validate the batch container, then each op (error path `ops[i]`). */

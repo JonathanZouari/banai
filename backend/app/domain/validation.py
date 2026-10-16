@@ -13,7 +13,7 @@ from collections.abc import Iterator
 
 from app.domain import errors as codes
 from app.domain.catalog import catalog_ids
-from app.domain.defaults import LIMITS
+from app.domain.defaults import LIMITS, SHOE_TIER
 from app.domain.errors import DomainError
 from app.domain.geometry import interior_height, interior_width
 from app.domain.schema import parse_design
@@ -63,6 +63,8 @@ def _iter_ids(design: dict) -> Iterator[tuple[str, str]]:
         for kind in ("shelves", "drawers", "rails"):
             for ii, item in enumerate(compartment[kind]):
                 yield f"compartments[{ci}].{kind}[{ii}].id", item["id"]
+        for ii, item in enumerate(compartment["inserts"]):
+            yield f"compartments[{ci}].inserts[{ii}].id", item["id"]
     for pi, partition in enumerate(design["partitions"]):
         yield f"partitions[{pi}].id", partition["id"]
     for di, door in enumerate(design["doors"]["items"]):
@@ -82,6 +84,7 @@ def _check_ranges(design: dict) -> list[DomainError]:
         (design["dimensions"]["height"], "height", "dimensions.height"),
         (design["dimensions"]["depth"], "depth", "dimensions.depth"),
         (design["carcass"]["panelThickness"], "panelThickness", "carcass.panelThickness"),
+        (design["carcass"]["plinthHeight"], "plinthHeight", "carcass.plinthHeight"),
         (len(design["compartments"]), "compartmentCount", "compartments"),
     ]
     if design["doors"]["type"] == "sliding":
@@ -95,6 +98,15 @@ def _check_ranges(design: dict) -> list[DomainError]:
             checks.append((shelf["thickness"], "shelfThickness", f"compartments[{ci}].shelves[{si}].thickness"))
         for di, drawer in enumerate(compartment["drawers"]):
             checks.append((drawer["height"], "drawerHeight", f"compartments[{ci}].drawers[{di}].height"))
+        for ii, item in enumerate(compartment["inserts"]):
+            if item["tiers"] is not None:
+                checks.append((item["tiers"], "shoeTiers", f"compartments[{ci}].inserts[{ii}].tiers"))
+            if item["height"] is not None:
+                checks.append((item["height"], "insertHeight", f"compartments[{ci}].inserts[{ii}].height"))
+    site = design["site"] or {}
+    for field in ("ceiling", "niche"):
+        if site.get(field) is not None:
+            checks.append((site[field], field, f"site.{field}"))
     return [issue for v, limit, path in checks if (issue := range_issue(v, limit, path))]
 
 
@@ -134,6 +146,49 @@ def _check_compartment(design: dict, ci: int) -> list[DomainError]:
             if start < rail["y"] < end:
                 issues.append(DomainError(codes.OVERLAP, f"{base}.rails[{ri}]", f"rail is inside {path}"))
                 break
+    issues += _check_inserts(compartment, base, top, spans)
+    return issues
+
+
+# Which of y/tiers/height each insert type takes (the rest must be null).
+_INSERT_FIELDS = {"shoes": ("y", "tiers"), "trousers": ("y", "height"), "pulldown": ("y",), "led": ()}
+
+
+def _check_inserts(compartment: dict, base: str, top: int, spans: list) -> list[DomainError]:
+    issues = []
+    seen: set[str] = set()
+    zones = []  # (start, end, path) of the inserts that take an interior zone
+    for ii, item in enumerate(compartment["inserts"]):
+        path = f"{base}.inserts[{ii}]"
+        wanted = _INSERT_FIELDS[item["type"]]
+        wrong = next((f for f in ("y", "tiers", "height") if (item[f] is not None) != (f in wanted)), None)
+        if wrong:
+            issues.append(DomainError(codes.INSERT_INVALID, f"{path}.{wrong}",
+                                      f"{item['type']} inserts {'need' if wrong in wanted else 'have no'} {wrong}"))
+            continue
+        if item["type"] in seen:
+            issues.append(DomainError(codes.INSERT_INVALID, f"{path}.type", "only one insert of each type per compartment"))
+            continue
+        seen.add(item["type"])
+        if item["type"] in ("shoes", "trousers"):
+            start = item["y"]
+            end = start + (item["tiers"] * SHOE_TIER if item["type"] == "shoes" else item["height"])
+            if start < 0 or end > top:
+                issues.append(DomainError(codes.OUT_OF_BOUNDS, f"{path}.y", f"spans {start}..{end} outside interior 0..{top}"))
+            hit = next((p for s, e, p in spans + zones if start < e and s < end), None)
+            if hit:
+                issues.append(DomainError(codes.OVERLAP, path, f"overlaps {hit}"))
+            zones.append((start, end, path))
+        elif item["type"] == "pulldown":
+            if not 0 <= item["y"] <= top:
+                issues.append(DomainError(codes.OUT_OF_BOUNDS, f"{path}.y", f"rail at {item['y']} outside interior 0..{top}"))
+            hit = next((p for s, e, p in spans + zones if s < item["y"] < e), None)
+            if hit:
+                issues.append(DomainError(codes.OVERLAP, path, f"rail is inside {hit}"))
+    for ri, rail in enumerate(compartment["rails"]):
+        hit = next((p for s, e, p in zones if s < rail["y"] < e), None)
+        if hit:
+            issues.append(DomainError(codes.OVERLAP, f"{base}.rails[{ri}]", f"rail is inside {hit}"))
     return issues
 
 
@@ -157,7 +212,9 @@ def _check_doors(design: dict) -> list[DomainError]:
 
 def _check_hinged(design: dict) -> list[DomainError]:
     index_of = {c["id"]: i for i, c in enumerate(design["compartments"])}
-    covered: set[str] = set()
+    # A compartment may carry two leaves (a split), when both doors cover only that compartment.
+    cover_count: dict[str, int] = {}
+    single_cover: dict[str, bool] = {}
     issues = []
     for di, door in enumerate(design["doors"]["items"]):
         path = f"doors.items[{di}]"
@@ -173,11 +230,15 @@ def _check_hinged(design: dict) -> list[DomainError]:
             positions = [index_of[cid] for cid in ids_]
             if positions != list(range(positions[0], positions[0] + len(positions))):
                 problem = "compartments must be adjacent and ordered left to right"
-            elif covered.intersection(ids_):
-                problem = "a compartment is already covered by another door"
+            elif any(cid in cover_count for cid in ids_):
+                pair = len(ids_) == 1 and cover_count[ids_[0]] == 1 and single_cover[ids_[0]]
+                if not pair:
+                    problem = "a compartment is already covered by another door"
         if problem:
             issues.append(DomainError(codes.DOOR_INVALID, f"{path}.compartmentIds", problem))
-        covered.update(ids_)
+        for cid in ids_:
+            cover_count[cid] = cover_count.get(cid, 0) + 1
+            single_cover.setdefault(cid, len(ids_) == 1)
     return issues
 
 

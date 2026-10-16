@@ -13,13 +13,14 @@ from typing import Any
 
 from app.domain import ops as op_types
 from app.domain.errors import INVALID_OP, DomainError
+from app.domain.ops_interior import INTERIOR_HANDLERS
 from app.domain.ops_items import ITEM_HANDLERS
 from app.domain.ops_structure import STRUCTURE_HANDLERS
 from app.domain.schema import StrictModel, parse_design
 from app.domain.validation import validate_canonical
 
 Handler = Callable[[dict | None, Any, str], dict]
-HANDLERS: dict[type[StrictModel], Handler] = {**STRUCTURE_HANDLERS, **ITEM_HANDLERS}
+HANDLERS: dict[type[StrictModel], Handler] = {**STRUCTURE_HANDLERS, **ITEM_HANDLERS, **INTERIOR_HANDLERS}
 
 
 def apply_ops(design: dict | None, ops: object, catalog: dict | None) -> dict:

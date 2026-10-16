@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "units": "mm",
   "dimensions": {
     "width": 2000,
@@ -18,7 +18,8 @@
       "finish": {
         "catalogId": "matte"
       }
-    }
+    },
+    "plinthHeight": 0
   },
   "compartments": [
     {
@@ -51,7 +52,8 @@
         }
       ],
       "drawers": [],
-      "rails": []
+      "rails": [],
+      "inserts": []
     },
     {
       "id": "cmp_middle",
@@ -70,7 +72,8 @@
           "id": "rail_m1",
           "y": 1900
         }
-      ]
+      ],
+      "inserts": []
     },
     {
       "id": "cmp_right",
@@ -105,7 +108,8 @@
           "handle": null
         }
       ],
-      "rails": []
+      "rails": [],
+      "inserts": []
     }
   ],
   "partitions": [
@@ -167,5 +171,6 @@
   "handles": {
     "style": "bar",
     "finish": "steel"
-  }
+  },
+  "site": null
 }

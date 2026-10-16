@@ -5,7 +5,7 @@
 // Rendering/data-safety checks only, never manufacturing rules.
 
 import { catalogIds } from './catalog.js';
-import { LIMITS } from './defaults.js';
+import { LIMITS, SHOE_TIER } from './defaults.js';
 import * as E from './errors.js';
 import { DomainError } from './errors.js';
 import { interiorHeight, interiorWidth } from './geometry.js';
@@ -46,6 +46,7 @@ function* iterIds(design) {
     for (const kind of ITEM_KINDS) {
       for (const [ii, item] of compartment[kind].entries()) yield [`compartments[${ci}].${kind}[${ii}].id`, item.id];
     }
+    for (const [ii, item] of compartment.inserts.entries()) yield [`compartments[${ci}].inserts[${ii}].id`, item.id];
   }
   for (const [pi, partition] of design.partitions.entries()) yield [`partitions[${pi}].id`, partition.id];
   for (const [di, door] of design.doors.items.entries()) yield [`doors.items[${di}].id`, door.id];
@@ -73,6 +74,7 @@ function checkRanges(design) {
     [design.dimensions.height, 'height', 'dimensions.height'],
     [design.dimensions.depth, 'depth', 'dimensions.depth'],
     [design.carcass.panelThickness, 'panelThickness', 'carcass.panelThickness'],
+    [design.carcass.plinthHeight, 'plinthHeight', 'carcass.plinthHeight'],
     [design.compartments.length, 'compartmentCount', 'compartments'],
   ];
   if (design.doors.type === 'sliding') checks.push([design.doors.items.length, 'slidingDoorCount', 'doors.items']);
@@ -81,7 +83,15 @@ function checkRanges(design) {
   design.compartments.forEach((c, ci) => {
     c.shelves.forEach((s, si) => checks.push([s.thickness, 'shelfThickness', `compartments[${ci}].shelves[${si}].thickness`]));
     c.drawers.forEach((d, di) => checks.push([d.height, 'drawerHeight', `compartments[${ci}].drawers[${di}].height`]));
+    c.inserts.forEach((item, ii) => {
+      if (item.tiers !== null) checks.push([item.tiers, 'shoeTiers', `compartments[${ci}].inserts[${ii}].tiers`]);
+      if (item.height !== null) checks.push([item.height, 'insertHeight', `compartments[${ci}].inserts[${ii}].height`]);
+    });
   });
+  const site = design.site ?? {};
+  for (const field of ['ceiling', 'niche']) {
+    if (site[field] !== null && site[field] !== undefined) checks.push([site[field], field, `site.${field}`]);
+  }
   return checks.map(([value, limit, path]) => rangeIssue(value, limit, path)).filter(Boolean);
 }
 
@@ -122,6 +132,52 @@ function checkCompartment(design, ci) {
     const hit = spans.find(([start, end]) => start < r.y && r.y < end);
     if (hit) issues.push(new DomainError(E.OVERLAP, `${base}.rails[${ri}]`, `rail is inside ${hit[2]}`));
   });
+  issues.push(...checkInserts(compartment, base, top, spans));
+  return issues;
+}
+
+// Which of y/tiers/height each insert type takes (the rest must be null).
+const INSERT_FIELDS = { shoes: ['y', 'tiers'], trousers: ['y', 'height'], pulldown: ['y'], led: [] };
+
+function checkInserts(compartment, base, top, spans) {
+  const issues = [];
+  const seen = new Set();
+  const zones = []; // [start, end, path] of the inserts that take an interior zone
+  compartment.inserts.forEach((item, ii) => {
+    const path = `${base}.inserts[${ii}]`;
+    const wanted = INSERT_FIELDS[item.type];
+    const wrong = ['y', 'tiers', 'height'].find((f) => (item[f] !== null) !== wanted.includes(f));
+    if (wrong) {
+      issues.push(new DomainError(E.INSERT_INVALID, `${path}.${wrong}`,
+        `${item.type} inserts ${wanted.includes(wrong) ? 'need' : 'have no'} ${wrong}`));
+      return;
+    }
+    if (seen.has(item.type)) {
+      issues.push(new DomainError(E.INSERT_INVALID, `${path}.type`, 'only one insert of each type per compartment'));
+      return;
+    }
+    seen.add(item.type);
+    if (item.type === 'shoes' || item.type === 'trousers') {
+      const start = item.y;
+      const end = start + (item.type === 'shoes' ? item.tiers * SHOE_TIER : item.height);
+      if (start < 0 || end > top) {
+        issues.push(new DomainError(E.OUT_OF_BOUNDS, `${path}.y`, `spans ${start}..${end} outside interior 0..${top}`));
+      }
+      const hit = [...spans, ...zones].find(([s, e]) => start < e && s < end);
+      if (hit) issues.push(new DomainError(E.OVERLAP, path, `overlaps ${hit[2]}`));
+      zones.push([start, end, path]);
+    } else if (item.type === 'pulldown') {
+      if (item.y < 0 || item.y > top) {
+        issues.push(new DomainError(E.OUT_OF_BOUNDS, `${path}.y`, `rail at ${item.y} outside interior 0..${top}`));
+      }
+      const hit = [...spans, ...zones].find(([s, e]) => s < item.y && item.y < e);
+      if (hit) issues.push(new DomainError(E.OVERLAP, path, `rail is inside ${hit[2]}`));
+    }
+  });
+  compartment.rails.forEach((r, ri) => {
+    const hit = zones.find(([s, e]) => s < r.y && r.y < e);
+    if (hit) issues.push(new DomainError(E.OVERLAP, `${base}.rails[${ri}]`, `rail is inside ${hit[2]}`));
+  });
   return issues;
 }
 
@@ -142,7 +198,9 @@ function checkDoors(design) {
 
 function checkHinged(design) {
   const indexOf = new Map(design.compartments.map((c, i) => [c.id, i]));
-  const covered = new Set();
+  // A compartment may carry two leaves (a split), when both doors cover only that compartment.
+  const coverCount = new Map();
+  const singleCover = new Map();
   const issues = [];
   design.doors.items.forEach((door, di) => {
     const path = `doors.items[${di}]`;
@@ -154,10 +212,16 @@ function checkHinged(design) {
     else {
       const positions = ids.map((id) => indexOf.get(id));
       if (positions.some((p, k) => p !== positions[0] + k)) problem = 'compartments must be adjacent and ordered left to right';
-      else if (ids.some((id) => covered.has(id))) problem = 'a compartment is already covered by another door';
+      else if (ids.some((id) => coverCount.has(id))) {
+        const pair = ids.length === 1 && coverCount.get(ids[0]) === 1 && singleCover.get(ids[0]);
+        if (!pair) problem = 'a compartment is already covered by another door';
+      }
     }
     if (problem) issues.push(new DomainError(E.DOOR_INVALID, `${path}.compartmentIds`, problem));
-    ids.forEach((id) => covered.add(id));
+    ids.forEach((id) => {
+      coverCount.set(id, (coverCount.get(id) ?? 0) + 1);
+      if (!singleCover.has(id)) singleCover.set(id, ids.length === 1);
+    });
   });
   return issues;
 }
