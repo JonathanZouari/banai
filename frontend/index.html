@@ -12,25 +12,29 @@
       <div class="topbar__actions">
         <label class="toggle">
           <input type="checkbox" id="toggle-interior" />
-          <span>Show interior</span>
+          <span data-i18n="uiShowInterior">Show interior</span>
         </label>
         <div class="lang-switch" id="lang-switch" role="radiogroup" aria-label="Assistant language" data-testid="lang-switch">
           <button type="button" role="radio" class="lang-switch__btn" data-lang="en" data-testid="lang-en" lang="en">EN</button>
           <button type="button" role="radio" class="lang-switch__btn" data-lang="he" data-testid="lang-he" lang="he">עברית</button>
         </div>
-        <span class="topbar__units">cm</span>
-        <button type="button" class="btn" id="undo" data-testid="undo" disabled aria-label="Undo last change">Undo</button>
-        <button type="button" class="btn btn--tonal" id="open-render" data-testid="open-render">Render</button>
-        <button type="button" class="btn btn--primary" id="open-save" data-testid="open-save">Save</button>
+        <div class="lang-switch" id="unit-switch" role="radiogroup" aria-label="Units" data-i18n-aria="uiUnitsAria" data-testid="unit-switch">
+          <button type="button" role="radio" class="lang-switch__btn" data-unit="mm" data-testid="unit-mm" title="Millimetres">mm</button>
+          <button type="button" role="radio" class="lang-switch__btn" data-unit="cm" data-testid="unit-cm" title="Centimetres">cm</button>
+          <button type="button" role="radio" class="lang-switch__btn" data-unit="in" data-testid="unit-in" title="Inches">in</button>
+        </div>
+        <button type="button" class="btn" id="undo" data-testid="undo" disabled aria-label="Undo last change" data-i18n="uiUndo" data-i18n-aria="uiUndoAria">Undo</button>
+        <button type="button" class="btn btn--tonal" id="open-render" data-testid="open-render" data-i18n="uiRender">Render</button>
+        <button type="button" class="btn btn--primary" id="open-save" data-testid="open-save" data-i18n="uiSave">Save</button>
       </div>
     </header>
     <div class="banner banner--error" id="error-banner" role="alert" hidden></div>
     <main class="workspace">
       <aside class="panel" id="chat-panel" aria-label="AI designer"></aside>
-      <section class="viewer" id="viewer" aria-label="3D viewer"></section>
-      <aside class="panel panel--properties" id="properties-panel" aria-label="Properties">
-        <h2 class="panel__title">Properties</h2>
-        <p class="panel__hint">Click a component in the 3D view to edit it.</p>
+      <section class="viewer" id="viewer" aria-label="3D viewer" data-i18n-aria="uiViewerAria"></section>
+      <aside class="panel panel--properties" id="properties-panel" aria-label="Properties" data-i18n-aria="uiProperties">
+        <h2 class="panel__title" data-i18n="uiProperties">Properties</h2>
+        <p class="panel__hint" data-i18n="uiPropertiesHint">Click a component in the 3D view to edit it.</p>
         <div id="properties-content"></div>
       </aside>
     </main>

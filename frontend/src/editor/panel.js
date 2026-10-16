@@ -4,6 +4,8 @@
 import { compartmentsSection } from './compartmentsSection.js';
 import { componentSection } from './componentSection.js';
 import { wardrobeSection } from './wardrobeSection.js';
+import { units } from '../ui/units.js';
+import { language } from '../i18n/strings.js';
 
 export function mountPanel(root, store) {
   const run = (ops) => {
@@ -28,6 +30,13 @@ export function mountPanel(root, store) {
   };
 
   const unsubscribe = store.subscribe(render);
+  // A different unit changes every field's text and suffix, so draw the panel again.
+  const redraw = () => {
+    rendered = { design: null, selection: undefined };
+    render(store.getState());
+  };
+  const unsubscribeUnits = units.subscribe(redraw);
+  const unsubscribeLanguage = language.subscribe(redraw); // every label, option and error is text in the selected language
   render(store.getState());
-  return unsubscribe;
+  return () => { unsubscribe(); unsubscribeUnits(); unsubscribeLanguage(); };
 }

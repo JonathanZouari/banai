@@ -9,11 +9,12 @@ from threading import Lock
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from openai import APIError, APITimeoutError, OpenAI, RateLimitError
+from openai import APIError, OpenAI
 from pydantic import BaseModel, ConfigDict, Field
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
+from app.api.errors import api_error, map_openai_error
 from app.ai.agent import run_agent
 from app.ai.signing import canonical_json, design_hash, verify_proposal
 from app.config import Settings, get_settings
@@ -60,8 +61,7 @@ class ApplyRequest(BaseModel):
     proposal: Proposal
 
 
-def _error(status: int, code: str, message: str) -> HTTPException:
-    return HTTPException(status_code=status, detail={"code": code, "message": message})
+_error = api_error
 
 
 def _too_big(design: dict) -> bool:
@@ -120,16 +120,8 @@ def chat(
         )
     except DomainError as error:
         raise _error(422, error.code, "The current design is not valid.") from None
-    except RateLimitError as error:
-        logger.warning("OpenAI rate limit: %s", getattr(error, "code", None))
-        if getattr(error, "code", None) == "insufficient_quota":
-            raise _error(503, "AGENT_QUOTA", "The AI service has run out of credits. Please contact the site owner.") from None
-        raise _error(429, "AGENT_BUSY", "The AI service is at its usage limit. Please try again in a few minutes.") from None
-    except APITimeoutError:
-        raise _error(504, "AGENT_TIMEOUT", "The AI agent took too long. Please try again.") from None
     except APIError as error:
-        logger.warning("OpenAI error: %s", type(error).__name__)  # never log request bodies or keys
-        raise _error(502, "AGENT_UNAVAILABLE", "The AI agent is unavailable. Please try again.") from None
+        raise map_openai_error(error) from None
     return {"success": True, "data": {"reply": result.reply, "proposal": result.proposal}}
 
 

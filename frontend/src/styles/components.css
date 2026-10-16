@@ -233,3 +233,21 @@
 /* The chat panel follows the selected language direction (dir is set on the panel). */
 .panel--chat[dir='rtl'] .chat__input,
 .panel--chat[dir='rtl'] .chat__hint { text-align: start; }
+
+/* Voice: a row above the composer (switch + status), a mic that becomes a round red Stop button while recording. */
+.chat__voice-row { display: flex; align-items: center; gap: var(--space-3); min-height: 32px; padding: 0 var(--space-4) var(--space-2); }
+.chat__voice-toggle { flex: none; display: inline-flex; align-items: center; gap: var(--space-2); padding: 4px var(--space-3); border: 1px solid var(--md-sys-color-outline); border-radius: var(--md-sys-shape-full); background: transparent; color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-label-medium); cursor: pointer; white-space: nowrap; }
+.chat__voice-toggle:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
+.chat__voice-toggle-state { padding: 0 var(--space-2); border-radius: var(--md-sys-shape-full); background: var(--md-sys-color-surface-container-high); font-weight: 600; }
+.chat__voice-toggle--on { border-color: var(--md-sys-color-primary); background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
+.chat__voice-toggle--on .chat__voice-toggle-state { background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); }
+.chat__voice-toggle--speaking .icon { animation: voice-pulse-icon 1s ease-in-out infinite; }
+.chat__mic { flex: none; transition: background 160ms ease, transform 160ms ease; }
+.chat__mic--recording { background: #c62828; color: #fff; animation: voice-pulse 1.4s ease-out infinite; }
+.chat__mic--recording:hover { background: #b71c1c; }
+.chat__voice-status { flex: 1; min-width: 0; margin: 0; color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-small); }
+.chat__voice-status--error { color: var(--md-sys-color-error, #b3261e); }
+.chat__voice-note { margin-top: 0; }
+@keyframes voice-pulse-icon { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+@keyframes voice-pulse { 0% { box-shadow: 0 0 0 0 rgba(198, 40, 40, 0.5); } 70%, 100% { box-shadow: 0 0 0 10px rgba(198, 40, 40, 0); } }
+@media (prefers-reduced-motion: reduce) { .chat__mic--recording, .chat__voice-toggle--speaking .icon { animation: none; } }

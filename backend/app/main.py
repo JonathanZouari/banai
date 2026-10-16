@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
-from app.api import chat, health, reference
+from app.api import chat, health, reference, voice
 from app.config import get_settings
 
 
@@ -51,7 +51,9 @@ def create_app() -> FastAPI:
     @app.middleware("http")
     async def _limit_body(request: Request, call_next):
         length = request.headers.get("content-length")
-        if length and length.isdigit() and int(length) > MAX_BODY_BYTES:
+        # Audio uploads get their own (larger) cap; every other route keeps the small JSON cap.
+        limit = settings.voice_max_audio_bytes + 4096 if request.url.path == "/api/voice/transcribe" else MAX_BODY_BYTES
+        if length and length.isdigit() and int(length) > limit:
             return envelope(413, "BODY_TOO_LARGE", "The request is too large.")
         return await call_next(request)
 
@@ -61,6 +63,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(chat.router)
+    app.include_router(voice.router)
     app.include_router(reference.router)
     return app
 

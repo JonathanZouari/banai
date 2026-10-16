@@ -5,9 +5,12 @@ import '@fontsource/dm-sans/400.css';
 import '@fontsource/dm-sans/500.css';
 import '@fontsource/dm-sans/600.css';
 import '@fontsource/dm-sans/700.css';
-import { applyProposal, getCatalog, getDefaultDesign, postChat } from './api/client.js';
+import { applyProposal, getCatalog, getDefaultDesign, getVoiceStatus, postChat, speak, transcribeAudio } from './api/client.js';
+import { createRecorder } from './voice/recorder.js';
+import { createPlayer } from './voice/player.js';
+import { createVoiceModel } from './voice/voiceModel.js';
 import { describeOps } from './chat/describeOps.js';
-import { createLanguage } from './i18n/strings.js';
+import { language } from './i18n/strings.js';
 import { createStore } from './state/store.js';
 import { mountPanel } from './editor/panel.js';
 import { createViewer } from './viewer/viewer.js';
@@ -17,6 +20,7 @@ import { mountStartScreen } from './entry/startScreen.js';
 import { createSaveDialog } from './share/saveDialog.js';
 import { createRenderDialog } from './render/renderDialog.js';
 import { createLogo } from './ui/logo.js';
+import { units } from './ui/units.js';
 import { installRipple } from './ui/ripple.js';
 
 function showError(message) {
@@ -36,6 +40,27 @@ function bindLanguageSwitch(language) {
   const sync = () => buttons.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.lang === language.get())));
   buttons.forEach((b) => b.addEventListener('click', () => language.set(b.dataset.lang)));
   language.subscribe(sync);
+  sync();
+}
+
+/** Static labels in index.html carry data-i18n / data-i18n-aria and follow the selected language. */
+function bindStaticLanguage() {
+  const apply = () => {
+    document.querySelectorAll('[data-i18n]').forEach((node) => { node.textContent = language.t(node.dataset.i18n); });
+    document.querySelectorAll('[data-i18n-aria]').forEach((node) => { node.setAttribute('aria-label', language.t(node.dataset.i18nAria)); });
+    const properties = document.getElementById('properties-panel');
+    properties.lang = language.get();
+    properties.dir = language.dir();
+  };
+  language.subscribe(apply);
+  apply();
+}
+
+function bindUnitSwitch() {
+  const buttons = [...document.querySelectorAll('#unit-switch [data-unit]')];
+  const sync = () => buttons.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.unit === units.get())));
+  buttons.forEach((b) => b.addEventListener('click', () => units.set(b.dataset.unit)));
+  units.subscribe(sync);
   sync();
 }
 
@@ -59,8 +84,9 @@ function bindDialogs() {
 async function boot() {
   document.getElementById('topbar-logo').append(createLogo({ size: 34, tagline: 'Wardrobe Designer' }));
   installRipple();
-  const language = createLanguage();
   bindLanguageSwitch(language);
+  bindStaticLanguage();
+  bindUnitSwitch();
   let catalog;
   let initial;
   try {
@@ -85,11 +111,33 @@ async function boot() {
       proposal: proposal && { ...proposal, id: proposal.signature, changes: describeOps(proposal.ops, language.get()) },
     };
   };
-  const chatModel = createChatModel({ getRevision: () => store.getState().revision, getDesign: () => store.getState().design, agent, language });
-  const chat = mountChat(document.getElementById('chat-panel'), {
+  // Voice is optional: the mic only appears when the server has it switched on and the browser can record.
+  let chat = null;
+  let voice = null;
+  try {
+    const status = await getVoiceStatus();
+    const recorder = createRecorder({ maxSeconds: status.maxSeconds });
+    if (status.enabled && recorder.isSupported()) {
+      voice = createVoiceModel({
+        recorder,
+        player: createPlayer(),
+        api: { transcribeAudio: (blob) => transcribeAudio(blob, language.get()), speak },
+        onTranscript: (text) => chat.setTranscript(text),
+      });
+    }
+  } catch { /* voice stays off: typing always works */ }
+  const chatModel = createChatModel({
+    getRevision: () => store.getState().revision,
+    getDesign: () => store.getState().design,
+    agent,
+    language,
+    onAssistantReply: (text) => voice?.speakReply(text),
+  });
+  chat = mountChat(document.getElementById('chat-panel'), {
     model: chatModel,
     connected: true,
     language,
+    voice,
     onConfirm: async (proposal) => {
       const { design, revision } = store.getState();
       const { id, changes, ...signed } = proposal;
