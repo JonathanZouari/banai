@@ -90,6 +90,7 @@ Revision and persistence metadata (`revision`, `designId`) stay **outside** the 
 | GET | `/api/designs/default` | basic wardrobe template |
 | POST | `/api/settings/ai/verify` | `{apiKey}` → `{status, model, maskedKey, checkedAt}`. Checks the customer's OpenAI key with one free OpenAI metadata call and stores nothing. `status` is `connected`, `invalid_key`, `model_unavailable` or `unreachable`; a malformed key is a 400 `INVALID_FORMAT` and never reaches OpenAI |
 | POST | `/api/chat` | agent turn → reply + optional signed proposal. **Built so far (text only):** `{apiKey, messages}` → `{reply, model}`, where `messages` is 1–40 `{role: user\|assistant, content ≤ 2000 chars}` ending with a user message. Wardrobe topics only, plus the fixed-location Jerusalem weather tool. `{design, revision}` and the signed proposal arrive in Phase 5 |
+| POST | `/api/advisories` | `{design}` → `{advisories: [{id, level, title, body, grade, src, targets, fix?: {label, ops}}]}`. Non-blocking guidance R1–R19 from the research (ADR-018, Python only), most severe first. A `fix` is an op list that was dry-run against the design. An invalid design is a 422 carrying the engine's `{code, message, path}` |
 | POST | `/api/proposals/apply` | verify, check stale, apply → new design |
 | POST | `/api/designs/validate` | server validation of a manual design (used before save) |
 | POST | `/api/designs` | create → `{designId, accessToken, revision}` |
