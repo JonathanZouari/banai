@@ -41,7 +41,9 @@ function inputField({ label, value, testId, suffix, commit, inputMode = 'decimal
     if (event.key === 'Enter') apply();
   });
   const control = el('div', { className: 'field__control' }, [input, ...(suffix ? [el('span', { className: 'field__suffix', text: suffix })] : [])]);
-  return el('div', { className: 'field' }, [el('label', { className: 'field__label', text: label, attrs: { for: id } }), control, message]);
+  const field = el('div', { className: 'field' }, [el('label', { className: 'field__label', text: label, attrs: { for: id } }), control, message]);
+  field.input = input; // lets callers (e.g. a slider) mirror the value without re-rendering
+  return field;
 }
 
 /** A centimetre field backed by an integer-millimetre value. `onCommit(mm)` dispatches. */
@@ -73,7 +75,7 @@ export function segmented({ label, options, value, onChange, testId }) {
     });
     group.append(button);
   });
-  return el('div', { className: 'field' }, [el('span', { className: 'field__label', text: label }), group]);
+  return el('div', { className: 'field field--stack' }, [el('span', { className: 'field__label', text: label }), group]);
 }
 
 export function selectField({ label, options, value, onChange, testId }) {
@@ -85,7 +87,7 @@ export function selectField({ label, options, value, onChange, testId }) {
   }));
   if (testId) select.dataset.testid = testId;
   select.addEventListener('change', () => onChange(select.value));
-  return el('div', { className: 'field' }, [el('label', { className: 'field__label', text: label, attrs: { for: id } }), select]);
+  return el('div', { className: 'field field--select' }, [el('label', { className: 'field__label', text: label, attrs: { for: id } }), select]);
 }
 
 export function button(text, onClick, { variant = 'secondary', testId, disabled = false } = {}) {
@@ -101,4 +103,15 @@ export function actionResult(container, result) {
   container.querySelectorAll(':scope > .action-error').forEach((node) => node.remove());
   if (!result.ok) container.append(el('p', { className: 'field__message action-error', text: friendlyError(result.error), attrs: { role: 'alert' } }));
   return result;
+}
+
+/** A read-only value in the same visual style as an input (derived measurements). */
+export function readonlyField({ label, text }) {
+  const id = nextId('readonly');
+  const input = el('input', { className: 'field__input', attrs: { id, type: 'text', readonly: '', inputmode: 'decimal', tabindex: '-1' } });
+  input.value = text;
+  return el('div', { className: 'field' }, [
+    el('label', { className: 'field__label', text: label, attrs: { for: id } }),
+    el('div', { className: 'field__control field__control--readonly' }, [input, el('span', { className: 'field__suffix', text: 'cm' })]),
+  ]);
 }

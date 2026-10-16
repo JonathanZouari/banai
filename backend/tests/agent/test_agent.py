@@ -262,3 +262,34 @@ def test_api_errors_follow_the_ui_language(monkeypatch):
         assert client.post("/api/chat", json={**chat_body(), "language": "fr"}).status_code == 422
     finally:
         get_settings.cache_clear()
+
+
+# ---- selection context ("this") and section names ------------------------------------------
+
+def test_selection_is_described_in_the_prompt_so_this_resolves(make_client):
+    fake = FakeClient(completion(calls=[tool_call(PROPOSE, propose([{"op": "modify_shelf", "id": "shf_l2", "y": 950}]))]))
+    body = chat_body("Move this 15 cm higher") | {"selection": {"id": "shf_l2", "kind": "shelf"}}
+    response = make_client(fake).post("/api/chat", json=body)
+    assert response.status_code == 200
+    system = fake.requests[0]["messages"][0]["content"]
+    assert "Shelf 2 in the Left section (id shf_l2, y 800)" in system
+    assert '"name":"Left section"' in system and '"name":"Right section"' in system
+
+
+def test_without_selection_the_prompt_says_nothing_is_selected(make_client):
+    fake = FakeClient(completion(calls=[tool_call(CLARIFY, {"question": "Which one?"})]))
+    make_client(fake).post("/api/chat", json=chat_body("Move this up"))
+    assert "Nothing is selected." in fake.requests[0]["messages"][0]["content"]
+
+
+def test_selection_is_validated(make_client):
+    client = make_client(FakeClient())
+    for bad in ({"id": "<script>", "kind": "shelf"}, {"id": "shf_l2", "kind": "Shelf!"}, {"id": "shf_l2"}):
+        assert client.post("/api/chat", json=chat_body() | {"selection": bad}).status_code == 422
+
+
+def test_unknown_selected_id_is_ignored(make_client):
+    fake = FakeClient(completion(calls=[tool_call(CLARIFY, {"question": "Which one?"})]))
+    body = chat_body("Move this up") | {"selection": {"id": "shf_gone", "kind": "shelf"}}
+    assert make_client(fake).post("/api/chat", json=body).status_code == 200
+    assert "Nothing is selected." in fake.requests[0]["messages"][0]["content"]

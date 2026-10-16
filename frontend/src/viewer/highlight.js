@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { frameOf } from './builders/frame.js';
 import { toM } from './units.js';
 
-export const ACCENT = '#c2410c';
+export const ACCENT = '#2f6fed';
 
 export function createHighlighter(scene) {
   const layer = new THREE.Group();
@@ -12,9 +12,10 @@ export function createHighlighter(scene) {
   scene.add(layer);
   const material = new THREE.LineBasicMaterial({ color: ACCENT, depthTest: false, transparent: true });
 
-  const outline = (geometry, position) => {
+  const outline = (geometry, position, quaternion) => {
     const lines = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), material);
     lines.position.copy(position);
+    if (quaternion) lines.quaternion.copy(quaternion); // follows an opened door
     lines.renderOrder = 10;
     layer.add(lines);
   };
@@ -31,6 +32,7 @@ export function createHighlighter(scene) {
       if (selection.kind === 'compartment') {
         const frame = frameOf(design);
         const index = design.compartments.findIndex((c) => c.id === selection.id);
+        if (index < 0) return; // e.g. a section a pending proposal would remove
         const [x0, x1] = frame.ranges[index];
         const geometry = new THREE.BoxGeometry(toM(x1 - x0), toM(frame.innerHeight), toM(frame.innerDepth));
         outline(geometry, new THREE.Vector3(toM((x0 + x1) / 2), toM(frame.panel + frame.innerHeight / 2), toM(frame.innerCenterZ)));
@@ -39,7 +41,7 @@ export function createHighlighter(scene) {
       }
       group.children
         .filter((mesh) => mesh.userData.componentId === selection.id)
-        .forEach((mesh) => outline(mesh.geometry, mesh.position));
+        .forEach((mesh) => outline(mesh.geometry, mesh.position, mesh.quaternion));
     },
     dispose() {
       clear();

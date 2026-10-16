@@ -4,31 +4,59 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BanAI Wardrobe Designer</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23b4532a'/%3E%3Cpath d='M10 7h7a5 5 0 0 1 2 9.6A5.5 5.5 0 0 1 17.5 25H10z' fill='white'/%3E%3C/svg%3E" />
     <link rel="stylesheet" href="/src/styles/index.css" />
   </head>
   <body>
-    <header class="topbar">
-      <h1 class="topbar__title" id="topbar-logo" aria-label="BanAI Wardrobe Designer"></h1>
-      <div class="topbar__actions">
-        <label class="toggle">
-          <input type="checkbox" id="toggle-interior" />
-          <span>Show interior</span>
-        </label>
-        <span class="topbar__units">cm</span>
-        <button type="button" class="btn btn--tonal" id="open-render" data-testid="open-render">Render</button>
-        <button type="button" class="btn btn--primary" id="open-save" data-testid="open-save">Save</button>
+    <header class="appbar topbar">
+      <div class="appbar__brand topbar__title" id="topbar-logo" aria-label="BanAI Wardrobe Designer"></div>
+      <div class="project-pill" id="project-name" title="Design name">Untitled wardrobe</div>
+      <div class="appbar__spacer"></div>
+      <div class="appbar__group" role="group" aria-label="History">
+        <button type="button" class="btn btn--secondary" id="undo" aria-label="Undo" title="Undo (Ctrl+Z)" disabled></button>
+        <button type="button" class="btn btn--secondary" id="redo" aria-label="Redo" title="Redo (Ctrl+Shift+Z)" disabled></button>
+      </div>
+      <span class="save-status" id="save-status" data-state="local" role="status" aria-live="polite">Not saved yet</span>
+      <div class="appbar__group">
+        <button type="button" class="btn btn--secondary" id="open-render" data-testid="open-render" aria-label="Render"></button>
+        <button type="button" class="btn btn--primary" id="open-save" data-testid="open-save" aria-label="Save"></button>
       </div>
     </header>
     <div class="banner banner--error" id="error-banner" role="alert" hidden></div>
-    <main class="workspace">
-      <aside class="panel" id="chat-panel" aria-label="מעצב AI"></aside>
-      <section class="viewer" id="viewer" aria-label="3D viewer"></section>
-      <aside class="panel panel--properties" id="properties-panel" aria-label="Properties">
-        <h2 class="panel__title">Properties</h2>
-        <p class="panel__hint">Click a component in the 3D view to edit it.</p>
-        <div id="properties-content"></div>
+
+    <main class="workspace" id="workspace" data-left="open" data-right="open" data-tab="design">
+      <aside class="side side--left" id="ai-panel" aria-label="AI designer">
+        <button type="button" class="btn btn--secondary btn--icon side__toggle side__toggle--float" data-panel="left" aria-expanded="true" aria-controls="ai-panel" aria-label="Collapse assistant"></button>
+        <div class="side__body side__body--chat panel" id="chat-panel"></div>
+        <button type="button" class="side__rail" data-panel="left" tabindex="-1" aria-hidden="true">AI Assistant</button>
+      </aside>
+
+      <section class="stage" aria-label="3D workspace">
+        <div class="stage__view">
+          <div class="viewer" id="viewer" aria-label="3D viewer"></div>
+          <div class="stage__toolbar" id="viewer-toolbar" role="toolbar" aria-label="View"></div>
+          <div class="stage__reset" id="viewer-reset"></div>
+          <div class="preview-badge" id="preview-badge" hidden></div>
+        </div>
+        <nav class="structure" id="structure-nav" aria-label="Wardrobe structure"></nav>
+      </section>
+
+      <aside class="side side--right" id="properties-panel" aria-label="Properties">
+        <div class="side__header">
+          <div class="side__heading" id="inspector-heading"></div>
+          <button type="button" class="btn btn--secondary btn--icon side__toggle" data-panel="right" aria-expanded="true" aria-controls="properties-panel" aria-label="Collapse inspector"></button>
+        </div>
+        <div class="side__body" id="properties-content"></div>
+        <button type="button" class="side__rail" data-panel="right" tabindex="-1" aria-hidden="true">Properties</button>
       </aside>
     </main>
+
+    <nav class="mobile-tabs" aria-label="Mode">
+      <button type="button" data-tab="design" aria-pressed="true">Design</button>
+      <button type="button" data-tab="ai" aria-pressed="false">Assistant</button>
+      <button type="button" data-tab="properties" aria-pressed="false">Properties</button>
+    </nav>
+
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

@@ -1,4 +1,7 @@
 @import './tokens.css';
-@import './layout.css';
-@import './controls.css';
+/* Their components (chat, start screen, dialogs, logo) first; our controls and layout after,
+   so the workspace look wins where both define the same element. */
 @import './components.css';
+@import './controls.css';
+@import './layout.css';
+@import './panels.css';

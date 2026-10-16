@@ -56,3 +56,11 @@ Press ripples on buttons, chips, segmented options and swatches; hover lift on c
 - The AI agent is not connected until Phase 5: sending a message gets a clear "not connected" reply, and the design is never changed.
 - Save and Render open dialogs that say they are unavailable and show no fake link or image. Render is always labelled "Illustrative image, not the accurate 3D model".
 - The UI never claims a design is ready for manufacturing.
+
+
+## Merged look (branch `uxui`, after #3)
+- Layout and surfaces follow the BanAI UX/UI reference prototype: floating panels on a warm canvas,
+  blue accent for selection and AI, navy primary actions, Inter for the UI.
+- Brand from #3 is kept: the BanAI logo and Bricolage Grotesque for the wordmark and display titles.
+- The Material 3 colour roles above are remapped to this palette in `frontend/src/styles/tokens.css`
+  (section "Bridge"), so the chat, start screen and dialogs from #3 render in the same look.

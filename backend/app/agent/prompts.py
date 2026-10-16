@@ -10,6 +10,41 @@ from app.domain.defaults import LIMITS
 from app.domain.geometry import compartment_x_ranges, interior_height, interior_width
 
 
+def section_name(count: int, index: int) -> str:
+    """The UI's name for a compartment ("Left section", "Middle section", "Section 4")."""
+    if count == 1:
+        return "Section"
+    if count <= 3:
+        names = ["Left", "Right"] if count == 2 else ["Left", "Middle", "Right"]
+        return f"{names[index]} section"
+    return f"Section {index + 1}"
+
+
+def describe_selection(design: dict, selection: dict | None) -> str | None:
+    """A readable description of the customer's selected component, or None if it is not in the design."""
+    if not selection:
+        return None
+    target = selection.get("id")
+    count = len(design["compartments"])
+    for index, compartment in enumerate(design["compartments"]):
+        section = section_name(count, index)
+        if compartment["id"] == target:
+            return f"{section} (compartment id {target})"
+        for key, noun in (("shelves", "Shelf"), ("drawers", "Drawer"), ("rails", "Hanging rail")):
+            items = sorted(compartment[key], key=lambda item: item["y"])
+            for number, item in enumerate(items, start=1):
+                if item["id"] == target:
+                    label = noun if len(items) == 1 else f"{noun} {number}"
+                    return f"{label} in the {section} (id {target}, y {item['y']})"
+    for index, partition in enumerate(design["partitions"]):
+        if partition["id"] == target:
+            return f"Divider {index + 1} (partition id {target})"
+    for index, door in enumerate(design["doors"]["items"]):
+        if door["id"] == target:
+            return f"Door {index + 1} (door id {target})"
+    return None
+
+
 def _compact(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
 
@@ -63,6 +98,16 @@ detail up to 10 words. Never repeat the same information across reply, summary a
 `question`: one short question.
 - Do not ask about values the customer did not mention: keep them as they are in the current \
 design. Ask only when something essential is genuinely missing or contradictory.
+- Defaults when a size is not given (configurable prototype values): drawer height 200 mm, \
+stacked from lowestFreeY; shelf thickness 18 mm in the middle of the largest freeY gap; hanging \
+rail about 100 mm below the top of the compartment (or just under its highest shelf). Propose \
+with the default and mention it briefly instead of asking.
+- Never ask for the height or size of a new drawer, shelf or rail: use the defaults above. \n"Add 2 drawers to the middle section" -> propose two 200 mm drawers from lowestFreeY.
+- Moving an EXISTING item by an amount: "N cm higher / up" (למעלה, להרים) -> y + N*10; \n"N cm lower / down" (למטה, להוריד) -> y - N*10. "למטה" means "at the bottom" only when \nADDING a new item without an amount.
+- "this", "it", "that" (זה, הזה, הזאת) refer to the customer's SELECTED component (see \
+"Customer's selection" below). If nothing is selected and the target is unclear, ask which one.
+- Customers name compartments as in the app: "left / middle / right section" (the `name` in \
+the derived facts).
 - Never claim a design is manufacturable, structurally sound, priced or ready to build.
 
 ## The design model (all values are INTEGER MILLIMETRES)
@@ -111,14 +156,15 @@ arithmetic: overlapping or out-of-bounds items are rejected and you will be aske
 """
 
 
-def build_system_prompt(design: dict, catalog: dict, language: Language = "he") -> str:
+def build_system_prompt(design: dict, catalog: dict, language: Language = "he", selection: dict | None = None) -> str:
+    count = len(design["compartments"])
     facts = {
         "interiorWidth": interior_width(design),
         "interiorHeight": interior_height(design),
         "compartments": [
-            {"id": c["id"], "x": list(r), "lowestFreeY": free[0][0] if free else None, "freeY": free,
-             "railsY": [rail["y"] for rail in c["rails"]]}
-            for c, r in zip(design["compartments"], compartment_x_ranges(design), strict=True)
+            {"id": c["id"], "name": section_name(count, i), "x": list(r),
+             "lowestFreeY": free[0][0] if free else None, "freeY": free, "railsY": [rail["y"] for rail in c["rails"]]}
+            for i, (c, r) in enumerate(zip(design["compartments"], compartment_x_ranges(design), strict=True))
             for free in [_free_spans(c, interior_height(design))]
         ],
     }
@@ -129,5 +175,6 @@ def build_system_prompt(design: dict, catalog: dict, language: Language = "he") 
         + "\n## Catalog (data)\n" + _compact(catalog)
         + "\n\n## Current design (data, the state your ops apply to)\n" + _compact(design)
         + "\n\n## Derived facts (mm; a new shelf/drawer must fit entirely inside one freeY gap)\n" + _compact(facts)
+        + "\n\n## Customer's selection (\"this\")\n" + (describe_selection(design, selection) or "Nothing is selected.")
         + "\n\n## RESPONSE LANGUAGE\n" + INSTRUCTION[language]
     )

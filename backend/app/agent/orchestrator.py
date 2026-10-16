@@ -89,11 +89,11 @@ def _build_proposal(args: ProposeArgs, ops: list[dict], revision: int, base_hash
 
 
 def run_turn(*, client: Any, model: str, messages: list[dict], design: dict, revision: int,
-             catalog: dict, signing_key: bytes, language: Language = "he") -> TurnResult:
+             catalog: dict, signing_key: bytes, language: Language = "he", selection: dict | None = None) -> TurnResult:
     """`design` must already be canonical (parsed and validated). The reply is in the language of the
     latest customer message; `language` (the chat's choice) is the fallback when it has no letters."""
     language = reply_language(messages, language)
-    conversation: list[dict] = [{"role": "system", "content": build_system_prompt(design, catalog, language)}, *_history(messages)]
+    conversation: list[dict] = [{"role": "system", "content": build_system_prompt(design, catalog, language, selection)}, *_history(messages)]
     base_hash = signing.design_hash(design)
 
     for _ in range(MAX_REPAIRS + 1):

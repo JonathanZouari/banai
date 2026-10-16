@@ -30,6 +30,9 @@ function languageSwitch(language, t) {
 
 export function mountChat(container, {
   model, onConfirm, language = createLanguage(), speaker = createSpeaker(), readAloud = readAloudPreference(),
+  // Optional selection context: () => ({ label, clear }) | null. Shown as a chip above the composer,
+  // so "move this 15 cm higher" visibly refers to the selected part.
+  getContext = () => null,
 }) {
   container.classList.add('panel--chat');
   let draft = '';
@@ -130,6 +133,7 @@ export function mountChat(container, {
       mic.addEventListener('click', toggleMic);
     }
     const composer = el('form', { className: 'chat__composer' }, mic ? [input, mic, sendButton] : [input, sendButton]);
+    const contextRow = el('div', { className: 'chat__context' });
     const hint = el('p', { className: 'chat__hint', text: t.hint, attrs: { 'aria-live': 'polite' } });
     hint.dataset.testid = 'chat-hint';
 
@@ -189,8 +193,8 @@ export function mountChat(container, {
 
     const controls = model.isConnected() ? [readAloudToggle(t), languageSwitch(language, t)] : [languageSwitch(language, t)];
     const footerRow = el('div', { className: 'chat__footer-row' }, [hint, el('div', { className: 'chat__footer-controls' }, controls)]);
-    container.replaceChildren(header, el('div', { className: 'chat__body' }, [welcome, list, proposalSlot]), el('div', { className: 'chat__footer' }, [composer, footerRow]));
-    view = { t, input, sendButton, composer, welcome, list, proposalSlot, typing, submit, hint, mic, renderedCount: 0, renderedProposalKey: null };
+    container.replaceChildren(header, el('div', { className: 'chat__body' }, [welcome, list, proposalSlot]), el('div', { className: 'chat__footer' }, [contextRow, composer, footerRow]));
+    view = { t, input, sendButton, composer, welcome, list, proposalSlot, typing, submit, hint, mic, contextRow, contextLabel: undefined, renderedCount: 0, renderedProposalKey: null };
     showVoiceState();
   }
 
@@ -204,8 +208,27 @@ export function mountChat(container, {
     });
   }
 
+  function renderContext() {
+    const context = getContext();
+    const label = context?.label ?? null;
+    if (label === view.contextLabel) return;
+    view.contextLabel = label;
+    if (!label) {
+      view.contextRow.replaceChildren();
+      return;
+    }
+    const clear = el('button', { className: 'context-chip__clear', attrs: { type: 'button', 'aria-label': view.t.clearSelection ?? 'Clear selection' } }, [icon('close', { size: 12 })]);
+    clear.addEventListener('click', () => context.clear());
+    const chip = el('span', { className: 'context-chip', attrs: { dir: 'auto' } }, [
+      el('span', { className: 'context-chip__label', text: view.t.selected ?? 'Selected:' }), el('span', { text: label }), clear,
+    ]);
+    chip.dataset.testid = 'context-chip';
+    view.contextRow.replaceChildren(chip);
+  }
+
   function render() {
     const { t, sendButton, composer, welcome, list, proposalSlot, typing } = view;
+    renderContext();
     const messages = model.getMessages();
     welcome.hidden = messages.length > 0 || model.getProposal() !== null;
     list.hidden = messages.length === 0;
@@ -258,6 +281,7 @@ export function mountChat(container, {
   language.subscribe(() => {
     const hadFocus = document.activeElement === view.input;
     build();
+    view.contextLabel = undefined;
     render();
     if (hadFocus) view.input.focus();
   });

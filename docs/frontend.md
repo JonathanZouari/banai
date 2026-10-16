@@ -1,5 +1,8 @@
 # Frontend Architecture (vanilla JS + Three.js)
 
+> The workspace UX (contextual inspector, 3D preview of chat proposals, undo/redo, structure bar,
+> room, door animation, mirror doors) is documented in [`ux-workspace.md`](ux-workspace.md).
+
 ```
 main.js (boot) ── api/client.js ──► GET /api/catalog, /api/designs/default
    │

@@ -32,12 +32,20 @@ class ChatMessage(BaseModel):
     text: Annotated[str, Field(min_length=1, max_length=2000, pattern=MESSAGE_TEXT_PATTERN)]
 
 
+class Selection(BaseModel):
+    """The component the customer selected in the UI ("this" in a message)."""
+    model_config = ConfigDict(extra="forbid")
+    id: Annotated[str, Field(pattern=r"^((cmp|prt|shf|drw|rail|dr)_[A-Za-z0-9_-]{1,40}|carcass)$")]
+    kind: Annotated[str, Field(pattern=r"^[a-z]{1,20}$")]
+
+
 class ChatRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     messages: Annotated[list[ChatMessage], Field(min_length=1, max_length=MAX_HISTORY)]
     design: dict
     revision: Annotated[int, Field(ge=1)]
     language: Language = "he"
+    selection: Selection | None = None
 
 
 class SignedProposal(BaseModel):
@@ -117,7 +125,7 @@ def chat(
         result = run_turn(
             client=client, model=settings.chat_model, messages=[m.model_dump() for m in request.messages],
             design=design, revision=request.revision, catalog=catalog, signing_key=get_signing_key(),
-            language=request.language,
+            language=request.language, selection=request.selection.model_dump() if request.selection else None,
         )
     except AgentUnavailable:
         return localized(502, "AGENT_ERROR", request.language)

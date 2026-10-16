@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { applyOps } from '../../../src/domain/apply.js';
 import {
-  addCompartmentOps, addItemOps, doorHingeOps, doorTypeOps, friendlyError, materialOps, parseCm, toCmText,
+  addCompartmentOps, addItemOps, doorHingeOps, duplicateOps, doorTypeOps, friendlyError, materialOps, parseCm, toCmText,
 } from '../../../src/editor/opsFromForm.js';
 import { DomainError } from '../../../src/domain/errors.js';
 import { loadCatalog, loadDesign } from '../domain/helpers.js';
@@ -73,5 +73,29 @@ describe('friendlyError', () => {
     expect(friendlyError(new DomainError('OUT_OF_BOUNDS', 'x', 'x'))).toMatch(/inside the wardrobe/i);
     expect(friendlyError(new DomainError('OUT_OF_RANGE', 'ops[0].width', 'x'))).toMatch(/allowed range/i);
     expect(friendlyError(new DomainError('SOMETHING_NEW', 'x', 'x'))).toMatch(/could not be applied/i);
+  });
+});
+
+describe('duplicateOps', () => {
+  it('copies a shelf into the largest free gap of the same section', () => {
+    const ops = duplicateOps(basic, 'shf_l2');
+    expect(ops).toHaveLength(1);
+    expect(ops[0]).toMatchObject({ op: 'add_shelf', compartmentId: 'cmp_left', thickness: 18 });
+    const next = applyOps(basic, ops, catalog);
+    expect(next.compartments[0].shelves).toHaveLength(5);
+  });
+
+  it('copies a drawer with its height and custom finish', () => {
+    const custom = applyOps(basic, [{ op: 'set_material', target: 'drw_r1', color: { catalogId: 'walnut' } }], catalog);
+    const ops = duplicateOps(custom, 'drw_r1');
+    expect(ops[0]).toMatchObject({ op: 'add_drawer', compartmentId: 'cmp_right', height: 200 });
+    expect(ops[1]).toMatchObject({ op: 'set_material', target: ops[0].id });
+    const next = applyOps(custom, ops, catalog);
+    expect(next.compartments[2].drawers.find((d) => d.id === ops[0].id).appearance.color).toEqual({ catalogId: 'walnut' });
+  });
+
+  it('copies a rail, and returns null for unknown ids', () => {
+    expect(applyOps(basic, duplicateOps(basic, 'rail_m1'), catalog).compartments[1].rails).toHaveLength(2);
+    expect(duplicateOps(basic, 'shf_missing')).toBeNull();
   });
 });

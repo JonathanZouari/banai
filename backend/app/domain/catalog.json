@@ -3,7 +3,8 @@
   "materials": [
     { "id": "melamine", "name": "Melamine board" },
     { "id": "oak_veneer", "name": "Oak veneer" },
-    { "id": "lacquered_mdf", "name": "Lacquered MDF" }
+    { "id": "lacquered_mdf", "name": "Lacquered MDF" },
+    { "id": "mirror", "name": "Mirror glass" }
   ],
   "colors": [
     { "id": "white", "name": "White", "hex": "#f2f1ed" },
