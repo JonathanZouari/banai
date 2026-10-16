@@ -21,3 +21,11 @@ def test_default_design_endpoint_returns_basic_wardrobe():
 
 def test_reference_endpoints_are_cacheable_but_not_writable():
     assert client.post("/api/catalog").status_code == 405
+
+
+def test_served_data_carries_handles_and_grain():
+    design = client.get("/api/designs/default").json()["data"]["design"]
+    assert design["handles"] == {"style": "bar", "finish": "steel"}
+    assert all(door["handle"] is None and door["mirror"] is False for door in design["doors"]["items"])
+    colors = client.get("/api/catalog").json()["data"]["colors"]
+    assert next(c for c in colors if c["id"] == "walnut")["grain"] == "walnut"

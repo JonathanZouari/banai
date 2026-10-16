@@ -94,13 +94,15 @@
           "id": "drw_r1",
           "y": 0,
           "height": 200,
-          "appearance": null
+          "appearance": null,
+          "handle": null
         },
         {
           "id": "drw_r2",
           "y": 200,
           "height": 200,
-          "appearance": null
+          "appearance": null,
+          "handle": null
         }
       ],
       "rails": []
@@ -136,7 +138,9 @@
           "cmp_left"
         ],
         "hingeSide": "left",
-        "appearance": null
+        "appearance": null,
+        "handle": null,
+        "mirror": false
       },
       {
         "id": "dr_middle",
@@ -144,7 +148,9 @@
           "cmp_middle"
         ],
         "hingeSide": "right",
-        "appearance": null
+        "appearance": null,
+        "handle": null,
+        "mirror": false
       },
       {
         "id": "dr_right",
@@ -152,8 +158,14 @@
           "cmp_right"
         ],
         "hingeSide": "left",
-        "appearance": null
+        "appearance": null,
+        "handle": null,
+        "mirror": false
       }
     ]
+  },
+  "handles": {
+    "style": "bar",
+    "finish": "steel"
   }
 }

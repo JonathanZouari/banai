@@ -10,27 +10,35 @@ function swatches({ catalog, appearance, run, target }) {
   catalog.colors.forEach((color) => {
     const swatch = el('button', {
       className: 'swatch',
-      attrs: { type: 'button', title: color.name, 'aria-label': color.name, 'aria-pressed': String(isCatalog(appearance.color, color.id)) },
+      attrs: { type: 'button', title: color.name, 'aria-label': color.name, 'aria-pressed': String(isCatalog(appearance.color, color.id)), 'data-key': `Colour/${color.name}` },
     });
     swatch.style.backgroundColor = color.hex; // validated #rrggbb from the parsed catalog
+    if (color.grain) swatch.dataset.grain = color.grain; // wood: CSS paints the grain over the colour
     swatch.addEventListener('click', () => run(materialOps(target, 'color', { catalogId: color.id })));
     row.append(swatch);
   });
-  return row;
+  const selected = appearance.color.custom ? appearance.color.name : catalog.colors.find((c) => c.id === appearance.color.catalogId)?.name ?? '';
+  return el('div', { className: 'swatch-group' }, [
+    el('div', { className: 'swatch-group__head' }, [
+      el('span', { className: 'field__label', text: 'Colour' }),
+      el('span', { className: 'swatch-group__name', text: selected }),
+    ]),
+    row,
+  ]);
 }
 
 function customColour({ appearance, run, target }) {
   const current = appearance.color.custom ? appearance.color : null;
-  const name = el('input', { className: 'field__input', attrs: { type: 'text', maxlength: '80', placeholder: 'Name, e.g. Sage green', 'aria-label': 'Custom colour name' } });
+  const name = el('input', { className: 'field__input', attrs: { type: 'text', maxlength: '80', placeholder: 'Name, e.g. Sage green', 'aria-label': 'Custom colour name', 'data-key': 'Custom colour name' } });
   name.value = current?.name ?? '';
-  const picker = el('input', { className: 'colour-input', attrs: { type: 'color', 'aria-label': 'Custom colour' } });
+  const picker = el('input', { className: 'colour-input', attrs: { type: 'color', 'aria-label': 'Custom colour', 'data-key': 'Custom colour' } });
   picker.value = current?.hex ?? '#9caf88';
   const applyButton = button('Apply custom colour', () => {
     run(materialOps(target, 'color', { custom: true, name: name.value.trim() || 'Custom colour', hex: picker.value }));
   }, { variant: 'ghost' });
   const badge = current ? [el('p', { className: 'custom-badge', text: `Custom: ${current.name}` })] : [];
   return el('details', { className: 'custom-colour', attrs: current ? { open: '' } : {} }, [
-    el('summary', { text: 'Custom colour…' }),
+    el('summary', { text: 'Custom colour…', attrs: { 'data-key': 'summary' } }),
     ...badge,
     el('div', { className: 'custom-colour__row' }, [picker, name]),
     applyButton,
@@ -39,7 +47,7 @@ function customColour({ appearance, run, target }) {
 
 export function appearanceControls({ catalog, appearance, target, run, label }) {
   const material = appearance.material;
-  return el('div', { className: 'appearance' }, [
+  return el('div', { className: 'appearance', attrs: { 'data-group': label } }, [
     el('p', { className: 'appearance__label', text: label }),
     selectField({
       label: 'Material',

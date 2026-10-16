@@ -3,14 +3,18 @@
 // caller re-validates. Integer arithmetic only (parity with Python).
 
 import * as ids from './ids.js';
-import { DEFAULT_PANEL_THICKNESS, DEFAULT_SLIDING_DOOR_COUNT, LIMITS, defaultAppearance } from './defaults.js';
+import {
+  DEFAULT_PANEL_THICKNESS, DEFAULT_SLIDING_DOOR_COUNT, LIMITS, defaultAppearance, defaultHandles,
+} from './defaults.js';
 import { DomainError, INVALID_OP, NOT_FOUND, OUT_OF_RANGE } from './errors.js';
 import { partitionLeftEdge } from './geometry.js';
 import { ITEM_KINDS, compartmentIndex, locate, partitionIndex, requireRange } from './lookup.js';
 import { isSet, sum } from './util.js';
 
 const emptyCompartment = (id, width) => ({ id, width, shelves: [], drawers: [], rails: [] });
-const door = (id, compartmentIds, hingeSide) => ({ id, compartmentIds, hingeSide, appearance: null });
+const door = (id, compartmentIds, hingeSide) => ({
+  id, compartmentIds, hingeSide, appearance: null, handle: null, mirror: false,
+});
 
 function idsOrNew(given, count, prefix, path) {
   if (!isSet(given)) return Array.from({ length: count }, () => ids.newId(prefix));
@@ -50,6 +54,7 @@ function createWardrobe(_draft, op, path) {
     compartments: compartmentIds.map((id, i) => emptyCompartment(id, widths[i])),
     partitions: partitionIds.map((id) => ({ id, thickness: partition })),
     doors: { type: 'none', appearance: defaultAppearance(), items: [] },
+    handles: defaultHandles(),
   };
 }
 

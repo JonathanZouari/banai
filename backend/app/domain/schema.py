@@ -24,6 +24,7 @@ from pydantic import (
 from pydantic.alias_generators import to_camel
 
 from app.domain import ids
+from app.domain.defaults import default_handles
 from app.domain.errors import SCHEMA_INVALID, DomainError
 
 # Hard structural bounds (anti-abuse). Kept small: every op re-validates the whole
@@ -114,6 +115,19 @@ class Appearance(StrictModel):
     finish: Ref
 
 
+HandleStyle = Literal["bar", "knob", "edge", "cup", "groove", "none"]
+HandleFinish = Literal["steel", "black", "brass"]
+
+
+class Handle(StrictModel):
+    style: HandleStyle
+    finish: HandleFinish
+
+
+def _default_handles() -> Handle:
+    return Handle.model_validate(default_handles())
+
+
 class Dimensions(StrictModel):
     width: Int
     height: Int
@@ -137,6 +151,7 @@ class Drawer(StrictModel):
     y: Int
     height: Int
     appearance: Appearance | None = None
+    handle: Handle | None = None
 
 
 class Rail(StrictModel):
@@ -162,6 +177,8 @@ class Door(StrictModel):
     compartment_ids: list[CompartmentId] = Field(max_length=MAX_LIST)
     hinge_side: Literal["left", "right"] | None = None
     appearance: Appearance | None = None
+    handle: Handle | None = None
+    mirror: bool = False
 
 
 class Doors(StrictModel):
@@ -178,6 +195,7 @@ class Design(StrictModel):
     compartments: list[Compartment] = Field(min_length=1, max_length=MAX_COMPARTMENTS)
     partitions: list[Partition] = Field(max_length=MAX_COMPARTMENTS)
     doors: Doors
+    handles: Handle = Field(default_factory=_default_handles)
 
     @field_validator("compartments")
     @classmethod

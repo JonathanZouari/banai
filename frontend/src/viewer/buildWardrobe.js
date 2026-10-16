@@ -4,9 +4,10 @@ import * as THREE from 'three';
 import { buildCarcass } from './builders/carcass.js';
 import { buildDoors } from './builders/doors.js';
 import { frameOf } from './builders/frame.js';
+import { addFrontHardware } from './builders/handles.js';
 import { buildCompartmentItems, buildPartitions } from './builders/interior.js';
 
-export function buildWardrobe(design, materials, { doorsVisible }) {
+export function buildWardrobe(design, materials, { doorsVisible = true, hardware = null } = {}) {
   const frame = frameOf(design);
   const carcassMaterial = materials.forAppearance(design.carcass.appearance);
   const group = new THREE.Group();
@@ -17,10 +18,11 @@ export function buildWardrobe(design, materials, { doorsVisible }) {
     ...buildCompartmentItems(design, frame, materials),
     ...(doorsVisible ? buildDoors(design, frame, materials) : []),
   );
+  if (hardware) addFrontHardware(group, design, hardware, { doorsVisible });
   return group;
 }
 
-/** Free GPU geometry of a previously built group (materials are cached separately). */
+/** Free GPU geometry of a previously built group (materials, incl. shared hardware, are owned elsewhere). */
 export function disposeWardrobe(group) {
   group.traverse((object) => {
     if (object.geometry) object.geometry.dispose();

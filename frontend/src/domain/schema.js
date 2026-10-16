@@ -4,6 +4,7 @@
 
 import { z } from 'zod';
 import { DomainError, SCHEMA_INVALID } from './errors.js';
+import { defaultHandles } from './defaults.js';
 import * as ids from './ids.js';
 import { isPlainObject, sum } from './util.js';
 
@@ -49,8 +50,17 @@ export const ref = z.unknown().transform((value, ctx) => {
 export const appearance = z.strictObject({ material: ref, color: ref, finish: ref });
 const override = appearance.nullable().default(null);
 
+export const HANDLE_STYLES = Object.freeze(['bar', 'knob', 'edge', 'cup', 'groove', 'none']);
+export const HANDLE_FINISHES = Object.freeze(['steel', 'black', 'brass']);
+export const handleStyle = z.enum(HANDLE_STYLES);
+export const handleFinish = z.enum(HANDLE_FINISHES);
+export const handle = z.strictObject({ style: handleStyle, finish: handleFinish });
+const handleOverride = handle.nullable().default(null);
+
 const shelf = z.strictObject({ id: typedId(ids.SHELF), y: int(), thickness: int(), appearance: override });
-const drawer = z.strictObject({ id: typedId(ids.DRAWER), y: int(), height: int(), appearance: override });
+const drawer = z.strictObject({
+  id: typedId(ids.DRAWER), y: int(), height: int(), appearance: override, handle: handleOverride,
+});
 const rail = z.strictObject({ id: typedId(ids.RAIL), y: int() });
 
 const compartment = z.strictObject({
@@ -66,6 +76,8 @@ const door = z.strictObject({
   compartmentIds: list(typedId(ids.COMPARTMENT)),
   hingeSide: z.enum(['left', 'right']).nullable().default(null),
   appearance: override,
+  handle: handleOverride,
+  mirror: z.boolean().default(false),
 });
 
 export const designSchema = z.strictObject({
@@ -83,6 +95,7 @@ export const designSchema = z.strictObject({
     appearance,
     items: z.array(door).max(MAX_DOORS),
   }),
+  handles: handle.default(defaultHandles),
 });
 
 export function formatPath(path) {

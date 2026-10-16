@@ -4,6 +4,9 @@ import { z } from 'zod';
 import { DomainError, SCHEMA_INVALID } from './errors.js';
 import { SAFE_TEXT_PATTERN, isVisibleText } from './schema.js';
 
+// Wood-grain texture families a color may name (optional `grain` key on color entries).
+export const GRAINS = Object.freeze(['oak', 'ash', 'cherry', 'teak', 'wenge', 'walnut']);
+
 export const SECTIONS = Object.freeze({ material: 'materials', color: 'colors', finish: 'finishes' });
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
@@ -13,7 +16,7 @@ const entry = z.object({
 });
 const catalogSchema = z.object({
   materials: z.array(entry).max(100),
-  colors: z.array(entry.extend({ hex: z.string().regex(HEX) })).max(100),
+  colors: z.array(entry.extend({ hex: z.string().regex(HEX), grain: z.enum(GRAINS).optional() })).max(100),
   finishes: z.array(entry).max(100),
 });
 

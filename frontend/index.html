@@ -3,27 +3,61 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#f5f5f7" />
     <title>BanAI Wardrobe Designer</title>
     <link rel="stylesheet" href="/src/styles/index.css" />
   </head>
   <body>
     <header class="topbar">
-      <h1 class="topbar__title" id="topbar-logo" aria-label="BanAI Wardrobe Designer"></h1>
+      <h1 class="topbar__title">BanAI <span>Wardrobe Designer</span></h1>
       <div class="topbar__actions">
-        <label class="toggle">
-          <input type="checkbox" id="toggle-interior" />
-          <span>Show interior</span>
-        </label>
-        <span class="topbar__units">cm</span>
-        <button type="button" class="btn btn--secondary" id="open-ai-settings" data-testid="open-ai-settings">AI settings</button>
-        <button type="button" class="btn btn--tonal" id="open-render" data-testid="open-render">Render</button>
-        <button type="button" class="btn btn--primary" id="open-save" data-testid="open-save">Save</button>
+        <button type="button" class="btn btn--sm btn--toggle" id="chat-toggle" aria-controls="chat-panel" aria-expanded="true">AI designer</button>
+        <details class="help">
+          <summary>Controls</summary>
+          <div class="help__popover">
+            <dl class="help__list">
+              <dt>Drag</dt><dd>Rotate the view</dd>
+              <dt>Right-drag</dt><dd>Pan the view</dd>
+              <dt>Scroll</dt><dd>Zoom in and out</dd>
+              <dt>Click a part</dt><dd>Select it for editing</dd>
+              <dt>Esc</dt><dd>Clear the selection</dd>
+            </dl>
+          </div>
+        </details>
+        <span class="topbar__units">Units: cm</span>
+        <button type="button" class="btn btn--sm" id="open-ai-settings" data-testid="open-ai-settings">AI settings</button>
+        <button type="button" class="btn btn--sm" id="open-render" data-testid="open-render">Render</button>
+        <button type="button" class="btn btn--sm btn--primary" id="open-save" data-testid="open-save">Save</button>
       </div>
     </header>
-    <div class="banner banner--error" id="error-banner" role="alert" hidden></div>
+    <div class="banner banner--error" id="error-banner" role="alert" hidden>
+      <span class="banner__message"></span>
+      <button type="button" class="btn btn--sm" id="error-retry">Retry</button>
+    </div>
     <main class="workspace">
-      <aside class="panel" id="chat-panel" aria-label="AI designer"></aside>
-      <section class="viewer" id="viewer" aria-label="3D viewer"></section>
+      <aside class="panel panel--chat" id="chat-panel" aria-label="AI designer">
+        <div class="chat__body" id="chat-body"></div>
+        <button type="button" class="chat__rail" id="chat-rail-toggle" aria-controls="chat-panel" aria-expanded="false" aria-label="Expand AI Designer panel">
+          <svg class="chat__rail-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>
+          <span class="chat__rail-label">AI Designer</span>
+        </button>
+      </aside>
+      <section class="viewer" id="viewer" aria-label="3D viewer">
+        <div class="viewer-toolbar" role="group" aria-label="Viewer tools">
+          <div class="segmented segmented--sm" role="group" aria-label="Camera view">
+            <button type="button" class="segmented__option" data-view="threeQuarter" data-testid="view-threeQuarter" aria-label="Three-quarter view (default)" aria-pressed="true" disabled>3/4</button>
+            <button type="button" class="segmented__option" data-view="front" data-testid="view-front" aria-pressed="false" disabled>Front</button>
+            <button type="button" class="segmented__option" data-view="side" data-testid="view-side" aria-pressed="false" disabled>Side</button>
+          </div>
+          <button type="button" class="btn btn--sm" id="view-fit" data-testid="view-fit" aria-label="Fit wardrobe to view" disabled>Fit</button>
+          <label class="switch">
+            <input type="checkbox" id="toggle-interior" disabled />
+            <span>Show interior</span>
+          </label>
+        </div>
+        <div class="viewer-loading" role="status">Loading design…</div>
+      </section>
       <aside class="panel panel--properties" id="properties-panel" aria-label="Properties">
         <h2 class="panel__title">Properties</h2>
         <p class="panel__hint">Click a component in the 3D view to edit it.</p>

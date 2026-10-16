@@ -5,79 +5,290 @@ body {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  font: var(--md-sys-typescale-body-medium);
-  color: var(--md-sys-color-on-surface);
-  background: var(--md-sys-color-surface);
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  line-height: var(--leading-body);
+  letter-spacing: var(--tracking-body);
+  font-optical-sizing: auto;
+  color: var(--color-ink);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
+:where(button, input, select, textarea) { font-family: inherit; letter-spacing: inherit; }
 
-/* Top app bar (M3 small) */
+/* The top bar is a translucent material. The blur lives on a pseudo-element (not on the bar itself) so
+   the help popover, a child of the bar, can blur the page behind it instead of only the bar's own box. */
 .topbar {
-  height: 64px;
+  position: relative;
+  z-index: var(--z-topbar);
+  height: 3.5rem;
   flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-4);
   padding: 0 var(--space-4);
-  background: var(--md-sys-color-surface-container-low);
-  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+  box-shadow: var(--shadow-topbar);
 }
-.topbar__title { margin: 0; font-size: inherit; font-weight: inherit; }
-[hidden] { display: none !important; }
-.topbar__actions { display: flex; align-items: center; gap: var(--space-3); color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-label-large); }
-.topbar__units {
-  padding: 4px var(--space-3);
-  border: 1px solid var(--md-sys-color-outline);
-  border-radius: var(--md-sys-shape-small);
-  font: var(--md-sys-typescale-label-medium);
-  font-variant-numeric: tabular-nums;
+.topbar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--material-bg);
+  -webkit-backdrop-filter: var(--material-filter);
+  backdrop-filter: var(--material-filter);
+  box-shadow: var(--material-highlight);
+  pointer-events: none;
 }
+.topbar__title { margin: 0; font-size: var(--text-lg); font-weight: 600; line-height: var(--leading-title); letter-spacing: var(--tracking-title); }
+.topbar__title span { color: var(--color-muted); font-weight: 500; }
+.topbar__actions { display: flex; align-items: center; gap: var(--space-3); color: var(--color-muted); font-size: var(--text-sm); letter-spacing: var(--tracking-control); }
+.topbar__units { font-variant-numeric: tabular-nums; }
 
-.banner { padding: var(--space-2) var(--space-4); font: var(--md-sys-typescale-body-medium); }
-.banner--error { background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); }
+.help { position: relative; }
+.help > summary {
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-fill);
+  color: var(--color-ink);
+  font-weight: 500;
+  cursor: pointer;
+  list-style: none;
+  transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-state) ease, color var(--dur-state) ease;
+}
+.help > summary::-webkit-details-marker { display: none; }
+.help > summary:active { transform: scale(0.97); }
+.help[open] > summary { background: var(--color-accent-soft); color: var(--color-accent-text); }
+/* A translucent card that grows out of its trigger (the "Controls" button sits at the card's top-right). */
+.help__popover {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  z-index: var(--z-popover);
+  width: 15rem;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--material-bg-thick);
+  -webkit-backdrop-filter: var(--material-filter-thick);
+  backdrop-filter: var(--material-filter-thick);
+  box-shadow: var(--material-highlight), var(--shadow-popover);
+  color: var(--color-ink);
+  letter-spacing: var(--tracking-small);
+  transform-origin: calc(100% - 2.4rem) 0;
+}
+.help[open] > .help__popover { animation: help-in var(--dur-pop) var(--ease-out) both; }
+@keyframes help-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes help-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.help__list { display: grid; grid-template-columns: auto 1fr; gap: var(--space-2) var(--space-3); margin: 0; line-height: var(--leading-snug); }
+.help__list dt { font-weight: 600; }
+.help__list dd { margin: 0; color: var(--color-muted); }
 
-.workspace { flex: 1; min-height: 0; display: grid; grid-template-columns: 340px minmax(0, 1fr) 360px; }
+.banner { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-4); font-size: var(--text-sm); letter-spacing: var(--tracking-control); }
+.banner[hidden] { display: none; }
+.banner__message { flex: 1; }
+.banner--error { background: var(--color-danger-soft); color: var(--color-danger); }
 
-/* Side sheets use tonal surface, with a hairline to the canvas. */
-.panel {
-  display: flex;
-  flex-direction: column;
+.workspace {
+  flex: 1;
   min-height: 0;
-  padding: var(--space-4);
-  overflow-y: auto;
-  background: var(--md-sys-color-surface-container-lowest);
+  display: grid;
+  grid-template-columns: var(--chat-w, 320px) minmax(0, 1fr) clamp(300px, 26vw, 360px);
 }
-.panel:first-child { border-right: 1px solid var(--md-sys-color-outline-variant); }
-.panel--properties { border-left: 1px solid var(--md-sys-color-outline-variant); }
-.panel__title { margin: 0 0 var(--space-2); font: var(--md-sys-typescale-title-medium); }
-.panel__hint, .panel__note { margin: 0 0 var(--space-3); color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-small); }
+.workspace--chat-collapsed { --chat-w: 48px; }
+
+/* Side columns are the grouped background; their content sits in white inset cards. */
+.panel {
+  padding: var(--space-3);
+  overflow-y: auto;
+  background: var(--color-bg);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.28) transparent;
+}
+.panel--chat { border-right: 1px solid var(--color-border); }
+.chat__rail {
+  display: none;
+  width: 100%;
+  height: 100%;
+  padding: var(--space-4) 0;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  border: 0;
+  background: transparent;
+  color: var(--color-muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--dur-state) ease, color var(--dur-state) ease;
+}
+.chat__rail-label { writing-mode: vertical-rl; transform: rotate(180deg); letter-spacing: var(--tracking-caps); }
+.chat__rail-icon { flex: none; }
+.workspace--chat-collapsed .panel--chat { padding: 0; overflow: hidden; }
+.workspace--chat-collapsed .chat__body { display: none; }
+.workspace--chat-collapsed .chat__rail { display: flex; }
+.chat__body #chat-title:focus { outline: none; }
+.chat__body #chat-title:focus-visible { outline: var(--focus-outline); outline-offset: 2px; border-radius: var(--radius-sm); }
+.tips {
+  margin-top: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+.tips__title { margin: 0 0 var(--space-2); color: var(--color-muted); font-size: var(--text-xs); font-weight: 600; line-height: var(--leading-snug); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+.tips__list { margin: 0; padding-left: 1.125rem; color: var(--color-muted); font-size: var(--text-sm); line-height: var(--leading-body); letter-spacing: var(--tracking-control); }
+.tips__list li + li { margin-top: var(--space-1); }
+.panel--properties { border-left: 1px solid var(--color-border); }
+.panel__title { margin: 0 0 var(--space-1); padding-inline: var(--space-1); font-size: var(--text-lg); font-weight: 600; line-height: var(--leading-title); letter-spacing: var(--tracking-title); }
+.panel__hint, .panel__note { margin: 0 0 var(--space-3); padding-inline: var(--space-1); color: var(--color-muted); font-size: var(--text-sm); line-height: var(--leading-body); letter-spacing: var(--tracking-control); }
 
 .empty-state {
-  margin-top: var(--space-5);
-  padding: var(--space-4);
-  border: 1px dashed var(--md-sys-color-outline);
-  border-radius: var(--md-sys-shape-medium);
-  color: var(--md-sys-color-on-surface-variant);
-  font: var(--md-sys-typescale-body-small);
-  text-align: center;
+  margin-top: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+  letter-spacing: var(--tracking-control);
 }
 
-.viewer { position: relative; min-width: 0; overflow: hidden; background: var(--md-sys-color-viewer); }
+.viewer { position: relative; isolation: isolate; min-width: 0; overflow: hidden; background: var(--color-viewer); }
+/* Floating, translucent toolbar: top-right of the 3D view, so it never covers the canvas's top-left corner. */
+.viewer-toolbar {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: var(--z-toolbar);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: calc(100% - 2 * var(--space-3));
+  padding: 0.375rem var(--space-2);
+  border-radius: var(--radius-lg);
+  background: var(--material-bg);
+  -webkit-backdrop-filter: var(--material-filter);
+  backdrop-filter: var(--material-filter);
+  box-shadow: var(--material-highlight), var(--shadow-toolbar);
+}
+.viewer-loading {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-loading);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-viewer);
+  color: var(--color-ink); /* Muted grey is only 4.35:1 on the viewer colour. */
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-control);
+  pointer-events: none;
+}
 .viewer canvas { display: block; }
 .viewer-labels { position: absolute; inset: 0; pointer-events: none; }
 
+/* Dimension labels are CSS2D nodes the renderer positions with an inline transform: never set `transform` here.
+   No backdrop blur either; they move every frame while the camera orbits. */
 .dim-label {
-  padding: 2px var(--space-2);
-  border: 1px solid var(--md-sys-color-outline-variant);
-  border-radius: var(--md-sys-shape-extra-small);
-  background: rgba(255, 255, 255, 0.92);
-  color: var(--md-sys-color-on-surface-variant);
-  font: var(--md-sys-typescale-label-small);
+  padding: 0.1875rem 0.625rem;
+  border-radius: var(--radius-pill);
+  background: var(--material-bg-thick);
+  box-shadow: var(--shadow-label);
+  color: var(--color-ink);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-small);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.dim-label--selected {
-  border-color: var(--md-sys-color-primary);
-  background: var(--md-sys-color-primary);
-  color: var(--md-sys-color-on-primary);
+.dim-label--selected { background: var(--color-accent); box-shadow: var(--shadow-label-selected); color: var(--color-on-accent); }
+
+@media (hover: hover) and (pointer: fine) {
+  .help > summary:hover { background: var(--color-fill-hover); }
+  .help[open] > summary:hover { background: var(--color-accent-soft-hover); }
+  .chat__rail:hover { background: var(--color-fill-subtle); color: var(--color-accent-text); }
+}
+
+@media (prefers-contrast: more) {
+  .topbar { box-shadow: 0 1px 0 var(--color-border); }
+  .help > summary { box-shadow: inset 0 0 0 1px var(--color-border-control); }
+  .tips, .empty-state { box-shadow: 0 0 0 1px var(--color-border-control); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .help[open] > .help__popover { animation: help-fade 120ms ease-out both; }
+}
+
+/* ---------- On-canvas steppers: [-] label [+] around each dimension label ---------- */
+/* The group is a CSS2D node (the renderer sets its transform: never set one here). The label layer is
+   pointer-events: none, so only the buttons take clicks. */
+.dim-label-group { display: inline-flex; align-items: center; gap: 4px; pointer-events: none; }
+.dim-step {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--material-bg-thick);
+  box-shadow: var(--shadow-label);
+  color: var(--color-ink);
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-state) ease, opacity var(--dur-state) ease;
+}
+.dim-step::before { font-size: 15px; font-weight: 500; line-height: 1; }
+.dim-step--minus::before { content: '\2212'; }
+.dim-step--plus::before { content: '+'; }
+.dim-step:active:not(:disabled) { transform: scale(0.94); background: var(--color-surface); }
+.dim-step:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
+.dim-step:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ---------- Quick view options (bottom-right of the 3D view): compact, same material as the top toolbar ---------- */
+.viewer-toolbar--quick {
+  top: auto;
+  bottom: var(--space-3);
+  gap: var(--space-1) var(--space-3);
+  padding: 0.25rem var(--space-3);
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-control);
+}
+.viewer-toolbar--quick .switch { padding: 0; }
+.viewer-toolbar--quick select.field__input { width: auto; height: var(--control-h-sm); font-size: var(--text-sm); }
+
+@media (hover: hover) and (pointer: fine) {
+  .dim-step:hover:not(:disabled):not(:active) { background: var(--color-surface); }
+}
+@media (prefers-contrast: more) {
+  .dim-step { box-shadow: 0 0 0 1px var(--color-ink); }
+}
+@media (forced-colors: active) {
+  .dim-step { border: 1px solid ButtonText; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dim-step:active:not(:disabled) { transform: none; }
 }

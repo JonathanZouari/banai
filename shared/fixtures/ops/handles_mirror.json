@@ -1,0 +1,417 @@
+[
+  {
+    "name": "set_handles all: style only keeps the finish",
+    "base": "two",
+    "ops": [{ "op": "set_handles", "target": "all", "style": "knob" }],
+    "expect": { "match": { "handles": { "style": "knob", "finish": "steel" } } }
+  },
+  {
+    "name": "set_handles all: finish only keeps the style",
+    "base": "two",
+    "ops": [{ "op": "set_handles", "target": "all", "finish": "brass" }],
+    "expect": { "match": { "handles": { "style": "bar", "finish": "brass" } } }
+  },
+  {
+    "name": "set_handles all: style and finish together",
+    "base": "two",
+    "ops": [{ "op": "set_handles", "target": "all", "style": "groove", "finish": "black" }],
+    "expect": { "match": { "handles": { "style": "groove", "finish": "black" } } }
+  },
+  {
+    "name": "set_handles all: explicit nulls are absent, the other field still applies",
+    "base": "two",
+    "ops": [{ "op": "set_handles", "target": "all", "style": null, "finish": "black" }],
+    "expect": { "match": { "handles": { "style": "bar", "finish": "black" } } }
+  },
+  {
+    "name": "set_handles on a door creates an override that inherits the other field",
+    "base": "two",
+    "ops": [
+      { "op": "set_handles", "target": "all", "finish": "brass" },
+      { "op": "set_handles", "target": "dr_a", "style": "edge" }
+    ],
+    "expect": { "match": {
+      "handles": { "style": "bar", "finish": "brass" },
+      "doors": { "items": [
+        { "id": "dr_a", "handle": { "style": "edge", "finish": "brass" } },
+        { "id": "dr_b", "handle": null }
+      ] }
+    } }
+  },
+  {
+    "name": "set_handles on a drawer creates an override that inherits the other field",
+    "base": "two",
+    "ops": [{ "op": "set_handles", "target": "drw_1", "finish": "black" }],
+    "expect": { "match": {
+      "handles": { "style": "bar", "finish": "steel" },
+      "compartments": [
+        { "drawers": [{ "id": "drw_1", "handle": { "style": "bar", "finish": "black" } }] },
+        { "drawers": [] }
+      ]
+    } }
+  },
+  {
+    "name": "a second set_handles merges into the existing override",
+    "base": "two",
+    "ops": [
+      { "op": "set_handles", "target": "dr_b", "style": "knob" },
+      { "op": "set_handles", "target": "dr_b", "finish": "black" }
+    ],
+    "expect": { "match": { "doors": { "items": [
+      { "id": "dr_a", "handle": null },
+      { "id": "dr_b", "handle": { "style": "knob", "finish": "black" } }
+    ] } } }
+  },
+  {
+    "name": "changing the root handles leaves item overrides alone",
+    "base": "two",
+    "ops": [
+      { "op": "set_handles", "target": "drw_1", "style": "cup" },
+      { "op": "set_handles", "target": "all", "finish": "black" }
+    ],
+    "expect": { "match": {
+      "handles": { "style": "bar", "finish": "black" },
+      "compartments": [
+        { "drawers": [{ "handle": { "style": "cup", "finish": "steel" } }] },
+        { "drawers": [] }
+      ]
+    } }
+  },
+  {
+    "name": "clear removes a door handle override",
+    "base": "two",
+    "ops": [
+      { "op": "set_handles", "target": "dr_a", "style": "knob" },
+      { "op": "set_handles", "target": "dr_a", "clear": true }
+    ],
+    "expect": { "match": { "doors": { "items": [{ "id": "dr_a", "handle": null }, { "id": "dr_b", "handle": null }] } } }
+  },
+  {
+    "name": "clear removes a drawer handle override and is harmless without one",
+    "base": "two",
+    "ops": [
+      { "op": "set_handles", "target": "drw_1", "style": "none" },
+      { "op": "set_handles", "target": "drw_1", "clear": true },
+      { "op": "set_handles", "target": "drw_1", "clear": true }
+    ],
+    "expect": { "match": { "compartments": [{ "drawers": [{ "handle": null }] }, { "drawers": [] }] } }
+  },
+  {
+    "name": "clear cannot reset the design-wide handles",
+    "base": "two",
+    "ops": [{ "op": "set_handles", "target": "all", "clear": true }],
+    "expect": { "error": { "code": "INVALID_OP", "path": "ops[0].clear" } }
+  },
+  {
+    "name": "clear cannot be combined with new values",
+    "base": "two",
+    "ops": [{ "op": "set_handles", "target": "dr_a", "style": "knob", "clear": true }],
+    "expect": { "error": { "code": "INVALID_OP", "path": "ops[0]" } }
+  },
+  {
+    "name": "set_handles needs style, finish or clear",
+    "base": "two",
+    "ops": [{ "op": "set_handles", "target": "dr_a" }],
+    "expect": { "error": { "code": "INVALID_OP", "path": "ops[0]" } }
+  },
+  {
+    "name": "set_handles with only null fields is empty",
+    "base": "two",
+    "ops": [{ "op": "set_handles", "target": "all", "style": null, "finish": null }],
+    "expect": { "error": { "code": "INVALID_OP", "path": "ops[0]" } }
+  },
+  {
+    "name": "set_handles on an unknown door",
+    "base": "two",
+    "ops": [{ "op": "set_handles", "target": "dr_nope", "style": "knob" }],
+    "expect": { "error": { "code": "NOT_FOUND", "path": "ops[0].target" } }
+  },
+  {
+    "name": "set_handles on an unknown drawer",
+    "base": "two",
+    "ops": [{ "op": "set_handles", "target": "drw_nope", "style": "knob" }],
+    "expect": { "error": { "code": "NOT_FOUND", "path": "ops[0].target" } }
+  },
+  {
+    "name": "set_handles on a shelf is rejected like set_material on a component without that property",
+    "base": "two",
+    "ops": [{ "op": "set_handles", "target": "shf_1", "style": "knob" }],
+    "expect": { "error": { "code": "INVALID_OP", "path": "ops[0].target" } }
+  },
+  {
+    "name": "set_handles on a compartment is rejected",
+    "base": "two",
+    "ops": [{ "op": "set_handles", "target": "cmp_a", "finish": "brass" }],
+    "expect": { "error": { "code": "INVALID_OP", "path": "ops[0].target" } }
+  },
+  {
+    "name": "set_handles does not accept the set_material targets carcass and doors",
+    "base": "two",
+    "ops": [{ "op": "set_handles", "target": "doors", "style": "knob" }],
+    "expect": { "error": { "code": "SCHEMA_INVALID", "path": "ops[0]" } }
+  },
+  {
+    "name": "set_handles with an unknown style",
+    "base": "two",
+    "ops": [{ "op": "set_handles", "target": "all", "style": "pull" }],
+    "expect": { "error": { "code": "SCHEMA_INVALID", "path": "ops[0]" } }
+  },
+  {
+    "name": "set_handles with an unknown finish",
+    "base": "two",
+    "ops": [{ "op": "set_handles", "target": "all", "finish": "gold" }],
+    "expect": { "error": { "code": "SCHEMA_INVALID", "path": "ops[0]" } }
+  },
+  {
+    "name": "set_handles rejects snake_case and extra keys",
+    "base": "two",
+    "ops": [{ "op": "set_handles", "target": "all", "handle_style": "knob" }],
+    "expect": { "error": { "code": "SCHEMA_INVALID", "path": "ops[0]" } }
+  },
+  {
+    "name": "set_handles clear must be a real boolean",
+    "base": "two",
+    "ops": [{ "op": "set_handles", "target": "dr_a", "clear": "yes" }],
+    "expect": { "error": { "code": "SCHEMA_INVALID", "path": "ops[0]" } }
+  },
+  {
+    "name": "modify_door mirror true",
+    "base": "two",
+    "ops": [{ "op": "modify_door", "id": "dr_a", "mirror": true }],
+    "expect": { "match": { "doors": { "items": [
+      { "id": "dr_a", "mirror": true, "hingeSide": "left" },
+      { "id": "dr_b", "mirror": false, "hingeSide": "right" }
+    ] } } }
+  },
+  {
+    "name": "modify_door mirror can be turned off again, and false alone is a change",
+    "base": "two",
+    "ops": [
+      { "op": "modify_door", "id": "dr_b", "mirror": true },
+      { "op": "modify_door", "id": "dr_b", "mirror": false }
+    ],
+    "expect": { "match": { "doors": { "items": [
+      { "id": "dr_a", "mirror": false },
+      { "id": "dr_b", "mirror": false }
+    ] } } }
+  },
+  {
+    "name": "modify_door hinge flip keeps appearance and handle overrides",
+    "base": "two",
+    "ops": [
+      { "op": "set_material", "target": "dr_a", "color": { "catalogId": "anthracite" } },
+      { "op": "set_handles", "target": "dr_a", "style": "knob" },
+      { "op": "modify_door", "id": "dr_a", "mirror": true },
+      { "op": "modify_door", "id": "dr_a", "hingeSide": "right" }
+    ],
+    "expect": { "match": { "doors": { "items": [
+      {
+        "id": "dr_a", "compartmentIds": ["cmp_a"], "hingeSide": "right", "mirror": true,
+        "appearance": {
+          "material": { "catalogId": "melamine" },
+          "color": { "catalogId": "anthracite" },
+          "finish": { "catalogId": "matte" }
+        },
+        "handle": { "style": "knob", "finish": "steel" }
+      },
+      { "id": "dr_b", "hingeSide": "right", "mirror": false, "appearance": null, "handle": null }
+    ] } } }
+  },
+  {
+    "name": "modify_door changes hinge side and mirror together",
+    "base": "two",
+    "ops": [{ "op": "modify_door", "id": "dr_b", "hingeSide": "left", "mirror": true }],
+    "expect": { "match": { "doors": { "items": [
+      { "id": "dr_a", "hingeSide": "left", "mirror": false },
+      { "id": "dr_b", "hingeSide": "left", "mirror": true }
+    ] } } }
+  },
+  {
+    "name": "modify_door needs hingeSide or mirror",
+    "base": "two",
+    "ops": [{ "op": "modify_door", "id": "dr_a" }],
+    "expect": { "error": { "code": "INVALID_OP", "path": "ops[0]" } }
+  },
+  {
+    "name": "modify_door with only null fields is empty",
+    "base": "two",
+    "ops": [{ "op": "modify_door", "id": "dr_a", "hingeSide": null, "mirror": null }],
+    "expect": { "error": { "code": "INVALID_OP", "path": "ops[0]" } }
+  },
+  {
+    "name": "modify_door on an unknown door",
+    "base": "two",
+    "ops": [{ "op": "modify_door", "id": "dr_nope", "mirror": true }],
+    "expect": { "error": { "code": "NOT_FOUND", "path": "ops[0].id" } }
+  },
+  {
+    "name": "modify_door only takes door ids",
+    "base": "two",
+    "ops": [{ "op": "modify_door", "id": "shf_1", "mirror": true }],
+    "expect": { "error": { "code": "SCHEMA_INVALID", "path": "ops[0]" } }
+  },
+  {
+    "name": "modify_door with an unknown hinge side",
+    "base": "two",
+    "ops": [{ "op": "modify_door", "id": "dr_a", "hingeSide": "middle" }],
+    "expect": { "error": { "code": "SCHEMA_INVALID", "path": "ops[0]" } }
+  },
+  {
+    "name": "modify_door mirror must be a real boolean",
+    "base": "two",
+    "ops": [{ "op": "modify_door", "id": "dr_a", "mirror": "yes" }],
+    "expect": { "error": { "code": "SCHEMA_INVALID", "path": "ops[0]" } }
+  },
+  {
+    "name": "modify_door hingeSide on a sliding door fails the door validation",
+    "base": "two",
+    "ops": [
+      { "op": "configure_doors", "type": "sliding", "ids": ["dr_s1", "dr_s2"] },
+      { "op": "modify_door", "id": "dr_s1", "hingeSide": "left" }
+    ],
+    "expect": { "error": { "code": "DOOR_INVALID", "path": "doors.items[0].hingeSide" } }
+  },
+  {
+    "name": "mirror and handles are allowed on sliding doors",
+    "base": "two",
+    "ops": [
+      { "op": "configure_doors", "type": "sliding", "ids": ["dr_s1", "dr_s2"] },
+      { "op": "modify_door", "id": "dr_s2", "mirror": true },
+      { "op": "set_handles", "target": "dr_s1", "style": "edge" }
+    ],
+    "expect": { "match": { "doors": { "type": "sliding", "items": [
+      { "id": "dr_s1", "hingeSide": null, "mirror": false, "handle": { "style": "edge", "finish": "steel" } },
+      { "id": "dr_s2", "hingeSide": null, "mirror": true, "handle": null }
+    ] } } }
+  },
+  {
+    "name": "configure_doors builds new doors without handle override or mirror",
+    "base": "two",
+    "ops": [
+      { "op": "modify_door", "id": "dr_a", "mirror": true },
+      { "op": "set_handles", "target": "dr_a", "style": "knob" },
+      { "op": "configure_doors", "type": "hinged", "ids": ["dr_x", "dr_y"] }
+    ],
+    "expect": { "match": { "doors": { "items": [
+      { "id": "dr_x", "hingeSide": "left", "mirror": false, "handle": null },
+      { "id": "dr_y", "hingeSide": "right", "mirror": false, "handle": null }
+    ] } } }
+  },
+  {
+    "name": "new drawers start without a handle override and create_wardrobe emits the default handles",
+    "base": "two",
+    "ops": [
+      { "op": "create_wardrobe", "width": 1000, "height": 2000, "depth": 500, "compartmentCount": 1, "compartmentIds": ["cmp_x"] },
+      { "op": "add_drawer", "compartmentId": "cmp_x", "y": 0, "height": 200, "id": "drw_x" }
+    ],
+    "expect": { "match": {
+      "handles": { "style": "bar", "finish": "steel" },
+      "compartments": [{ "drawers": [{ "id": "drw_x", "handle": null }] }]
+    } }
+  },
+  {
+    "name": "a design without handle fields gets the defaults",
+    "base": {
+      "schemaVersion": 1,
+      "units": "mm",
+      "dimensions": { "width": 1000, "height": 2000, "depth": 500 },
+      "carcass": {
+        "panelThickness": 20,
+        "appearance": {
+          "material": { "catalogId": "melamine" },
+          "color": { "catalogId": "white" },
+          "finish": { "catalogId": "matte" }
+        }
+      },
+      "compartments": [
+        {
+          "id": "cmp_a",
+          "width": 960,
+          "shelves": [],
+          "drawers": [{ "id": "drw_1", "y": 0, "height": 200, "appearance": null }],
+          "rails": []
+        }
+      ],
+      "partitions": [],
+      "doors": {
+        "type": "hinged",
+        "appearance": {
+          "material": { "catalogId": "melamine" },
+          "color": { "catalogId": "white" },
+          "finish": { "catalogId": "matte" }
+        },
+        "items": [{ "id": "dr_a", "compartmentIds": ["cmp_a"], "hingeSide": "left", "appearance": null }]
+      }
+    },
+    "ops": [],
+    "expect": { "match": {
+      "handles": { "style": "bar", "finish": "steel" },
+      "compartments": [{ "drawers": [{ "id": "drw_1", "handle": null }] }],
+      "doors": { "items": [{ "id": "dr_a", "handle": null, "mirror": false }] }
+    } }
+  },
+  {
+    "name": "design input: door mirror must be a boolean",
+    "base": "two",
+    "mutate": [{ "path": ["doors", "items", 0, "mirror"], "value": "yes" }],
+    "ops": [],
+    "expect": { "error": { "code": "SCHEMA_INVALID", "path": "doors.items[0].mirror" } }
+  },
+  {
+    "name": "design input: door mirror 1 is not a boolean",
+    "base": "two",
+    "mutate": [{ "path": ["doors", "items", 1, "mirror"], "value": 1 }],
+    "ops": [],
+    "expect": { "error": { "code": "SCHEMA_INVALID", "path": "doors.items[1].mirror" } }
+  },
+  {
+    "name": "design input: root handles need both style and finish",
+    "base": "two",
+    "mutate": [{ "path": ["handles"], "value": { "style": "bar" } }],
+    "ops": [],
+    "expect": { "error": { "code": "SCHEMA_INVALID", "path": "handles.finish" } }
+  },
+  {
+    "name": "design input: root handles reject an unknown style",
+    "base": "two",
+    "mutate": [{ "path": ["handles", "style"], "value": "pull" }],
+    "ops": [],
+    "expect": { "error": { "code": "SCHEMA_INVALID", "path": "handles.style" } }
+  },
+  {
+    "name": "design input: root handles cannot be null",
+    "base": "two",
+    "mutate": [{ "path": ["handles"], "value": null }],
+    "ops": [],
+    "expect": { "error": { "code": "SCHEMA_INVALID", "path": "handles" } }
+  },
+  {
+    "name": "design input: a door handle needs both style and finish",
+    "base": "two",
+    "mutate": [{ "path": ["doors", "items", 1, "handle"], "value": { "finish": "brass" } }],
+    "ops": [],
+    "expect": { "error": { "code": "SCHEMA_INVALID", "path": "doors.items[1].handle.style" } }
+  },
+  {
+    "name": "design input: a drawer handle rejects an unknown finish",
+    "base": "two",
+    "mutate": [{ "path": ["compartments", 0, "drawers", 0, "handle"], "value": { "style": "knob", "finish": "gold" } }],
+    "ops": [],
+    "expect": { "error": { "code": "SCHEMA_INVALID", "path": "compartments[0].drawers[0].handle.finish" } }
+  },
+  {
+    "name": "design input: a valid door and drawer handle override round-trips",
+    "base": "two",
+    "mutate": [
+      { "path": ["doors", "items", 0, "handle"], "value": { "style": "cup", "finish": "brass" } },
+      { "path": ["compartments", 0, "drawers", 0, "handle"], "value": { "style": "none", "finish": "black" } },
+      { "path": ["handles"], "value": { "style": "groove", "finish": "steel" } }
+    ],
+    "ops": [],
+    "expect": { "match": {
+      "handles": { "style": "groove", "finish": "steel" },
+      "doors": { "items": [{ "id": "dr_a", "handle": { "style": "cup", "finish": "brass" } }, { "id": "dr_b", "handle": null }] },
+      "compartments": [{ "drawers": [{ "handle": { "style": "none", "finish": "black" } }] }, { "drawers": [] }]
+    } }
+  }
+]

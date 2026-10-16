@@ -20,7 +20,7 @@ describe('buildWardrobe', () => {
   it('creates one mesh per component, tagged with id and kind', () => {
     const group = build(basic);
     const kinds = meshes(group).reduce((counts, m) => ({ ...counts, [m.userData.kind]: (counts[m.userData.kind] ?? 0) + 1 }), {});
-    expect(kinds).toEqual({ carcass: 5, partition: 2, shelf: 7, drawer: 2, rail: 1, door: 3, hardware: 3 });
+    expect(kinds).toEqual({ carcass: 5, partition: 2, shelf: 7, drawer: 2, rail: 1, door: 3 });
     expect(byId(group, 'shf_l1')).toHaveLength(1);
     expect(byId(group, 'carcass')).toHaveLength(5);
   });
@@ -73,24 +73,8 @@ describe('buildWardrobe', () => {
     expect(a.position.z).not.toBeCloseTo(b.position.z, 3);
   });
 
-  it('hides door hardware together with the doors', () => {
-    const group = build(basic, { doorsVisible: false });
-    expect(meshes(group).some((m) => m.userData.kind === 'hardware')).toBe(false);
-  });
-
-  it('puts each hinged-door handle on the edge opposite the hinge', () => {
-    const group = build(basic);
-    const doorOf = (id) => byId(group, id)[0];
-    const handles = meshes(group).filter((m) => m.userData.part === 'handle');
-    const handleNear = (door) => handles.find((h) => Math.abs(h.position.x - door.position.x) < size(door).x / 2);
-    // basic wardrobe: left door hinged left, middle hinged right, right hinged left
-    const left = doorOf('dr_left');
-    const middle = doorOf('dr_middle');
-    expect(handleNear(left).position.x).toBeGreaterThan(left.position.x);
-    expect(handleNear(middle).position.x).toBeLessThan(middle.position.x);
-  });
-
-  it('overlaps sliding panels, spans the full interior and adds two rails and a handle per panel', () => {
+  // Handle tests live in handles.test.js (uxui hardware); PR #3's hardware meshes were replaced in the merge.
+  it('overlaps sliding panels and spans the full interior', () => {
     const three = applyOps(basic, [{ op: 'configure_doors', type: 'sliding', ids: ['dr_a', 'dr_b', 'dr_c'] }], catalog);
     const group = build(three);
     const panels = ['dr_a', 'dr_b', 'dr_c'].map((id) => byId(group, id)[0]);
@@ -102,19 +86,6 @@ describe('buildWardrobe', () => {
     expect(right(panels[1])).toBeGreaterThan(left(panels[2]));
     expect(panels[0].position.z).toBeCloseTo(panels[2].position.z, 6);
     expect(panels[1].position.z).toBeGreaterThan(panels[0].position.z);
-    const parts = meshes(group).filter((m) => m.userData.kind === 'hardware').map((m) => m.userData.part).sort();
-    expect(parts).toEqual(['handle', 'handle', 'handle', 'rail-bottom', 'rail-top']);
-  });
-
-  it('keeps hardware out of the way of clicks and selection', () => {
-    const group = build(basic);
-    const hardwareMeshes = meshes(group).filter((m) => m.userData.kind === 'hardware');
-    expect(hardwareMeshes.length).toBeGreaterThan(0);
-    const raycaster = new THREE.Raycaster(new THREE.Vector3(0, 0, 5), new THREE.Vector3(0, 0, -1));
-    hardwareMeshes.forEach((m) => {
-      expect(m.userData.componentId).toBeUndefined();
-      expect(raycaster.intersectObject(m)).toEqual([]);
-    });
   });
 
   it('draws a single sliding door without overlap and no doors for type none', () => {

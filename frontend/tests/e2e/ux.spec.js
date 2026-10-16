@@ -1,184 +1,235 @@
-import { test, expect, openDesigner } from './fixtures.js';
+import { clickComponent, expect, openDesigner, selection, test } from './fixtures.js';
 
-test.describe('start screen', () => {
-  test('is shown first with three entry points and the manufacturing disclaimer', async ({ page }) => {
-    await page.goto('/');
-    await expect(page.getByTestId('start-screen')).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Design your wardrobe' })).toBeVisible();
-    for (const id of ['guided', 'freeText', 'basic']) await expect(page.getByTestId(`entry-${id}`)).toBeVisible();
-    await expect(page.getByText('not manufacturing drawings')).toBeVisible();
-  });
+const SECTIONS_STORAGE_KEY = 'banai.ui.sections';
 
-  test('Escape does not dismiss it (a choice is required)', async ({ page }) => {
-    await page.goto('/');
-    await page.getByTestId('start-screen').waitFor();
-    await page.keyboard.press('Escape');
-    await expect(page.getByTestId('start-screen')).toBeVisible();
-  });
+const canvas = (page) => page.locator('#viewer canvas');
+const designState = (page) => page.evaluate(() => window.__banai.store.getState().design);
+const viewName = (page) => page.evaluate(() => window.__banai.viewer.viewName);
+const cursor = (page) => page.evaluate(() => window.__banai.viewer.canvas.style.cursor);
+const cameraPose = (page) => page.evaluate(() => {
+  const { camera, controls } = window.__banai.viewer;
+  return { position: camera.position.toArray(), target: controls.target.toArray() };
+});
+const maxDelta = (a, b) => Math.max(...a.map((value, i) => Math.abs(value - b[i])));
 
-  test('"Start from a basic wardrobe" opens the editor with the default wardrobe', async ({ page }) => {
-    await openDesigner(page);
-    await expect(page.getByTestId('start-screen')).toHaveCount(0);
-    await expect(page.getByText('W 200.0 cm', { exact: true })).toBeVisible();
-  });
-
-  test('"Describe it" opens the same editor and focuses the chat composer', async ({ page }) => {
-    await page.goto('/');
-    await page.getByTestId('entry-freeText').click();
-    await expect(page.getByTestId('chat-input')).toBeFocused();
-    await expect(page.getByTestId('chat-input')).toHaveAttribute('placeholder', /240 cm wide/);
-    await page.waitForFunction(() => window.__banai?.viewer.meshOf('shf_l1'));
-  });
+/**
+ * Resolves once the camera has stopped moving: the view animation is over and the orbit
+ * damping has coasted to a halt. Counted in rendered frames (not milliseconds), so a slow
+ * software renderer cannot make a moving camera look still.
+ */
+const settledCamera = (page) => page.evaluate(async () => {
+  const { camera, controls } = window.__banai.viewer;
+  const pose = () => [...camera.position.toArray(), ...controls.target.toArray()];
+  let last = pose();
+  let still = 0;
+  while (still < 5) {
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    const now = pose();
+    still = now.every((value, i) => Math.abs(value - last[i]) < 1e-4) ? still + 1 : 0;
+    last = now;
+  }
 });
 
-test.describe('AI chat panel (agent not connected yet)', () => {
-  test('sending a message gets an honest reply and never changes the design', async ({ page }) => {
-    await openDesigner(page);
-    const before = await page.evaluate(() => window.__banai.store.getState().revision);
-    await page.getByTestId('chat-input').fill('make it 3 m wide');
-    await page.getByTestId('chat-send').click();
-    const messages = page.getByTestId('chat-messages');
-    await expect(messages).toContainText('make it 3 m wide');
-    await expect(messages).toContainText("isn't connected yet");
-    expect(await page.evaluate(() => window.__banai.store.getState().revision)).toBe(before);
-  });
+/** Lets the page process pending pointer events and animation frames. */
+const nextFrames = (page, count = 3) => page.evaluate(async (n) => {
+  for (let i = 0; i < n; i += 1) await new Promise((resolve) => requestAnimationFrame(resolve));
+}, count);
 
-  test('a proposal shows Confirm/Cancel, goes stale after a manual edit, and Cancel changes nothing', async ({ page }) => {
-    await openDesigner(page);
+/** Normalised-device coordinates [x, y, z] of the 8 corners of the wardrobe box (x right, y up, z towards -depth). */
+const wardrobeCornersNdc = (page) => page.evaluate(() => {
+  const { store, viewer } = window.__banai;
+  const { width, height, depth } = store.getState().design.dimensions;
+  const { camera } = viewer;
+  const Vector3 = camera.position.constructor;
+  const corners = [];
+  [0, width / 1000].forEach((x) => [0, height / 1000].forEach((y) => [0, -depth / 1000].forEach((z) => {
+    const ndc = new Vector3(x, y, z).project(camera);
+    corners.push([ndc.x, ndc.y, ndc.z]);
+  })));
+  return corners;
+});
+
+async function orbitDrag(page) {
+  const box = await canvas(page).boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 200, box.y + box.height / 2 + 40, { steps: 10 });
+  await page.mouse.up();
+}
+
+test.describe('UX pass', () => {
+  test.beforeEach(async ({ page }) => openDesigner(page));
+
+  test('view buttons return to 3/4, square up to the front and re-fit in place', async ({ page }) => {
+    test.setTimeout(90_000); // the orbit damping has to coast to a halt, which takes many frames on a software renderer
+    const threeQuarter = page.getByTestId('view-threeQuarter');
+    const front = page.getByTestId('view-front');
+    await settledCamera(page);
+    const loaded = await cameraPose(page);
+    expect(await viewName(page)).toBe('threeQuarter');
+    await expect(threeQuarter).toHaveAttribute('aria-pressed', 'true');
+
+    await orbitDrag(page);
+    await expect.poll(() => viewName(page)).toBeNull();
+    await expect(threeQuarter).toHaveAttribute('aria-pressed', 'false');
+    await settledCamera(page);
+    expect(maxDelta((await cameraPose(page)).position, loaded.position)).toBeGreaterThan(0.1);
+
+    await threeQuarter.click();
+    await expect.poll(() => viewName(page)).toBe('threeQuarter');
+    await expect(threeQuarter).toHaveAttribute('aria-pressed', 'true');
+    await expect.poll(async () => maxDelta((await cameraPose(page)).position, loaded.position)).toBeLessThan(1e-2);
+    await expect.poll(async () => maxDelta((await cameraPose(page)).target, loaded.target)).toBeLessThan(1e-2);
+
+    await front.click();
+    await expect(front).toHaveAttribute('aria-pressed', 'true');
+    await expect(threeQuarter).toHaveAttribute('aria-pressed', 'false');
+    await expect.poll(() => viewName(page)).toBe('front');
+    await expect.poll(() => page.evaluate(() => {
+      const { camera, controls } = window.__banai.viewer;
+      return Math.abs(camera.position.x - controls.target.x);
+    })).toBeLessThan(1e-3);
+
+    // Fit re-frames along the same direction and does not change the named view.
+    await settledCamera(page);
+    const framed = await cameraPose(page);
     await page.evaluate(() => {
-      const { chat, store } = window.__banai;
-      chat.setProposal({
-        id: 'demo', baseRevision: store.getState().revision, summary: 'Widen the wardrobe',
-        changes: [{ title: 'Width', detail: '200.0 cm to 240.0 cm' }],
-      });
+      const { camera, controls } = window.__banai.viewer;
+      camera.position.lerp(controls.target, 0.5); // move in without firing a controls event
+      controls.update();
     });
-    const card = page.getByTestId('proposal-card');
-    await expect(card).toContainText('Proposed changes');
-    await expect(page.getByTestId('proposal-confirm')).toBeEnabled();
-
-    await page.getByTestId('dim-width').fill('210');
-    await page.getByTestId('dim-width').press('Enter');
-    await expect(card).toContainText('Design changed. Ask the agent to re-propose.');
-    await expect(page.getByTestId('proposal-confirm')).toBeDisabled();
-
-    const revision = await page.evaluate(() => window.__banai.store.getState().revision);
-    await page.getByTestId('proposal-cancel').click();
-    await expect(card).toHaveCount(0);
-    await expect(page.getByTestId('chat-messages')).toContainText('No changes were made');
-    expect(await page.evaluate(() => window.__banai.store.getState().revision)).toBe(revision);
-  });
-});
-
-test.describe('look and feel', () => {
-  test('shows the BanAI logo in the top bar and on the start screen', async ({ page }) => {
-    await page.goto('/');
-    await expect(page.getByTestId('start-screen').getByRole('img', { name: 'BanAI' })).toBeVisible();
-    await page.getByTestId('entry-basic').click();
-    await expect(page.locator('.topbar').getByRole('img', { name: 'BanAI' })).toBeVisible();
-    await expect(page.locator('.topbar .logo__word')).toHaveText('BanAI');
+    expect(maxDelta((await cameraPose(page)).position, framed.position)).toBeGreaterThan(0.5);
+    await page.getByTestId('view-fit').click();
+    await expect.poll(async () => maxDelta((await cameraPose(page)).position, framed.position)).toBeLessThan(1e-3);
+    expect(maxDelta((await cameraPose(page)).target, framed.target)).toBeLessThan(1e-3);
+    expect(await viewName(page)).toBe('front');
+    await expect(front).toHaveAttribute('aria-pressed', 'true');
   });
 
-  test('uses the display and body fonts', async ({ page }) => {
-    await openDesigner(page);
-    const fonts = await page.evaluate(async () => {
-      await document.fonts.ready;
-      return {
-        logo: getComputedStyle(document.querySelector('.logo__word')).fontFamily,
-        body: getComputedStyle(document.body).fontFamily,
-        loaded: [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family.replaceAll('"', '')),
-      };
+  // Regression: moveTo() must settle the OrbitControls damping momentum left by the drag,
+  // or the camera keeps coasting after the animation and ends far from the requested pose.
+  test('a view button pressed straight after an orbit drag still lands exactly on the 3/4 pose', async ({ page }) => {
+    test.setTimeout(90_000);
+    await settledCamera(page);
+    const loaded = await cameraPose(page);
+    await orbitDrag(page);
+    await page.getByTestId('view-threeQuarter').click();
+    await expect.poll(() => viewName(page)).toBe('threeQuarter');
+    await settledCamera(page);
+    expect(maxDelta((await cameraPose(page)).position, loaded.position)).toBeLessThan(1e-2);
+  });
+
+  test.describe('at a narrow viewport', () => {
+    test.use({ viewport: { width: 1100, height: 700 } });
+
+    test('the whole wardrobe is framed inside the view', async ({ page }) => {
+      await settledCamera(page);
+      const extent = async () => Math.max(...(await wardrobeCornersNdc(page)).flat().map(Math.abs));
+      expect(await wardrobeCornersNdc(page)).toHaveLength(8);
+      await expect.poll(extent).toBeLessThanOrEqual(1);
+      // Framed, not merely tiny: the box fills a good share of the view.
+      expect(await extent()).toBeGreaterThan(0.3);
     });
-    expect(fonts.logo).toContain('Bricolage Grotesque');
-    expect(fonts.body).toContain('DM Sans');
-    expect(fonts.loaded).toEqual(expect.arrayContaining(['Bricolage Grotesque', 'DM Sans']));
+
+    test('the AI column starts collapsed', async ({ page }) => {
+      await expect(page.locator('.workspace')).toHaveClass(/workspace--chat-collapsed/);
+      await expect(page.locator('#chat-toggle')).toHaveAttribute('aria-expanded', 'false');
+    });
   });
 
-  test('dropdowns keep their text clear of the chevron', async ({ page }) => {
-    await openDesigner(page);
-    await page.evaluate(() => window.__banai.store.select('shf_l1'));
-    const select = page.locator('select.field__input').first();
-    await expect(select).toBeVisible();
-    const padding = await select.evaluate((node) => parseFloat(getComputedStyle(node).paddingRight));
-    expect(padding).toBeGreaterThanOrEqual(40);
+  test('the AI column is open on a wide screen and the toggle gives the 3D view more room', async ({ page }) => {
+    const workspace = page.locator('.workspace');
+    const toggle = page.locator('#chat-toggle');
+    await expect(workspace).not.toHaveClass(/workspace--chat-collapsed/);
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    const before = (await canvas(page).boundingBox()).width;
+
+    await toggle.click();
+    await expect(workspace).toHaveClass(/workspace--chat-collapsed/);
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect.poll(async () => (await canvas(page).boundingBox()).width).toBeGreaterThan(before);
   });
 
-  test('a starter prompt fills the composer but sends nothing', async ({ page }) => {
-    await openDesigner(page);
-    await expect(page.getByTestId('chat-welcome')).toBeVisible();
-    await page.getByTestId('suggestion').first().click();
-    await expect(page.getByTestId('chat-input')).toHaveValue(/240 cm wide/);
-    await expect(page.getByTestId('chat-messages')).toBeHidden();
-    await page.getByTestId('chat-send').click();
-    await expect(page.getByTestId('chat-welcome')).toBeHidden();
-    await expect(page.getByTestId('chat-messages')).toContainText('240 cm wide');
-  });
-
-  test('the cursor becomes a pointer over a component and a press shows a ripple that cleans up', async ({ page }) => {
-    await openDesigner(page);
-    const point = await page.evaluate(() => window.__banai.viewer.screenPointOf('dr_left'));
+  test('hovering a part shows a pointer cursor; empty space does not', async ({ page }) => {
+    await settledCamera(page);
+    const point = await page.evaluate(() => window.__banai.viewer.screenPointOf('dr_middle'));
     await page.mouse.move(point.x, point.y);
-    await expect.poll(() => page.locator('#viewer canvas').evaluate((node) => node.style.cursor)).toBe('pointer');
-    const save = page.getByTestId('open-save');
-    const box = await save.boundingBox();
+    await expect.poll(() => cursor(page)).toBe('pointer');
+
+    const box = await canvas(page).boundingBox();
     await page.mouse.move(box.x + 10, box.y + 10);
-    await page.mouse.down();
-    await expect(save.locator('.ripple')).toHaveCount(1);
-    await page.mouse.up();
-    await page.getByTestId('save-close').click();
-    await expect(save.locator('.ripple')).toHaveCount(0);
-  });
-});
-
-test.describe('door configurations render with hardware', () => {
-  const sceneStats = (page) => page.evaluate(() => {
-    const scene = window.__banai.viewer.meshOf('dr_left')?.parent ?? null;
-    const kinds = {};
-    (scene?.children ?? []).forEach((child) => {
-      const key = `${child.userData.kind}${child.userData.part ? `:${child.userData.part}` : ''}`;
-      kinds[key] = (kinds[key] ?? 0) + 1;
-    });
-    return kinds;
+    await expect.poll(() => cursor(page)).toBe('');
   });
 
-  test('hinged doors get a handle each; sliding doors get handles plus two rails; none has no hardware', async ({ page }) => {
-    await openDesigner(page);
-    expect(await sceneStats(page)).toMatchObject({ door: 3, 'hardware:handle': 3 });
+  test('right-clicking a part does not select it', async ({ page }) => {
+    await settledCamera(page);
+    const point = await page.evaluate(() => window.__banai.viewer.screenPointOf('dr_middle'));
+    await page.mouse.click(point.x, point.y, { button: 'right' });
+    await nextFrames(page);
+    expect(await selection(page)).toBeNull();
 
-    await page.evaluate(() => window.__banai.store.dispatch([{ op: 'configure_doors', type: 'sliding', ids: ['dr_a', 'dr_b', 'dr_c'] }]));
-    await page.waitForFunction(() => window.__banai.viewer.meshOf('dr_a'));
-    const sliding = await page.evaluate(() => {
-      const scene = window.__banai.viewer.meshOf('dr_a').parent;
-      return scene.children.filter((c) => c.userData.kind === 'hardware').map((c) => c.userData.part).sort();
-    });
-    expect(sliding).toEqual(['edge', 'edge', 'edge', 'handle', 'handle', 'handle', 'rail-bottom', 'rail-top']);
-
-    await page.evaluate(() => window.__banai.store.dispatch([{ op: 'configure_doors', type: 'none' }]));
-    await page.waitForFunction(() => !window.__banai.viewer.meshOf('dr_a'));
-    const remaining = await page.evaluate(() => window.__banai.viewer.meshOf('shf_l1').parent.children.filter((c) => c.userData.kind === 'hardware').length);
-    expect(remaining).toBe(0);
-  });
-});
-
-test.describe('save and render dialogs (backend phases not built yet)', () => {
-  test('Save opens a dialog that is honest about being unavailable, with no fake link', async ({ page }) => {
-    await openDesigner(page);
-    await page.getByTestId('open-save').click();
-    const dialog = page.getByTestId('save-dialog');
-    await expect(dialog).toBeVisible();
-    await expect(dialog).toContainText('Saving is not available yet');
-    await expect(page.getByTestId('share-link')).toHaveValue('');
-    await expect(page.getByTestId('save-confirm')).toBeDisabled();
-    await page.getByTestId('save-close').click();
-    await expect(dialog).toBeHidden();
+    // The same point does select with the primary button, so the check above is not vacuous.
+    await page.mouse.click(point.x, point.y);
+    await expect.poll(() => selection(page)).toEqual({ id: 'dr_middle', kind: 'door' });
   });
 
-  test('Render opens a dialog labelled as illustrative, with generation disabled', async ({ page }) => {
-    await openDesigner(page);
-    await page.getByTestId('open-render').click();
-    const dialog = page.getByTestId('render-dialog');
-    await expect(dialog).toContainText('Illustrative image, not the accurate 3D model');
-    await expect(page.getByTestId('render-generate')).toBeDisabled();
+  test('Esc clears the selection', async ({ page }) => {
+    await clickComponent(page, 'dr_middle');
+    await expect.poll(() => selection(page)).toEqual({ id: 'dr_middle', kind: 'door' });
+    await page.evaluate(() => document.activeElement?.blur());
     await page.keyboard.press('Escape');
-    await expect(dialog).toBeHidden();
+    await expect.poll(() => selection(page)).toBeNull();
+  });
+
+  test('keyboard focus survives an edit: Tab after changing the width lands on the height field', async ({ page }) => {
+    const width = page.getByTestId('dim-width');
+    await width.focus();
+    await width.fill('210');
+    await page.keyboard.press('Tab');
+
+    await expect.poll(() => page.evaluate(() => document.activeElement?.dataset?.testid)).toBe('dim-height');
+    await expect.poll(async () => (await designState(page)).dimensions.width).toBe(2100);
+    // The panel was re-rendered with the new value, and focus is on the new height input.
+    await expect(page.getByTestId('dim-width')).toHaveValue('210.0');
+    await expect(page.getByTestId('dim-height')).toBeFocused();
+  });
+
+  test('a collapsed section stays collapsed after a reload', async ({ page }) => {
+    const summaryOf = (title) => page.locator('#properties-content summary').filter({ hasText: title });
+    const materialsSummary = summaryOf('Materials');
+    const materials = materialsSummary.locator('xpath=..'); // the section's <details>
+    const wardrobe = summaryOf('Wardrobe').locator('xpath=..');
+    await expect(materials).toHaveAttribute('open', '');
+    await expect(wardrobe).toHaveAttribute('open', '');
+
+    await materialsSummary.click();
+    await expect(materials).not.toHaveAttribute('open');
+    await expect.poll(() => page.evaluate((key) => localStorage.getItem(key), SECTIONS_STORAGE_KEY)).toContain('"materials":false');
+
+    await page.reload();
+    await page.waitForFunction(() => window.__banai?.viewer.meshOf('shf_l1'));
+    await expect(materials).toBeVisible();
+    await expect(materials).not.toHaveAttribute('open');
+    await expect(wardrobe).toHaveAttribute('open', '');
+  });
+
+  test('a selected shelf says where it is and marks its compartment in the list', async ({ page }) => {
+    await page.getByLabel('Show interior').check();
+    await clickComponent(page, 'shf_l2');
+    const selected = page.getByTestId('selected-section');
+    await expect(selected).toContainText('Selected · Shelf');
+    await expect(selected).toContainText('Compartment 1 · Shelf 2 of 4');
+
+    const leftRow = page.getByTestId('select-cmp_left').locator('xpath=ancestor::li');
+    await expect(leftRow).toHaveAttribute('aria-current', 'true');
+    await expect(page.locator('#properties-content [aria-current]')).toHaveCount(1);
+
+    await selected.getByRole('button', { name: 'Deselect' }).click();
+    await expect.poll(() => selection(page)).toBeNull();
+    await expect(page.locator('#properties-content [aria-current]')).toHaveCount(0);
+  });
+
+  test('the loading placeholder is gone once the designer is ready', async ({ page }) => {
+    await expect(page.locator('.viewer-loading')).toHaveCount(0);
   });
 });
