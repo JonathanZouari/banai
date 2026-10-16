@@ -22,6 +22,18 @@ class Settings(BaseSettings):
     # Global ceiling on OpenAI-backed requests per hour (all clients), a spend guard.
     chat_hourly_cap: int = 300
 
+    # Voice (speech in, spoken reply). Off by default; every value is a configurable default.
+    voice_enabled: bool = False
+    openai_stt_model: str = "gpt-4o-mini-transcribe"
+    openai_tts_model: str = "gpt-4o-mini-tts"
+    openai_tts_voice: str = "alloy"
+    voice_rate_limit: str = "30/minute"
+    voice_hourly_cap: int = 300
+    voice_daily_budget_usd: float = 1.0
+    voice_max_audio_bytes: int = 600_000  # about 20 s of browser-recorded audio
+    voice_max_seconds: int = 20
+    voice_tts_max_chars: int = 400
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

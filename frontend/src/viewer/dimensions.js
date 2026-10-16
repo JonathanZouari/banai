@@ -2,7 +2,8 @@
 // component. Labels are CSS2D DOM nodes written with textContent only (never HTML).
 import * as THREE from 'three';
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
-import { cm, describeSelection } from './format.js';
+import { describeSelection } from './format.js';
+import { lengthLabel, units } from '../ui/units.js';
 import { toM } from './units.js';
 
 const OFFSET = 80; // mm, distance of dimension lines from the carcass (visual only)
@@ -43,11 +44,11 @@ export function createDimensions(scene) {
       clear();
       const { width: w, height: h, depth: d } = design.dimensions;
       line([0, h + OFFSET, 0], [w, h + OFFSET, 0]);
-      place(label(`W ${cm(w)} cm`, 'dim-label'), [w / 2, h + OFFSET, 0]);
+      place(label(`W ${lengthLabel(w, units.get())}`, 'dim-label'), [w / 2, h + OFFSET, 0]);
       line([-OFFSET, 0, 0], [-OFFSET, h, 0]);
-      place(label(`H ${cm(h)} cm`, 'dim-label'), [-OFFSET, h / 2, 0]);
+      place(label(`H ${lengthLabel(h, units.get())}`, 'dim-label'), [-OFFSET, h / 2, 0]);
       line([w + OFFSET, 0, 0], [w + OFFSET, 0, -d]);
-      place(label(`D ${cm(d)} cm`, 'dim-label'), [w + OFFSET, 0, -d / 2]);
+      place(label(`D ${lengthLabel(d, units.get())}`, 'dim-label'), [w + OFFSET, 0, -d / 2]);
 
       if (!selection || !group) return;
       const target = group.children.find((mesh) => mesh.userData.componentId === selection.id);

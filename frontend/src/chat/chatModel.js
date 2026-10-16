@@ -28,7 +28,7 @@ export function proposalStatus(proposal, currentRevision) {
  * `agent` (optional) is async ({ messages, design, revision }) -> { reply, proposal | null } and may
  * throw an error with `.code`. Without it the panel stays honest and says the agent isn't connected.
  */
-export function createChatModel({ getRevision, getDesign, agent = null, language = null }) {
+export function createChatModel({ getRevision, getDesign, agent = null, language = null, onAssistantReply = null }) {
   const t = (key) => (language ? language.t(key) : translate('en', key));
   const lang = () => (language ? language.get() : 'en');
   let busy = false;
@@ -87,6 +87,7 @@ export function createChatModel({ getRevision, getDesign, agent = null, language
       agent({ messages: history, design: getDesign(), revision })
         .then((result) => {
           push('assistant', result.reply);
+          onAssistantReply?.(result.reply); // read aloud only while the Voice switch is on
           // A manual edit during the request makes the answer stale: only keep it if still current.
           if (result.proposal && result.proposal.baseRevision === getRevision()) proposal = result.proposal;
           else if (result.proposal) push('system', t('stale'));

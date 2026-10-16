@@ -7,6 +7,8 @@ import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { buildWardrobe, disposeWardrobe } from './buildWardrobe.js';
 import { frameOf } from './builders/frame.js';
 import { createDimensions } from './dimensions.js';
+import { units } from '../ui/units.js';
+import { language } from '../i18n/strings.js';
 import { createHighlighter } from './highlight.js';
 import { createMaterials } from './materials.js';
 import { attachPicking } from './picking.js';
@@ -114,6 +116,13 @@ export function createViewer(container, store) {
     onHover: (hit) => { renderer.domElement.style.cursor = hit?.object.userData.componentId ? 'pointer' : ''; },
   });
   const unsubscribe = store.subscribe(sync);
+  // Dimension labels show the selected unit, so redraw only the labels when it changes.
+  const redrawLabels = () => {
+    const { design, selection } = store.getState();
+    if (group) dimensions.update(group, design, selection);
+  };
+  const unsubscribeUnits = units.subscribe(redrawLabels);
+  const unsubscribeLanguage = language.subscribe(redrawLabels); // the selected-component label is text
   sync(store.getState());
 
   renderer.setAnimationLoop(() => {
@@ -138,6 +147,8 @@ export function createViewer(container, store) {
     dispose() {
       renderer.setAnimationLoop(null);
       unsubscribe();
+      unsubscribeUnits();
+      unsubscribeLanguage();
       detachPicking();
       resizeObserver.disconnect();
       if (group) disposeWardrobe(group);

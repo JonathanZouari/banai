@@ -183,3 +183,30 @@ After each milestone I'll report what was implemented, the files changed, the te
 - Creating Supabase projects if the Kindra org is on a paid plan (each project costs money).
 - Entering the OpenAI key (M5) and Supabase secret keys into Railway variables.
 - Any deploy to `production` or merge to `main` beyond the initial scaffold.
+
+## 11. Voice (added 2026-10-16)
+
+Chosen option: a chained pipeline, not Realtime speech-to-speech or GPT-Live. The existing agent stays the only thing that can propose changes, so validation, dry run, HMAC signing and "nothing applies without Confirm" are unchanged.
+
+| Method | Route | Purpose |
+|---|---|---|
+| GET | `/api/voice/status` | `{enabled, maxSeconds}`; the mic is shown only when enabled |
+| POST | `/api/voice/transcribe` | raw audio body (`audio/webm`, `ogg`, `mp4`, `mpeg`, `wav`) → `{text, noSpeech}` |
+| POST | `/api/voice/speak` | `{text}` → streamed raw PCM (16-bit mono, 24 kHz, header `X-Audio-Format`); the spoken part is at most 400 characters |
+
+Flow: the **Voice switch** (its own row above the composer, not in the header) is off by default. When on, the microphone appears and **every** assistant reply is read aloud (typed or dictated). Mic → record (at most 20 s; the button becomes a red Stop button while recording) → transcribe (the selected language is sent as a hint) → text lands in the composer, **not sent** → the customer edits and presses Send → the normal `/api/chat` turn → the reply is spoken. Turning the switch off drops any recording and stops playback.
+
+Rules: voice never confirms, applies or undoes; audio and transcripts are not stored or logged; the audio is validated by size (streamed, so chunked bodies are capped too) and by magic bytes, not only by `Content-Type`.
+
+Speed and smoothness: OpenAI's text-to-speech takes about 2 s even for a short sentence, its first audio arrives after about 1 s, and it generates only 1 to 2.5 times faster than real time. Waiting for a whole MP3 therefore took 2.4 to 4.5 s, and playing one long stream from its first bytes ran dry and stuttered (a 330-character reply arrived at 1.2 times real time). So a reply is cut into short pieces (`speechPlan.js`: a short first piece of about 60 characters, later pieces of up to 220, at most 900 characters in total), the pieces are requested **in parallel** and played **in order** with the Web Audio API (`player.js`). Each piece waits for a small start buffer (a third of its length, at least 0.6 s) and starts after a 0.12 s lead-in so the first syllable is not clipped. Measured in a real browser: no gaps between blocks, nothing scheduled late, a 32 s four-piece reply played gap-free, and the first sound comes 1.5 to 2.8 s after the reply appears. The remaining wait is mostly the agent itself (1 to 3 s). The backend streams raw PCM and reuses one OpenAI client so connections are kept alive.
+
+Spend guards (configurable defaults, not business rules): `VOICE_ENABLED=false` by default; 20 s and about 600 KB per clip; 30 requests per minute per IP and 300 per hour overall (a reply can use several requests); an in-memory daily budget (`VOICE_DAILY_BUDGET_USD`, default 1.00) that returns `VOICE_BUDGET` when used up. Models: `gpt-4o-mini-transcribe` and `gpt-4o-mini-tts` (env-overridable). The real backstop is a monthly limit set in the OpenAI dashboard.
+
+Tests: all automated suites mock OpenAI (no cost); Playwright uses a fake microphone fed a generated tone; the optional live run is opt-in and budget-guarded.
+
+## 12. Display units (added 2026-10-16)
+The header has a mm / cm / in switch (default cm, remembered per browser). It changes only what is shown and typed: the editor fields, the 3D dimension labels and the parsing of typed values. The design stays in integer millimetres. Proposal rows in the chat still use centimetres.
+
+## 13. UI language (added 2026-10-16)
+The English / Hebrew switch controls the whole interface, not only the chat: the properties panel (labels, options, buttons, error messages, catalog names such as "Melamine board"), the header buttons, the 3D label of the selected component, and the voice controls. All text lives in `src/i18n/strings.js` (one key set per language, enforced by a test); the shared `language` instance is used by the panel, which redraws on a change and mirrors right to left. Design data (for example a custom colour's name) is never translated, and switching language never changes the design or the revision.
+

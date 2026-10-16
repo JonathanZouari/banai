@@ -27,3 +27,7 @@ supabase/.branches/
 Thumbs.db
 .vscode/
 .idea/
+
+# Live voice test: locally generated audio and the last run record
+frontend/tests/live/audio/
+frontend/tests/live/last-run.json

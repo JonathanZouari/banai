@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createLanguage, errorMessage, LANGUAGES, STRINGS, translate } from '../../../src/i18n/strings.js';
+import { createLanguage, errorMessage, LANGUAGES, STRINGS, translate, voiceErrorMessage } from '../../../src/i18n/strings.js';
 import { createChatModel } from '../../../src/chat/chatModel.js';
 import { describeOps } from '../../../src/chat/describeOps.js';
 
@@ -88,5 +88,24 @@ describe('localized chat model and ops', () => {
       'בתא ימני בגובה 150 ס״מ',
     ]);
     expect(rows.slice(0, 2).some((r) => /middle|left/.test(r.detail))).toBe(false);
+  });
+});
+
+describe('voice strings', () => {
+  it('translates every voice error code in both languages and falls back to a generic message', () => {
+    const codes = ['UNSUPPORTED', 'DENIED', 'NO_MIC', 'NO_SPEECH', 'PLAYBACK', 'VOICE_BUDGET', 'VOICE_BUSY', 'VOICE_QUOTA', 'VOICE_TIMEOUT', 'AUDIO_TOO_LONG', 'NETWORK'];
+    for (const language of LANGUAGES) {
+      codes.forEach((code) => expect(voiceErrorMessage(language, code), `${language}:${code}`).toBeTruthy());
+    }
+    expect(voiceErrorMessage('he', 'VOICE_BUDGET')).toBe(STRINGS.he.voiceErrBudget);
+    expect(voiceErrorMessage('he', 'VOICE_BUDGET')).not.toBe(STRINGS.en.voiceErrBudget);
+    expect(voiceErrorMessage('en', 'SOMETHING_NEW')).toBe(STRINGS.en.voiceErrFailed);
+  });
+
+  it('has Hebrew for every voice label', () => {
+    Object.keys(STRINGS.en).filter((key) => key.startsWith('voice')).forEach((key) => {
+      expect(STRINGS.he[key], key).toBeTruthy();
+      expect(STRINGS.he[key]).not.toBe(STRINGS.en[key]);
+    });
   });
 });
