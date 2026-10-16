@@ -2,6 +2,7 @@
 import { appearanceControls } from './appearanceControls.js';
 import { actionResult, button, cmField, el, section, segmented } from './fields.js';
 import { addItemOps, clearAppearanceOps, doorHingeOps, removeOps } from './opsFromForm.js';
+import { describeSelection } from './selectionContext.js';
 import { partitionLeftEdge } from '../domain/geometry.js';
 
 const TITLES = Object.freeze({
@@ -78,7 +79,9 @@ function fieldsFor(kind, { design, catalog, selection, run, runAction }) {
 }
 
 export function componentSection({ design, catalog, selection, run, select }) {
-  const container = section(`Selected · ${TITLES[selection.kind]}`, []);
+  // The context line ("Compartment 1 · Shelf 2 of 4") sits directly under the title.
+  const { text: where } = describeSelection(design, selection);
+  const container = section(`Selected · ${TITLES[selection.kind]}`, where ? [el('p', { className: 'prop-section__context', text: where })] : []);
   container.dataset.testid = 'selected-section';
   // Inputs report their own errors inline; buttons/selects report under the section.
   const runAction = (ops) => actionResult(container, run(ops));

@@ -8,13 +8,28 @@ import { buildWardrobe, disposeWardrobe } from './buildWardrobe.js';
 import { VIEWS, blendPose, easeInOut, poseAlong, poseFor } from './camera.js';
 import { frameOf } from './builders/frame.js';
 import { createDimensions } from './dimensions.js';
+import { attachEdges, detachEdges } from './edges.js';
 import { createHighlighter } from './highlight.js';
 import { createMaterials } from './materials.js';
 import { attachPicking } from './picking.js';
+import { fitShadowCamera } from './shadow.js';
 
 const BACKGROUND = '#eceeec';
 const VIEW_MS = 300;
 const MAX_DISTANCE = 14;
+const FLOOR_SIZE = 12; // m, same as the grid
+const noRaycast = () => {};
+
+/** Invisible ground that only shows the wardrobe's shadow. It lies at y = 0, 0.5 mm above the grid (so the shadow tints the grid lines too), and is never picked. */
+function createFloor() {
+  const geometry = new THREE.PlaneGeometry(FLOOR_SIZE, FLOOR_SIZE).rotateX(-Math.PI / 2);
+  const material = new THREE.ShadowMaterial({ opacity: 0.16, depthWrite: false });
+  const floor = new THREE.Mesh(geometry, material);
+  floor.name = 'floor';
+  floor.receiveShadow = true;
+  floor.raycast = noRaycast;
+  return floor;
+}
 
 function createScene() {
   const scene = new THREE.Scene();
@@ -22,14 +37,21 @@ function createScene() {
   scene.add(new THREE.HemisphereLight('#ffffff', '#c9c4b8', 2.2));
   const key = new THREE.DirectionalLight('#ffffff', 1.6);
   key.position.set(3, 5, 4);
-  scene.add(key);
+  key.castShadow = true;
+  key.shadow.mapSize.set(1024, 1024);
+  key.shadow.bias = -0.0005;
+  key.shadow.normalBias = 0.02;
+  key.shadow.radius = 6; // PCF blur in texels: this is what makes the shadow soft
+  scene.add(key, key.target); // the target must be in the scene for the light to aim at it
   const fill = new THREE.DirectionalLight('#ffffff', 0.9);
   fill.position.set(-2, 2, 5);
   scene.add(fill);
   const grid = new THREE.GridHelper(12, 24, '#c9ccc8', '#dcdfdb');
   grid.position.y = -0.0005;
   scene.add(grid);
-  return scene;
+  const floor = createFloor();
+  scene.add(floor);
+  return { scene, key, floor };
 }
 
 /** Map a raycast hit to a selectable component id (the back panel selects its compartment). */
@@ -47,6 +69,10 @@ export function createViewer(container, store) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
+  // three r186 removed PCFSoftShadowMap (it warns); PCFShadowMap is the soft Vogel-disk filter, softened by shadow.radius.
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
+  renderer.shadowMap.autoUpdate = false; // the wardrobe is static between rebuilds, so draw the map only then
   renderer.domElement.setAttribute('aria-label', '3D wardrobe view');
   container.appendChild(renderer.domElement);
 
@@ -54,7 +80,7 @@ export function createViewer(container, store) {
   labels.domElement.className = 'viewer-labels';
   container.appendChild(labels.domElement);
 
-  const scene = createScene();
+  const { scene, key, floor } = createScene();
   const camera = new THREE.PerspectiveCamera(40, 1, 0.05, 60);
   const controls = new OrbitControls(camera, renderer.domElement);
   const motionQuery = typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
@@ -66,6 +92,7 @@ export function createViewer(container, store) {
   const materials = createMaterials(store.getState().catalog);
   const highlighter = createHighlighter(scene);
   const dimensions = createDimensions(scene);
+  const edgeMaterial = new THREE.LineBasicMaterial({ color: '#8a857c', transparent: true, opacity: 0.35 });
   let group = null;
   let hoveredId = null;
   let rendered = { design: null, doorsVisible: null, selection: undefined, dimsKey: null };
@@ -128,10 +155,15 @@ export function createViewer(container, store) {
     if (geometryChanged) {
       if (group) {
         scene.remove(group);
+        detachEdges(group); // before disposeWardrobe, which frees every geometry under the group
         disposeWardrobe(group);
       }
       group = buildWardrobe(design, materials, { doorsVisible: ui.doorsVisible });
       scene.add(group);
+      attachEdges(group, edgeMaterial);
+      group.children.forEach((mesh) => { mesh.castShadow = true; });
+      fitShadowCamera(key, new THREE.Box3().setFromObject(group));
+      renderer.shadowMap.needsUpdate = true;
       materials.retainOnly(new Set(group.children.map((mesh) => mesh.material)));
       const { width, height, depth } = design.dimensions;
       const dimsKey = `${width}x${height}x${depth}`;
@@ -214,7 +246,14 @@ export function createViewer(container, store) {
       motionQuery?.removeEventListener?.('change', onMotionChange);
       viewListeners.clear();
       resizeObserver.disconnect();
-      if (group) disposeWardrobe(group);
+      if (group) {
+        detachEdges(group);
+        disposeWardrobe(group);
+      }
+      edgeMaterial.dispose();
+      floor.geometry.dispose();
+      floor.material.dispose();
+      key.shadow.dispose();
       highlighter.dispose();
       dimensions.dispose();
       materials.dispose();

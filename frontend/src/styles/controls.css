@@ -31,6 +31,9 @@ details.prop-section:not([open]) > summary { margin-bottom: 0; }
   text-transform: uppercase;
 }
 [data-testid="selected-section"] .prop-section__title { color: var(--color-accent); }
+/* Where the selected part sits ("Compartment 1 · Shelf 2 of 4"); tucked under the title. */
+.prop-section__context { margin: 0 0 var(--space-3); color: var(--color-muted); font-size: var(--text-sm); }
+.prop-section__title + .prop-section__context { margin-top: calc(-1 * var(--space-2)); }
 
 .field { margin-bottom: var(--space-3); }
 .field__label { display: block; margin-bottom: var(--space-1); color: var(--color-muted); font-size: var(--text-sm); }
@@ -182,8 +185,13 @@ input.field__input[inputmode] { text-align: right; }
 .compartment-row .field { margin: 0; }
 .compartment-row .field__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .compartment-row:hover { background: var(--color-bg); }
+/* The compartment that holds the selected part: a quieter echo of the selected row (a lighter bar, a fainter tint).
+   `.compartment-row.is-selected` is more specific, so a selected compartment keeps its full style. */
+.compartment-row--context {
+  background: color-mix(in srgb, var(--color-accent) 4%, transparent);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--color-accent) 45%, transparent);
+}
 .compartment-row.is-selected { background: var(--color-accent-soft); box-shadow: inset 2px 0 0 var(--color-accent); }
-
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
