@@ -24,16 +24,25 @@ This is a Scandinavian cabinetmaker's atelier turned into a precision desktop to
 - **Spacing:** 8px grid with a 4px sub-grid.
 
 ## Component rules (from Stitch)
-- **Inputs:** 32px high, numbers right-aligned, unit suffix in muted text. Focus shows an accent border plus a 1px inner ring.
+- **Inputs:** 36px high, numbers right-aligned, unit suffix drawn inside the field in faint text. Focus shows an accent border plus a soft 3px accent ring.
 - **Buttons:**
   - Primary: solid accent.
   - Secondary: white with a hairline border; the hover fills with the background colour.
   - Ghost: transparent.
   - Focus: 2px offset accent outline.
-- **Segmented controls:** the active option is a solid accent fill with white text.
-- **Swatches:** 40px squares, 6px radius. The selected swatch has a 2px accent border and a 2px white inner margin.
+- **Segmented controls:** options sit in a tinted track; the active option is a solid accent pill with white text.
+- **Swatches:** 32px circles in two labelled rows, "Colours" and "Wood" (catalog colours with `"texture": "wood"`; these show a grain pattern and render with a procedural wood-grain map in 3D). The selected swatch has a 2px white gap and a 2px accent ring.
 - **List rows:** hover fills with the background colour. The selected row gets an 8% accent tint and a 2px left bar.
 - **Selection in 3D:** accent outline plus an accent label tag.
+
+## uxui pass (branch `uxui`)
+- **Layout:** property sections are cards; the top bar has a brand mark and an interior switch; the viewer has a studio backdrop, soft ground shadow, panel edge lines, a reset-view button and a usage hint.
+- **Motion** (all disabled under `prefers-reduced-motion`):
+  - the camera swoops in on load and flies (on an orbit arc) when re-framing;
+  - "Show interior" swings hinged doors open about their hinges (sliding panels slide aside), and swings them shut again;
+  - edited parts glide to their new position; new parts pop in (drawers slide in from the front);
+  - the selection outline pulses gently, and hovered parts get a faint outline;
+  - the panels and cards cascade in once on load.
 
 ## Deliberately not implemented
 These parts of the Stitch output are outside the agreed MVP scope:

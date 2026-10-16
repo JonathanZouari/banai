@@ -24,7 +24,8 @@ export const selection = (page) => page.evaluate(() => window.__banai.store.getS
 
 export async function clickComponent(page, componentId) {
   await page.waitForFunction(() => {
-    const { camera } = window.__banai.viewer;
+    const { camera, isAnimating } = window.__banai.viewer;
+    if (isAnimating()) return false; // camera flights, door swings and part glides must finish first
     const key = camera.position.toArray().map((v) => v.toFixed(5)).join();
     const settled = window.__lastCameraKey === key;
     window.__lastCameraKey = key;
@@ -45,7 +46,7 @@ export const paintedRatio = (page) => page.evaluate(() => {
   const { data } = context.getImageData(0, 0, copy.width, copy.height);
   let painted = 0;
   for (let i = 0; i < data.length; i += 4) {
-    if (Math.abs(data[i] - 236) + Math.abs(data[i + 1] - 238) + Math.abs(data[i + 2] - 236) > 12) painted += 1;
+    if (data[i + 3] > 8) painted += 1; // the canvas is transparent; the backdrop is CSS
   }
   return painted / (data.length / 4);
 });

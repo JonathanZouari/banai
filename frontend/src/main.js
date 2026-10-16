@@ -7,6 +7,7 @@ import { mountPanel } from './editor/panel.js';
 import { createViewer } from './viewer/viewer.js';
 
 function showError(message) {
+  document.body.classList.remove('is-loading');
   const banner = document.getElementById('error-banner');
   banner.textContent = message;
   banner.hidden = false;
@@ -31,7 +32,12 @@ async function boot() {
   const store = createStore({ design: initial.design, revision: initial.revision, catalog });
   const viewer = createViewer(document.getElementById('viewer'), store);
   bindInteriorToggle(store);
-  mountPanel(document.getElementById('properties-content'), store);
+  document.getElementById('reset-view').addEventListener('click', () => viewer.resetView());
+  const properties = document.getElementById('properties-content');
+  properties.classList.add('is-intro'); // cascade the cards in once, not on every edit
+  mountPanel(properties, store);
+  setTimeout(() => properties.classList.remove('is-intro'), 1400);
+  document.body.classList.remove('is-loading');
   if (import.meta.env.DEV) {
     window.__banai = Object.freeze({ store, viewer });
   }

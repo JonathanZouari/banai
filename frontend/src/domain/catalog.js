@@ -13,7 +13,7 @@ const entry = z.object({
 });
 const catalogSchema = z.object({
   materials: z.array(entry).max(100),
-  colors: z.array(entry.extend({ hex: z.string().regex(HEX) })).max(100),
+  colors: z.array(entry.extend({ hex: z.string().regex(HEX), texture: z.enum(['wood']).optional() })).max(100),
   finishes: z.array(entry).max(100),
 });
 

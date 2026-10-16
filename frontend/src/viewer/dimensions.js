@@ -19,6 +19,7 @@ export function createDimensions(scene) {
   layer.name = 'dimensions';
   scene.add(layer);
   const lineMaterial = new THREE.LineBasicMaterial({ color: '#5b6470' });
+  let follow = null; // the selected label tracks its (possibly animating) mesh
 
   const line = (from, to) => {
     const geometry = new THREE.BufferGeometry().setFromPoints([from, to].map(([x, y, z]) => new THREE.Vector3(toM(x), toM(y), toM(z))));
@@ -36,6 +37,7 @@ export function createDimensions(scene) {
       if (child.element) child.element.remove();
     });
     layer.clear();
+    follow = null;
   };
 
   return {
@@ -56,6 +58,10 @@ export function createDimensions(scene) {
       selected.position.copy(anchor);
       selected.center.set(0.5, 1.6); // sit above the component instead of covering it
       layer.add(selected);
+      if (target) follow = { label: selected, mesh: target };
+    },
+    tick() {
+      if (follow) follow.label.position.copy(follow.mesh.position);
     },
     dispose() {
       clear();

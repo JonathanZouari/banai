@@ -5,18 +5,30 @@ import { materialOps } from './opsFromForm.js';
 
 const isCatalog = (ref, id) => !ref.custom && ref.catalogId === id;
 
-function swatches({ catalog, appearance, run, target }) {
-  const row = el('div', { className: 'swatches', attrs: { role: 'group', 'aria-label': 'Colour' } });
-  catalog.colors.forEach((color) => {
-    const swatch = el('button', {
-      className: 'swatch',
-      attrs: { type: 'button', title: color.name, 'aria-label': color.name, 'aria-pressed': String(isCatalog(appearance.color, color.id)) },
-    });
-    swatch.style.backgroundColor = color.hex; // validated #rrggbb from the parsed catalog
-    swatch.addEventListener('click', () => run(materialOps(target, 'color', { catalogId: color.id })));
-    row.append(swatch);
+function swatch({ color, appearance, run, target }) {
+  const node = el('button', {
+    className: `swatch${color.texture === 'wood' ? ' swatch--wood' : ''}`,
+    attrs: { type: 'button', title: color.name, 'aria-label': color.name, 'aria-pressed': String(isCatalog(appearance.color, color.id)) },
   });
-  return row;
+  node.style.backgroundColor = color.hex; // validated #rrggbb from the parsed catalog
+  node.addEventListener('click', () => run(materialOps(target, 'color', { catalogId: color.id })));
+  return node;
+}
+
+/** Catalog colours in two labelled rows: plain colours, then real wood species. */
+function swatches({ catalog, appearance, run, target }) {
+  const groups = [
+    { label: 'Colours', colors: catalog.colors.filter((c) => c.texture !== 'wood') },
+    { label: 'Wood', colors: catalog.colors.filter((c) => c.texture === 'wood') },
+  ].filter((group) => group.colors.length > 0);
+  const selected = catalog.colors.find((c) => isCatalog(appearance.color, c.id));
+  return el('div', { className: 'swatch-groups', attrs: { role: 'group', 'aria-label': 'Colour' } }, [
+    ...groups.map((group) => el('div', { className: 'swatch-group' }, [
+      el('span', { className: 'swatch-group__label', text: group.label }),
+      el('div', { className: 'swatches' }, group.colors.map((color) => swatch({ color, appearance, run, target }))),
+    ])),
+    ...(selected ? [el('p', { className: 'swatch-current', text: selected.name })] : []),
+  ]);
 }
 
 function customColour({ appearance, run, target }) {

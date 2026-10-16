@@ -1,5 +1,5 @@
 {
-  "_note": "Prototype catalog. Configurable placeholder values, not approved business data.",
+  "_note": "Prototype catalog. Configurable placeholder values, not approved business data. Colours with \"texture\": \"wood\" render with a wood grain.",
   "materials": [
     { "id": "melamine", "name": "Melamine board" },
     { "id": "oak_veneer", "name": "Oak veneer" },
@@ -10,8 +10,15 @@
     { "id": "light_grey", "name": "Light grey", "hex": "#c9c8c4" },
     { "id": "anthracite", "name": "Anthracite", "hex": "#3b3d40" },
     { "id": "black", "name": "Black", "hex": "#1d1d1f" },
-    { "id": "natural_oak", "name": "Natural oak", "hex": "#c49a6c" },
-    { "id": "walnut", "name": "Walnut", "hex": "#6b4a32" }
+    { "id": "ash", "name": "Ash", "hex": "#dcc9a8", "texture": "wood" },
+    { "id": "light_oak", "name": "Light oak", "hex": "#d6b98f", "texture": "wood" },
+    { "id": "beech", "name": "Beech", "hex": "#d2a273", "texture": "wood" },
+    { "id": "natural_oak", "name": "Natural oak", "hex": "#c49a6c", "texture": "wood" },
+    { "id": "teak", "name": "Teak", "hex": "#a3703f", "texture": "wood" },
+    { "id": "cherry", "name": "Cherry", "hex": "#9a5b3d", "texture": "wood" },
+    { "id": "smoked_oak", "name": "Smoked oak", "hex": "#7d5f45", "texture": "wood" },
+    { "id": "walnut", "name": "Walnut", "hex": "#6b4a32", "texture": "wood" },
+    { "id": "wenge", "name": "Wenge", "hex": "#3f2d23", "texture": "wood" }
   ],
   "finishes": [
     { "id": "matte", "name": "Matte" },
