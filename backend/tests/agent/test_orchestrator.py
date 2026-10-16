@@ -98,3 +98,20 @@ def test_a_plain_answer_without_tools_is_kept_short():
     long_answer = "x" * 5000
     result = run(FakeOpenAI(reply(long_answer)))
     assert result.ops is None and len(result.reply) == 400
+
+
+def test_temperature_is_sent_only_when_configured():
+    low = FakeOpenAI(reply("ok"))
+    run_agent(low, "m", basic_wardrobe(), HISTORY, CATALOG, temperature=0.2)
+    assert low.requests[0]["temperature"] == 0.2
+    default = FakeOpenAI(reply("ok"))
+    run(default)
+    assert "temperature" not in default.requests[0]
+
+
+def test_the_prompt_carries_the_quality_rules():
+    client = FakeOpenAI(reply("ok"))
+    run(client)
+    prompt = client.requests[0]["messages"][0]["content"]
+    for needle in ("QUALITY RULES", "Do EVERY change", "is a `color`", "reply in English", "gender-neutral", '"catalogId"'):
+        assert needle in prompt

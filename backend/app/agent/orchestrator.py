@@ -74,15 +74,18 @@ def _assistant_message(message) -> dict:
     }
 
 
-def run_agent(client, model: str, design: dict, history: list[dict], catalog: dict) -> AgentResult:
+def run_agent(
+    client, model: str, design: dict, history: list[dict], catalog: dict, temperature: float | None = None
+) -> AgentResult:
     """`history` is [{role: user|assistant, content}] ending with the customer's latest message."""
     conversation = [{"role": "system", "content": build_system_prompt(design, catalog)}, *history]
     started = time.monotonic()
     for attempt in range(MAX_REPAIRS + 1):
         if attempt and time.monotonic() - started > MAX_TURN_SECONDS:
             return AgentResult(reply=CLARIFY_FALLBACK, warnings=["turn time budget exceeded"])
+        options = {} if temperature is None else {"temperature": temperature}
         completion = client.chat.completions.create(
-            model=model, messages=conversation, tools=TOOLS, max_completion_tokens=MAX_COMPLETION_TOKENS,
+            model=model, messages=conversation, tools=TOOLS, max_completion_tokens=MAX_COMPLETION_TOKENS, **options,
         )
         message = completion.choices[0].message
         calls = message.tool_calls or []

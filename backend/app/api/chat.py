@@ -75,7 +75,9 @@ def chat(
 
     history = [{"role": m.role, "content": m.content} for m in body.messages]
     try:
-        result = run_agent(client, settings.openai_chat_model, design, history, catalog)
+        result = run_agent(
+            client, settings.openai_chat_model, design, history, catalog, temperature=settings.openai_temperature
+        )
     except openai.OpenAIError as error:
         logger.warning("OpenAI call failed: %s", type(error).__name__)  # never log the request or the key
         return fail(502, "AGENT_ERROR", "The AI designer is unavailable right now. Please try again.")

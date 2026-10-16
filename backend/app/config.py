@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173"
     openai_api_key: str = ""
     openai_chat_model: str = ""
+    openai_temperature: float | None = 0.2  # configurable default (a number; None omits it for models that reject it)
     proposal_signing_key: str = ""
     chat_rate_limit: str = "20/minute"  # configurable default, per client address
     max_body_bytes: int = 262_144  # request bodies above this are refused before parsing

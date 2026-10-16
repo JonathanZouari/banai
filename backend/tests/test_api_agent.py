@@ -260,3 +260,15 @@ def test_413_and_http_errors_keep_cors_headers_and_the_envelope():
     assert missing.status_code == 404 and missing.json()["error"]["code"] == "HTTP_ERROR"
     unparsable = http.post("/api/chat", content=b"{not json", headers={"content-type": "application/json"})
     assert unparsable.json()["success"] is False
+
+
+def test_chat_passes_the_configured_temperature_to_the_model():
+    client = use_client(FakeOpenAI(reply("ok")))
+    http.post("/api/chat", json=chat_body())
+    assert client.requests[0]["temperature"] == 0.2
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        openai_api_key="k", openai_chat_model="m", proposal_signing_key=KEY, openai_temperature=None, chat_rate_limit="1000/minute"
+    )
+    client = use_client(FakeOpenAI(reply("ok")))
+    http.post("/api/chat", json=chat_body())
+    assert "temperature" not in client.requests[0]

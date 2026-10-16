@@ -116,13 +116,17 @@ test.describe('AI agent', () => {
 
   test('the composer is disabled while the agent is thinking', async ({ page }) => {
     await openDesigner(page);
+    // Hold the request until the test lets it go, so the thinking state is observable on any machine.
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
     await page.route('**/api/chat', async (route) => {
-      await new Promise((resolve) => { setTimeout(resolve, 600); });
+      await gate;
       await route.continue();
     });
     await ask(page, 'hello');
     await expect(page.getByTestId('chat-thinking')).toBeVisible();
     await expect(page.getByTestId('chat-send')).toBeDisabled();
+    release();
     await expect(page.getByTestId('chat-thinking')).toBeHidden();
     await expect(page.getByTestId('chat-send')).toBeEnabled();
   });
