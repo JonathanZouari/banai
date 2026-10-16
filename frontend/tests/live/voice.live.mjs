@@ -60,10 +60,12 @@ async function launch(file) {
   return { browser, page, bytes: statSync(path).size };
 }
 
-async function openApp(page) {
+async function openApp(page, lang = 'en') {
   await page.goto(WEB);
   await page.getByTestId('entry-basic').click();
   await page.waitForFunction(() => window.__banai?.viewer.meshOf('shf_l1'));
+  if (lang === 'he') await page.getByTestId('lang-he').click(); // also sends "he" as the transcription language hint
+  await page.getByTestId('voice-toggle').click(); // Voice is off by default; the mic appears when it is on
   await page.getByTestId('voice-mic').waitFor({ timeout: 8000 });
 }
 
@@ -73,7 +75,7 @@ async function runScenario(scenario) {
   const { browser, page, bytes } = await launch(scenario.file);
   const started = Date.now();
   try {
-    await openApp(page);
+    await openApp(page, scenario.lang);
     const seconds = scenario.file === 'silence' ? 3 : Math.min(bytes / 32000, 20);
     // The recording length follows the audio file (it loops), up to the 20 s cap.
     charge('stt', Math.min(bytes, 640000));
