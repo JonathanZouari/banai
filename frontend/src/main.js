@@ -1,10 +1,8 @@
-import '@fontsource/bricolage-grotesque/600.css';
+import '@fontsource/inter/400.css';
+import '@fontsource/inter/500.css';
+import '@fontsource/inter/600.css';
 import '@fontsource/bricolage-grotesque/700.css';
 import '@fontsource/bricolage-grotesque/800.css';
-import '@fontsource/dm-sans/400.css';
-import '@fontsource/dm-sans/500.css';
-import '@fontsource/dm-sans/600.css';
-import '@fontsource/dm-sans/700.css';
 import { applyProposal, getCatalog, getDefaultDesign, getHealth, sendChat } from './api/client.js';
 import { createStore } from './state/store.js';
 import { mountPanel } from './editor/panel.js';
@@ -17,17 +15,14 @@ import { createSaveDialog } from './share/saveDialog.js';
 import { createRenderDialog } from './render/renderDialog.js';
 import { createLogo } from './ui/logo.js';
 import { installRipple } from './ui/ripple.js';
+import { mountRoomControls } from './ui/roomControls.js';
+import { mountShell } from './ui/shell.js';
+import { mountStructureNav } from './ui/structureNav.js';
 
 function showError(message) {
   const banner = document.getElementById('error-banner');
   banner.textContent = message;
   banner.hidden = false;
-}
-
-function bindInteriorToggle(store) {
-  const toggle = document.getElementById('toggle-interior');
-  toggle.addEventListener('change', () => store.setDoorsVisible(!toggle.checked));
-  store.subscribe((state) => { toggle.checked = !state.ui.doorsVisible; });
 }
 
 function bindDialogs() {
@@ -37,8 +32,32 @@ function bindDialogs() {
   document.getElementById('open-render').addEventListener('click', render.open);
 }
 
+/**
+ * Show the chat's pending proposal in 3D. The proposal is dry-run on a copy of the committed
+ * design (store.proposeChanges); the committed design only changes when the customer confirms.
+ */
+function linkProposalPreview(chatModel, store) {
+  let previewed = null;
+  return () => {
+    const proposal = chatModel.getProposal();
+    const pending = proposal?.signed && chatModel.getProposalStatus() === 'pending' ? proposal : null;
+    if (pending && pending.id !== previewed) {
+      previewed = pending.id;
+      const staged = store.proposeChanges({ ops: pending.signed.ops, summary: pending.summary, signed: pending.signed });
+      // Interior changes would be hidden behind closed doors: show the inside for the preview.
+      const preview = store.getState().proposal;
+      const interior = staged.ok && (preview.replaces || [...preview.diff.added, ...preview.diff.modified, ...preview.diff.removed]
+        .some((id) => !id.startsWith('dr_') && id !== 'carcass'));
+      if (interior && store.getState().ui.doorsVisible) store.setDoorsVisible(false);
+    } else if (!proposal && previewed) {
+      previewed = null;
+      if (store.getState().proposal) store.cancelProposal();
+    }
+  };
+}
+
 async function boot() {
-  document.getElementById('topbar-logo').append(createLogo({ size: 34, tagline: 'Wardrobe Designer' }));
+  document.getElementById('topbar-logo').append(createLogo({ size: 32 }));
   installRipple();
   let catalog;
   let initial;
@@ -53,8 +72,7 @@ async function boot() {
   // Validates the server data before anything is rendered (throws on invalid data).
   const store = createStore({ design: initial.design, revision: initial.revision, catalog });
   const viewer = createViewer(document.getElementById('viewer'), store);
-  bindInteriorToggle(store);
-  mountPanel(document.getElementById('properties-content'), store);
+  mountPanel(document.getElementById('properties-content'), store, { headingRoot: document.getElementById('inspector-heading') });
   bindDialogs();
 
   // The agent is optional: without an OpenAI key on the server the panel says so honestly.
@@ -69,8 +87,8 @@ async function boot() {
   const t = () => language.strings();
 
   let applying = false;
-  const confirmProposal = async (proposal) => {
-    if (applying) return;
+  const confirmProposal = async (proposal = chatModel.getProposal()) => {
+    if (!proposal || applying) return;
     if (!proposal.signed) {
       chatModel.resolveProposal(t().notApplied);
       return;
@@ -79,17 +97,28 @@ async function boot() {
     const { design, revision } = store.getState();
     try {
       const result = await applyProposal({ design, revision, proposal: proposal.signed, language: language.get() });
-      store.replaceDesign(result.design, result.revision);
-      chatModel.resolveProposal(t().applied);
+      // Commit the server's design through the staged proposal (one undo step, preview cleared).
+      // A manual edit made while the request was in flight still wins (STALE).
+      const staged = store.getState().proposal?.signed === proposal.signed;
+      const committed = staged
+        ? store.applyProposal({ serverDesign: result.design })
+        : (store.replaceDesign(result.design, result.revision), { ok: true });
+      chatModel.resolveProposal(committed.ok ? t().applied : t().stale);
     } catch (error) {
+      if (error?.code === 'STALE') store.markProposalStale();
       chatModel.resolveProposal(error?.code === 'STALE' ? t().stale : t().notApplied);
     } finally {
       applying = false;
     }
   };
   const chat = mountChat(document.getElementById('chat-panel'), { model: chatModel, onConfirm: confirmProposal, language });
+  chatModel.subscribe(linkProposalPreview(chatModel, store));
   // A manual edit changes the revision, which may turn a pending proposal stale.
   store.subscribe(() => chat.refresh());
+
+  const shell = mountShell({ store, viewer, onApplyProposal: () => confirmProposal(), onCancelProposal: () => chatModel.cancelProposal() });
+  mountRoomControls(document.getElementById('viewer-reset'), store);
+  mountStructureNav(document.getElementById('structure-nav'), store);
 
   if (import.meta.env.DEV) {
     window.__banai = Object.freeze({ store, viewer, chat: chatModel });
@@ -97,8 +126,12 @@ async function boot() {
 
   mountStartScreen({
     onChoose: (entry) => {
-      // All three entry points open the same editor; the chat ones also focus the composer.
-      if (entry.focusesChat) chat.focus(entry.id);
+      // All three entry points open the same editor; the chat ones also open the assistant.
+      if (entry.focusesChat) {
+        shell.panels.open('left');
+        shell.tabs.show('ai');
+        chat.focus(entry.id);
+      }
     },
   });
 }

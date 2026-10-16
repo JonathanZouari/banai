@@ -89,8 +89,9 @@ test.describe('look and feel', () => {
       };
     });
     expect(fonts.logo).toContain('Bricolage Grotesque');
-    expect(fonts.body).toContain('DM Sans');
-    expect(fonts.loaded).toEqual(expect.arrayContaining(['Bricolage Grotesque', 'DM Sans']));
+    // Merged design: the brand display face for the wordmark/titles, Inter for the UI (reference look).
+    expect(fonts.body).toContain('Inter');
+    expect(fonts.loaded).toEqual(expect.arrayContaining(['Bricolage Grotesque', 'Inter']));
   });
 
   test('dropdowns keep their text clear of the chevron', async ({ page }) => {

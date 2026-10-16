@@ -19,9 +19,46 @@ const PATHS = Object.freeze({
   volume: 'M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0014 8v8a4.5 4.5 0 002.5-4zM14 3.2v2.1a7 7 0 010 13.4v2.1a9 9 0 000-17.6z',
 });
 
+// Line icons used by the workspace UI (toolbar, history, panels): stroke = currentColor.
+const STROKES = Object.freeze({
+  undo: ['M9 14 4 9l5-5', 'M4 9h10.5a5.5 5.5 0 0 1 0 11H11'],
+  redo: ['m15 14 5-5-5-5', 'M20 9H9.5a5.5 5.5 0 0 0 0 11H13'],
+  chevronLeft: ['m15 18-6-6 6-6'],
+  chevronRight: ['m9 18 6-6-6-6'],
+  front: ['M5 3h14v18H5z', 'M12 3v18', 'M9.5 12h.01', 'M14.5 12h.01'],
+  interior: ['M5 3h14v18H5z', 'M5 9h14', 'M5 15h14', 'M12 15v6'],
+  ruler: ['M3 17 17 3l4 4L7 21z', 'm7 13 2 2', 'm10 10 2 2', 'm13 7 2 2'],
+  reset: ['M3 12a9 9 0 1 0 3-6.7L3 8', 'M3 3v5h5'],
+  link: ['M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7', 'M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7'],
+  room: ['M3 21h18', 'M5 21V8l7-5 7 5v13', 'M9 21v-7h6v7'],
+  user: ['M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z', 'M4 21a8 8 0 0 1 16 0'],
+});
+
+function strokeIcon(paths, size) {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('width', String(size));
+  svg.setAttribute('height', String(size));
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '1.75');
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('stroke-linejoin', 'round');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  svg.classList.add('icon');
+  paths.forEach((d) => {
+    const path = document.createElementNS(SVG_NS, 'path');
+    path.setAttribute('d', d);
+    svg.append(path);
+  });
+  return svg;
+}
+
 /** Returns an <svg> icon element. Unknown names throw, so typos fail loudly in tests. */
 export function icon(name, { size = 20 } = {}) {
   const path = PATHS[name];
+  if (!path && STROKES[name]) return strokeIcon(STROKES[name], size);
   if (!path) throw new Error(`Unknown icon: ${name}`);
   const svg = document.createElementNS(SVG_NS, 'svg');
   svg.setAttribute('viewBox', '0 0 24 24');
@@ -37,4 +74,4 @@ export function icon(name, { size = 20 } = {}) {
   return svg;
 }
 
-export const ICON_NAMES = Object.freeze(Object.keys(PATHS));
+export const ICON_NAMES = Object.freeze([...Object.keys(PATHS), ...Object.keys(STROKES)]);

@@ -1,4 +1,4 @@
-import { clickComponent, expect, openDesigner, test } from './fixtures.js';
+import { clickComponent, expect, openDesigner, showInterior, test } from './fixtures.js';
 
 const state = (page) => page.evaluate(() => {
   const { design, revision, selection } = window.__banai.store.getState();
@@ -15,7 +15,7 @@ test.describe('Phase 4: manual editing', () => {
   test.beforeEach(async ({ page }) => openDesigner(page));
 
   test('selecting a shelf in 3D shows its properties; editing its height moves the mesh', async ({ page }) => {
-    await page.getByLabel('Show interior').check();
+    await showInterior(page);
     await clickComponent(page, 'shf_l2');
     const shelfY = page.getByTestId('shelf-y');
     await expect(shelfY).toHaveValue('80.0');
@@ -23,7 +23,7 @@ test.describe('Phase 4: manual editing', () => {
     await commit(shelfY, '100');
     await expect.poll(async () => (await state(page)).design.compartments[0].shelves[1].y).toBe(1000);
     await expect.poll(() => meshY(page, 'shf_l2')).toBeCloseTo(before + 0.2, 3);
-    await expect(page.locator('.dim-label--selected')).toHaveText('Shelf · 100.0 cm from base · 1.8 cm thick');
+    await expect(page.locator('.dim-label--selected')).toHaveText('Shelf 2 · 100.0 cm from base');
   });
 
   test('changing the overall width rescales compartments and the 3D view', async ({ page }) => {
@@ -38,7 +38,7 @@ test.describe('Phase 4: manual editing', () => {
     const { revision } = await state(page);
     await commit(page.getByTestId('dim-height'), 'abc');
     await expect(page.getByText('Enter a number in cm, e.g. 64.5')).toBeVisible();
-    await page.getByLabel('Show interior').check();
+    await showInterior(page);
     await clickComponent(page, 'shf_l1');
     await commit(page.getByTestId('shelf-y'), '81');
     await expect(page.getByText('That would overlap another shelf or drawer. Choose a different position.')).toBeVisible();
@@ -54,7 +54,7 @@ test.describe('Phase 4: manual editing', () => {
   });
 
   test('changing the carcass colour updates the rendered material', async ({ page }) => {
-    await page.getByRole('button', { name: 'Walnut' }).first().click();
+    await page.locator('#properties-content').getByRole('button', { name: 'Walnut', exact: true }).first().click();
     await expect.poll(() => page.evaluate(() => window.__banai.viewer.meshOf('carcass').material.color.getHexString())).toBe('6b4a32');
   });
 
@@ -73,7 +73,7 @@ test.describe('Phase 4: manual editing', () => {
   });
 
   test('deleting the selected shelf removes it and clears the selection', async ({ page }) => {
-    await page.getByLabel('Show interior').check();
+    await showInterior(page);
     await clickComponent(page, 'shf_r1');
     await page.getByTestId('delete-selected').click();
     await expect.poll(async () => (await state(page)).design.compartments[2].shelves.length).toBe(1);

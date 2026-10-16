@@ -10,8 +10,9 @@ import { box } from './frame.js';
 
 const noRaycast = () => {};
 
-function hardware(args, part) {
-  const mesh = box({ ...args, userData: { kind: 'hardware', part } });
+// `doorId` ties a handle or outline to its door, so it moves with the door when it opens.
+function hardware(args, part, doorId = null) {
+  const mesh = box({ ...args, userData: { kind: 'hardware', part, ...(doorId ? { doorId } : {}) } });
   mesh.raycast = noRaycast; // clicks pass through to the door behind
   return mesh;
 }
@@ -20,13 +21,13 @@ function hardware(args, part) {
 function outline(panel, materials) {
   const lines = new THREE.LineSegments(new THREE.EdgesGeometry(panel.geometry), materials.doorEdge);
   lines.position.copy(panel.position);
-  lines.userData = { kind: 'hardware', part: 'edge' };
+  lines.userData = { kind: 'hardware', part: 'edge', doorId: panel.userData.componentId };
   lines.raycast = noRaycast;
   return lines;
 }
 
 /** A vertical handle with its centre x, on a panel whose front face is at frontZ. */
-function handle(x, frontZ, panelY, panelHeight, materials) {
+function handle(x, frontZ, panelY, panelHeight, materials, doorId) {
   const length = Math.min(VISUAL.handleLength, panelHeight * 0.4);
   const halfSpan = panelHeight / 2 - length / 2 - 20;
   // Aim for the usual grip height; stay inside the panel for short wardrobes.
@@ -35,7 +36,7 @@ function handle(x, frontZ, panelY, panelHeight, materials) {
     size: [VISUAL.handleWidth, length, VISUAL.handleDepth],
     center: [x, y, frontZ + VISUAL.handleDepth / 2],
     material: materials.hardware,
-  }, 'handle');
+  }, 'handle', doorId);
 }
 
 function buildHinged(design, frame, materials, { t, gap, y, height, materialOf }) {
@@ -47,11 +48,11 @@ function buildHinged(design, frame, materials, { t, gap, y, height, materialOf }
       size: [x1 - x0 - 2 * gap, height, t],
       center: [(x0 + x1) / 2, y, t / 2],
       material: materialOf(door),
-      userData: { componentId: door.id, kind: 'door', hingeSide: door.hingeSide },
+      userData: { componentId: door.id, kind: 'door', doorType: 'hinged', hingeSide: door.hingeSide },
     });
     // The handle sits on the free edge, opposite the hinge.
     const freeEdgeX = door.hingeSide === 'right' ? x0 + gap + VISUAL.handleInset : x1 - gap - VISUAL.handleInset;
-    return [panel, outline(panel, materials), handle(freeEdgeX, t, y, height, materials)];
+    return [panel, outline(panel, materials), handle(freeEdgeX, t, y, height, materials, door.id)];
   });
 }
 
@@ -72,7 +73,8 @@ function buildSliding(design, frame, materials, { t, gap, y, height, materialOf 
       size: [panelWidth, height, t],
       center: [x0 + panelWidth / 2, y, z],
       material: materialOf(door),
-      userData: { componentId: door.id, kind: 'door' },
+      // Visual only: which way the panel glides when opened (over its neighbour).
+      userData: { componentId: door.id, kind: 'door', doorType: 'sliding', slideDir: i < count - 1 ? 1 : -1 },
     });
     // The handle sits where it is not hidden by a panel in front. The last panel (and, for a
     // single panel, none) has its handle on the side facing the neighbour it slides over.
@@ -81,7 +83,7 @@ function buildSliding(design, frame, materials, { t, gap, y, height, materialOf 
     if (count === 1) handleX = x0 + panelWidth - inset;
     else if (isLast) handleX = x0 + (onFront ? 0 : overlap) + inset;
     else handleX = x0 + panelWidth - (onFront ? 0 : overlap) - inset;
-    return [panel, outline(panel, materials), handle(handleX, z + t / 2, y, height, materials)];
+    return [panel, outline(panel, materials), handle(handleX, z + t / 2, y, height, materials, door.id)];
   });
 
   // Top and bottom rails span both tracks, like the aluminium frame of a sliding wardrobe.

@@ -1,6 +1,7 @@
 // Pure mapping from editor form input to domain ops. No DOM here, so every rule is
 // unit-tested. The domain engine remains the single authority on validity.
 import { interiorHeight } from '../domain/geometry.js';
+import { DRAWER, RAIL, SHELF, newId } from '../domain/ids.js';
 
 const MAX_ABS_CM = 100_000;
 const CM_PATTERN = /^-?\d+([.,]\d+)?$/;
@@ -86,6 +87,43 @@ export function addItemOps(design, compartmentId, kind) {
   return [{ op: 'add_rail', compartmentId, y }];
 }
 
+const ITEM_LISTS = Object.freeze({ shelf: 'shelves', drawer: 'drawers', rail: 'rails' });
+
+/**
+ * Ops that copy a shelf, drawer or rail (size and custom finish) into a free gap of the
+ * same section. Returns null when there is no room for a copy.
+ */
+export function duplicateOps(design, itemId) {
+  for (const compartment of design.compartments) {
+    for (const [kind, list] of Object.entries(ITEM_LISTS)) {
+      const item = compartment[list].find((candidate) => candidate.id === itemId);
+      if (!item) continue;
+      const gaps = freeGaps(design, compartment);
+      const compartmentId = compartment.id;
+      let op;
+      if (kind === 'shelf') {
+        const gap = gaps.reduce((best, g) => (g[1] - g[0] > best[1] - best[0] ? g : best), [0, 0]);
+        if (gap[1] - gap[0] < item.thickness * 3) return null;
+        op = { op: 'add_shelf', compartmentId, id: newId(SHELF), y: Math.floor((gap[0] + gap[1] - item.thickness) / 2), thickness: item.thickness };
+      } else if (kind === 'drawer') {
+        const gap = gaps.find(([start, end]) => end - start >= item.height);
+        if (!gap) return null;
+        op = { op: 'add_drawer', compartmentId, id: newId(DRAWER), y: gap[0], height: item.height };
+      } else {
+        const taken = new Set(compartment.rails.map((rail) => rail.y));
+        const gap = gaps.reduce((best, g) => (g[1] - g[0] > best[1] - best[0] ? g : best), [0, 0]);
+        const y = Math.floor((gap[0] + gap[1]) / 2);
+        if (gap[1] - gap[0] < 100 || taken.has(y)) return null;
+        op = { op: 'add_rail', compartmentId, id: newId(RAIL), y };
+      }
+      const ops = [op];
+      if (item.appearance) ops.push({ op: 'set_material', target: op.id, ...item.appearance });
+      return ops;
+    }
+  }
+  return null;
+}
+
 const FRIENDLY = Object.freeze({
   OVERLAP: 'That would overlap another shelf or drawer. Choose a different position.',
   OUT_OF_BOUNDS: 'That position is not inside the wardrobe.',
@@ -96,6 +134,7 @@ const FRIENDLY = Object.freeze({
   INVALID_OP: 'That change is not possible for this component.',
   UNKNOWN_CATALOG_ID: 'That material or colour is not in the catalog.',
   SCHEMA_INVALID: 'That value is not valid.',
+  NO_ROOM: 'There is no free space for a copy in this section.',
 });
 
 /** Short, engine-independent message for an inline error (never echoes input). */

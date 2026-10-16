@@ -6,7 +6,11 @@ const WEB_PORT = 5183;
 
 export default defineConfig({
   testDir: 'tests/e2e',
+  globalSetup: './tests/e2e/global-setup.js',
   fullyParallel: false,
+  // Each worker runs a software-rendered (SwiftShader) WebGL loop; parallel pages starve the
+  // CPU and cause timeouts on typical dev machines. One worker is reliable.
+  workers: 1,
   retries: 0,
   reporter: [['list']],
   use: {

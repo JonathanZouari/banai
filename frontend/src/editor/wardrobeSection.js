@@ -1,41 +1,45 @@
-// Always-visible wardrobe settings: overall dimensions, doors and main materials.
+// Wardrobe-level inspector (nothing selected): size, sections, doors and finish.
 // Inputs report their own errors inline; buttons/selects report under their section.
 import { appearanceControls } from './appearanceControls.js';
+import { compartmentsSection } from './compartmentsSection.js';
 import { actionResult, cmField, countField, el, section, segmented } from './fields.js';
 import { dimensionOps, doorTypeOps } from './opsFromForm.js';
 
 function dimensionsRow(design, run) {
   const { width, height, depth } = design.dimensions;
-  return el('div', { className: 'field-row field-row--3' }, [
+  return el('div', { className: 'field-group' }, [
     cmField({ label: 'Width', mm: width, testId: 'dim-width', onCommit: (mm) => run(dimensionOps('width', mm)) }),
     cmField({ label: 'Height', mm: height, testId: 'dim-height', onCommit: (mm) => run(dimensionOps('height', mm)) }),
     cmField({ label: 'Depth', mm: depth, testId: 'dim-depth', onCommit: (mm) => run(dimensionOps('depth', mm)) }),
   ]);
 }
 
-export function wardrobeSection({ design, catalog, run }) {
+export function wardrobeSection(context) {
+  const { design, catalog, run } = context;
   const { doors } = design;
-  const wardrobe = section('Wardrobe', [dimensionsRow(design, run)]);
-  const runDoors = (ops) => actionResult(wardrobe, run(ops));
-  wardrobe.append(segmented({
-    label: 'Doors',
+  const size = section('Size', [dimensionsRow(design, run)]);
+
+  const doorsSection = section('Doors', []);
+  const runDoors = (ops) => actionResult(doorsSection, run(ops));
+  doorsSection.append(segmented({
+    label: 'Door type',
     testId: 'door-type',
     value: doors.type,
     options: [{ value: 'hinged', label: 'Hinged' }, { value: 'sliding', label: 'Sliding' }, { value: 'none', label: 'None' }],
     onChange: (type) => runDoors(doorTypeOps(type)),
   }));
   if (doors.type === 'sliding') {
-    wardrobe.append(countField({
+    doorsSection.append(countField({
       label: 'Sliding panels', value: doors.items.length, testId: 'sliding-count',
       onCommit: (count) => run(doorTypeOps('sliding', count)),
     }));
   }
 
-  const materials = section('Materials', []);
-  const runMaterials = (ops) => actionResult(materials, run(ops));
-  materials.append(appearanceControls({ catalog, appearance: design.carcass.appearance, target: 'carcass', run: runMaterials, label: 'Carcass & interior' }));
+  const finish = section('Finish', []);
+  const runFinish = (ops) => actionResult(finish, run(ops));
+  finish.append(appearanceControls({ catalog, appearance: design.carcass.appearance, target: 'carcass', run: runFinish, label: 'Wardrobe body' }));
   if (doors.type !== 'none') {
-    materials.append(appearanceControls({ catalog, appearance: doors.appearance, target: 'doors', run: runMaterials, label: 'Doors' }));
+    finish.append(appearanceControls({ catalog, appearance: doors.appearance, target: 'doors', run: runFinish, label: 'Doors' }));
   }
-  return [wardrobe, materials];
+  return [size, compartmentsSection(context), doorsSection, finish];
 }

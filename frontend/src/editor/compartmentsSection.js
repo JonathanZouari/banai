@@ -1,6 +1,7 @@
-// Compartment list: widths, selection, add and remove.
+// Section list (wardrobe-level inspector): widths, selection, add and remove.
 import { actionResult, button, cmField, el, section } from './fields.js';
 import { addCompartmentOps, removeOps } from './opsFromForm.js';
+import { sectionName } from '../ui/naming.js';
 
 export function compartmentsSection({ design, selection, run, select }) {
   const list = el('ol', { className: 'compartment-list' });
@@ -9,9 +10,9 @@ export function compartmentsSection({ design, selection, run, select }) {
     const selected = selection?.id === compartment.id;
     const row = el('li', { className: `compartment-row${selected ? ' is-selected' : ''}` });
     row.append(
-      button(`Compartment ${index + 1}`, () => select(compartment.id), { variant: 'link', testId: `select-${compartment.id}` }),
+      button(sectionName(design, index).replace(' section', ''), () => select(compartment.id), { variant: 'link', testId: `select-${compartment.id}` }),
       cmField({
-        label: 'Width', mm: compartment.width, testId: `width-${compartment.id}`,
+        label: `${sectionName(design, index)} width`, mm: compartment.width, testId: `width-${compartment.id}`,
         onCommit: (mm) => run([{ op: 'modify_compartment', compartmentId: compartment.id, width: mm }]),
       }),
       button('Remove', () => actionResult(row, run(removeOps(compartment.id))), {
@@ -20,7 +21,8 @@ export function compartmentsSection({ design, selection, run, select }) {
     );
     list.append(row);
   });
-  const container = section('Compartments', [list]);
-  container.append(button('+ Add compartment', () => actionResult(container, run(addCompartmentOps(design))), { variant: 'secondary', testId: 'add-compartment' }));
+  const count = design.compartments.length;
+  const container = section(`Sections · ${count}`, [list]);
+  container.append(button('+ Add section', () => actionResult(container, run(addCompartmentOps(design))), { variant: 'secondary', testId: 'add-compartment' }));
   return container;
 }
