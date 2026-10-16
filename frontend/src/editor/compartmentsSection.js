@@ -1,5 +1,5 @@
 // Compartment list: widths, selection, add and remove.
-import { actionResult, button, cmField, el, section } from './fields.js';
+import { actionResult, button, cmField, collapsibleSection, el } from './fields.js';
 import { addCompartmentOps, removeOps } from './opsFromForm.js';
 
 export function compartmentsSection({ design, selection, run, select }) {
@@ -15,12 +15,12 @@ export function compartmentsSection({ design, selection, run, select }) {
         onCommit: (mm) => run([{ op: 'modify_compartment', compartmentId: compartment.id, width: mm }]),
       }),
       button('Remove', () => actionResult(row, run(removeOps(compartment.id))), {
-        variant: 'ghost', disabled: single, testId: `remove-${compartment.id}`,
+        variant: 'danger-quiet', disabled: single, testId: `remove-${compartment.id}`,
       }),
     );
     list.append(row);
   });
-  const container = section('Compartments', [list]);
+  const container = collapsibleSection('compartments', 'Compartments', [list]);
   container.append(button('+ Add compartment', () => actionResult(container, run(addCompartmentOps(design))), { variant: 'secondary', testId: 'add-compartment' }));
   return container;
 }

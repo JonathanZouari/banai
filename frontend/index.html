@@ -10,21 +10,63 @@
     <header class="topbar">
       <h1 class="topbar__title">BanAI <span>Wardrobe Designer</span></h1>
       <div class="topbar__actions">
-        <label class="toggle">
-          <input type="checkbox" id="toggle-interior" />
-          <span>Show interior</span>
-        </label>
-        <span class="topbar__units">cm</span>
+        <button type="button" class="btn btn--sm btn--toggle" id="chat-toggle" aria-controls="chat-panel" aria-expanded="true">AI designer</button>
+        <details class="help">
+          <summary>Controls</summary>
+          <div class="help__popover">
+            <dl class="help__list">
+              <dt>Drag</dt><dd>Rotate the view</dd>
+              <dt>Right-drag</dt><dd>Pan the view</dd>
+              <dt>Scroll</dt><dd>Zoom in and out</dd>
+              <dt>Click a part</dt><dd>Select it for editing</dd>
+              <dt>Esc</dt><dd>Clear the selection</dd>
+            </dl>
+          </div>
+        </details>
+        <span class="topbar__units">Units: cm</span>
       </div>
     </header>
-    <div class="banner banner--error" id="error-banner" role="alert" hidden></div>
+    <div class="banner banner--error" id="error-banner" role="alert" hidden>
+      <span class="banner__message"></span>
+      <button type="button" class="btn btn--sm" id="error-retry">Retry</button>
+    </div>
     <main class="workspace">
-      <aside class="panel" id="chat-panel" aria-label="AI designer">
-        <h2 class="panel__title">AI Designer</h2>
-        <p class="panel__note">Describe the wardrobe you want, and the agent will propose changes for you to confirm.</p>
-        <div class="empty-state">The conversational design agent is not connected yet (planned for Phase 5). You can design manually in the Properties panel.</div>
+      <aside class="panel panel--chat" id="chat-panel" aria-label="AI designer">
+        <div class="chat__body">
+          <h2 class="panel__title" id="chat-title" tabindex="-1">AI Designer</h2>
+          <p class="panel__note">Describe the wardrobe you want, and the agent will propose changes for you to confirm.</p>
+          <div class="empty-state">The conversational design agent is not connected yet (planned for Phase 5). You can design manually in the Properties panel.</div>
+          <section class="tips" aria-labelledby="tips-title">
+            <h3 class="tips__title" id="tips-title">Getting started</h3>
+            <ul class="tips__list">
+              <li>Drag to rotate the wardrobe.</li>
+              <li>Right-drag to pan, scroll to zoom.</li>
+              <li>Click a part to edit it.</li>
+              <li>Press Esc or click empty space to clear the selection.</li>
+              <li>Use the interior switch to see the shelves.</li>
+            </ul>
+          </section>
+        </div>
+        <button type="button" class="chat__rail" id="chat-rail-toggle" aria-controls="chat-panel" aria-expanded="false" aria-label="Expand AI Designer panel">
+          <svg class="chat__rail-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>
+          <span class="chat__rail-label">AI Designer</span>
+        </button>
       </aside>
-      <section class="viewer" id="viewer" aria-label="3D viewer"></section>
+      <section class="viewer" id="viewer" aria-label="3D viewer">
+        <div class="viewer-toolbar" role="group" aria-label="Viewer tools">
+          <div class="segmented segmented--sm" role="group" aria-label="Camera view">
+            <button type="button" class="segmented__option" data-view="threeQuarter" data-testid="view-threeQuarter" aria-label="Three-quarter view (default)" aria-pressed="true" disabled>3/4</button>
+            <button type="button" class="segmented__option" data-view="front" data-testid="view-front" aria-pressed="false" disabled>Front</button>
+            <button type="button" class="segmented__option" data-view="side" data-testid="view-side" aria-pressed="false" disabled>Side</button>
+          </div>
+          <button type="button" class="btn btn--sm" id="view-fit" data-testid="view-fit" aria-label="Fit wardrobe to view" disabled>Fit</button>
+          <label class="switch">
+            <input type="checkbox" id="toggle-interior" disabled />
+            <span>Show interior</span>
+          </label>
+        </div>
+        <div class="viewer-loading" role="status">Loading design…</div>
+      </section>
       <aside class="panel panel--properties" id="properties-panel" aria-label="Properties">
         <h2 class="panel__title">Properties</h2>
         <p class="panel__hint">Click a component in the 3D view to edit it.</p>

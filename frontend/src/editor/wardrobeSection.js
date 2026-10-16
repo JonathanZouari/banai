@@ -1,7 +1,7 @@
 // Always-visible wardrobe settings: overall dimensions, doors and main materials.
 // Inputs report their own errors inline; buttons/selects report under their section.
 import { appearanceControls } from './appearanceControls.js';
-import { actionResult, cmField, countField, el, section, segmented } from './fields.js';
+import { actionResult, cmField, collapsibleSection, countField, el, segmented } from './fields.js';
 import { dimensionOps, doorTypeOps } from './opsFromForm.js';
 
 function dimensionsRow(design, run) {
@@ -15,7 +15,7 @@ function dimensionsRow(design, run) {
 
 export function wardrobeSection({ design, catalog, run }) {
   const { doors } = design;
-  const wardrobe = section('Wardrobe', [dimensionsRow(design, run)]);
+  const wardrobe = collapsibleSection('wardrobe', 'Wardrobe', [dimensionsRow(design, run)]);
   const runDoors = (ops) => actionResult(wardrobe, run(ops));
   wardrobe.append(segmented({
     label: 'Doors',
@@ -31,7 +31,7 @@ export function wardrobeSection({ design, catalog, run }) {
     }));
   }
 
-  const materials = section('Materials', []);
+  const materials = collapsibleSection('materials', 'Materials', []);
   const runMaterials = (ops) => actionResult(materials, run(ops));
   materials.append(appearanceControls({ catalog, appearance: design.carcass.appearance, target: 'carcass', run: runMaterials, label: 'Carcass & interior' }));
   if (doors.type !== 'none') {
