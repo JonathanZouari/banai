@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { getCatalog, getDefaultDesign, getHealth } from '../../src/api/client.js';
+import { getCatalog, getDefaultDesign, getHealth, verifyAiKey } from '../../src/api/client.js';
 
 const okResponse = (body) => vi.fn().mockResolvedValue({ ok: true, json: async () => body });
 
@@ -19,5 +19,20 @@ describe('api client', () => {
   it('throws on HTTP errors and unsuccessful envelopes', async () => {
     await expect(getCatalog(vi.fn().mockResolvedValue({ ok: false, status: 503 }))).rejects.toThrow('503');
     await expect(getCatalog(okResponse({ success: false, error: 'x' }))).rejects.toThrow('unsuccessful');
+  });
+});
+
+describe('verifyAiKey', () => {
+  it('posts the key as JSON in the body (never in the URL) and unwraps the result', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true, data: { status: 'connected' } }) });
+    await expect(verifyAiKey('sk-test', fetchImpl)).resolves.toEqual({ status: 'connected' });
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url).toBe('http://localhost:8000/api/settings/ai/verify');
+    expect(init).toMatchObject({ method: 'POST', body: JSON.stringify({ apiKey: 'sk-test' }) });
+  });
+
+  it('throws with the envelope error code and message', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: false, status: 400, json: async () => ({ success: false, error: { code: 'INVALID_FORMAT', message: 'bad key' } }) });
+    await expect(verifyAiKey('x', fetchImpl)).rejects.toMatchObject({ code: 'INVALID_FORMAT', message: 'bad key' });
   });
 });

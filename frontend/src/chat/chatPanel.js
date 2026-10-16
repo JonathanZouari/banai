@@ -1,13 +1,26 @@
 // Left column: header, a welcome with starter prompts, the conversation, the proposal card and
-// the composer. The agent is not connected until Phase 5, so this panel never changes the design
-// by itself and says so plainly.
+// the composer. The agent answers in text only, so this panel never changes the design by itself. The header chip mirrors the OpenAI key status from AI settings.
 import { el } from '../editor/fields.js';
 import { icon } from '../ui/icons.js';
 import { MAX_MESSAGE_LENGTH, SUGGESTIONS } from './chatModel.js';
 import { renderProposalCard } from './proposalCard.js';
+import { STATUS_LABELS } from '../settings/aiSettingsModel.js';
 
-export function mountChat(container, { model, onConfirm }) {
+export function mountChat(container, { model, onConfirm, aiSettings, onOpenSettings }) {
   container.classList.add('panel--chat');
+
+  // Shows the OpenAI key status (kept in sync with AI settings); clicking it opens the settings.
+  const statusChip = el('button', { className: 'status-chip chat__status', attrs: { type: 'button', title: 'AI settings' } });
+  statusChip.dataset.testid = 'chat-status';
+  statusChip.addEventListener('click', () => onOpenSettings?.());
+  const connectButton = el('button', { className: 'btn btn--tonal chat__connect', attrs: { type: 'button' } }, [icon('key', { size: 18 }), el('span', { text: 'Connect your OpenAI key' })]);
+  connectButton.dataset.testid = 'chat-connect-key';
+  connectButton.addEventListener('click', () => onOpenSettings?.());
+  const renderKeyStatus = (state) => {
+    statusChip.textContent = STATUS_LABELS[state.status];
+    statusChip.dataset.status = state.status;
+    connectButton.hidden = state.status === 'connected' || state.status === 'checking';
+  };
 
   const header = el('header', { className: 'chat__header' }, [
     el('span', { className: 'chat__avatar' }, [icon('sparkle', { size: 22 })]),
@@ -15,10 +28,10 @@ export function mountChat(container, { model, onConfirm }) {
       el('h2', { className: 'chat__title', text: 'AI Designer' }),
       el('p', { className: 'chat__subtitle', text: 'Design assistant' }),
     ]),
-    el('span', { className: 'chat__status', text: 'Coming soon', attrs: { title: 'The AI agent is not connected yet (planned for Phase 5).' } }),
+    statusChip,
   ]);
 
-  const input = el('textarea', { className: 'chat__input', attrs: { rows: '2', maxlength: String(MAX_MESSAGE_LENGTH), placeholder: 'Describe your wardrobe…', 'aria-label': 'Message to the AI designer' } });
+  const input = el('textarea', { className: 'chat__input', attrs: { dir: 'auto', rows: '2', maxlength: String(MAX_MESSAGE_LENGTH), placeholder: 'Describe your wardrobe…', 'aria-label': 'Message to the AI designer' } });
   input.dataset.testid = 'chat-input';
   const sendButton = el('button', { className: 'icon-btn icon-btn--filled chat__send', attrs: { type: 'submit', 'aria-label': 'Send message' } }, [icon('send')]);
   sendButton.dataset.testid = 'chat-send';
@@ -38,11 +51,14 @@ export function mountChat(container, { model, onConfirm }) {
     el('h3', { className: 'welcome__title', text: 'What shall we design today?' }),
     el('p', { className: 'welcome__text', text: "Describe your wardrobe in your own words. I'll turn it into a proposal that you confirm before anything changes." }),
     el('div', { className: 'welcome__chips' }, chips),
+    connectButton,
   ]);
   welcome.dataset.testid = 'chat-welcome';
 
   const list = el('div', { className: 'chat__messages', attrs: { role: 'log', 'aria-live': 'polite', 'aria-label': 'Conversation' } });
   list.dataset.testid = 'chat-messages';
+  const typing = el('div', { className: 'chat__bubble chat__bubble--assistant chat__typing', attrs: { 'aria-label': 'The AI designer is typing' } }, [el('span'), el('span'), el('span')]);
+  typing.dataset.testid = 'chat-typing';
   const proposalSlot = el('div', { className: 'chat__proposal' });
 
   const submit = () => {
@@ -73,10 +89,15 @@ export function mountChat(container, { model, onConfirm }) {
     messages.slice(renderedCount).forEach((message) => {
       const bubble = el('div', { className: `chat__bubble chat__bubble--${message.role}` });
       if (message.role === 'system') bubble.append(icon('info', { size: 16 }));
-      bubble.append(el('span', { text: message.text }));
+      bubble.append(el('span', { text: message.text, attrs: { dir: 'auto' } }));
+      bubble.dataset.testid = `chat-bubble-${message.role}`;
       list.append(bubble);
     });
     renderedCount = messages.length;
+    typing.hidden = !model.isThinking();
+    if (!typing.hidden) list.hidden = false;
+    list.append(typing);
+    sendButton.disabled = model.isThinking();
     list.scrollTop = list.scrollHeight;
 
     // Re-render the card only when the proposal or its status changed (keeps its entrance animation calm).
@@ -97,6 +118,8 @@ export function mountChat(container, { model, onConfirm }) {
   container.replaceChildren(header, el('div', { className: 'chat__body' }, [welcome, list, proposalSlot]), el('div', { className: 'chat__footer' }, [composer, hint]));
   model.subscribe(render);
   render();
+  aiSettings.subscribe(renderKeyStatus);
+  renderKeyStatus(aiSettings.getState());
 
   return {
     focus: (placeholder) => {

@@ -14,6 +14,7 @@ const PATHS = Object.freeze({
   arrow: 'M12 4l-1.4 1.4 5.6 5.6H4v2h12.2l-5.6 5.6L12 20l8-8z',
   sparkle: 'M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4zM19 15l.9 2.6L22.5 18.5l-2.6.9L19 22l-.9-2.6-2.6-.9 2.6-.9z',
   info: 'M11 7h2v2h-2V7zm0 4h2v6h-2v-6zm1-9a10 10 0 100 20 10 10 0 000-20z',
+  key: 'M12.65 10A6 6 0 101 12a6 6 0 0011.65 2H17v4h4v-4h2v-4H12.65zM7 15a3 3 0 110-6 3 3 0 010 6z',
 });
 
 /** Returns an <svg> icon element. Unknown names throw, so typos fail loudly in tests. */
