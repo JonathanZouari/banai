@@ -14,7 +14,7 @@ import { createChatModel } from './chat/chatModel.js';
 import { mountChat } from './chat/chatPanel.js';
 import { mountStartScreen } from './entry/startScreen.js';
 import { createSaveDialog } from './share/saveDialog.js';
-import { createRenderHud } from './render/renderHud.js';
+import { coverPng, createRenderHud } from './render/renderHud.js';
 import { createKeyStorage } from './settings/keyStorage.js';
 import { createAiSettingsModel } from './settings/aiSettingsModel.js';
 import { createAiSettingsDialog } from './settings/aiSettingsDialog.js';
@@ -214,15 +214,27 @@ function bindRenderAndDossier(store, viewer) {
     if (button.getAttribute('aria-busy') === 'true') return;
     button.setAttribute('aria-busy', 'true');
     button.textContent = 'מכין תיק…';
+    const { design } = store.getState();
+    const image = hud.latestImage();
+    let withCover = Boolean(image);
     try {
-      const pdf = await getDossier(store.getState().design, { renderPng: hud.latestImage() });
+      let pdf;
+      try {
+        pdf = await getDossier(design, { renderPng: image ? await coverPng(image) : null });
+      } catch (error) {
+        // A cover the server refuses (too large, unreadable) must not cost the dossier itself.
+        if (!withCover || !['PAYLOAD_TOO_LARGE', 'INVALID_IMAGE'].includes(error?.code)) throw error;
+        withCover = false;
+        pdf = await getDossier(design);
+      }
       const url = URL.createObjectURL(pdf);
       const link = document.createElement('a');
       link.href = url;
       link.download = 'banai-dossier.pdf';
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 10_000);
-      toast(hud.latestImage() ? 'תיק הנגר מוכן, עם הרינדור בשער' : 'תיק הנגר מוכן. רינדור לפני ההורדה ייכנס לשער');
+      if (withCover) toast('תיק הנגר מוכן, עם הרינדור בשער');
+      else toast(image ? 'תיק הנגר מוכן, בלי הרינדור (השרת לא קיבל את התמונה)' : 'תיק הנגר מוכן. רינדור לפני ההורדה ייכנס לשער');
     } catch (error) {
       toast(error?.code === 'BUSY' ? 'השרת עסוק. נסו שוב בעוד רגע.' : 'לא הצלחנו להכין את תיק הנגר.');
     } finally {

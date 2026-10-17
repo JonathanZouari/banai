@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from app.advice.rules import advisories
 from app.domain.catalog import load_catalog
 from app.domain.errors import DomainError
+from app.api.limits import too_many_nodes
 from app.domain.schema import parse_design
 from app.domain.validation import validate_canonical
 
@@ -28,6 +29,8 @@ def _invalid(error: DomainError) -> JSONResponse:
 
 @router.post("/advisories")
 def post_advisories(body: AdvisoriesRequest):
+    if too_many_nodes(body.design):
+        return _invalid(DomainError("SCHEMA_INVALID", "design", "the design is too large"))
     catalog = load_catalog()
     try:
         design = parse_design(body.design)

@@ -139,8 +139,16 @@ test.describe('save and render dialogs (backend phases not built yet)', () => {
   test('Render starts the path tracer HUD over the 3D view; Esc returns to editing without touching the design', async ({ page }) => {
     await openDesigner(page);
     const revision = await page.evaluate(() => window.__banai.store.getState().revision);
+    // The HUD flow only: a real path-tracer compile on SwiftShader keeps the browser busy long after the
+    // test and breaks the next one. The tracer itself is unit-tested (tests/unit/viewer/pathtrace.test.js).
+    await page.evaluate(() => {
+      const { viewer } = window.__banai;
+      viewer.startRender = ({ onProgress }) => { onProgress(0, 400, true); return Promise.resolve(); };
+      viewer.stopRender = () => {};
+    });
     await page.getByTestId('open-render').click();
     const hud = page.getByTestId('render-hud');
+    await expect(hud).toContainText('מכין את מנוע הרינדור');
     await expect(hud).toBeVisible();
     await expect(page.locator('body')).toHaveClass(/is-rendering/);
     await page.keyboard.press('Escape');

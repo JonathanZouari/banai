@@ -7,10 +7,12 @@ import threading
 
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image
 from pypdf import PdfReader
 
 from app.api import dossier
-from app.api.dossier import MAX_PNG_BYTES, get_pdf_renderer
+from app.api.dossier import COVER_MAX_SIDE, MAX_PNG_BYTES, get_pdf_renderer
+from app.api.limits import MAX_DESIGN_NODES
 from app.body_limit import DOSSIER_MAX_BODY_BYTES, MAX_BODY_BYTES
 from app.domain.defaults import basic_wardrobe
 from app.dossier.render import RenderError
@@ -51,7 +53,8 @@ def test_the_renderer_gets_the_canonical_design_and_the_decoded_png(calls):
     design["schemaVersion"] = 1  # upgraded first
     assert post(design, f"data:image/png;base64,{PNG}").status_code == 200
     (canonical, catalog, image), = calls
-    assert canonical == basic_wardrobe() and image == png(4, 3) and "colors" in catalog
+    assert canonical == basic_wardrobe() and "colors" in catalog
+    assert opened(image) == ("PNG", "RGB", (4, 3))  # re-encoded by the server, same picture
 
 
 def test_an_invalid_design_is_a_422_with_the_engine_error(calls):
@@ -92,7 +95,7 @@ def test_a_render_that_is_not_a_sane_png_is_rejected(calls, bad):
     assert calls == []
 
 
-def test_a_png_over_4_mib_is_a_413(calls):
+def test_a_png_over_2_mib_is_a_413(calls):
     big = base64.b64encode(png(4, 3) + b"\x00" * (MAX_PNG_BYTES - len(png(4, 3)) + 1)).decode()
     assert len(big) < DOSSIER_MAX_BODY_BYTES  # it passes the body cap; the route refuses it
     response = post(render_png=big)
@@ -101,10 +104,59 @@ def test_a_png_over_4_mib_is_a_413(calls):
     assert calls == []
 
 
-def test_a_png_of_exactly_4_mib_is_accepted(calls):
+def test_a_png_of_exactly_2_mib_is_accepted_and_reencoded(calls):
     exact = png(4, 3) + b"\x00" * (MAX_PNG_BYTES - len(png(4, 3)))
     assert post(render_png=base64.b64encode(exact).decode()).status_code == 200
-    assert len(calls[0][2]) == MAX_PNG_BYTES
+    assert opened(calls[0][2]) == ("PNG", "RGB", (4, 3))  # the trailing bytes never reach Chromium
+
+
+def encoded(image: Image.Image) -> str:
+    out = io.BytesIO()
+    image.save(out, format="PNG")
+    return base64.b64encode(out.getvalue()).decode()
+
+
+def opened(data: bytes) -> tuple:
+    with Image.open(io.BytesIO(data)) as image:
+        return image.format, image.mode, image.size
+
+
+def test_a_declared_pixel_bomb_is_rejected_before_decoding(calls):
+    header = png(4, 3).replace(b"\x00\x00\x00\x04\x00\x00\x00\x03", b"\x00\x00\x13\x88\x00\x00\x13\x88", 1)  # 5000 x 5000
+    response = post(render_png=base64.b64encode(header).decode())
+    assert response.status_code == 422 and response.json()["error"]["code"] == "INVALID_IMAGE"
+    assert calls == []
+
+
+def test_a_16_bit_or_transparent_png_becomes_8_bit_rgb(calls):
+    assert post(render_png=encoded(Image.new("I;16", (64, 48), 30000))).status_code == 200
+    assert post(render_png=encoded(Image.new("RGBA", (64, 48), (0, 0, 0, 0)))).status_code == 200
+    assert [opened(call[2]) for call in calls] == [("PNG", "RGB", (64, 48))] * 2
+    with Image.open(io.BytesIO(calls[1][2])) as image:
+        assert image.getpixel((0, 0)) == (255, 255, 255)  # transparency lands on white paper
+
+
+def test_a_large_render_is_scaled_to_the_cover_size(calls):
+    assert post(render_png=encoded(Image.new("RGB", (2400, 1200), "grey"))).status_code == 200
+    assert opened(calls[0][2]) == ("PNG", "RGB", (COVER_MAX_SIDE, COVER_MAX_SIDE // 2))
+
+
+def test_a_corrupt_png_body_is_a_422_and_frees_its_slot(calls):
+    broken = png(4, 3)[:-20] + b"\x00" * 20  # a valid header, broken image data
+    response = post(render_png=base64.b64encode(broken).decode())
+    assert response.status_code == 422 and response.json()["error"]["code"] == "INVALID_IMAGE"
+    assert dossier._slots.acquire(blocking=False)
+    dossier._slots.release()
+
+
+@pytest.mark.parametrize("route", ["/api/dossier", "/api/advisories"])
+def test_a_design_flooded_with_keys_is_refused_before_validation(calls, route):
+    design = basic_wardrobe()
+    design["carcass"].update({f"k{i}": 0 for i in range(MAX_DESIGN_NODES)})
+    response = client.post(route, json={"design": design})
+    assert response.status_code == 422
+    assert response.json()["error"] == {"code": "SCHEMA_INVALID", "message": "the design is too large", "path": "design"}
+    assert calls == []
 
 
 def test_only_the_dossier_route_takes_bodies_over_1_mib(calls):
