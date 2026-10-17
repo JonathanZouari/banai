@@ -108,7 +108,9 @@ async function boot() {
       applying = false;
     }
   };
-  const chat = mountChat(document.getElementById('chat-panel'), { model: chatModel, onConfirm: confirmProposal, language });
+  const chat = mountChat(document.getElementById('chat-panel'), {
+    model: chatModel, onConfirm: confirmProposal, language, voice: health?.data.voice === true,
+  });
   // A manual edit changes the revision, which may turn a pending proposal stale.
   store.subscribe(() => chat.refresh());
 

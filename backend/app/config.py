@@ -7,6 +7,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # ASSUMPTION: a configurable default; override with OPENAI_CHAT_MODEL per environment.
 DEFAULT_CHAT_MODEL = "gpt-5.4-mini"
+# ASSUMPTION: configurable ElevenLabs defaults. eleven_v3 and scribe_v2 support Hebrew;
+# the voice is the one used in ElevenLabs' own examples (replace with ELEVENLABS_VOICE_ID).
+DEFAULT_VOICE_ID = "JBFqnCBsd6RMkjVDRZzb"
+DEFAULT_TTS_MODEL = "eleven_v3"
+DEFAULT_STT_MODEL = "scribe_v2"
 
 
 class Settings(BaseSettings):
@@ -17,6 +22,10 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_chat_model: str = ""
     proposal_signing_key: str = ""
+    elevenlabs_api_key: str = ""
+    elevenlabs_voice_id: str = ""
+    elevenlabs_tts_model: str = ""
+    elevenlabs_stt_model: str = ""
 
     @property
     def cors_origin_list(self) -> list[str]:
@@ -29,6 +38,22 @@ class Settings(BaseSettings):
     @property
     def agent_enabled(self) -> bool:
         return bool(self.openai_api_key.strip())
+
+    @property
+    def voice_enabled(self) -> bool:
+        return bool(self.elevenlabs_api_key.strip())
+
+    @property
+    def voice_id(self) -> str:
+        return self.elevenlabs_voice_id.strip() or DEFAULT_VOICE_ID
+
+    @property
+    def tts_model(self) -> str:
+        return self.elevenlabs_tts_model.strip() or DEFAULT_TTS_MODEL
+
+    @property
+    def stt_model(self) -> str:
+        return self.elevenlabs_stt_model.strip() or DEFAULT_STT_MODEL
 
 
 @lru_cache

@@ -275,6 +275,34 @@
 .lang-switch__option:focus-visible { outline: var(--focus-outline); outline-offset: 1px; }
 .chat__input { unicode-bidi: plaintext; }
 
+/* Voice: read-aloud on replies, auto-read switch in the header, mic in the composer. */
+.chat__bubble--assistant { position: relative; }
+.chat__speak { width: 28px; height: 28px; margin-inline-start: var(--space-2); vertical-align: middle; color: var(--md-sys-color-on-surface-variant); }
+.chat__speak[aria-pressed="true"] { color: var(--md-sys-color-primary); }
+.chat__auto-speak {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  padding: 3px var(--space-2);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-full);
+  background: transparent;
+  color: var(--md-sys-color-on-surface-variant);
+  font: var(--md-sys-typescale-label-small);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease, border-color var(--dur-fast) ease;
+}
+.chat__auto-speak[aria-pressed="true"] { border-color: var(--md-sys-color-primary); background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); }
+.chat__auto-speak:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
+.chat__mic { flex: none; }
+.chat__mic--recording { background: var(--md-sys-color-error); color: var(--md-sys-color-on-error); animation: mic-pulse 1.4s ease-in-out infinite; }
+@keyframes mic-pulse { 50% { opacity: 0.7; } }
+.chat__voice-status { margin: var(--space-2) 0 0; color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-small); }
+@media (prefers-reduced-motion: reduce) {
+  .chat__mic--recording { animation: none; }
+}
+
 /* Composer footer: keyboard hint on one side, the chat language switch on the other. */
 .chat__footer-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .chat__footer-row .chat__hint { margin: 0; }
