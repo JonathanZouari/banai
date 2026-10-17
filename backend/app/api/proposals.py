@@ -5,6 +5,8 @@ hash), re-validates, applies and returns the new design with revision + 1. A des
 the proposal is a 409 STALE: the customer asks again. Nothing is stored.
 """
 
+import threading
+
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -18,6 +20,10 @@ from app.domain.schema import parse_design
 from app.domain.validation import validate_canonical
 
 router = APIRouter(prefix="/api")
+
+# A signed proposal can be replayed (nothing is single-use) and each op re-validates the design, so a
+# few applies at a time per process. A request never waits for a slot (it would pin a worker thread).
+_slots = threading.BoundedSemaphore(4)
 
 
 class ApplyRequest(BaseModel):
@@ -47,8 +53,12 @@ def apply_proposal(body: ApplyRequest):
         return _error(400, "BAD_SIGNATURE", "This proposal was not made by this server, or it was changed.")
     if body.proposal["baseRevision"] != body.revision or body.proposal["baseHash"] != design_hash(design):
         return _error(409, "STALE", "The design changed after this proposal was made. Ask for a new one.")
+    if not _slots.acquire(blocking=False):
+        return _error(429, "BUSY", "The server is busy. Try again in a moment.")
     try:
         updated = apply_ops(design, body.proposal["ops"], catalog)
     except DomainError as error:  # cannot happen for a proposal signed on this design; kept as a guard
         return _error(422, error.code, error.message, error.path)
+    finally:
+        _slots.release()
     return {"success": True, "data": {"design": updated, "revision": body.revision + 1}}

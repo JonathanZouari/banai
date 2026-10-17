@@ -146,7 +146,10 @@ test.describe('AI chat with a connected key (agent mocked)', () => {
     await expect(assistant.locator('span')).toHaveAttribute('dir', 'auto');
     await expect(page.getByTestId('chat-typing')).toBeHidden();
     await expect(page.getByTestId('chat-send')).toBeEnabled();
-    expect(requests).toEqual([{ apiKey: KEY, messages: [{ role: 'user', content: 'אני רוצה ארון ברוחב 240' }] }]);
+    // The agent sees the committed design and its revision (ADR-020), next to the key and the history.
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).toMatchObject({ apiKey: KEY, messages: [{ role: 'user', content: 'אני רוצה ארון ברוחב 240' }], revision: before });
+    expect(requests[0].design).toEqual(await page.evaluate(() => window.__banai.store.getState().design));
 
     // The next turn carries the conversation so far.
     await page.getByTestId('chat-input').fill('ועם מראה?');

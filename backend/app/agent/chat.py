@@ -48,6 +48,22 @@ PROPOSE_TOOL = {
 _UNSAFE_TEXT = re.compile(r"[\x00-\x1f\x7f\u202a-\u202e\u2066-\u2069]")
 
 
+def normalise_ops(value):
+    """The ops as the browser will send them back: integral floats become ints (JSON in JavaScript has
+    one number type, so 2400.0 returns as 2400 and would break the signature). Strings that cannot be
+    encoded as UTF-8 (a lone surrogate) raise ValueError."""
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    if isinstance(value, str):
+        value.encode("utf-8")  # UnicodeEncodeError (a ValueError) on a lone surrogate
+        return value
+    if isinstance(value, list):
+        return [normalise_ops(item) for item in value]
+    if isinstance(value, dict):
+        return {normalise_ops(key): normalise_ops(item) for key, item in value.items()}
+    return value
+
+
 def make_proposer(design: dict, revision: int, catalog: dict, holder: dict):
     """The propose_changes tool for one turn. Only ops the engine accepts on this design are signed;
     otherwise the model gets the engine error (code, path, message) and may try once more."""
@@ -60,6 +76,11 @@ def make_proposer(design: dict, revision: int, catalog: dict, holder: dict):
         ops = arguments.get("ops") if isinstance(arguments, dict) else None
         if not isinstance(summary, str) or not summary.strip():
             return {"ok": False, "error": {"code": "SCHEMA_INVALID", "path": "summary", "message": "give a one-sentence summary"}}
+        try:
+            ops = normalise_ops(ops)
+            summary = normalise_ops(summary)
+        except ValueError:
+            return {"ok": False, "error": {"code": "SCHEMA_INVALID", "path": "arguments", "message": "text must be valid Unicode"}}
         try:
             apply_ops(design, ops, catalog)  # parse + every op + full validation; never sign a broken change
         except DomainError as error:

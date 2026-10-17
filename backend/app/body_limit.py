@@ -4,8 +4,10 @@ exhaust the server's memory.
 
 1 MiB is well above the largest valid request: /api/chat takes at most 40 messages of 2000
 characters, which stays under 1 MB even if every character arrives \\u-escaped as a surrogate pair.
-The one exception is POST /api/dossier, which carries a render PNG of up to 2 MiB as base64 (about
-2.8 MB) next to the design: it gets 4 MiB, and every other route keeps 1 MiB.
+Two routes are exceptions. POST /api/dossier carries a render PNG of up to 2 MiB as base64 (about
+2.8 MB) next to the design: it gets 4 MiB. POST /api/voice/transcribe carries up to 1 MiB of audio
+(MAX_AUDIO_BYTES in app/api/voice.py) as multipart: it gets that plus 8 KiB for the key and the form
+overhead. Every other route keeps 1 MiB.
 """
 
 from fastapi.responses import JSONResponse
@@ -13,7 +15,11 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 MAX_BODY_BYTES = 1024 * 1024
 DOSSIER_MAX_BODY_BYTES = 4 * 1024 * 1024
-ROUTE_LIMITS = {("POST", "/api/dossier"): DOSSIER_MAX_BODY_BYTES}  # (method, path) -> cap
+VOICE_MAX_BODY_BYTES = 1024 * 1024 + 8 * 1024
+ROUTE_LIMITS = {  # (method, path) -> cap
+    ("POST", "/api/dossier"): DOSSIER_MAX_BODY_BYTES,
+    ("POST", "/api/voice/transcribe"): VOICE_MAX_BODY_BYTES,
+}
 
 
 def _too_large() -> JSONResponse:

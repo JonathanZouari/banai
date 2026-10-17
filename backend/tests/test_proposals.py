@@ -207,3 +207,59 @@ def test_apply_validates_the_design_first():
     broken["dimensions"]["width"] = 99999
     response = apply(broken, 4, proposal)
     assert response.status_code == 422 and response.json()["error"]["code"] == "OUT_OF_RANGE"
+
+
+# ---- security review 2026-10-17 (Day 4), LOW findings ----
+def test_what_is_signed_is_what_the_browser_sends_back():
+    """2400.0 from the model is signed as 2400, so a JSON round trip in JavaScript keeps the signature."""
+    holder = {"proposal": None}
+    propose = make_proposer(basic_wardrobe(), 4, load_catalog(), holder)
+    assert propose(json.dumps({"summary": "רוחב 240", "ops": [{"op": "update_dimensions", "width": 2400.0}]}))["ok"] is True
+    proposal = holder["proposal"]
+    assert proposal["ops"] == WIDER and isinstance(proposal["ops"][0]["width"], int)
+    round_trip = json.loads(json.dumps(proposal).replace("2400.0", "2400"))
+    response = apply(basic_wardrobe(), 4, round_trip)
+    assert response.status_code == 200 and response.json()["data"]["design"]["dimensions"]["width"] == 2400
+
+
+def test_a_lone_surrogate_from_the_model_is_refused_not_a_crash():
+    holder = {"proposal": None}
+    propose = make_proposer(basic_wardrobe(), 4, load_catalog(), holder)
+    result = propose('{"summary": "\ud800", "ops": [{"op": "update_dimensions", "width": 2400}]}')
+    assert result["ok"] is False and result["error"]["path"] == "arguments" and holder["proposal"] is None
+    result = propose('{"summary": "x", "ops": [{"op": "update_dimensions", "width": 2400, "note": "\udfff"}]}')
+    assert result["ok"] is False and holder["proposal"] is None
+
+
+def test_a_non_ascii_signature_is_refused_not_a_500():
+    proposal = {**sign(WIDER, "רוחב 240", 4, basic_wardrobe()), "signature": "é" * 64}
+    assert verify(proposal) is False
+    response = apply(basic_wardrobe(), 4, proposal)
+    assert response.status_code == 400 and response.json()["error"]["code"] == "BAD_SIGNATURE"
+
+
+def test_apply_answers_busy_at_once_when_its_slots_are_taken(monkeypatch):
+    import threading
+
+    from app.api import proposals as proposals_api
+
+    monkeypatch.setattr(proposals_api, "_slots", threading.BoundedSemaphore(1))
+    proposals_api._slots.acquire()
+    try:
+        response = apply(basic_wardrobe(), 4, sign(WIDER, "רוחב 240", 4, basic_wardrobe()))
+        assert response.status_code == 429 and response.json()["error"]["code"] == "BUSY"
+    finally:
+        proposals_api._slots.release()
+    assert apply(basic_wardrobe(), 4, sign(WIDER, "רוחב 240", 4, basic_wardrobe())).status_code == 200
+
+
+@pytest.mark.parametrize(("path", "body"), [
+    ("/api/chat", {"apiKey": KEY + "x" * 600, "messages": [{"role": "user", "content": "hi"}]}),
+    ("/api/settings/ai/verify", {"apiKey": KEY + "x" * 600}),
+    ("/api/chat", [KEY]),
+])
+def test_validation_errors_use_our_envelope_and_never_echo_the_input(path, body):
+    response = client.post(path, json=body)
+    assert response.status_code == 422
+    assert response.json() == {"success": False, "data": None, "error": {"code": "INVALID_REQUEST", "message": "The request is not valid."}}
+    assert KEY not in response.text

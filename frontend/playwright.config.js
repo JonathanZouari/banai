@@ -27,7 +27,8 @@ export default defineConfig({
       command: `uv run uvicorn app.main:app --port ${API_PORT}`,
       cwd: '../backend',
       url: `http://localhost:${API_PORT}/api/health`,
-      env: { APP_ENV: 'e2e', CORS_ORIGINS: `http://localhost:${WEB_PORT}` },
+      // A fixed proposal secret, so chatProposals.spec.js can sign real proposals with the backend's code.
+      env: { APP_ENV: 'e2e', CORS_ORIGINS: `http://localhost:${WEB_PORT}`, PROPOSAL_SECRET: 'e2e-proposal-secret' },
       reuseExistingServer: false,
       timeout: 60_000,
     },

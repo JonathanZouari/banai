@@ -3,7 +3,7 @@ import '@fontsource/assistant/500.css';
 import '@fontsource/assistant/600.css';
 import '@fontsource/assistant/700.css';
 import {
-  applyProposal, getAdvisories, getCatalog, getDefaultDesign, getDossier, sendChatMessage, verifyAiKey,
+  applyProposal, getAdvisories, getCatalog, getDefaultDesign, getDossier, sendChatMessage, transcribeAudio, verifyAiKey,
 } from './api/client.js';
 import { applyOps } from './domain/apply.js';
 import { createAdvisoryFeed } from './advice/advisoryFeed.js';
@@ -15,6 +15,7 @@ import { createViewer } from './viewer/viewer.js';
 import { bindQuickControls, stepDimension } from './quickControls.js';
 import { createChatModel } from './chat/chatModel.js';
 import { mountChat } from './chat/chatPanel.js';
+import { bindPushToTalk } from './chat/voice.js';
 import { mountStartScreen } from './entry/startScreen.js';
 import { createSaveDialog } from './share/saveDialog.js';
 import { coverPng, createRenderHud } from './render/renderHud.js';
@@ -379,13 +380,26 @@ async function boot() {
         store.adopt(data.design, data.revision);
         chatModel.resolveProposal('אושר והוחל. אפשר לבטל עם Ctrl+Z.');
       } catch (error) {
-        chatModel.resolveProposal(error?.code === 'STALE'
-          ? 'התכנון השתנה מאז ההצעה, ולכן היא לא הוחלה. בקשו הצעה חדשה.'
-          : 'לא הצלחנו להחיל את ההצעה. התכנון לא השתנה.');
+        let message = 'לא הצלחנו להחיל את ההצעה. התכנון לא השתנה.';
+        if (error?.code === 'STALE') message = 'התכנון השתנה מאז ההצעה, ולכן היא לא הוחלה. בקשו הצעה חדשה.';
+        else if (error?.code === 'BUSY') message = 'השרת עסוק ולא החיל את ההצעה. התכנון לא השתנה; בקשו אותה שוב בעוד רגע.';
+        chatModel.resolveProposal(message);
       }
     },
     aiSettings,
     onOpenSettings: settingsDialog.open,
+    // Push-to-talk (ADR-021): the recording goes to the server with the browser-held key and comes back
+    // as text, which is sent like a typed message. Without a key nothing is uploaded.
+    voice: (mic, { input, send }) => bindPushToTalk(mic, {
+      input,
+      send,
+      toast,
+      transcribe: (audio) => {
+        const apiKey = keyStorage.get();
+        if (!apiKey) return Promise.reject(Object.assign(new Error('no key'), { code: 'INVALID_FORMAT' }));
+        return transcribeAudio(apiKey, audio);
+      },
+    }),
   });
   // A manual edit changes the revision, which may turn a pending proposal stale.
   store.subscribe(() => chat.refresh());

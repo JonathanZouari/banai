@@ -53,4 +53,5 @@ def verify(proposal: dict, secret: bytes | None = None) -> bool:
     except (KeyError, TypeError, ValueError):
         return False
     signature = proposal.get("signature")
-    return isinstance(signature, str) and hmac.compare_digest(expected, signature)
+    # Bytes, not str: compare_digest raises on a non-ASCII str (a 500 instead of a refusal).
+    return isinstance(signature, str) and hmac.compare_digest(expected.encode(), signature.encode("utf-8", "replace"))

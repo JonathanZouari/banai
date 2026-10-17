@@ -41,6 +41,26 @@ export const applyProposal = (design, revision, proposal, fetchImpl = fetch) =>
   postJson('/api/proposals/apply', { design, revision, proposal }, fetchImpl);
 
 /**
+ * Push-to-talk speech to text. The key and the recording go as multipart form fields (never in the URL);
+ * the backend hands both to OpenAI and keeps neither. Returns the transcript, which may be empty.
+ * Errors carry the envelope's `code` (400 INVALID_FORMAT/EMPTY_AUDIO, 413, 415, 429 BUSY, OpenAI's codes).
+ */
+export async function transcribeAudio(apiKey, blob, { fetchImpl = fetch } = {}) {
+  if (!API_BASE_URL) throw new Error('The API base URL is not configured');
+  const form = new FormData();
+  form.append('apiKey', apiKey);
+  form.append('audio', blob, 'voice');
+  const response = await fetchImpl(`${API_BASE_URL}/api/voice/transcribe`, { method: 'POST', body: form });
+  const body = await response.json().catch(() => null);
+  if (!response.ok || !body || body.success !== true) {
+    const error = new Error(body?.error?.message ?? `Request to /api/voice/transcribe failed with status ${response.status}`);
+    error.code = body?.error?.code ?? 'REQUEST_FAILED';
+    throw error;
+  }
+  return String(body.data?.text ?? '');
+}
+
+/**
  * Research-backed advisories for a design (ADR-018). Returns [{ id, level, title, body, grade, src,
  * targets, fix?: { label, ops } }], most severe first. `signal` cancels a request a newer design replaced.
  */
