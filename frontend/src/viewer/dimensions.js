@@ -1,5 +1,6 @@
 // Dimension indicators: overall W/H/D lines with labels, plus a label for the selected
-// component. Labels are CSS2D DOM nodes written with textContent only (never HTML).
+// component. Labels are CSS2D DOM nodes written with textContent only (never HTML). The text is
+// Hebrew: each label resolves its own direction (dir="auto") inside the LTR label layer.
 //
 // Each label sits in a `.dim-label-group` ([-] label [+]) whose [-]/[+] buttons are the on-canvas
 // steppers: click = 10 mm, Shift+click = 100 mm, press-and-hold repeats. The buttons never touch
@@ -14,36 +15,54 @@ import * as THREE from 'three';
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { LIMITS } from '../domain/defaults.js';
 import { cm, describeSelection } from './format.js';
+import { compartmentBox } from './highlight.js';
 import { STEP_MM, canStep, repeatDelay, stepDelta } from './steppers.js';
 import { toM } from './units.js';
 
 const OFFSET = 80; // mm, distance of dimension lines from the carcass (visual only)
 
-const WARDROBE_LABELS = Object.freeze([
+export const WARDROBE_LABELS = Object.freeze([
   {
-    field: 'width', minus: 'Narrow the wardrobe', plus: 'Widen the wardrobe',
-    text: ({ width }) => `W ${cm(width)} cm`,
+    field: 'width', minus: 'הצרת הארון', plus: 'הרחבת הארון',
+    text: ({ width }) => `רוחב ${cm(width)} ס״מ`,
     anchor: ({ width, height }) => [width / 2, height + OFFSET, 0],
   },
   {
-    field: 'height', minus: 'Lower the wardrobe', plus: 'Raise the wardrobe',
-    text: ({ height }) => `H ${cm(height)} cm`,
+    field: 'height', minus: 'הנמכת הארון', plus: 'הגבהת הארון',
+    text: ({ height }) => `גובה ${cm(height)} ס״מ`,
     anchor: ({ height }) => [-OFFSET, height / 2, 0],
   },
   {
-    field: 'depth', minus: 'Make the wardrobe shallower', plus: 'Make the wardrobe deeper',
-    text: ({ depth }) => `D ${cm(depth)} cm`,
+    field: 'depth', minus: 'הקטנת עומק הארון', plus: 'הגדלת עומק הארון',
+    text: ({ depth }) => `עומק ${cm(depth)} ס״מ`,
     anchor: ({ width, depth }) => [width + OFFSET, 0, -depth / 2],
   },
 ]);
 
+const ITEM_NOUNS = Object.freeze({ shelf: 'המדף', drawer: 'המגירה', rail: 'מוט התלייה' });
+
 /** Stepper wiring of the selected component, or null when its kind has no steppers. */
-function selectedStepper({ kind }) {
-  if (kind === 'shelf' || kind === 'drawer' || kind === 'rail') {
-    return { field: 'y', minus: `Move ${kind} down`, plus: `Move ${kind} up` };
-  }
-  if (kind === 'compartment') return { field: 'width', minus: 'Narrow the compartment', plus: 'Widen the compartment' };
+export function selectedStepper({ kind }) {
+  if (ITEM_NOUNS[kind]) return { field: 'y', minus: `הורדת ${ITEM_NOUNS[kind]}`, plus: `הגבהת ${ITEM_NOUNS[kind]}` };
+  if (kind === 'compartment') return { field: 'width', minus: 'הצרת התא', plus: 'הרחבת התא' };
   return null;
+}
+
+/** Where the selected label sits (metres): a compartment's interior centre, a mesh's centre, or the centre of a multi-part component. */
+export function selectionAnchor(group, design, selection) {
+  if (selection.kind === 'compartment') {
+    const volume = compartmentBox(design, design.compartments.findIndex((c) => c.id === selection.id));
+    if (volume) return volume.getCenter(new THREE.Vector3());
+  }
+  const parts = group.children.filter((mesh) => mesh.userData.componentId === selection.id);
+  if (parts.length === 1) return parts[0].position.clone();
+  if (parts.length > 1) {
+    const bounds = new THREE.Box3();
+    parts.forEach((part) => bounds.expandByObject(part));
+    return bounds.getCenter(new THREE.Vector3());
+  }
+  const { width, height } = design.dimensions;
+  return new THREE.Vector3(toM(width / 2), toM(height / 2), 0);
 }
 
 /**
@@ -144,6 +163,7 @@ function createSteppers(onStep) {
       element.className = 'dim-label-group';
       const label = document.createElement('div');
       label.className = labelClass;
+      label.dir = 'auto'; // Hebrew text reads right to left; the [-] label [+] row keeps the layer's LTR
       label.textContent = text;
       const group = { object: new CSS2DObject(element), label, minus: null, plus: null };
       if (stepper) {
@@ -235,9 +255,7 @@ export function createDimensions(scene, { onStep } = {}) {
       selected = { key, group: created };
     }
     setText(selected.group.label, text);
-    const target = group.children.find((mesh) => mesh.userData.componentId === selection.id);
-    const { width, height } = design.dimensions;
-    selected.group.object.position.copy(target ? target.position : new THREE.Vector3(toM(width / 2), toM(height / 2), 0));
+    selected.group.object.position.copy(selectionAnchor(group, design, selection));
   };
 
   return {
@@ -250,6 +268,10 @@ export function createDimensions(scene, { onStep } = {}) {
       line([w + OFFSET, 0, 0], [w + OFFSET, 0, -d]);
       updateWardrobe(dimensions);
       updateSelected(group, design, selection);
+    },
+    /** Show/hide the lines and every label (hidden while the path tracer renders). */
+    setVisible(visible) {
+      layer.visible = visible;
     },
     dispose() {
       steppers.dispose();

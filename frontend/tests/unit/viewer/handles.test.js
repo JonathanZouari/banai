@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
+import { applyOps } from '../../../src/domain/apply.js';
 import { buildWardrobe, disposeWardrobe } from '../../../src/viewer/buildWardrobe.js';
 import { applyDoorMotion, doorPose } from '../../../src/viewer/doorMotion.js';
 import { createHardware } from '../../../src/viewer/hardware.js';
@@ -61,6 +62,51 @@ describe('handles and mirrors', () => {
     const hits = group.children.flatMap((m) => ray.intersectObjects(m.children, true));
     expect(hits).toHaveLength(0);
     disposeWardrobe(group);
+  });
+});
+
+describe('handles on split leaves', () => {
+  // split_door: dr_middle is the left leaf (hinged left), dr_middle2 the right leaf (hinged right).
+  // The compartment's door span 670..1331 mm halves at 1000.5, where the two leaves meet.
+  const split = applyOps(basic, [{ op: 'split_door', id: 'dr_middle', newId: 'dr_middle2' }], catalog);
+  const MEETING = 1.0005;
+  const leaf = (group, id) => group.children.find((m) => m.userData.componentId === id);
+  const handleWorldX = (mesh) => handlesOf(mesh)[0].getWorldPosition(new THREE.Vector3()).x;
+
+  it('puts the handle of each leaf on the edge opposite its hinge, so both sit at the meeting line', () => {
+    const group = build(split);
+    group.updateMatrixWorld(true);
+    const [left, right] = [leaf(group, 'dr_middle'), leaf(group, 'dr_middle2')];
+    expect([left.userData.hingeSide, right.userData.hingeSide]).toEqual(['left', 'right']);
+    expect(handlesOf(left)).toHaveLength(1);
+    expect(handlesOf(right)).toHaveLength(1);
+    expect(handlesOf(left)[0].position.x).toBeGreaterThan(0);
+    expect(handlesOf(right)[0].position.x).toBeLessThan(0);
+    expect(handleWorldX(left)).toBeLessThan(MEETING);
+    expect(handleWorldX(right)).toBeGreaterThan(MEETING);
+    expect(MEETING - handleWorldX(left)).toBeLessThan(0.06);
+    expect(handleWorldX(right) - MEETING).toBeLessThan(0.06);
+  });
+
+  it('follows the hinge side in the data, not the leaf position', () => {
+    const outward = applyOps(basic, [{ op: 'configure_doors', type: 'hinged', doors: [
+      { id: 'dr_a', compartmentIds: ['cmp_left'], hingeSide: 'right' },
+      { id: 'dr_b', compartmentIds: ['cmp_left'], hingeSide: 'left' },
+      { id: 'dr_c', compartmentIds: ['cmp_middle'], hingeSide: 'left' },
+      { id: 'dr_d', compartmentIds: ['cmp_right'], hingeSide: 'right' },
+    ] }], catalog);
+    const group = build(outward);
+    expect(handlesOf(leaf(group, 'dr_a'))[0].position.x).toBeLessThan(0); // left leaf hinged right: handle on its outer edge
+    expect(handlesOf(leaf(group, 'dr_b'))[0].position.x).toBeGreaterThan(0);
+  });
+
+  it('carries the handles with the leaves as they swing open', () => {
+    const group = build(split);
+    applyDoorMotion(group, 1);
+    group.updateMatrixWorld(true);
+    ['dr_middle', 'dr_middle2'].forEach((id) => {
+      expect(handlesOf(leaf(group, id))[0].getWorldPosition(new THREE.Vector3()).z).toBeGreaterThan(0.2);
+    });
   });
 });
 

@@ -1,0 +1,10 @@
+/* Viewer-owned styles: labels layer, render HUD helpers, flash. Kept apart from the shell styles. */
+
+/* CSS2D places every label with an absolute position plus a transform measured from the layer's
+   top-left. On the RTL page an RTL layer would anchor them to the right edge, so the layer stays
+   LTR (the viewer also sets dir="ltr" on it). Each label sets dir="auto", so Hebrew text still
+   reads right to left, while the [-] label [+] stepper row keeps its physical order. */
+.viewer-labels { direction: ltr; }
+
+/* Labels are hidden while the path tracer renders: they are UI, not part of the picture. */
+.viewer-labels--hidden { visibility: hidden; }

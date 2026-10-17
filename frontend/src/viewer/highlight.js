@@ -10,6 +10,17 @@ export const ACCENT = '#0071e3';
 
 const noRaycast = () => {};
 
+/** Interior volume of compartment `index` (between its partitions) as a Box3 in metres; null for a bad index. */
+export function compartmentBox(design, index) {
+  const frame = frameOf(design);
+  const range = Number.isInteger(index) ? frame.ranges[index] : undefined;
+  if (!range) return null;
+  return new THREE.Box3(
+    new THREE.Vector3(toM(range[0]), toM(frame.baseY), toM(frame.innerBack)),
+    new THREE.Vector3(toM(range[1]), toM(frame.baseY + frame.innerHeight), toM(frame.partitionFront)),
+  );
+}
+
 export function createHighlighter(scene) {
   const selectionLayer = new THREE.Group();
   selectionLayer.name = 'highlight';
@@ -58,13 +69,11 @@ export function createHighlighter(scene) {
   const fill = (layer, group, design, target, style) => {
     if (!group || !target) return;
     if (target.kind === 'compartment') {
-      const frame = frameOf(design);
-      const index = design.compartments.findIndex((c) => c.id === target.id);
-      if (index < 0) return;
-      const [x0, x1] = frame.ranges[index];
-      const geometry = new THREE.BoxGeometry(toM(x1 - x0), toM(frame.innerHeight), toM(frame.innerDepth));
-      const position = new THREE.Vector3(toM((x0 + x1) / 2), toM(frame.panel + frame.innerHeight / 2), toM(frame.innerCenterZ));
-      addShape(layer, geometry, { position }, style, true);
+      const volume = compartmentBox(design, design.compartments.findIndex((c) => c.id === target.id));
+      if (!volume) return;
+      const size = volume.getSize(new THREE.Vector3());
+      const geometry = new THREE.BoxGeometry(size.x, size.y, size.z);
+      addShape(layer, geometry, { position: volume.getCenter(new THREE.Vector3()) }, style, true);
       return;
     }
     group.children

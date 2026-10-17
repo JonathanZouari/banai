@@ -1,21 +1,40 @@
 // Derived frame measurements (mm) shared by the builders, plus a box-mesh helper.
 // Coordinates: x = 0 at the outer left face, y = 0 at the floor, the front face at
-// z = 0 and the back at z = -depth.
+// z = 0 and the back at z = -depth. The bottom panel sits on the plinth (y in
+// [plinth, plinth + panel]); interior y is measured from its top face, `baseY`.
+// Depths follow the manufacturing layout (backend/app/domain/layout.py): shelves (and drawers,
+// rails, inserts) end SHELF_SETBACK behind the front, or clear of the sliding tracks; partitions
+// reach the front, or stop behind the tracks.
 import * as THREE from 'three';
 import { compartmentXRanges, interiorHeight, interiorWidth } from '../../domain/geometry.js';
 import { VISUAL, toM } from '../units.js';
 
+export const SHELF_SETBACK = 25; // layout.py: shelf depth = depth - 25
+export const SLIDE_TRACK_DEPTH = 100; // layout.py: sliding tracks take the front 100 mm...
+const SLIDE_SHELF_GAP = 10; // ...and shelves keep 10 mm clear of them
+
 export function frameOf(design) {
   const { width, height, depth } = design.dimensions;
   const panel = design.carcass.panelThickness;
-  const innerDepth = depth - VISUAL.backThickness;
+  const plinth = design.carcass.plinthHeight ?? 0; // v1 objects have no plinth
+  const sliding = design.doors?.type === 'sliding';
+  const shelfDepth = depth - (sliding ? SLIDE_TRACK_DEPTH + SLIDE_SHELF_GAP : SHELF_SETBACK); // layout.py shelf_depth
+  const innerBack = -depth + VISUAL.backThickness; // front face of the back panel
+  const innerFront = shelfDepth - depth; // z of the shelf line
+  const partitionFront = sliding ? -SLIDE_TRACK_DEPTH : 0;
+  const innerDepth = innerFront - innerBack;
+  const partitionDepth = partitionFront - innerBack;
   return {
-    width, height, depth, panel, innerDepth,
+    width, height, depth, panel, plinth, sliding, shelfDepth,
+    baseY: plinth + panel, // floor height of interior y = 0
     innerWidth: interiorWidth(design),
     innerHeight: interiorHeight(design),
     // Interior x-range of each compartment, shifted to outer coordinates.
     ranges: compartmentXRanges(design).map(([x0, x1]) => [panel + x0, panel + x1]),
-    innerCenterZ: -innerDepth / 2,
+    innerBack, innerFront, innerDepth,
+    innerCenterZ: innerFront - innerDepth / 2,
+    partitionFront, partitionDepth,
+    partitionCenterZ: partitionFront - partitionDepth / 2,
   };
 }
 

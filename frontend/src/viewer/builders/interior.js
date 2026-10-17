@@ -1,13 +1,15 @@
 // Partitions, shelves, drawers and rails, positioned from the canonical design.
+// Interior y is measured from the top face of the bottom panel (frame.baseY above the floor);
+// depths come from the frame (shelf line and partition front as in the manufacturing layout).
 import * as THREE from 'three';
 import { VISUAL, toM } from '../units.js';
 import { box } from './frame.js';
 
 export function buildPartitions(design, frame, material) {
-  const { panel, innerHeight, innerDepth, innerCenterZ, ranges } = frame;
+  const { baseY, innerHeight, partitionDepth, partitionCenterZ, ranges } = frame;
   return design.partitions.map((partition, i) => box({
-    size: [partition.thickness, innerHeight, innerDepth],
-    center: [ranges[i][1] + partition.thickness / 2, panel + innerHeight / 2, innerCenterZ],
+    size: [partition.thickness, innerHeight, partitionDepth],
+    center: [ranges[i][1] + partition.thickness / 2, baseY + innerHeight / 2, partitionCenterZ],
     material,
     userData: { componentId: partition.id, kind: 'partition' },
   }));
@@ -19,7 +21,7 @@ export function buildCompartmentItems(design, frame, materials) {
     const [x0, x1] = frame.ranges[ci];
     const cx = (x0 + x1) / 2;
     const width = x1 - x0;
-    const floor = frame.panel;
+    const floor = frame.baseY;
     const shelves = compartment.shelves.map((shelf) => box({
       size: [width, shelf.thickness, frame.innerDepth],
       center: [cx, floor + shelf.y + shelf.thickness / 2, frame.innerCenterZ],

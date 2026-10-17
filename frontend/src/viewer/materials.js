@@ -28,6 +28,12 @@ export function createMaterials(catalog, { anisotropy = 1 } = {}) {
   const cache = new Map();
   const grains = new Map(); // one shared greyscale texture per wood grain
   const rail = new THREE.MeshStandardMaterial({ color: '#9ea3a8', metalness: 0.8, roughness: 0.3 });
+  // Insert hardware (P1 values): polished tubes, brushed aluminium profiles, and the LED strip,
+  // whose emissive intensity the viewer drives with the door sensor (0 = off).
+  const chrome = new THREE.MeshStandardMaterial({ color: '#e6e8ea', metalness: 1, roughness: 0.12 });
+  const metal = new THREE.MeshStandardMaterial({ color: '#b9bcc0', metalness: 1, roughness: 0.38 });
+  const led = new THREE.MeshStandardMaterial({ color: '#fff7ec', emissive: '#ffd8a8', emissiveIntensity: 0, roughness: 0.4 });
+  const fixed = [rail, chrome, metal, led];
 
   const grainTexture = (grain) => {
     if (!grains.has(grain)) grains.set(grain, createWoodTexture(grain, { anisotropy }));
@@ -50,6 +56,9 @@ export function createMaterials(catalog, { anisotropy = 1 } = {}) {
       return cache.get(key);
     },
     rail,
+    chrome,
+    metal,
+    led,
     /** Dispose cached materials the current scene no longer uses (keeps memory bounded). Grain textures stay shared until dispose(). */
     retainOnly(inUse) {
       for (const [key, material] of cache) {
@@ -64,7 +73,7 @@ export function createMaterials(catalog, { anisotropy = 1 } = {}) {
       cache.clear();
       grains.forEach((texture) => texture.dispose());
       grains.clear();
-      rail.dispose();
+      fixed.forEach((material) => material.dispose());
     },
   };
 }
