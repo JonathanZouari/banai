@@ -15,6 +15,7 @@ import { mountChat } from './chat/chatPanel.js';
 import { mountStartScreen } from './entry/startScreen.js';
 import { createSaveDialog } from './share/saveDialog.js';
 import { coverPng, createRenderHud } from './render/renderHud.js';
+import { bindVideoButton } from './render/video.js';
 import { createKeyStorage } from './settings/keyStorage.js';
 import { createAiSettingsModel } from './settings/aiSettingsModel.js';
 import { createAiSettingsDialog } from './settings/aiSettingsDialog.js';
@@ -302,6 +303,7 @@ async function boot() {
   bindCompare(store);
   const feed = bindAdvice(store, viewer);
   const hud = bindRenderAndDossier(store, viewer);
+  bindVideoButton(byId('open-video'), { viewer, getDesign: () => store.getState().design, toast, isBusy: () => hud.isActive() });
   const save = createSaveDialog();
   byId('open-save').addEventListener('click', save.open);
   app = { store, hud };

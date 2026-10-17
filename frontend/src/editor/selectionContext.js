@@ -5,7 +5,7 @@
 // Numbering is 1-based and matches what the user sees: compartments run left to right (array
 // order); shelves and drawers are counted bottom-up by `y` (ties keep array order).
 
-import { insertLabel } from './interiorOps.js';
+import { insertLabel, zonesOf } from './interiorOps.js';
 
 const ITEM_KEYS = Object.freeze({ shelf: 'shelves', drawer: 'drawers', rail: 'rails', insert: 'inserts' });
 const ITEM_LABELS = Object.freeze({ shelf: 'מדף', drawer: 'מגירה', rail: 'מוט' });
@@ -28,6 +28,7 @@ function describeItem(design, kind, id) {
   const items = compartment[key];
   const where = `תא ${index + 1}`;
   if (kind === 'insert') return { compartmentId: compartment.id, text: `${where} · ${insertLabel(items.find((item) => item.id === id).type)}` };
+  if (kind === 'shelf' && items.find((item) => item.id === id).fixed) return { compartmentId: compartment.id, text: `${where} · מדף קבוע (בין אזורים)` };
   const text = kind === 'rail' && items.length === 1
     ? `${where} · מוט`
     : `${where} · ${ITEM_LABELS[kind]} ${bottomUpPosition(items, id)} מתוך ${items.length}`;
@@ -53,6 +54,13 @@ function describeDoor(design, id) {
     .sort((a, b) => a - b);
   if (!covered.length) return { compartmentId: null, text: `דלת ${doorIndex + 1} מתוך ${doors.length}` };
   const numbers = covered.map((index) => index + 1);
+  const door = doors[doorIndex];
+  if ((door.bottomShelfId ?? null) !== null || (door.topShelfId ?? null) !== null) {
+    const compartment = design.compartments[covered[0]];
+    const zone = zonesOf(design, compartment)
+      .find(({ anchors }) => anchors[0] === (door.bottomShelfId ?? null) && anchors[1] === (door.topShelfId ?? null));
+    return { compartmentId: compartment.id, text: `תא ${numbers[0]}${zone ? ` · אזור ${zone.zone}` : ''}` };
+  }
   return {
     compartmentId: design.compartments[covered[0]].id,
     text: `מכסה את ${numbers.length > 1 ? 'תאים' : 'תא'} ${numberList(numbers)}`,

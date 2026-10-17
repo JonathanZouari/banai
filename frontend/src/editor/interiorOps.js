@@ -1,6 +1,7 @@
-// Pure mapping from the interior, site and history controls to domain ops (schema v2).
+// Pure mapping from the interior, zone, site and history controls to domain ops (schema v2).
 // No DOM, so every rule is unit-tested. The engine stays the single authority on validity:
 // callers try the candidates in order and keep the first batch the engine accepts.
+import { dividers, zoneUsable } from '../domain/opsInterior.js';
 
 export const PRESET_OPTIONS = Object.freeze([
   { value: 'long', label: 'תלייה ארוכה' },
@@ -71,6 +72,35 @@ export function siteOps(site, field, mm) {
   const keep = site?.[other] ?? null;
   return [{ op: 'set_site', clear: true }, ...(keep !== null ? [{ op: 'set_site', [other]: keep }] : [])];
 }
+
+// ---- zones (docs/schema.md "Zones") ----
+export const MAX_ZONES = 4;
+
+/**
+ * A compartment's zones, bottom-up: { zone, low, high, anchors: [bottomShelfId, topShelfId], leaves }.
+ * `low`/`high` are the usable interior y range; `leaves` counts its own doors with the zone's anchors.
+ */
+export function zonesOf(design, compartment) {
+  const fixed = dividers(compartment);
+  const own = design.doors.type === 'hinged'
+    ? design.doors.items.filter((d) => d.compartmentIds.length === 1 && d.compartmentIds[0] === compartment.id)
+    : [];
+  return Array.from({ length: fixed.length + 1 }, (_, i) => {
+    const zone = i + 1;
+    const anchors = [zone >= 2 ? fixed[zone - 2].id : null, zone <= fixed.length ? fixed[zone - 1].id : null];
+    const [low, high] = zoneUsable(design, compartment, zone);
+    const leaves = own.filter((d) => (d.bottomShelfId ?? null) === anchors[0] && (d.topShelfId ?? null) === anchors[1]).length;
+    return { zone, low, high, anchors, leaves };
+  });
+}
+
+/** True when a door also covers other compartments: zones need the column's own doors. */
+export const spannedBy = (design, compartmentId) =>
+  design.doors.items.some((d) => d.compartmentIds.length > 1 && d.compartmentIds.includes(compartmentId));
+
+export const zonesOps = (compartmentId, count) => [{ op: 'set_zones', compartmentId, count }];
+export const zoneDoorOps = (compartmentId, zone, leaves) => [{ op: 'set_zone_door', compartmentId, zone, leaves }];
+export const zonePresetOps = (compartmentId, zone, preset) => [{ op: 'apply_preset', compartmentId, preset, zone }];
 
 // Edits that move one value continuously (a slider drag, retyping a field). Repeats of the same
 // op on the same target and fields share one undo step; adding or removing parts never merges.

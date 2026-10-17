@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { applyOps } from '../../../src/domain/apply.js';
 import {
-  addInsertCandidates, coalesceKey, compartmentLeaves, presetOps, runFirst, siteOps, splitOps,
+  addInsertCandidates, coalesceKey, compartmentLeaves, presetOps, runFirst, siteOps, spannedBy, splitOps,
+  zoneDoorOps, zonePresetOps, zonesOf, zonesOps,
 } from '../../../src/editor/interiorOps.js';
+import { describeSelection } from '../../../src/editor/selectionContext.js';
 import { loadCatalog, loadDesign } from '../domain/helpers.js';
 
 const catalog = loadCatalog();
@@ -90,5 +92,40 @@ describe('coalesceKey', () => {
     expect(coalesceKey([{ op: 'modify_shelf', id: 'a', y: 1 }, { op: 'modify_shelf', id: 'b', y: 1 }])).toBeNull();
     expect(coalesceKey([])).toBeNull();
     expect(coalesceKey(null)).toBeNull();
+  });
+});
+
+describe('zones', () => {
+  const thirds = () => apply(basic(), zonesOps('cmp_left', 3));
+
+  it('lists zones bottom-up with their usable range and door leaves', () => {
+    const design = thirds();
+    const zones = zonesOf(design, design.compartments[0]);
+    expect(zones.map(({ zone, low, high, leaves }) => [zone, low, high, leaves])).toEqual([
+      [1, 0, 800, 1], [2, 818, 1600, 1], [3, 1618, 2364, 1],
+    ]);
+    expect(zones[1].anchors).toEqual(['shf_l2', 'shf_l4']);
+    expect(zonesOf(basic(), basic().compartments[1])).toEqual([{ zone: 1, low: 0, high: 2364, anchors: [null, null], leaves: 1 }]);
+  });
+
+  it('builds the zone ops the engine accepts', () => {
+    const design = apply(thirds(), [...zoneDoorOps('cmp_left', 2, 0), ...zonePresetOps('cmp_left', 1, 'drawers')]);
+    const zones = zonesOf(design, design.compartments[0]);
+    expect(zones.map((z) => z.leaves)).toEqual([1, 0, 1]);
+    expect(design.compartments[0].drawers).toHaveLength(3);
+  });
+
+  it('knows when a spanning door blocks zones', () => {
+    const wide = apply(basic(), [{ op: 'configure_doors', type: 'hinged', doors: [
+      { id: 'dr_w', compartmentIds: ['cmp_left', 'cmp_middle'], hingeSide: 'left' },
+      { id: 'dr_r', compartmentIds: ['cmp_right'], hingeSide: 'right' }] }]);
+    expect(spannedBy(wide, 'cmp_left')).toBe(true);
+    expect(spannedBy(wide, 'cmp_right')).toBe(false);
+  });
+
+  it('describes zone doors and dividers', () => {
+    const design = thirds();
+    expect(describeSelection(design, { id: 'dr_left_z2', kind: 'door' })).toEqual({ compartmentId: 'cmp_left', text: 'תא 1 · אזור 2' });
+    expect(describeSelection(design, { id: 'shf_l2', kind: 'shelf' }).text).toBe('תא 1 · מדף קבוע (בין אזורים)');
   });
 });

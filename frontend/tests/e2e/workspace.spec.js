@@ -69,6 +69,24 @@ test.describe('workspace (RTL, schema v2)', () => {
     await expect.poll(async () => (await store(page)).design.doors.items.length).toBe(3);
   });
 
+  test('a column splits into zones, each with its own door or none, and its own preset', async ({ page }) => {
+    await page.getByTestId('select-cmp_left').click();
+    await page.getByTestId('zones-count').getByRole('button', { name: '3', exact: true }).click();
+    await expect(page.getByTestId('zone-3')).toContainText('עליון');
+    await page.getByTestId('zone-2-door').getByRole('button', { name: 'זוג' }).click();
+    await page.getByTestId('zone-3-door').getByRole('button', { name: 'ללא' }).click();
+    await page.getByTestId('zone-1-preset-drawers').click();
+    await expect.poll(async () => (await store(page)).design.compartments[0].drawers.length).toBe(3);
+    const doors = (await store(page)).design.doors.items.filter((d) => d.compartmentIds[0] === 'cmp_left');
+    expect(doors.map((d) => [d.hingeSide, d.bottomShelfId, d.topShelfId])).toEqual([
+      ['left', null, 'shf_l2'], ['left', 'shf_l2', 'shf_l4'], ['right', 'shf_l2', 'shf_l4'],
+    ]);
+    await expect(page.getByTestId('zone-2-door').getByRole('button', { name: 'זוג' })).toHaveAttribute('aria-pressed', 'true');
+    await page.getByTestId('zones-count').getByRole('button', { name: '1', exact: true }).click();
+    await expect(page.getByTestId('zone-2')).toHaveCount(0);
+    expect((await store(page)).design.compartments[0].shelves.every((shelf) => !shelf.fixed)).toBe(true);
+  });
+
   test('site measurements switch on the ceiling advisory; clearing the field switches it off', async ({ page }) => {
     const ceiling = page.getByTestId('site-ceiling');
     await ceiling.fill('242');
@@ -121,5 +139,33 @@ test.describe('workspace (RTL, schema v2)', () => {
     expect(pdf.subarray(0, 5).toString('latin1')).toBe('%PDF-');
     expect(pdf.length).toBeGreaterThan(50_000);
     await expect(page.getByTestId('open-dossier')).toHaveText('תיק נגר');
+  });
+
+  test('opening the doors runs the sequence: drawers slide out and the pull-down comes down', async ({ page }) => {
+    await page.evaluate(() => window.__banai.store.dispatch([{ op: 'add_insert', compartmentId: 'cmp_middle', type: 'pulldown', id: 'ins_pd' }]));
+    await page.getByTestId('toggle-doors-open').check();
+    await expect.poll(() => page.evaluate(() => window.__banai.viewer.doorOpenness), { timeout: 10_000 }).toBeGreaterThan(0.99);
+    await expect.poll(() => page.evaluate(() => window.__banai.viewer.pullOutOpenness.drw_r1), { timeout: 10_000 }).toBeGreaterThan(0.99);
+    await expect.poll(() => page.evaluate(() => window.__banai.viewer.pullOutOpenness.ins_pd), { timeout: 10_000 }).toBeGreaterThan(0.99);
+    await page.getByTestId('toggle-doors-open').uncheck();
+    await expect.poll(() => page.evaluate(() => window.__banai.viewer.doorOpenness), { timeout: 10_000 }).toBeLessThan(0.01);
+  });
+
+  test('the demo video is a real video file, and the live view comes back after it', async ({ page }) => {
+    test.setTimeout(90_000);
+    const result = await page.evaluate(async () => {
+      const { recordVideo } = await import('/src/render/video.js');
+      const { viewer, store } = window.__banai;
+      const before = viewer.camera.position.toArray();
+      const { blob, ext, frames } = await recordVideo(viewer, store.getState().design, { seconds: 1, fps: 8, width: 640, height: 360 });
+      const head = Array.from(new Uint8Array(await blob.slice(0, 12).arrayBuffer()));
+      const after = viewer.camera.position.toArray();
+      return { ext, frames, size: blob.size, head, capturing: viewer.capturing, pinned: viewer.motionPinned, sameCamera: before.every((v, i) => Math.abs(v - after[i]) < 1e-9) };
+    });
+    expect(result.frames).toBe(8);
+    expect(result.size).toBeGreaterThan(2000);
+    if (result.ext === 'mp4') expect(String.fromCharCode(...result.head.slice(4, 8))).toBe('ftyp');
+    else expect(result.head.slice(0, 4)).toEqual([0x1a, 0x45, 0xdf, 0xa3]); // WebM (EBML)
+    expect(result).toMatchObject({ capturing: false, pinned: false, sameCamera: true });
   });
 });

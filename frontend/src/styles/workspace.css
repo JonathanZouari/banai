@@ -299,3 +299,19 @@ body.is-rendering .compare-bar { opacity: 0; pointer-events: none; }
 
 /* Start screen: the same brand as the top bar. */
 .start__bar .brand__mark { width: 32px; height: 32px; }
+
+/* ---------- zones ---------- */
+.zone-list { display: flex; flex-direction: column; gap: 6px; margin: 0 0 var(--space-3); padding: 0; list-style: none; }
+.zone-row { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border-radius: 10px; background: var(--color-fill-subtle); }
+.zone-row__head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.zone-row__title { font-size: 12.5px; font-weight: 600; }
+.zone-row__size { direction: ltr; font-size: 11.5px; color: var(--color-faint); font-variant-numeric: tabular-nums; }
+.zone-row .field { margin: 0; }
+.zone-row__presets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.preset--mini { padding: 4px 2px; background: var(--color-surface); }
+.preset--mini svg { width: 16px; height: 22px; }
+
+/* While a video records, editing pauses: every frame is drawn from the same design. */
+body.is-capturing .panel--properties,
+body.is-capturing .compare-bar,
+body.is-capturing .viewer-toolbar { opacity: 0.45; pointer-events: none; transition: opacity 200ms ease; }
