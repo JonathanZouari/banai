@@ -18,6 +18,25 @@ describe('proposalStatus', () => {
   });
 });
 
+describe('greeting', () => {
+  it('shows a fixed opening line once, without calling the agent', () => {
+    const respond = vi.fn();
+    const model = createChatModel({ getRevision: () => 1, agent: { respond } });
+    model.greet('Hello!');
+    model.greet('Again');
+    expect(model.getMessages()).toEqual([{ id: 1, role: 'assistant', text: 'Hello!' }]);
+    expect(respond).not.toHaveBeenCalled();
+    expect(model.isBusy()).toBe(false);
+  });
+
+  it('does not interrupt a conversation that has already started', () => {
+    const model = createChatModel({ getRevision: () => 1 });
+    model.send('hi');
+    model.greet('Hello!');
+    expect(model.getMessages().map((m) => m.role)).toEqual(['user', 'system']);
+  });
+});
+
 describe('chat model', () => {
   it('adds the customer message and an honest not-connected reply, and never an assistant answer', () => {
     const model = createChatModel({ getRevision: () => 1 });

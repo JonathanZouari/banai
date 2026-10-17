@@ -39,6 +39,15 @@ describe('agent calls', () => {
     expect(JSON.parse(init.body)).toEqual(payload);
   });
 
+  it('sends the chat mode only when one is given', async () => {
+    const guided = ok({ reply: 'hi', proposal: null });
+    await sendChat({ ...payload, mode: 'guided' }, guided);
+    expect(JSON.parse(guided.mock.calls[0][1].body).mode).toBe('guided');
+    const plain = ok({ reply: 'hi', proposal: null });
+    await sendChat(payload, plain);
+    expect(JSON.parse(plain.mock.calls[0][1].body)).not.toHaveProperty('mode');
+  });
+
   it('posts a proposal to apply and returns the new design and revision', async () => {
     const fetchImpl = ok({ design: { b: 2 }, revision: 4 });
     await expect(applyProposal({ design: {}, revision: 3, proposal: { signature: 's' } }, fetchImpl))

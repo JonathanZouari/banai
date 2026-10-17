@@ -36,12 +36,26 @@ CONVENTIONS
 - Appearance values: material {materials}; colour {colors}; finish {finishes}. For a colour or material that is not listed use {{"custom": true, "name": "...", "hex": "#rrggbb"}}.
 - If a tool call is rejected you will be told why. Fix the arguments and call the tools again.
 
-CURRENT DESIGN (canonical JSON):
+{mode_rules}CURRENT DESIGN (canonical JSON):
 {design}
 """
 
+BUILD_RULES = """STARTING POINT
+- The design shown below may be the app's basic starter wardrobe that the customer has not shaped yet. When the customer describes a whole wardrobe (sizes, compartments and contents), propose it with create_wardrobe followed by the parts it needs, so the starter is replaced completely. In that create_wardrobe call give compartmentIds (cmp_ plus a short name, left to right) and partitionIds yourself. A new wardrobe is built in ONE turn: create_wardrobe first, then one more tool call for EVERY shelf, hanging rail, drawer, door and appearance change the customer described, using those compartment ids. Never stop after create_wardrobe alone when the customer also described its contents. Emit all of these tool calls together in ONE response (parallel tool calls).
+- Example: "three compartments, two shelves on the left, a rail in the middle" -> in one response: create_wardrobe(..., compartmentCount=3, compartmentIds=["cmp_left","cmp_middle","cmp_right"], partitionIds=["prt_1","prt_2"]), add_shelf(compartmentId="cmp_left", y=...), add_shelf(compartmentId="cmp_left", y=...), add_rail(compartmentId="cmp_middle", y=...). When they ask for a small change, edit only what they asked for and leave everything else alone.
+- Manual edits by the customer are already part of the current design below. Respect them and do not undo them.
 
-def build_system_prompt(design: dict, catalog: dict) -> str:
+"""
+
+GUIDED_RULES = """GUIDED MODE
+- The customer chose to be guided. Collect what you need ONE question at a time with ask_clarification, in this order, skipping what is already known or already in the design: overall width and height (depth if they care), number of compartments, what goes in each (shelves, hanging rail, drawers), door type, then colour and material.
+- Keep each question to one short sentence and offer a sensible default (for example the current value) so the customer can just agree.
+- When you have enough to build a first version, propose it with tools in one turn instead of asking more questions. Never ask for something the customer already told you.
+
+"""
+
+
+def build_system_prompt(design: dict, catalog: dict, mode: str = "free") -> str:
     low, high = LIMITS["compartmentCount"]
     limits = ", ".join(f"{name} {a}-{b}" for name, (a, b) in LIMITS.items() if name != "compartmentCount")
     return SYSTEM_TEMPLATE.format(
@@ -49,5 +63,6 @@ def build_system_prompt(design: dict, catalog: dict) -> str:
         materials=", ".join(entry["id"] for entry in catalog["materials"]),
         colors=", ".join(entry["id"] for entry in catalog["colors"]),
         finishes=", ".join(entry["id"] for entry in catalog["finishes"]),
+        mode_rules=BUILD_RULES + (GUIDED_RULES if mode == "guided" else ""),
         design=json.dumps(design, separators=(",", ":"), ensure_ascii=False),
     )

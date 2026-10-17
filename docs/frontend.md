@@ -67,3 +67,9 @@ In dev builds `window.__banai.chat` exposes the chat model, so a proposal can be
 - **Unit:** `npm test` (vitest). This covers the domain engine and parity fixtures, the store, the API client, and the builders.
 - **E2E:** `npm run test:e2e` (Playwright, Chromium with SwiftShader WebGL). It starts uvicorn on :8010 and Vite on :5183. `window.__banai` exists only in dev builds (`import.meta.env.DEV`) and is stripped from production bundles.
 - **Visual walkthrough:** Claude in Chrome on `localhost:5173`, with a GIF per phase.
+
+## Co-design (Phase 6)
+- The start screen sets the chat mode: "Guide me" sends `mode: "guided"` to `/api/chat` and shows a fixed opening question (no AI call); "Describe it" and the basic wardrobe send `mode: "free"`.
+- The basic wardrobe is a visible starting point. When the customer describes a whole wardrobe the agent proposes `create_wardrobe` plus its parts, which replaces the starter once confirmed; the orchestrator gives the model one follow-up round when it sends `create_wardrobe` alone.
+- Manual edits never call the AI. The next chat request carries the current design and revision, so the agent always builds on them; a pending proposal turns stale (409) as before.
+- Acceptance scenario steps 1-16 run in `frontend/tests/e2e/codesign.spec.js` with the scripted LLM in `backend/tests/e2e_app.py`.

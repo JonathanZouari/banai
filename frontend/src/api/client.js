@@ -56,7 +56,9 @@ async function postJson(path, payload, fetchImpl) {
 }
 
 /** One agent turn. Returns { reply, proposal | null }; the design is never changed by this call. */
-export const sendChat = ({ messages, design, revision }, fetchImpl = fetch) => postJson('/api/chat', { messages, design, revision }, fetchImpl);
+export const sendChat = ({ messages, design, revision, mode }, fetchImpl = fetch) => (
+  postJson('/api/chat', { messages, design, revision, ...(mode ? { mode } : {}) }, fetchImpl)
+);
 
 /** Ask the server to verify and apply a signed proposal. Returns { design, revision }; 409 STALE throws. */
 export const applyProposal = ({ design, revision, proposal }, fetchImpl = fetch) => postJson('/api/proposals/apply', { design, revision, proposal }, fetchImpl);

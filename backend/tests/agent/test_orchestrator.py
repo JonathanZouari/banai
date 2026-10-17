@@ -115,3 +115,39 @@ def test_the_prompt_carries_the_quality_rules():
     prompt = client.requests[0]["messages"][0]["content"]
     for needle in ("QUALITY RULES", "Do EVERY change", "is a `color`", "reply in English", "gender-neutral", '"catalogId"'):
         assert needle in prompt
+
+
+def _create(call_id="call_1"):
+    return call("create_wardrobe", call_id, width=2400, height=2600, depth=600, compartmentCount=3,
+                compartmentIds=["cmp_a", "cmp_b", "cmp_c"], partitionIds=["prt_a", "prt_b"])
+
+
+def test_a_lone_create_wardrobe_gets_one_follow_up_round_for_the_contents():
+    client = FakeOpenAI(
+        reply(None, [_create()]),
+        reply(None, [call("add_shelf", "call_2", compartmentId="cmp_a", y=400), call("add_rail", "call_3", compartmentId="cmp_b", y=1900)]),
+    )
+    result = run_agent(client, "m", basic_wardrobe(), HISTORY, CATALOG)
+    assert [op["op"] for op in result.ops] == ["create_wardrobe", "add_shelf", "add_rail"]
+    assert len(client.requests) == 2
+    follow_up = client.requests[1]["messages"][-1]
+    assert follow_up["role"] == "tool" and "everything else" in follow_up["content"]
+
+
+def test_create_wardrobe_alone_is_kept_when_the_model_has_nothing_to_add():
+    client = FakeOpenAI(reply(None, [_create()]), reply("DONE"))
+    result = run_agent(client, "m", basic_wardrobe(), HISTORY, CATALOG)
+    assert [op["op"] for op in result.ops] == ["create_wardrobe"]
+    assert len(client.requests) == 2
+
+
+def test_the_follow_up_round_happens_only_once():
+    client = FakeOpenAI(reply(None, [_create()]), reply(None, [_create("call_2")]))
+    run_agent(client, "m", basic_wardrobe(), HISTORY, CATALOG)
+    assert len(client.requests) == 2  # one follow-up, never a second
+
+
+def test_a_batch_with_contents_needs_no_follow_up():
+    client = FakeOpenAI(reply("Done.", [_create(), call("add_shelf", "call_2", compartmentId="cmp_a", y=400)]))
+    result = run_agent(client, "m", basic_wardrobe(), HISTORY, CATALOG)
+    assert len(result.ops) == 2 and len(client.requests) == 1

@@ -100,6 +100,13 @@ export function createChatModel({ getRevision, agent = null }) {
       return { ok: true };
     },
 
+    /** An opening line from the designer. It is a fixed text, never an LLM call or a reaction to an edit. */
+    greet(text) {
+      if (!text || messages.length) return;
+      push('assistant', text);
+      notify();
+    },
+
     /** Set by the agent integration or the dev-only demo. */
     setProposal(next) {
       proposal = next;

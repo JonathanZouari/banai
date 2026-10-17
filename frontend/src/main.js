@@ -14,6 +14,7 @@ import { mountChat } from './chat/chatPanel.js';
 import { createRecorder, isRecordingSupported } from './voice/recorder.js';
 import { createVoiceModel, spokenText } from './voice/voiceModel.js';
 import { mountStartScreen } from './entry/startScreen.js';
+import { GUIDED_GREETING } from './entry/entryPoints.js';
 import { createSaveDialog } from './share/saveDialog.js';
 import { createRenderDialog } from './render/renderDialog.js';
 import { createLogo } from './ui/logo.js';
@@ -95,10 +96,11 @@ async function boot() {
   bindDialogs();
 
   // The agent only ever sees the committed design and revision as they are when the message is sent.
+  let chatMode = 'free'; // 'guided' only when the customer chose the guided start
   const agent = {
     respond: (messages) => {
       const { design, revision } = store.getState();
-      return sendChat({ messages, design, revision });
+      return sendChat({ messages, design, revision, mode: chatMode });
     },
   };
   const chatModel = createChatModel({ getRevision: () => store.getState().revision, agent });
@@ -144,6 +146,8 @@ async function boot() {
   mountStartScreen({
     onChoose: (entry) => {
       // All three entry points open the same editor; the chat ones also focus the composer.
+      chatMode = entry.id === 'guided' ? 'guided' : 'free';
+      if (entry.id === 'guided') chatModel.greet(GUIDED_GREETING);
       if (entry.id !== 'basic') chat.focus(entry.composerHint);
     },
   });

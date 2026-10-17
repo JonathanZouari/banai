@@ -26,4 +26,7 @@ export const ENTRY_POINTS = Object.freeze([
   }),
 ]);
 
+// Shown once when the guided start is chosen. A fixed text: the AI is only called when the customer writes.
+export const GUIDED_GREETING = "Hi! I'll guide you step by step. First: how wide and how tall should the wardrobe be? For example 240 cm wide and 260 cm tall.";
+
 export const getEntryPoint = (id) => ENTRY_POINTS.find((entry) => entry.id === id) ?? null;

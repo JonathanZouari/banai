@@ -42,6 +42,7 @@ class ChatRequest(BaseModel):
     messages: Annotated[list[ChatMessage], Field(min_length=1, max_length=MAX_MESSAGES)]
     design: dict[str, Any]
     revision: Annotated[int, Field(ge=1, le=1_000_000_000, strict=True)]
+    mode: Literal["guided", "free"] = "free"
 
 
 @lru_cache
@@ -76,7 +77,8 @@ def chat(
     history = [{"role": m.role, "content": m.content} for m in body.messages]
     try:
         result = run_agent(
-            client, settings.openai_chat_model, design, history, catalog, temperature=settings.openai_temperature
+            client, settings.openai_chat_model, design, history, catalog, temperature=settings.openai_temperature,
+            mode=body.mode,
         )
     except openai.OpenAIError as error:
         logger.warning("OpenAI call failed: %s", type(error).__name__)  # never log the request or the key
