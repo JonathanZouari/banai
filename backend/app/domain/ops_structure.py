@@ -190,7 +190,8 @@ def add_partition(draft: dict, op: op_types.AddPartition, path: str) -> dict:
     draft["compartments"].insert(index + 1, _empty_compartment(new_id, right_width))
     draft["partitions"].insert(index, {"id": op.id or ids.new_id(ids.PARTITION), "thickness": thickness})
     for door in draft["doors"]["items"]:
-        if compartment["id"] in door["compartmentIds"]:
+        anchored = door["bottomShelfId"] is not None or door["topShelfId"] is not None
+        if compartment["id"] in door["compartmentIds"] and not anchored:  # zone doors stay on the left part
             at = door["compartmentIds"].index(compartment["id"])
             door["compartmentIds"].insert(at + 1, new_id)
     return draft
@@ -219,6 +220,8 @@ def remove_component(draft: dict, op: op_types.RemoveComponent, path: str) -> di
     if found is None:
         raise DomainError(NOT_FOUND, f"{path}.id", "no component with this id")
     kind, index, item_index = found
+    if kind == "shelves" and any(op.id in (d["bottomShelfId"], d["topShelfId"]) for d in draft["doors"]["items"]):
+        raise DomainError(INVALID_OP, f"{path}.id", "a door is anchored to this shelf: change the zones first")
     if kind in ITEM_KINDS or kind == "inserts":
         del draft["compartments"][index][kind][item_index]
     elif kind == "compartment":

@@ -59,7 +59,8 @@ export const handleFinish = z.enum(HANDLE_FINISHES);
 export const handle = z.strictObject({ style: handleStyle, finish: handleFinish });
 const handleOverride = handle.nullable().default(null);
 
-const shelf = z.strictObject({ id: typedId(ids.SHELF), y: int(), thickness: int(), appearance: override });
+// `fixed`: a divider that bounds zones (docs/schema.md "Zones").
+const shelf = z.strictObject({ id: typedId(ids.SHELF), y: int(), thickness: int(), appearance: override, fixed: z.boolean().default(false) });
 const drawer = z.strictObject({
   id: typedId(ids.DRAWER), y: int(), height: int(), appearance: override, handle: handleOverride,
 });
@@ -94,6 +95,9 @@ const door = z.strictObject({
   appearance: override,
   handle: handleOverride,
   mirror: z.boolean().default(false),
+  // A zone door is anchored to dividers (fixed shelves); null = the carcass bottom / top.
+  bottomShelfId: typedId(ids.SHELF).nullable().default(null),
+  topShelfId: typedId(ids.SHELF).nullable().default(null),
 });
 
 export const designSchema = z.strictObject({

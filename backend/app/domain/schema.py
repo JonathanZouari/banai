@@ -150,6 +150,7 @@ class Shelf(StrictModel):
     y: Int
     thickness: Int
     appearance: Appearance | None = None
+    fixed: bool = False  # a divider that bounds zones (docs/schema.md "Zones")
 
 
 class Drawer(StrictModel):
@@ -206,6 +207,9 @@ class Door(StrictModel):
     appearance: Appearance | None = None
     handle: Handle | None = None
     mirror: bool = False
+    # A zone door is anchored to dividers (fixed shelves); null = the carcass bottom / top.
+    bottom_shelf_id: ShelfId | None = None
+    top_shelf_id: ShelfId | None = None
 
 
 class Doors(StrictModel):

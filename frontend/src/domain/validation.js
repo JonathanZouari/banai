@@ -189,38 +189,68 @@ function checkDoors(design) {
   if (!items.length) return [new DomainError(E.DOOR_INVALID, 'doors.items', `${type} doors need at least one door`)];
   if (type === 'sliding') {
     return items.flatMap((door, i) =>
-      [['compartmentIds', door.compartmentIds.length > 0], ['hingeSide', door.hingeSide !== null]]
+      [['compartmentIds', door.compartmentIds.length > 0], ['hingeSide', door.hingeSide !== null],
+        ['bottomShelfId', (door.bottomShelfId ?? null) !== null], ['topShelfId', (door.topShelfId ?? null) !== null]]
         .filter(([, invalid]) => invalid)
         .map(([field]) => new DomainError(E.DOOR_INVALID, `doors.items[${i}].${field}`, `sliding doors have no ${field}`)));
   }
   return checkHinged(design);
 }
 
+/** A door's vertical extent in doubled interior mm (centre lines of its anchors), and anchor issues. */
+function doorExtent(design, door, path, full) {
+  const bottom = door.bottomShelfId ?? null;
+  const top = door.topShelfId ?? null;
+  if (bottom === null && top === null) return [[0, full], []];
+  const ids = door.compartmentIds;
+  if (ids.length !== 1) return [[0, full], [new DomainError(E.DOOR_INVALID, `${path}.compartmentIds`, 'an anchored door covers one compartment')]];
+  const compartment = design.compartments.find((c) => c.id === ids[0]);
+  const fixed = new Map((compartment ? compartment.shelves.filter((s) => s.fixed) : []).map((s) => [s.id, s]));
+  const issues = [];
+  const ends = [['bottomShelfId', bottom, 0], ['topShelfId', top, full]].map(([field, shelfId, fallback]) => {
+    const shelf = shelfId !== null ? fixed.get(shelfId) : undefined;
+    if (shelfId !== null && !shelf) issues.push(new DomainError(E.DOOR_INVALID, `${path}.${field}`, 'must be a divider (fixed shelf) of its compartment'));
+    return shelf ? 2 * shelf.y + shelf.thickness : fallback;
+  });
+  if (!issues.length && ends[0] >= ends[1]) issues.push(new DomainError(E.DOOR_INVALID, `${path}.topShelfId`, 'must be above the bottom anchor'));
+  return [ends, issues];
+}
+
 function checkHinged(design) {
   const indexOf = new Map(design.compartments.map((c, i) => [c.id, i]));
-  // A compartment may carry two leaves (a split), when both doors cover only that compartment.
-  const coverCount = new Map();
-  const singleCover = new Map();
+  const full = 2 * interiorHeight(design);
+  // Per compartment, the doors covering it so far: [low, high, single, anchors], doubled interior mm.
+  // Extents may not overlap, except a split pair: two single-compartment doors with the same anchors.
+  const covered = new Map();
   const issues = [];
   design.doors.items.forEach((door, di) => {
     const path = `doors.items[${di}]`;
     if (door.hingeSide === null) issues.push(new DomainError(E.DOOR_INVALID, `${path}.hingeSide`, 'hinged doors need a hinge side'));
     const ids = door.compartmentIds;
+    const anchors = `${door.bottomShelfId ?? ''}|${door.topShelfId ?? ''}`;
+    const [[low, high], anchorIssues] = doorExtent(design, door, path, full);
     let problem = null;
     if (!ids.length) problem = 'a hinged door must cover at least one compartment';
     else if (ids.some((id) => !indexOf.has(id))) problem = 'references an unknown compartment';
     else {
       const positions = ids.map((id) => indexOf.get(id));
       if (positions.some((p, k) => p !== positions[0] + k)) problem = 'compartments must be adjacent and ordered left to right';
-      else if (ids.some((id) => coverCount.has(id))) {
-        const pair = ids.length === 1 && coverCount.get(ids[0]) === 1 && singleCover.get(ids[0]);
-        if (!pair) problem = 'a compartment is already covered by another door';
+      else {
+        for (const id of ids) {
+          const clashes = (covered.get(id) ?? []).filter(([l, h]) => l < high && low < h);
+          const pair = ids.length === 1 && clashes.length === 1 && clashes[0][2] && clashes[0][3] === anchors;
+          if (clashes.length && !pair) {
+            problem = 'a compartment is already covered by another door';
+            break;
+          }
+        }
       }
     }
     if (problem) issues.push(new DomainError(E.DOOR_INVALID, `${path}.compartmentIds`, problem));
+    issues.push(...anchorIssues);
     ids.forEach((id) => {
-      coverCount.set(id, (coverCount.get(id) ?? 0) + 1);
-      if (!singleCover.has(id)) singleCover.set(id, ids.length === 1);
+      if (!covered.has(id)) covered.set(id, []);
+      covered.get(id).push([low, high, ids.length === 1, anchors]);
     });
   });
   return issues;

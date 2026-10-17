@@ -204,23 +204,49 @@ def _check_doors(design: dict) -> list[DomainError]:
             DomainError(codes.DOOR_INVALID, f"doors.items[{i}].{field}", f"sliding doors have no {field}")
             for i, door in enumerate(items)
             for field, invalid in (("compartmentIds", bool(door["compartmentIds"])),
-                                   ("hingeSide", door["hingeSide"] is not None))
+                                   ("hingeSide", door["hingeSide"] is not None),
+                                   ("bottomShelfId", door["bottomShelfId"] is not None),
+                                   ("topShelfId", door["topShelfId"] is not None))
             if invalid
         ]
     return _check_hinged(design)
 
 
+def _door_extent(design: dict, door: dict, path: str, full: int) -> tuple[tuple[int, int], list[DomainError]]:
+    """A door's vertical extent in doubled interior mm (centre lines of its anchors), and anchor issues."""
+    bottom, top = door["bottomShelfId"], door["topShelfId"]
+    if bottom is None and top is None:
+        return (0, full), []
+    ids_ = door["compartmentIds"]
+    if len(ids_) != 1:
+        return (0, full), [DomainError(codes.DOOR_INVALID, f"{path}.compartmentIds", "an anchored door covers one compartment")]
+    compartment = next((c for c in design["compartments"] if c["id"] == ids_[0]), None)
+    fixed = {s["id"]: s for s in compartment["shelves"] if s["fixed"]} if compartment else {}
+    issues, ends = [], []
+    for field, shelf_id, default in (("bottomShelfId", bottom, 0), ("topShelfId", top, full)):
+        shelf = fixed.get(shelf_id) if shelf_id is not None else None
+        if shelf_id is not None and shelf is None:
+            issues.append(DomainError(codes.DOOR_INVALID, f"{path}.{field}", "must be a divider (fixed shelf) of its compartment"))
+        ends.append(default if shelf is None else 2 * shelf["y"] + shelf["thickness"])
+    if not issues and ends[0] >= ends[1]:
+        issues.append(DomainError(codes.DOOR_INVALID, f"{path}.topShelfId", "must be above the bottom anchor"))
+    return (ends[0], ends[1]), issues
+
+
 def _check_hinged(design: dict) -> list[DomainError]:
     index_of = {c["id"]: i for i, c in enumerate(design["compartments"])}
-    # A compartment may carry two leaves (a split), when both doors cover only that compartment.
-    cover_count: dict[str, int] = {}
-    single_cover: dict[str, bool] = {}
+    full = 2 * interior_height(design)
+    # Per compartment, the doors covering it so far: (low, high, single, anchors), doubled interior mm.
+    # Extents may not overlap, except a split pair: two single-compartment doors with the same anchors.
+    covered: dict[str, list[tuple[int, int, bool, tuple]]] = {}
     issues = []
     for di, door in enumerate(design["doors"]["items"]):
         path = f"doors.items[{di}]"
         if door["hingeSide"] is None:
             issues.append(DomainError(codes.DOOR_INVALID, f"{path}.hingeSide", "hinged doors need a hinge side"))
         ids_ = door["compartmentIds"]
+        anchors = (door["bottomShelfId"], door["topShelfId"])
+        (low, high), anchor_issues = _door_extent(design, door, path, full)
         problem = None
         if not ids_:
             problem = "a hinged door must cover at least one compartment"
@@ -230,15 +256,18 @@ def _check_hinged(design: dict) -> list[DomainError]:
             positions = [index_of[cid] for cid in ids_]
             if positions != list(range(positions[0], positions[0] + len(positions))):
                 problem = "compartments must be adjacent and ordered left to right"
-            elif any(cid in cover_count for cid in ids_):
-                pair = len(ids_) == 1 and cover_count[ids_[0]] == 1 and single_cover[ids_[0]]
-                if not pair:
-                    problem = "a compartment is already covered by another door"
+            else:
+                for cid in ids_:
+                    clashes = [c for c in covered.get(cid, []) if c[0] < high and low < c[1]]
+                    pair = len(ids_) == 1 and len(clashes) == 1 and clashes[0][2] and clashes[0][3] == anchors
+                    if clashes and not pair:
+                        problem = "a compartment is already covered by another door"
+                        break
         if problem:
             issues.append(DomainError(codes.DOOR_INVALID, f"{path}.compartmentIds", problem))
+        issues += anchor_issues
         for cid in ids_:
-            cover_count[cid] = cover_count.get(cid, 0) + 1
-            single_cover.setdefault(cid, len(ids_) == 1)
+            covered.setdefault(cid, []).append((low, high, len(ids_) == 1, anchors))
     return issues
 
 

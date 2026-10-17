@@ -42,6 +42,8 @@ export function presetItems(preset, interior) {
 function applyPreset(draft, op, path) {
   const index = compartmentIndex(draft, op.compartmentId, `${path}.compartmentId`);
   const compartment = draft.compartments[index];
+  if (isSet(op.zone)) return applyZonePreset(draft, compartment, op, path);
+  if (dividers(compartment).length) throw new DomainError(INVALID_OP, `${path}.zone`, 'this compartment has zones: give a zone');
   const items = presetItems(op.preset, interiorHeight(draft));
   // Deterministic ids, so replaying an approved proposal gives the same design.
   const tag = compartment.id.slice(ids.COMPARTMENT.length + 1).slice(0, 30);
@@ -103,8 +105,9 @@ function splitDoor(draft, op, path) {
   if (door.compartmentIds.length !== 1) {
     throw new DomainError(INVALID_OP, `${path}.id`, 'only a door over a single compartment can be split');
   }
-  const [target] = door.compartmentIds;
-  if (draft.doors.items.filter((d) => d.compartmentIds.includes(target)).length > 1) {
+  const sameGroup = (d) => d.compartmentIds.length === 1 && d.compartmentIds[0] === door.compartmentIds[0]
+    && (d.bottomShelfId ?? null) === (door.bottomShelfId ?? null) && (d.topShelfId ?? null) === (door.topShelfId ?? null);
+  if (draft.doors.items.filter(sameGroup).length > 1) {
     throw new DomainError(INVALID_OP, `${path}.id`, 'this compartment already has two doors');
   }
   const twin = { ...structuredClone(door), id: op.newId || ids.newId(ids.DOOR), hingeSide: 'right', mirror: false };
@@ -114,10 +117,155 @@ function splitDoor(draft, op, path) {
   return draft;
 }
 
+// ---- zones (docs/schema.md "Zones"); mirrors backend/app/domain/ops_interior.py ----
+export const ZONE_SNAP = 60; // mm: an existing shelf this close to a divider's target centre becomes the divider
+
+/** The compartment's fixed shelves, bottom-up (ties keep list order). */
+export function dividers(compartment) {
+  return compartment.shelves.filter((s) => s.fixed).sort((a, b) => a.y - b.y);
+}
+
+export function zoneAnchors(compartment, zone) {
+  const fixed = dividers(compartment);
+  return [zone >= 2 ? fixed[zone - 2].id : null, zone <= fixed.length ? fixed[zone - 1].id : null];
+}
+
+/** Interior y range inside zone `zone` (1-based): between the dividers' faces. */
+export function zoneUsable(draft, compartment, zone) {
+  const fixed = dividers(compartment);
+  const low = zone === 1 ? 0 : fixed[zone - 2].y + fixed[zone - 2].thickness;
+  const high = zone === fixed.length + 1 ? interiorHeight(draft) : fixed[zone - 1].y;
+  return [low, high];
+}
+
+function requireZone(compartment, zone, path) {
+  if (!(zone >= 1 && zone <= dividers(compartment).length + 1)) {
+    throw new DomainError(INVALID_OP, `${path}.zone`, 'there is no such zone in this compartment');
+  }
+}
+
+/** Doors over this compartment alone. A door that also spans neighbours blocks zone edits. */
+function ownDoors(draft, compartmentId, path) {
+  const { items } = draft.doors;
+  if (items.some((d) => d.compartmentIds.includes(compartmentId) && d.compartmentIds.length > 1)) {
+    throw new DomainError(INVALID_OP, `${path}.compartmentId`, 'a door spans this compartment and its neighbours');
+  }
+  return items.filter((d) => d.compartmentIds.length === 1 && d.compartmentIds[0] === compartmentId);
+}
+
+/** `base`, or `base_2`, `base_3`... when taken (deterministic in both engines). */
+function freeId(draft, base) {
+  const taken = new Set([...draft.compartments.flatMap((c) => c.shelves.map((s) => s.id)), ...draft.doors.items.map((d) => d.id)]);
+  if (!taken.has(base)) return base;
+  let n = 2;
+  while (taken.has(`${base}_${n}`)) n += 1;
+  return `${base}_${n}`;
+}
+
+const zoneDoor = (id, compartmentId, hingeSide, [bottomShelfId, topShelfId], template) => ({
+  id, compartmentIds: [compartmentId], hingeSide,
+  appearance: template ? template.appearance : null, handle: template ? template.handle : null,
+  mirror: false, bottomShelfId, topShelfId,
+});
+const tagOf = (compartment) => compartment.id.slice(ids.COMPARTMENT.length + 1).slice(0, 30);
+
+function setZones(draft, op, path) {
+  requireRange(op.count, 'zones', `${path}.count`);
+  const index = compartmentIndex(draft, op.compartmentId, `${path}.compartmentId`);
+  const compartment = draft.compartments[index];
+  const own = draft.doors.type === 'hinged' ? ownDoors(draft, compartment.id, path) : [];
+  const tag = tagOf(compartment);
+  const interior = interiorHeight(draft);
+  const panel = draft.carcass.panelThickness;
+  compartment.shelves.forEach((s) => { s.fixed = false; });
+  const chosen = [];
+  for (let k = 1; k < op.count; k += 1) {
+    const target = halfUp(k * interior, op.count);
+    const near = compartment.shelves
+      .map((s, i) => [Math.abs(2 * s.y + s.thickness - 2 * target), s.y, i, s])
+      .filter(([d, , , s]) => !chosen.includes(s) && d <= 2 * ZONE_SNAP)
+      .sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2]);
+    let shelf;
+    if (near.length) {
+      [[, , , shelf]] = near;
+    } else {
+      shelf = { id: freeId(draft, `${ids.SHELF}_${tag}_z${k}`), y: target - Math.floor(panel / 2), thickness: panel, appearance: null, fixed: false };
+      compartment.shelves.push(shelf);
+    }
+    shelf.fixed = true;
+    chosen.push(shelf);
+  }
+  if (own.length) {
+    const [template] = own;
+    const { items } = draft.doors;
+    const at = items.indexOf(template);
+    own.forEach((door) => items.splice(items.indexOf(door), 1));
+    const fresh = op.count === 1
+      ? [zoneDoor(template.id, compartment.id, template.hingeSide, [null, null], template)]
+      : Array.from({ length: op.count }, (_, i) => zoneDoor(
+        `${ids.DOOR}_${tag}_z${i + 1}`, compartment.id, template.hingeSide, zoneAnchors(compartment, i + 1), template));
+    items.splice(at, 0, ...fresh);
+  }
+  return draft;
+}
+
+function setZoneDoor(draft, op, path) {
+  if (draft.doors.type !== 'hinged') throw new DomainError(INVALID_OP, path, 'zone doors are hinged doors');
+  const index = compartmentIndex(draft, op.compartmentId, `${path}.compartmentId`);
+  const compartment = draft.compartments[index];
+  requireZone(compartment, op.zone, path);
+  if (op.leaves === 2 && isSet(op.hingeSide)) throw new DomainError(INVALID_OP, `${path}.hingeSide`, 'a pair is hinged on both sides');
+  const own = ownDoors(draft, compartment.id, path);
+  const anchors = zoneAnchors(compartment, op.zone);
+  const removed = own.filter((d) => d.bottomShelfId === anchors[0] && d.topShelfId === anchors[1]);
+  const { items } = draft.doors;
+  let at;
+  if (removed.length) at = items.indexOf(removed[0]);
+  else if (own.length) at = items.indexOf(own[own.length - 1]) + 1;
+  else at = items.length;
+  removed.forEach((door) => items.splice(items.indexOf(door), 1));
+  const template = removed[0] ?? null;
+  const base = `${ids.DOOR}_${tagOf(compartment)}_z${op.zone}`;
+  let fresh = [];
+  if (op.leaves === 1) {
+    const hinge = op.hingeSide || template?.hingeSide || 'left';
+    fresh = [zoneDoor(freeId(draft, base), compartment.id, hinge, anchors, template)];
+  } else if (op.leaves === 2) {
+    fresh = [zoneDoor(freeId(draft, base), compartment.id, 'left', anchors, template),
+      zoneDoor(freeId(draft, `${base}r`), compartment.id, 'right', anchors, template)];
+  }
+  items.splice(at, 0, ...fresh);
+  return draft;
+}
+
+/** Rebuild one zone: its regular items are replaced by the preset for the zone's height, clipped to fit. */
+function applyZonePreset(draft, compartment, op, path) {
+  requireZone(compartment, op.zone, path);
+  const [low, high] = zoneUsable(draft, compartment, op.zone);
+  const inside = (y) => y !== null && y !== undefined && low <= y && y < high;
+  const thickness = draft.carcass.panelThickness;
+  const height = high - low;
+  const items = presetItems(op.preset, height);
+  const tag = `${tagOf(compartment)}_z${op.zone}`;
+  const shelves = items.shelves.filter((y) => y >= 0 && y + thickness <= height);
+  const rails = items.rails.filter((y) => y >= 0 && y <= height);
+  const drawers = items.drawers.filter(([y, h]) => y >= 0 && y + h <= height);
+  compartment.shelves = [...compartment.shelves.filter((s) => s.fixed || !inside(s.y)),
+    ...shelves.map((y, k) => ({ id: `${ids.SHELF}_${tag}_${k + 1}`, y: low + y, thickness, appearance: null, fixed: false }))];
+  compartment.rails = [...compartment.rails.filter((r) => !inside(r.y)),
+    ...rails.map((y, k) => ({ id: `${ids.RAIL}_${tag}_${k + 1}`, y: low + y }))];
+  compartment.drawers = [...compartment.drawers.filter((d) => !inside(d.y)),
+    ...drawers.map(([y, h], k) => ({ id: `${ids.DRAWER}_${tag}_${k + 1}`, y: low + y, height: h, appearance: null, handle: null }))];
+  compartment.inserts = compartment.inserts.filter((i) => i.type === 'led' || !inside(i.y));
+  return draft;
+}
+
 export const INTERIOR_HANDLERS = Object.freeze({
   apply_preset: applyPreset,
   add_insert: addInsert,
   modify_insert: modifyInsert,
   set_site: setSite,
   split_door: splitDoor,
+  set_zones: setZones,
+  set_zone_door: setZoneDoor,
 });

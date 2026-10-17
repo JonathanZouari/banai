@@ -180,3 +180,40 @@ v2 is additive. A v1 design parses unchanged and comes out with `schemaVersion: 
 | `remove_component` | `ins_…` ids | Removes an insert. Merging at a partition keeps both compartments' inserts. |
 
 Op-level schema errors keep reporting at `ops[i]`, as in v1.
+
+## Zones (bobHabanai, 2026-10-17)
+
+A compartment (column) can be divided vertically into 2–4 **zones**. Each zone can have its own door, a pair of doors, or no door, and its own contents. The addition is backwards-compatible: a design without dividers or anchors behaves exactly as before. Golden cases: `shared/fixtures/ops/zones.json`.
+
+| Field | Default | Meaning |
+|---|---|---|
+| `compartments[].shelves[].fixed` | `false` | A **divider**: a structural shelf that bounds zones. The dossier fixes it with confirmat screws, not shelf pins. |
+| `doors.items[].bottomShelfId` | `null` | A hinged door over one compartment can be **anchored** to a divider. It covers from the centre line of `bottomShelfId` (`null`: the carcass bottom)… |
+| `doors.items[].topShelfId` | `null` | …to the centre line of `topShelfId` (`null`: the carcass top). Both `null` means a full-height door, as before. |
+
+**Derived geometry:**
+- **Zones:** the fixed shelves of a compartment, sorted by `y`, split it into zones numbered 1…n from the bottom.
+- **Usable range of zone k** (interior y):
+  - from: `0` for zone 1, otherwise the top face of the divider below (`y + thickness`)
+  - to: the interior height for the top zone, otherwise the bottom face of the divider above (`y`)
+- **Door extent:** an anchor's centre line is `y + thickness / 2`; comparisons use `2·y + thickness` to stay in integers.
+
+**Validation** (structural only, `DOOR_INVALID`):
+- **Sliding doors** have no anchors. The path is `doors.items[i].bottomShelfId` or `.topShelfId`, with the message "sliding doors have no …".
+- **An anchored hinged door:**
+  - covers exactly one compartment (`.compartmentIds`, "an anchored door covers one compartment")
+  - each anchor is a fixed shelf of that compartment (`.bottomShelfId` / `.topShelfId`, "must be a divider (fixed shelf) of its compartment")
+  - the top anchor lies above the bottom one (`.topShelfId`, "must be above the bottom anchor")
+- **Coverage:** within a compartment, the vertical extents of the doors covering it must not overlap. The only exception is a **split pair**: exactly two single-compartment doors with the same anchors. The first in item order is the left leaf. A clash is reported at the later door's `.compartmentIds` with "a compartment is already covered by another door".
+- A compartment or a zone **may** have no door (an open niche).
+
+**New and changed ops:**
+
+| Op | Fields | Semantics |
+|---|---|---|
+| `set_zones` | `compartmentId`, `count` (1–4) | **Dividers:** every divider of the compartment becomes a regular shelf. For `count ≥ 2`, the divider k (k = 1…count−1) has its centre line at `round_half_up(k · interior / count)`. The nearest regular shelf whose centre lies within 60 mm becomes that divider (ties go to the lower `y`, then the earlier shelf). Otherwise a new shelf is added, with id `shf_<tag>_z<k>` (`_z<k>_2`, `_3`… if taken), thickness = `panelThickness`, and `y` = centre − ⌊panel / 2⌋. **Doors (hinged):** if a door covers this compartment and others, the op fails (`INVALID_OP` at `.compartmentId`, "a door spans this compartment and its neighbours"). If the compartment has its own doors, they are replaced by one door per zone, bottom-up, with id `dr_<tag>_z<k>`, anchored to the dividers below and above it. Each copies the first old door's hinge side, appearance and handle (`mirror: false`). For `count = 1` there is one full-height door, which keeps the first old door's id. An open compartment stays open. |
+| `set_zone_door` | `compartmentId`, `zone` (1-based), `leaves` (0, 1 or 2), `hingeSide?` | Hinged only. Removes this compartment's doors with the zone's anchors, then adds `leaves` doors with those anchors: `dr_<tag>_z<zone>`, and for a pair also `dr_<tag>_z<zone>r` (left + right). One leaf takes `hingeSide`, else the removed door's, else `left`. A pair refuses `hingeSide` (`INVALID_OP`). New doors go where the removed ones were, else right after the compartment's last door, else at the end, and they copy the removed door's appearance and handle. Zone out of range: `INVALID_OP` at `.zone`. A spanning door: same error as `set_zones`. |
+| `apply_preset` | + `zone?` | With `zone`, only that zone's usable range is rebuilt. Its regular shelves, rails, drawers and zone inserts (shoes, trousers, pull-down) whose `y` lies in the range are replaced by the preset for the zone's height, clipped to fit, with ids `shf_<tag>_z<zone>_<n>` / `rail_…` / `drw_…`. Dividers and LED stay. Without `zone`, a compartment that has dividers is refused (`INVALID_OP` at `.zone`, "this compartment has zones: give a zone"). |
+| `split_door` | | The "already split" check counts doors with the same compartment **and** the same anchors, so a zone door can be split. |
+| `remove_component` | a divider | Refused while a door is anchored to it (`INVALID_OP` at `.id`, "a door is anchored to this shelf: change the zones first"). |
+| `add_partition` | | Anchored doors stay on the original (left) compartment; the new compartment opens without them. |

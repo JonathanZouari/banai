@@ -186,6 +186,21 @@ class ApplyPreset(StrictModel):
     op: Literal["apply_preset"]
     compartment_id: CompartmentId
     preset: Literal["long", "double", "shelves", "drawers"]
+    zone: Int | None = None
+
+
+class SetZones(StrictModel):
+    op: Literal["set_zones"]
+    compartment_id: CompartmentId
+    count: Int
+
+
+class SetZoneDoor(StrictModel):
+    op: Literal["set_zone_door"]
+    compartment_id: CompartmentId
+    zone: Int
+    leaves: Literal[0, 1, 2]
+    hinge_side: Literal["left", "right"] | None = None
 
 
 class AddInsert(StrictModel):
@@ -216,7 +231,7 @@ Op = Annotated[
     CreateWardrobe | UpdateDimensions | ConfigureDoors | ModifyDoor | AddCompartment | ModifyCompartment
     | AddPartition | ModifyPartition | AddShelf | ModifyShelf | AddDrawer | ModifyDrawer
     | AddRail | ModifyRail | SetMaterial | SetHandles | RemoveComponent
-    | SetSite | ApplyPreset | AddInsert | ModifyInsert | SplitDoor,
+    | SetSite | ApplyPreset | AddInsert | ModifyInsert | SplitDoor | SetZones | SetZoneDoor,
     Field(discriminator="op"),
 ]
 

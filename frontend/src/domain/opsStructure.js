@@ -166,7 +166,8 @@ function addPartition(draft, op, path) {
   draft.partitions.splice(index, 0, { id: op.id ?? ids.newId(ids.PARTITION), thickness });
   for (const d of draft.doors.items) {
     const at = d.compartmentIds.indexOf(compartment.id);
-    if (at >= 0) d.compartmentIds.splice(at + 1, 0, createdId);
+    const anchored = (d.bottomShelfId ?? null) !== null || (d.topShelfId ?? null) !== null;
+    if (at >= 0 && !anchored) d.compartmentIds.splice(at + 1, 0, createdId); // zone doors stay on the left part
   }
   return draft;
 }
@@ -194,6 +195,9 @@ function removeComponent(draft, op, path) {
   const found = locate(draft, op.id);
   if (!found) throw new DomainError(NOT_FOUND, `${path}.id`, 'no component with this id');
   const [kind, index, itemIndex] = found;
+  if (kind === 'shelves' && draft.doors.items.some((d) => d.bottomShelfId === op.id || d.topShelfId === op.id)) {
+    throw new DomainError(INVALID_OP, `${path}.id`, 'a door is anchored to this shelf: change the zones first');
+  }
   if (ITEM_KINDS.includes(kind) || kind === 'inserts') {
     draft.compartments[index][kind].splice(itemIndex, 1);
   } else if (kind === 'compartment') {

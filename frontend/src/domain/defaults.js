@@ -22,6 +22,7 @@ export const LIMITS = deepFreeze({
   niche: [300, 10000],
   shoeTiers: [1, 6],
   insertHeight: [200, 1500],
+  zones: [1, 4],
 });
 
 export const DEFAULT_PANEL_THICKNESS = 18;

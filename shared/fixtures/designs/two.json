@@ -30,7 +30,8 @@
           "id": "shf_1",
           "y": 500,
           "thickness": 20,
-          "appearance": null
+          "appearance": null,
+          "fixed": false
         }
       ],
       "drawers": [
@@ -87,7 +88,9 @@
         "hingeSide": "left",
         "appearance": null,
         "handle": null,
-        "mirror": false
+        "mirror": false,
+        "bottomShelfId": null,
+        "topShelfId": null
       },
       {
         "id": "dr_b",
@@ -97,7 +100,9 @@
         "hingeSide": "right",
         "appearance": null,
         "handle": null,
-        "mirror": false
+        "mirror": false,
+        "bottomShelfId": null,
+        "topShelfId": null
       }
     ]
   },
