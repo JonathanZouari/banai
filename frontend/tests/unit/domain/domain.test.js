@@ -316,6 +316,6 @@ describe('catalog grain', () => {
     expect(ids.slice(0, 6)).toEqual(['white', 'light_grey', 'anthracite', 'black', 'natural_oak', 'walnut']);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).not.toContain('pink');
-    expect(catalog.colors.filter((c) => /walnut/i.test(c.name)).map((c) => c.id)).toEqual(['walnut']);
+    expect(catalog.colors.filter((c) => /אגוז/.test(c.name)).map((c) => c.id)).toEqual(['walnut']);
   });
 });

@@ -57,7 +57,7 @@ Everything outside the canvas and the properties panel is wired in `main.js`:
 
 - **View toolbar** (`bindViewToolbar`). The `[data-view]` buttons and `#view-fit` are rendered `disabled` in `index.html` and are enabled only when the viewer provides `setView` / `fitView`, so the app still boots with an older viewer. A click calls `viewer.setView(button.dataset.view)` or `viewer.fitView()`. Each button's `aria-pressed` follows `viewer.subscribeView` (initialised from `viewer.viewName`), so no button is pressed after a manual orbit.
 - **Show interior** (`bindInteriorToggle`). `#toggle-interior` is the inverse of `ui.doorsVisible`: changing it calls `store.setDoorsVisible`, and a store subscription keeps it in sync when selecting an interior part hides the doors.
-- **AI column** (`bindChatPanel`, runs at load). The `workspace--chat-collapsed` class turns the column into a 48 px rail. It is collapsed when the stored choice says so, or, with no stored choice, when the window is narrower than 1280 px (re-evaluated when the media query changes). Both the top-bar toggle `#chat-toggle` and the rail button `#chat-rail-toggle` flip it, store the choice and update `aria-expanded`. Expanding from the rail moves focus to the "AI Designer" heading.
+- **Side column** (`bindSideTabs`). Advice and chat are WAI-ARIA tabs (`#tab-advice`, `#tab-chat`; arrow keys move between them). The advice tab is shown first. Its badge counts critical and warning advisories. The chat entry points of the start screen open the chat tab.
 - **Esc** (`bindEscape`, runs at load). A document-level `keydown`:
   - It is ignored while an IME is composing and when the event target is an `input`, `select`, `textarea` or editable element, so Esc inside a field never clears the selection.
   - If the "Controls" popover is open and the event target is inside it, Esc closes it and returns focus to its button.
@@ -151,14 +151,31 @@ The visual design follows the Stitch design system documented in `/.stitch/DESIG
 | `chat/chatModel.js` | **Pure** chat view-model: messages, a pending proposal kept apart from the committed design, `proposalStatus` (pending or stale by revision), Cancel. Until Phase 5 a sent message gets a "not connected" reply and nothing is applied. |
 | `chat/chatPanel.js`, `chat/proposalCard.js` | DOM render of the model. The card lists structured changes with Confirm and Cancel, and turns stale (Confirm disabled) when the revision moves on. |
 | `entry/entryPoints.js`, `entry/startScreen.js` | The three entry points (guided, free text, basic wardrobe) in a modal start screen. All lead to the same editor. |
-| `share/saveDialog.js`, `render/renderDialog.js` | Save/share and render dialogs on the native `<dialog>`. Actions are disabled and say so until Phases 7 and 8. Render is labelled as illustrative. |
+| `share/saveDialog.js` | Save/share dialog on the native `<dialog>`. Saving is disabled and says so until Phase 7. |
+| `render/renderHud.js` | Path-traced render (ADR-022) driven from a floating HUD in the viewer: progress ring, save image, back to editing. It keeps the last converged image for the dossier cover. Replaces the AI render dialog. |
 | `ui/icons.js`, `ui/dialog.js`, `ui/logo.js`, `ui/ripple.js` | Inline SVG icons and logo (no icon font, image or CDN), a Material 3 dialog helper, and a delegated press ripple. |
 
-Styles follow Material Design 3 (`styles/tokens.css` holds the `--md-sys-*` tokens, with the older names kept as aliases). The design record is `/.stitch/DESIGN.md`.
+The chat, dialogs and start screen still use `--md-sys-*` names. `styles/tokens.css` defines them as aliases of the Apple palette (the uxui merge had dropped the file that defined them). The design record is `/.stitch/DESIGN.md`.
 Door hardware (handles, sliding rails, outlines) is built in `viewer/builders/doors.js` as non-selectable `kind: 'hardware'` objects. Picking refreshes world matrices before raycasting, so a click is correct even if it lands before the next rendered frame.
 In dev builds `window.__banai.chat` exposes the chat model, so a proposal can be shown for visual checks (`chat.setProposal({...})`).
 
+## bobHabanai workspace (Hebrew RTL, schema v2)
+
+The page is `lang="he" dir="rtl"` (font: self-hosted Assistant). Columns, right to left: properties, the 3D stage, and the side column (advice | chat). Styles use logical properties; `styles/workspace.css` holds the workspace components, and `--dir` (−1 in RTL) mirrors switch knobs and nudges. Range inputs run from the right, so the slider fill grows leftwards. Numeric inputs stay LTR.
+
+| Module | Role |
+|---|---|
+| `state/store.js` | Undo/redo (ADR-023): every design change keeps the previous design (up to 100). `dispatch(ops, { coalesce })` merges repeated edits of one control within 700 ms into one step. `undo()`/`redo()` bump the revision, so pending AI proposals turn stale. `saveVersion()`, `clearVersion()` and `setComparing()` drive hold-to-compare; the viewer shows `state.version` while `ui.comparing`. `ins_` ids select as kind `insert`. |
+| `state/diff.js` | Plain-Hebrew "before ← after" lines between two designs (compare card; later AI proposals). Compartments match by id. |
+| `advice/advisoryFeed.js` | Keeps advisories in step with the design (ADR-018: the rules are Python only). Debounce 150 ms; a newer design aborts the request in flight and drops a late answer. `stale` until the answer for the current design arrives. |
+| `advice/advisoryPanel.js` | The cards (keyed by id, enter/leave animated, text via `textContent`). "Show" opens the doors, selects the compartment and calls `viewer.flash(targets)`. A quick fix dispatches its ops (undoable) and is disabled while the feed is stale. |
+| `editor/interiorOps.js` | Pure: presets (`apply_preset`), inserts (zone inserts try the floor, then above each shelf and drawer, first fit wins), split doors (`split_door` / remove the second leaf), site set/clear, and `coalesceKey`. |
+| `editor/interiorControls.js`, `editor/siteSection.js` | Preset and insert tiles plus the split switch for a selected compartment, fields of a selected insert, and the site section (empty field = unknown). |
+| `ui/toast.js` | One status line (`role=status`). |
+
+Keyboard: Ctrl+Z, Ctrl+Shift+Z and Ctrl+Y use `event.code`, so they work on a Hebrew layout, and they never act inside text fields (which keep their own undo). Server error messages are English, so the UI shows chat and key-check errors by `code`, in Hebrew; unknown codes get a generic line, and server text is never shown.
+
 ## Testing
 - **Unit:** `npm test` (vitest). This covers the domain engine and parity fixtures, the store, the API client, the builders, the camera maths (`tests/unit/viewer/camera.test.js`) and the pure editor helpers (`opsFromForm`, `selectionContext`).
-- **E2E:** `npm run test:e2e` (Playwright, Chromium with SwiftShader WebGL). It starts uvicorn on :8010 and Vite on :5183. `window.__banai` exists only in dev builds (`import.meta.env.DEV`) and is stripped from production bundles.
+- **E2E:** `npm run test:e2e` (Playwright, Chromium with SwiftShader WebGL). It starts uvicorn on :8010 and Vite on :5183. `workspace.spec.js` covers the RTL shell, advisories and quick fixes, undo/redo, presets, inserts, split doors, site and compare; `openChat(page)` opens the chat tab. `window.__banai` exists only in dev builds (`import.meta.env.DEV`) and is stripped from production bundles.
 - **Visual walkthrough:** Claude in Chrome on `localhost:5173`, with a GIF per phase.

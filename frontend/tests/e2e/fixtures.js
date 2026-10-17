@@ -22,6 +22,12 @@ export async function openDesigner(page) {
   await page.waitForFunction(() => window.__banai?.viewer.meshOf('shf_l1'));
 }
 
+/** The chat lives in the side column's second tab (the advice tab is shown first). */
+export async function openChat(page) {
+  await page.getByTestId('tab-chat').click();
+  await expect(page.getByTestId('chat-input')).toBeVisible();
+}
+
 export const selection = (page) => page.evaluate(() => window.__banai.store.getState().selection);
 
 export async function clickComponent(page, componentId) {

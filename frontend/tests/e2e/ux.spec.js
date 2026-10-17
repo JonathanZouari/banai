@@ -131,23 +131,24 @@ test.describe('UX pass', () => {
       expect(await extent()).toBeGreaterThan(0.3);
     });
 
-    test('the AI column starts collapsed', async ({ page }) => {
-      await expect(page.locator('.workspace')).toHaveClass(/workspace--chat-collapsed/);
-      await expect(page.locator('#chat-toggle')).toHaveAttribute('aria-expanded', 'false');
+    test('the side column still shows the advice and chat tabs', async ({ page }) => {
+      await expect(page.getByTestId('tab-advice')).toBeVisible();
+      await expect(page.getByTestId('tab-chat')).toBeVisible();
     });
   });
 
-  test('the AI column is open on a wide screen and the toggle gives the 3D view more room', async ({ page }) => {
-    const workspace = page.locator('.workspace');
-    const toggle = page.locator('#chat-toggle');
-    await expect(workspace).not.toHaveClass(/workspace--chat-collapsed/);
-    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    const before = (await canvas(page).boundingBox()).width;
-
-    await toggle.click();
-    await expect(workspace).toHaveClass(/workspace--chat-collapsed/);
-    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    await expect.poll(async () => (await canvas(page).boundingBox()).width).toBeGreaterThan(before);
+  test('the side column switches between advice and chat as WAI-ARIA tabs', async ({ page }) => {
+    const advice = page.getByTestId('tab-advice');
+    const chat = page.getByTestId('tab-chat');
+    await expect(advice).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByTestId('advice-panel')).toBeVisible();
+    await chat.click();
+    await expect(chat).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByTestId('advice-panel')).toBeHidden();
+    await expect(page.getByTestId('chat-input')).toBeVisible();
+    await chat.press('ArrowLeft');
+    await expect(advice).toBeFocused();
+    await expect(advice).toHaveAttribute('aria-selected', 'true');
   });
 
   test('hovering a part shows a pointer cursor; empty space does not', async ({ page }) => {
@@ -196,9 +197,9 @@ test.describe('UX pass', () => {
 
   test('a collapsed section stays collapsed after a reload', async ({ page }) => {
     const summaryOf = (title) => page.locator('#properties-content summary').filter({ hasText: title });
-    const materialsSummary = summaryOf('Materials');
+    const materialsSummary = summaryOf('חומרים');
     const materials = materialsSummary.locator('xpath=..'); // the section's <details>
-    const wardrobe = summaryOf('Wardrobe').locator('xpath=..');
+    const wardrobe = summaryOf('ארון').locator('xpath=..');
     await expect(materials).toHaveAttribute('open', '');
     await expect(wardrobe).toHaveAttribute('open', '');
 
@@ -214,17 +215,17 @@ test.describe('UX pass', () => {
   });
 
   test('a selected shelf says where it is and marks its compartment in the list', async ({ page }) => {
-    await page.getByLabel('Show interior').check();
+    await page.getByLabel('הצג פנים').check();
     await clickComponent(page, 'shf_l2');
     const selected = page.getByTestId('selected-section');
-    await expect(selected).toContainText('Selected · Shelf');
-    await expect(selected).toContainText('Compartment 1 · Shelf 2 of 4');
+    await expect(selected).toContainText('נבחר · מדף');
+    await expect(selected).toContainText('תא 1 · מדף 2 מתוך 4');
 
     const leftRow = page.getByTestId('select-cmp_left').locator('xpath=ancestor::li');
     await expect(leftRow).toHaveAttribute('aria-current', 'true');
     await expect(page.locator('#properties-content [aria-current]')).toHaveCount(1);
 
-    await selected.getByRole('button', { name: 'Deselect' }).click();
+    await selected.getByRole('button', { name: 'ביטול בחירה' }).click();
     await expect.poll(() => selection(page)).toBeNull();
     await expect(page.locator('#properties-content [aria-current]')).toHaveCount(0);
   });

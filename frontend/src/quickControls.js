@@ -1,9 +1,9 @@
-// Quick viewer controls (bottom-right of the 3D view): open doors, clothes, mirror doors,
+// Quick viewer controls (bottom of the 3D view, at the inline end): open doors, clothes, mirror doors,
 // Studio/Room backdrop and wardrobe handles. Every change goes through the store, and all
 // text is set with textContent. Also maps the on-canvas dimension steppers to domain ops.
 
-const HANDLE_STYLES = [['bar', 'Bar'], ['knob', 'Knob'], ['edge', 'Edge'], ['cup', 'Cup'], ['groove', 'Groove'], ['none', 'None']];
-const HANDLE_FINISHES = [['steel', 'Steel'], ['black', 'Black'], ['brass', 'Brass']];
+const HANDLE_STYLES = [['bar', 'מוט'], ['knob', 'כפתור'], ['edge', 'פרופיל'], ['cup', 'שקע'], ['groove', 'חריץ'], ['none', 'ללא (לחיצה)']];
+const HANDLE_FINISHES = [['steel', 'נירוסטה'], ['black', 'שחור'], ['brass', 'פליז']];
 const ITEM_OPS = Object.freeze({ shelves: 'modify_shelf', drawers: 'modify_drawer', rails: 'modify_rail' });
 
 function node(tag, { className, text, attrs = {} } = {}, children = []) {
@@ -33,27 +33,27 @@ function selectControl(label, testId, options, value, onChange) {
 
 export function bindQuickControls(store, viewer, container) {
   const status = node('p', { className: 'visually-hidden', attrs: { role: 'status', 'aria-live': 'polite' } });
-  const report = (result) => { status.textContent = result.ok ? '' : 'That change could not be applied.'; };
+  const report = (result) => { status.textContent = result.ok ? '' : 'לא ניתן להחיל את השינוי.'; };
 
-  const open = switchControl('Open doors', 'toggle-doors-open', store.getState().ui.doorsOpen, (on) => store.setDoorsOpen(on));
-  const clothes = switchControl('Clothes', 'toggle-clothes', store.getState().ui.showClothes, (on) => store.setShowClothes(on));
-  const mirror = switchControl('Mirror doors', 'toggle-mirror', false, (on) => {
+  const open = switchControl('פתח דלתות', 'toggle-doors-open', store.getState().ui.doorsOpen, (on) => store.setDoorsOpen(on));
+  const clothes = switchControl('בגדים', 'toggle-clothes', store.getState().ui.showClothes, (on) => store.setShowClothes(on));
+  const mirror = switchControl('דלתות מראה', 'toggle-mirror', false, (on) => {
     const doors = store.getState().design.doors.items;
     if (doors.length) report(store.dispatch(doors.map((door) => ({ op: 'modify_door', id: door.id, mirror: on }))));
   });
-  const backdrop = selectControl('Backdrop', 'backdrop', [['studio', 'Studio'], ['room', 'Room']], viewer.backdrop ?? 'studio',
+  const backdrop = selectControl('רקע', 'backdrop', [['studio', 'סטודיו'], ['room', 'חדר']], viewer.backdrop ?? 'studio',
     (name) => { if (typeof viewer.setBackdrop === 'function') viewer.setBackdrop(name); });
   const { handles } = store.getState().design;
-  const style = selectControl('Handle style', 'handle-style', HANDLE_STYLES, handles?.style ?? 'bar',
+  const style = selectControl('סגנון ידית', 'handle-style', HANDLE_STYLES, handles?.style ?? 'bar',
     (value) => report(store.dispatch([{ op: 'set_handles', target: 'all', style: value }])));
-  const finish = selectControl('Handle finish', 'handle-finish', HANDLE_FINISHES, handles?.finish ?? 'steel',
+  const finish = selectControl('גימור ידית', 'handle-finish', HANDLE_FINISHES, handles?.finish ?? 'steel',
     (value) => report(store.dispatch([{ op: 'set_handles', target: 'all', finish: value }])));
 
-  const bar = node('div', { className: 'viewer-toolbar viewer-toolbar--quick', attrs: { role: 'group', 'aria-label': 'Quick view options' } },
+  const bar = node('div', { className: 'viewer-toolbar viewer-toolbar--quick', attrs: { role: 'group', 'aria-label': 'אפשרויות תצוגה מהירות' } },
     [open.element, clothes.element, mirror.element, backdrop, style, finish, status]);
   Object.assign(bar.style, {
-    top: 'auto', bottom: '12px', right: '12px', display: 'flex', alignItems: 'center', gap: '8px',
-    flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: 'calc(100% - 24px)',
+    top: 'auto', bottom: '12px', insetInlineEnd: '12px', display: 'flex', alignItems: 'center', gap: '8px',
+    flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: 'calc(100% - 240px)', // the compare bar sits at the inline start
   });
   container.append(bar);
 

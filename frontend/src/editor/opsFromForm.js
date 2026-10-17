@@ -6,14 +6,15 @@ const MAX_ABS_CM = 100_000;
 const CM_PATTERN = /^-?\d+([.,]\d+)?$/;
 
 // ASSUMPTION: prototype defaults for newly added items (not business rules).
-export const NEW_ITEM = Object.freeze({ shelfThickness: 18, drawerHeight: 200, railBelowTop: 100 });
+// A new shelf is cut from the carcass board (its panelThickness), so the cut list keeps one board.
+export const NEW_ITEM = Object.freeze({ drawerHeight: 200, railBelowTop: 100 });
 
 /** Parse a centimetre input (`.` or `,` decimal) to integer millimetres. */
 export function parseCm(text) {
   const trimmed = String(text ?? '').trim();
-  if (!CM_PATTERN.test(trimmed)) return { ok: false, message: 'Enter a number in cm, e.g. 64.5' };
+  if (!CM_PATTERN.test(trimmed)) return { ok: false, message: 'הזינו מספר בס״מ, למשל 64.5' };
   const cm = Number(trimmed.replace(',', '.'));
-  if (!Number.isFinite(cm) || Math.abs(cm) > MAX_ABS_CM) return { ok: false, message: 'That value is too large' };
+  if (!Number.isFinite(cm) || Math.abs(cm) > MAX_ABS_CM) return { ok: false, message: 'הערך גדול מדי' };
   return { ok: true, mm: Math.round(cm * 10) };
 }
 
@@ -37,17 +38,17 @@ export const doorMirrorOps = (doorId, mirror) => modifyDoorOps(doorId, { mirror 
 
 // Handle styles and finishes as offered in the editor (ids from the domain schema).
 export const HANDLE_STYLE_OPTIONS = Object.freeze([
-  { value: 'bar', label: 'Bar' },
-  { value: 'knob', label: 'Knob' },
-  { value: 'edge', label: 'Edge' },
-  { value: 'cup', label: 'Cup' },
-  { value: 'groove', label: 'Groove' },
-  { value: 'none', label: 'None' },
+  { value: 'bar', label: 'מוט' },
+  { value: 'knob', label: 'כפתור' },
+  { value: 'edge', label: 'פרופיל' },
+  { value: 'cup', label: 'שקע' },
+  { value: 'groove', label: 'חריץ' },
+  { value: 'none', label: 'ללא (לחיצה)' },
 ]);
 export const HANDLE_FINISH_OPTIONS = Object.freeze([
-  { value: 'steel', label: 'Steel' },
-  { value: 'black', label: 'Black' },
-  { value: 'brass', label: 'Brass' },
+  { value: 'steel', label: 'נירוסטה' },
+  { value: 'black', label: 'שחור' },
+  { value: 'brass', label: 'פליז' },
 ]);
 
 /** Set the handle style and/or finish of `target`: 'all' (the wardrobe), a door id or a drawer id. */
@@ -92,8 +93,9 @@ export function addItemOps(design, compartmentId, kind) {
   const gaps = freeGaps(design, compartment);
   const largest = gaps.reduce((best, gap) => (gap[1] - gap[0] > best[1] - best[0] ? gap : best), [0, 0]);
   if (kind === 'shelf') {
-    const y = Math.floor((largest[0] + largest[1] - NEW_ITEM.shelfThickness) / 2);
-    return [{ op: 'add_shelf', compartmentId, y, thickness: NEW_ITEM.shelfThickness }];
+    const thickness = design.carcass.panelThickness;
+    const y = Math.floor((largest[0] + largest[1] - thickness) / 2);
+    return [{ op: 'add_shelf', compartmentId, y, thickness }];
   }
   if (kind === 'drawer') {
     const lowest = gaps.find(([start, end]) => end - start >= NEW_ITEM.drawerHeight) ?? largest;
@@ -104,16 +106,17 @@ export function addItemOps(design, compartmentId, kind) {
 }
 
 const FRIENDLY = Object.freeze({
-  OVERLAP: 'That would overlap another shelf or drawer. Choose a different position.',
-  OUT_OF_BOUNDS: 'That position is not inside the wardrobe.',
-  OUT_OF_RANGE: 'That value is outside the allowed range.',
-  WIDTH_MISMATCH: 'The widths no longer add up to the wardrobe width.',
-  DOOR_INVALID: 'That door arrangement is not possible here.',
-  NOT_FOUND: 'That component no longer exists.',
-  INVALID_OP: 'That change is not possible for this component.',
-  UNKNOWN_CATALOG_ID: 'That material or colour is not in the catalog.',
-  SCHEMA_INVALID: 'That value is not valid.',
+  OVERLAP: 'זה חופף למדף, למגירה או לרכיב אחר. בחרו מיקום אחר.',
+  OUT_OF_BOUNDS: 'המיקום הזה מחוץ לארון.',
+  OUT_OF_RANGE: 'הערך מחוץ לטווח המותר.',
+  WIDTH_MISMATCH: 'סכום הרוחבים לא מתאים לרוחב הארון.',
+  DOOR_INVALID: 'סידור הדלתות הזה לא אפשרי כאן.',
+  NOT_FOUND: 'הרכיב הזה כבר לא קיים.',
+  INVALID_OP: 'השינוי הזה לא אפשרי ברכיב הזה.',
+  INSERT_INVALID: 'הרכיב הזה לא מתאים כאן: יש כבר אחד כזה בתא, או שחסר לו מידע.',
+  UNKNOWN_CATALOG_ID: 'החומר או הצבע לא נמצאים בקטלוג.',
+  SCHEMA_INVALID: 'הערך לא תקין.',
 });
 
 /** Short, engine-independent message for an inline error (never echoes input). */
-export const friendlyError = (error) => FRIENDLY[error?.code] ?? 'The change could not be applied.';
+export const friendlyError = (error) => FRIENDLY[error?.code] ?? 'לא ניתן להחיל את השינוי.';

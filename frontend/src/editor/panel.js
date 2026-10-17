@@ -10,11 +10,13 @@
 // input are patched in place, and the real render runs once the pointer is released.
 import { compartmentsSection } from './compartmentsSection.js';
 import { componentSection } from './componentSection.js';
+import { coalesceKey } from './interiorOps.js';
 import { createDragGate } from './liveSlider.js';
+import { siteSection } from './siteSection.js';
 import { wardrobeSection } from './wardrobeSection.js';
 
-const HINT_DEFAULT = 'Click a component in the 3D view to edit it.';
-const HINT_SELECTED = 'Press Esc or click empty space to deselect.';
+const HINT_DEFAULT = 'לחצו על רכיב בתלת-ממד כדי לערוך אותו.';
+const HINT_SELECTED = 'Esc או לחיצה על שטח ריק מבטלים את הבחירה.';
 const TEXT_TYPES = new Set(['text', 'search', 'tel', 'url', 'email', 'password']);
 
 const keyOf = (node) => {
@@ -86,7 +88,7 @@ export function mountPanel(root, store) {
   const hint = scroller?.querySelector('.panel__hint') ?? null;
   const run = (ops) => {
     try {
-      return store.dispatch(ops);
+      return store.dispatch(ops, { coalesce: coalesceKey(ops) }); // a slider drag is one undo step
     } catch {
       return { ok: false, error: { code: 'UNEXPECTED' } }; // shown as a generic message
     }
@@ -96,10 +98,13 @@ export function mountPanel(root, store) {
 
   const buildTree = (state) => {
     const context = { design: state.design, catalog: state.catalog, selection: state.selection, run, select };
+    const [wardrobe, materials] = wardrobeSection(context);
     return [
       ...(state.selection ? [componentSection(context)] : []),
-      ...wardrobeSection(context),
+      siteSection(context),
+      wardrobe,
       compartmentsSection(context),
+      materials,
     ];
   };
 

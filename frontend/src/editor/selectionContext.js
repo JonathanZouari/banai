@@ -5,8 +5,10 @@
 // Numbering is 1-based and matches what the user sees: compartments run left to right (array
 // order); shelves and drawers are counted bottom-up by `y` (ties keep array order).
 
-const ITEM_KEYS = Object.freeze({ shelf: 'shelves', drawer: 'drawers', rail: 'rails' });
-const ITEM_LABELS = Object.freeze({ shelf: 'Shelf', drawer: 'Drawer', rail: 'Rail' });
+import { insertLabel } from './interiorOps.js';
+
+const ITEM_KEYS = Object.freeze({ shelf: 'shelves', drawer: 'drawers', rail: 'rails', insert: 'inserts' });
+const ITEM_LABELS = Object.freeze({ shelf: 'מדף', drawer: 'מגירה', rail: 'מוט' });
 
 const none = () => ({ compartmentId: null, text: '' });
 
@@ -24,10 +26,11 @@ function describeItem(design, kind, id) {
   if (index < 0) return none();
   const compartment = design.compartments[index];
   const items = compartment[key];
-  const where = `Compartment ${index + 1}`;
+  const where = `תא ${index + 1}`;
+  if (kind === 'insert') return { compartmentId: compartment.id, text: `${where} · ${insertLabel(items.find((item) => item.id === id).type)}` };
   const text = kind === 'rail' && items.length === 1
-    ? `${where} · Rail`
-    : `${where} · ${ITEM_LABELS[kind]} ${bottomUpPosition(items, id)} of ${items.length}`;
+    ? `${where} · מוט`
+    : `${where} · ${ITEM_LABELS[kind]} ${bottomUpPosition(items, id)} מתוך ${items.length}`;
   return { compartmentId: compartment.id, text };
 }
 
@@ -48,11 +51,11 @@ function describeDoor(design, id) {
     .map((compartmentId) => design.compartments.findIndex((compartment) => compartment.id === compartmentId))
     .filter((index) => index >= 0)
     .sort((a, b) => a - b);
-  if (!covered.length) return { compartmentId: null, text: `Door ${doorIndex + 1} of ${doors.length}` };
+  if (!covered.length) return { compartmentId: null, text: `דלת ${doorIndex + 1} מתוך ${doors.length}` };
   const numbers = covered.map((index) => index + 1);
   return {
     compartmentId: design.compartments[covered[0]].id,
-    text: `Covers compartment${numbers.length > 1 ? 's' : ''} ${numberList(numbers)}`,
+    text: `מכסה את ${numbers.length > 1 ? 'תאים' : 'תא'} ${numberList(numbers)}`,
   };
 }
 
@@ -67,13 +70,13 @@ export function describeSelection(design, selection) {
   if (Object.hasOwn(ITEM_KEYS, kind)) return describeItem(design, kind, id);
   if (kind === 'compartment') {
     const index = design.compartments.findIndex((compartment) => compartment.id === id);
-    return index < 0 ? none() : { compartmentId: id, text: `Compartment ${index + 1} of ${design.compartments.length}` };
+    return index < 0 ? none() : { compartmentId: id, text: `תא ${index + 1} מתוך ${design.compartments.length}` };
   }
   if (kind === 'partition') {
     const index = (design.partitions ?? []).findIndex((partition) => partition.id === id);
-    return index < 0 ? none() : { compartmentId: null, text: `Between compartments ${index + 1} and ${index + 2}` };
+    return index < 0 ? none() : { compartmentId: null, text: `בין תא ${index + 1} לתא ${index + 2}` };
   }
   if (kind === 'door') return describeDoor(design, id);
-  if (kind === 'carcass') return id === 'carcass' ? { compartmentId: null, text: 'Wardrobe body' } : none();
+  if (kind === 'carcass') return id === 'carcass' ? { compartmentId: null, text: 'גוף הארון' } : none();
   return none();
 }

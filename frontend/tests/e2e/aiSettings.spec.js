@@ -1,4 +1,4 @@
-import { test, expect, openDesigner } from './fixtures.js';
+import { test, expect, openChat, openDesigner } from './fixtures.js';
 
 // The OpenAI key lives only in this browser. Both backend calls that receive it are mocked with
 // page.route, so these tests need no real key and never reach OpenAI.
@@ -30,8 +30,9 @@ test.describe('AI settings (OpenAI key kept in this browser only)', () => {
   test('the chat status chip opens AI settings; a working key connects and is stored only locally', async ({ page }) => {
     const checked = await mockVerify(page, 'connected');
     await openDesigner(page);
+    await openChat(page);
     const chip = page.getByTestId('chat-status');
-    await expect(chip).toHaveText('Not connected');
+    await expect(chip).toHaveText('לא מחובר');
     await expect(page.getByTestId('chat-connect-key')).toBeVisible();
 
     await chip.click();
@@ -43,10 +44,10 @@ test.describe('AI settings (OpenAI key kept in this browser only)', () => {
     await input.fill(KEY);
     await page.getByTestId('ai-key-save').click();
 
-    await expect(page.getByTestId('ai-settings-status')).toHaveText('Key connected');
-    await expect(chip).toHaveText('Key connected');
+    await expect(page.getByTestId('ai-settings-status')).toHaveText('המפתח מחובר');
+    await expect(chip).toHaveText('המפתח מחובר');
     await expect(input).toHaveValue('');
-    await expect(page.getByTestId('ai-settings-key')).toContainText('Key sk-...WXYZ');
+    await expect(page.getByTestId('ai-settings-key')).toContainText('מפתח sk-...WXYZ');
     expect(await storedKey(page)).toBe(KEY);
     expect(checked).toEqual([KEY]);
     // Only the masked key is ever shown.
@@ -60,22 +61,23 @@ test.describe('AI settings (OpenAI key kept in this browser only)', () => {
   test('a key OpenAI rejects shows the error and is not stored; a malformed key never reaches the server', async ({ page }) => {
     const checked = await mockVerify(page, 'invalid_key');
     await openDesigner(page);
+    await openChat(page);
     await page.getByTestId('chat-status').click();
     const input = page.getByTestId('ai-key-input');
     const error = page.getByTestId('ai-settings-dialog').getByRole('alert');
 
     await input.fill(KEY);
     await page.getByTestId('ai-key-save').click();
-    await expect(error).toHaveText('OpenAI rejected this key. Check it or create a new one. The key was not saved.');
+    await expect(error).toHaveText('OpenAI דחה את המפתח. בדקו אותו או צרו מפתח חדש. המפתח לא נשמר.');
     await expect(input).toHaveAttribute('aria-invalid', 'true');
-    await expect(page.getByTestId('ai-settings-status')).toHaveText('Not connected');
-    await expect(page.getByTestId('chat-status')).toHaveText('Not connected');
+    await expect(page.getByTestId('ai-settings-status')).toHaveText('לא מחובר');
+    await expect(page.getByTestId('chat-status')).toHaveText('לא מחובר');
     expect(await storedKey(page)).toBeNull();
     expect(checked).toEqual([KEY]);
 
     await input.fill('my-password-123');
     await page.getByTestId('ai-key-save').click();
-    await expect(error).toHaveText("That doesn't look like an OpenAI API key (it starts with sk-).");
+    await expect(error).toHaveText('זה לא נראה כמו מפתח OpenAI API (הוא מתחיל ב-sk-).');
     expect(await storedKey(page)).toBeNull();
     expect(checked).toEqual([KEY]);
   });
@@ -89,17 +91,18 @@ test.describe('AI settings (OpenAI key kept in this browser only)', () => {
     });
     await seedKey(page);
     await openDesigner(page);
+    await openChat(page);
     const chip = page.getByTestId('chat-status');
-    await expect(chip).toHaveText('Key connected');
+    await expect(chip).toHaveText('המפתח מחובר');
     expect(checked).toEqual([KEY]);
 
     await chip.click();
     await expect(page.getByTestId('ai-settings-key')).toContainText('sk-...WXYZ');
     await page.getByTestId('ai-key-remove').click();
-    await expect(page.getByTestId('ai-settings-status')).toHaveText('Not connected');
+    await expect(page.getByTestId('ai-settings-status')).toHaveText('לא מחובר');
     await expect(page.getByTestId('ai-key-remove')).toBeHidden();
     await expect(page.getByTestId('ai-settings-key')).toBeHidden();
-    await expect(chip).toHaveText('Not connected');
+    await expect(chip).toHaveText('לא מחובר');
     expect(await storedKey(page)).toBeNull();
 
     // Without a key the chat says so honestly and sends nothing to the backend.
@@ -107,7 +110,7 @@ test.describe('AI settings (OpenAI key kept in this browser only)', () => {
     await expect(page.getByTestId('chat-connect-key')).toBeVisible();
     await page.getByTestId('chat-input').fill('two drawers please');
     await page.getByTestId('chat-send').click();
-    await expect(page.getByTestId('chat-messages')).toContainText("isn't connected yet");
+    await expect(page.getByTestId('chat-messages')).toContainText('עוד לא מחובר');
     expect(chatCalls).toEqual([]);
   });
 });
@@ -126,7 +129,8 @@ test.describe('AI chat with a connected key (agent mocked)', () => {
     });
     await seedKey(page);
     await openDesigner(page);
-    await expect(page.getByTestId('chat-status')).toHaveText('Key connected');
+    await openChat(page);
+    await expect(page.getByTestId('chat-status')).toHaveText('המפתח מחובר');
     const before = await revision(page);
 
     await page.getByTestId('chat-input').fill('אני רוצה ארון ברוחב 240');

@@ -1,12 +1,12 @@
-import { test, expect, openDesigner } from './fixtures.js';
+import { test, expect, openChat, openDesigner } from './fixtures.js';
 
 test.describe('start screen', () => {
   test('is shown first with three entry points and the manufacturing disclaimer', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByTestId('start-screen')).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Design your wardrobe' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'מתכננים ארון' })).toBeVisible();
     for (const id of ['guided', 'freeText', 'basic']) await expect(page.getByTestId(`entry-${id}`)).toBeVisible();
-    await expect(page.getByText('not manufacturing drawings')).toBeVisible();
+    await expect(page.getByText('הנגר מאמת את המידות באתר')).toBeVisible();
   });
 
   test('Escape does not dismiss it (a choice is required)', async ({ page }) => {
@@ -19,14 +19,14 @@ test.describe('start screen', () => {
   test('"Start from a basic wardrobe" opens the editor with the default wardrobe', async ({ page }) => {
     await openDesigner(page);
     await expect(page.getByTestId('start-screen')).toHaveCount(0);
-    await expect(page.getByText('W 200.0 cm', { exact: true })).toBeVisible();
+    await expect(page.getByText('רוחב 200.0 ס״מ', { exact: true })).toBeVisible();
   });
 
   test('"Describe it" opens the same editor and focuses the chat composer', async ({ page }) => {
     await page.goto('/');
     await page.getByTestId('entry-freeText').click();
     await expect(page.getByTestId('chat-input')).toBeFocused();
-    await expect(page.getByTestId('chat-input')).toHaveAttribute('placeholder', /240 cm wide/);
+    await expect(page.getByTestId('chat-input')).toHaveAttribute('placeholder', /רוחב 240/);
     await page.waitForFunction(() => window.__banai?.viewer.meshOf('shf_l1'));
   });
 });
@@ -34,17 +34,19 @@ test.describe('start screen', () => {
 test.describe('AI chat panel (agent not connected yet)', () => {
   test('sending a message gets an honest reply and never changes the design', async ({ page }) => {
     await openDesigner(page);
+    await openChat(page);
     const before = await page.evaluate(() => window.__banai.store.getState().revision);
     await page.getByTestId('chat-input').fill('make it 3 m wide');
     await page.getByTestId('chat-send').click();
     const messages = page.getByTestId('chat-messages');
     await expect(messages).toContainText('make it 3 m wide');
-    await expect(messages).toContainText("isn't connected yet");
+    await expect(messages).toContainText('עוד לא מחובר');
     expect(await page.evaluate(() => window.__banai.store.getState().revision)).toBe(before);
   });
 
   test('a proposal shows Confirm/Cancel, goes stale after a manual edit, and Cancel changes nothing', async ({ page }) => {
     await openDesigner(page);
+    await openChat(page);
     await page.evaluate(() => {
       const { chat, store } = window.__banai;
       chat.setProposal({
@@ -53,33 +55,36 @@ test.describe('AI chat panel (agent not connected yet)', () => {
       });
     });
     const card = page.getByTestId('proposal-card');
-    await expect(card).toContainText('Proposed changes');
+    await expect(card).toContainText('שינויים מוצעים');
     await expect(page.getByTestId('proposal-confirm')).toBeEnabled();
 
     await page.getByTestId('dim-width').fill('210');
     await page.getByTestId('dim-width').press('Enter');
-    await expect(card).toContainText('Design changed. Ask the agent to re-propose.');
+    await expect(card).toContainText('התכנון השתנה מאז ההצעה. בקשו הצעה חדשה.');
     await expect(page.getByTestId('proposal-confirm')).toBeDisabled();
 
     const revision = await page.evaluate(() => window.__banai.store.getState().revision);
     await page.getByTestId('proposal-cancel').click();
     await expect(card).toHaveCount(0);
-    await expect(page.getByTestId('chat-messages')).toContainText('No changes were made');
+    await expect(page.getByTestId('chat-messages')).toContainText('התכנון לא השתנה');
     expect(await page.evaluate(() => window.__banai.store.getState().revision)).toBe(revision);
   });
 });
 
 // PR #3 look-and-feel tests (logo, fonts, chevron, ripple) were removed with that restyle (ADR-013).
 test.describe('look and feel', () => {
-  test('a starter prompt fills the composer but sends nothing', async ({ page }) => {
+  test('the chat is a conversation: no starter chips or multiple choice (ADR-025)', async ({ page }) => {
     await openDesigner(page);
-    await expect(page.getByTestId('chat-welcome')).toBeVisible();
-    await page.getByTestId('suggestion').first().click();
-    await expect(page.getByTestId('chat-input')).toHaveValue(/240 cm wide/);
-    await expect(page.getByTestId('chat-messages')).toBeHidden();
+    await openChat(page);
+    const welcome = page.getByTestId('chat-welcome');
+    await expect(welcome).toBeVisible();
+    await expect(page.locator('.suggestion, [data-testid="suggestion"]')).toHaveCount(0);
+    // The only button in the welcome is the key connect button.
+    await expect(welcome.getByRole('button')).toHaveCount(1);
+    await page.getByTestId('chat-input').fill('רוחב 240, שלושה תאים');
     await page.getByTestId('chat-send').click();
-    await expect(page.getByTestId('chat-welcome')).toBeHidden();
-    await expect(page.getByTestId('chat-messages')).toContainText('240 cm wide');
+    await expect(welcome).toBeHidden();
+    await expect(page.getByTestId('chat-messages')).toContainText('רוחב 240');
   });
 
   test('the cursor becomes a pointer over a component', async ({ page }) => {
@@ -124,20 +129,23 @@ test.describe('save and render dialogs (backend phases not built yet)', () => {
     await page.getByTestId('open-save').click();
     const dialog = page.getByTestId('save-dialog');
     await expect(dialog).toBeVisible();
-    await expect(dialog).toContainText('Saving is not available yet');
+    await expect(dialog).toContainText('השמירה עוד לא זמינה');
     await expect(page.getByTestId('share-link')).toHaveValue('');
     await expect(page.getByTestId('save-confirm')).toBeDisabled();
     await page.getByTestId('save-close').click();
     await expect(dialog).toBeHidden();
   });
 
-  test('Render opens a dialog labelled as illustrative, with generation disabled', async ({ page }) => {
+  test('Render starts the path tracer HUD over the 3D view; Esc returns to editing without touching the design', async ({ page }) => {
     await openDesigner(page);
+    const revision = await page.evaluate(() => window.__banai.store.getState().revision);
     await page.getByTestId('open-render').click();
-    const dialog = page.getByTestId('render-dialog');
-    await expect(dialog).toContainText('Illustrative image, not the accurate 3D model');
-    await expect(page.getByTestId('render-generate')).toBeDisabled();
+    const hud = page.getByTestId('render-hud');
+    await expect(hud).toBeVisible();
+    await expect(page.locator('body')).toHaveClass(/is-rendering/);
     await page.keyboard.press('Escape');
-    await expect(dialog).toBeHidden();
+    await expect(hud).toBeHidden();
+    await expect(page.locator('body')).not.toHaveClass(/is-rendering/);
+    expect(await page.evaluate(() => window.__banai.store.getState().revision)).toBe(revision);
   });
 });

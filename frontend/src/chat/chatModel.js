@@ -6,18 +6,22 @@
 // the committed design and is only ever "pending" or "stale" (the design changed after it was made).
 
 export const NOT_CONNECTED_MESSAGE =
-  "The AI agent isn't connected yet. Add your OpenAI key in AI settings, or design manually in the Properties panel.";
-export const AGENT_ERROR_MESSAGE = 'The AI designer could not answer. Please try again.';
+  'הסוכן עוד לא מחובר. הוסיפו מפתח OpenAI בהגדרות AI, או המשיכו לתכנן ידנית בפאנל התכנון.';
+export const AGENT_ERROR_MESSAGE = 'בנאי לא הצליח לענות. נסו שוב.';
 const HISTORY_LIMIT = 20;
-export const STALE_MESSAGE = 'Design changed. Ask the agent to re-propose.';
+export const STALE_MESSAGE = 'התכנון השתנה מאז ההצעה. בקשו הצעה חדשה.';
 export const MAX_MESSAGE_LENGTH = 2000;
+// The server's messages are English; the chat speaks Hebrew, so errors are shown by code.
+const CHAT_ERRORS = Object.freeze({
+  INVALID_KEY: 'OpenAI דחה את המפתח. בדקו אותו בהגדרות AI.',
+  INVALID_FORMAT: 'הוסיפו מפתח OpenAI תקין בהגדרות AI.',
+  MODEL_UNAVAILABLE: 'למפתח שלכם אין גישה למודל השיחה.',
+  OPENAI_RATE_LIMIT: 'OpenAI מגביל כרגע את המפתח הזה, או שהמכסה נגמרה. נסו שוב מאוחר יותר.',
+  UPSTREAM: 'שירות ה-AI לא זמין כרגע. נסו שוב בעוד רגע.',
+  EMPTY_REPLY: 'התקבלה תשובה ריקה. נסו שוב.',
+  BUSY: 'בנאי עסוק כרגע. נסו שוב בעוד רגע.',
+});
 
-// Starter prompts shown before the first message. Picking one only fills the composer.
-export const SUGGESTIONS = Object.freeze([
-  '240 cm wide, 260 cm tall, white, three compartments',
-  'Tall wardrobe with sliding doors and a hanging rail',
-  'Four shelves on the left, hanging in the middle, three drawers on the right',
-]);
 
 export function proposalStatus(proposal, currentRevision) {
   if (!proposal) return null;
@@ -71,7 +75,7 @@ export function createChatModel({ getRevision, agent = null }) {
       const done = Promise.resolve()
         .then(() => agent.reply(history))
         .then((answer) => push('assistant', answer))
-        .catch((error) => push('system', error?.message || AGENT_ERROR_MESSAGE))
+        .catch((error) => push('system', CHAT_ERRORS[error?.code] ?? AGENT_ERROR_MESSAGE))
         .finally(() => {
           thinking = false;
           notify();
@@ -89,7 +93,7 @@ export function createChatModel({ getRevision, agent = null }) {
     cancelProposal() {
       if (!proposal) return false;
       proposal = null;
-      push('system', 'Proposal cancelled. No changes were made.');
+      push('system', 'ההצעה בוטלה. התכנון לא השתנה.');
       notify();
       return true;
     },

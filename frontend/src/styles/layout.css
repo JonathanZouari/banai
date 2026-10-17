@@ -70,7 +70,7 @@ body {
 .help__popover {
   position: absolute;
   top: calc(100% + var(--space-2));
-  right: 0;
+  inset-inline-end: 0;
   z-index: var(--z-popover);
   width: 15rem;
   padding: var(--space-3) var(--space-4);
@@ -81,7 +81,7 @@ body {
   box-shadow: var(--material-highlight), var(--shadow-popover);
   color: var(--color-ink);
   letter-spacing: var(--tracking-small);
-  transform-origin: calc(100% - 2.4rem) 0;
+  transform-origin: 2.4rem 0; /* RTL: the trigger sits at the card's top-left */
 }
 .help[open] > .help__popover { animation: help-in var(--dur-pop) var(--ease-out) both; }
 @keyframes help-in {
@@ -105,9 +105,7 @@ body {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: var(--chat-w, 320px) minmax(0, 1fr) clamp(300px, 26vw, 360px);
 }
-.workspace--chat-collapsed { --chat-w: 48px; }
 
 /* Side columns are the grouped background; their content sits in white inset cards. */
 .panel {
@@ -117,7 +115,6 @@ body {
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 0, 0, 0.28) transparent;
 }
-.panel--chat { border-right: 1px solid var(--color-border); }
 .chat__rail {
   display: none;
   width: 100%;
@@ -150,9 +147,8 @@ body {
   box-shadow: var(--shadow-card);
 }
 .tips__title { margin: 0 0 var(--space-2); color: var(--color-muted); font-size: var(--text-xs); font-weight: 600; line-height: var(--leading-snug); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
-.tips__list { margin: 0; padding-left: 1.125rem; color: var(--color-muted); font-size: var(--text-sm); line-height: var(--leading-body); letter-spacing: var(--tracking-control); }
+.tips__list { margin: 0; padding-inline-start: 1.125rem; color: var(--color-muted); font-size: var(--text-sm); line-height: var(--leading-body); letter-spacing: var(--tracking-control); }
 .tips__list li + li { margin-top: var(--space-1); }
-.panel--properties { border-left: 1px solid var(--color-border); }
 .panel__title { margin: 0 0 var(--space-1); padding-inline: var(--space-1); font-size: var(--text-lg); font-weight: 600; line-height: var(--leading-title); letter-spacing: var(--tracking-title); }
 .panel__hint, .panel__note { margin: 0 0 var(--space-3); padding-inline: var(--space-1); color: var(--color-muted); font-size: var(--text-sm); line-height: var(--leading-body); letter-spacing: var(--tracking-control); }
 
@@ -173,7 +169,7 @@ body {
 .viewer-toolbar {
   position: absolute;
   top: var(--space-3);
-  right: var(--space-3);
+  inset-inline-end: var(--space-3);
   z-index: var(--z-toolbar);
   display: flex;
   flex-wrap: wrap;

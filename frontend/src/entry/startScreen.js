@@ -1,10 +1,15 @@
 // Start screen: three ways in, one editor. Shown on load as a modal; choosing an option closes it.
 import { el } from '../editor/fields.js';
 import { icon } from '../ui/icons.js';
-import { createLogo } from '../ui/logo.js';
 import { ENTRY_POINTS } from './entryPoints.js';
 
-export const START_FOOTNOTE = 'Designs are illustrative previews and are not manufacturing drawings.';
+export const START_FOOTNOTE = 'התכנון הוא טיוטה לשיחה עם נגר. הנגר מאמת את המידות באתר לפני הייצור.';
+
+/** The top bar's brand: the mark (cloned from the page, a static constant) and the name. */
+function brand() {
+  const mark = document.querySelector('.brand__mark')?.cloneNode(true);
+  return el('div', { className: 'brand' }, [...(mark ? [mark] : []), el('span', { className: 'brand__name', text: 'בנאי' })]);
+}
 
 export function mountStartScreen({ onChoose }) {
   const cards = ENTRY_POINTS.map((entry) => {
@@ -28,10 +33,10 @@ export function mountStartScreen({ onChoose }) {
   });
 
   const dialog = el('dialog', { className: 'start', attrs: { 'aria-labelledby': 'start-title' } }, [
-    el('header', { className: 'start__bar' }, [createLogo({ size: 36 })]),
+    el('header', { className: 'start__bar' }, [brand()]),
     el('main', { className: 'start__main' }, [
-      el('h1', { className: 'start__title', text: 'Design your wardrobe', attrs: { id: 'start-title' } }),
-      el('p', { className: 'start__subtitle', text: 'Choose how you would like to begin. You can switch between the AI designer and manual editing at any time.' }),
+      el('h1', { className: 'start__title', text: 'מתכננים ארון', attrs: { id: 'start-title' } }),
+      el('p', { className: 'start__subtitle', text: 'בחרו איך להתחיל. אפשר לעבור בכל רגע בין השיחה עם בנאי לבין עריכה ידנית.' }),
       el('div', { className: 'start__cards' }, cards),
       el('p', { className: 'start__footnote', text: START_FOOTNOTE }),
     ]),

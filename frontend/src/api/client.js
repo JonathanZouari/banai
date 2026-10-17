@@ -29,12 +29,41 @@ export const verifyAiKey = (apiKey, fetchImpl = fetch) => postJson('/api/setting
 /** One agent turn. `messages` is [{ role: 'user'|'assistant', content }]. Returns { reply, model }. */
 export const sendChatMessage = (apiKey, messages, fetchImpl = fetch) => postJson('/api/chat', { apiKey, messages }, fetchImpl);
 
-async function postJson(path, payload, fetchImpl) {
+/**
+ * Research-backed advisories for a design (ADR-018). Returns [{ id, level, title, body, grade, src,
+ * targets, fix?: { label, ops } }], most severe first. `signal` cancels a request a newer design replaced.
+ */
+export const getAdvisories = (design, { signal, fetchImpl = fetch } = {}) =>
+  postJson('/api/advisories', { design }, fetchImpl, signal).then((data) => data.advisories);
+
+/**
+ * The carpenter dossier PDF (ADR-019) as a Blob. `renderPng` (optional) is the path-traced cover,
+ * a PNG data URL or bare base64. Errors carry the envelope's `code` (422 invalid design, 413, 429).
+ */
+export async function getDossier(design, { renderPng = null, fetchImpl = fetch } = {}) {
+  if (!API_BASE_URL) throw new Error('The API base URL is not configured');
+  const png = renderPng ? renderPng.replace(/^data:image\/png;base64,/, '') : null;
+  const response = await fetchImpl(`${API_BASE_URL}/api/dossier`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(png ? { design, renderPng: png } : { design }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const error = new Error(body?.error?.message ?? `Request to /api/dossier failed with status ${response.status}`);
+    error.code = body?.error?.code ?? 'REQUEST_FAILED';
+    throw error;
+  }
+  return response.blob();
+}
+
+async function postJson(path, payload, fetchImpl, signal = undefined) {
   if (!API_BASE_URL) throw new Error('The API base URL is not configured');
   const response = await fetchImpl(`${API_BASE_URL}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
+    ...(signal ? { signal } : {}),
   });
   const body = await response.json().catch(() => null);
   if (!response.ok || !body || body.success !== true) {

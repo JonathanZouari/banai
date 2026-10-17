@@ -92,7 +92,7 @@ const inputField = (options) => createInput(options).field;
 export function syncSlider(slider, mm, range) {
   const value = clampToRange(mm, range);
   slider.value = String(value);
-  slider.setAttribute('aria-valuetext', `${toCmText(value)} cm`);
+  slider.setAttribute('aria-valuetext', `${toCmText(value)} ס״מ`);
   const span = range.max - range.min;
   slider.style.setProperty('--slider-frac', span > 0 ? String((value - range.min) / span) : '0');
 }
@@ -108,7 +108,7 @@ function createSlider({ label, testId, mm, range, text, onCommit }) {
     className: 'field__slider',
     attrs: {
       type: 'range', min: String(range.min), max: String(range.max), step: String(range.step),
-      'aria-label': `${label} slider`, 'aria-describedby': text.input.getAttribute('aria-describedby'), 'data-key': `${label} slider`,
+      'aria-label': `${label}, מחוון`, 'aria-describedby': text.input.getAttribute('aria-describedby'), 'data-key': `${label} slider`,
     },
   });
   if (testId) slider.dataset.testid = `${testId}-slider`;
@@ -155,16 +155,17 @@ function createSlider({ label, testId, mm, range, text, onCommit }) {
 
 /**
  * A centimetre field backed by an integer-millimetre value. `onCommit(mm)` dispatches and returns
- * the domain result. With `range` ({ min, max, step } in mm) the field also gets a slider.
+ * the domain result. An `optional` field may be empty (`mm` null); clearing it commits null. With `range` ({ min, max, step } in mm) the field also gets a slider.
  * Returns the field and the slider separately so a caller can lay them out; `cmField` is the
  * common case with the slider directly under the text input.
  */
-export function cmFieldParts({ label, mm, testId, onCommit, range = null }) {
-  const bounds = range ? normalizeRange(range) : null;
+export function cmFieldParts({ label, mm, testId, onCommit, range = null, optional = false }) {
+  const bounds = range && mm !== null ? normalizeRange(range) : null;
   let accept = null;
   const text = createInput({
-    label, testId, suffix: 'cm', value: toCmText(mm),
+    label, testId, suffix: 'ס״מ', value: mm === null ? '' : toCmText(mm),
     commit: (value) => {
+      if (optional && value.trim() === '') return onCommit(null); // an empty optional field clears it
       const parsed = parseCm(value);
       if (!parsed.ok) return parsed;
       const result = onCommit(parsed.mm);
@@ -189,7 +190,7 @@ export function cmField(options) {
 export function countField({ label, value, testId, onCommit }) {
   return inputField({
     label, testId, value: String(value), inputMode: 'numeric',
-    commit: (text) => (/^\d{1,2}$/.test(text.trim()) ? onCommit(Number(text.trim())) : { ok: false, message: 'Enter a whole number' }),
+    commit: (text) => (/^\d{1,2}$/.test(text.trim()) ? onCommit(Number(text.trim())) : { ok: false, message: 'הזינו מספר שלם' }),
   });
 }
 

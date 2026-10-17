@@ -1,8 +1,8 @@
-// Left column: header, a welcome with starter prompts, the conversation, the proposal card and
-// the composer. The agent answers in text only, so this panel never changes the design by itself. The header chip mirrors the OpenAI key status from AI settings.
+// Chat tab: header, a short welcome, the conversation, the proposal card and the composer. No
+// starter chips or multiple choice (ADR-025): the customer just talks. The agent answers in text only, so this panel never changes the design by itself. The header chip mirrors the OpenAI key status from AI settings.
 import { el } from '../editor/fields.js';
 import { icon } from '../ui/icons.js';
-import { MAX_MESSAGE_LENGTH, SUGGESTIONS } from './chatModel.js';
+import { MAX_MESSAGE_LENGTH } from './chatModel.js';
 import { renderProposalCard } from './proposalCard.js';
 import { STATUS_LABELS } from '../settings/aiSettingsModel.js';
 
@@ -10,10 +10,10 @@ export function mountChat(container, { model, onConfirm, aiSettings, onOpenSetti
   container.classList.add('panel--chat');
 
   // Shows the OpenAI key status (kept in sync with AI settings); clicking it opens the settings.
-  const statusChip = el('button', { className: 'status-chip chat__status', attrs: { type: 'button', title: 'AI settings' } });
+  const statusChip = el('button', { className: 'status-chip chat__status', attrs: { type: 'button', title: 'הגדרות AI' } });
   statusChip.dataset.testid = 'chat-status';
   statusChip.addEventListener('click', () => onOpenSettings?.());
-  const connectButton = el('button', { className: 'btn btn--tonal chat__connect', attrs: { type: 'button' } }, [icon('key', { size: 18 }), el('span', { text: 'Connect your OpenAI key' })]);
+  const connectButton = el('button', { className: 'btn btn--tonal chat__connect', attrs: { type: 'button' } }, [icon('key', { size: 18 }), el('span', { text: 'חיבור מפתח OpenAI' })]);
   connectButton.dataset.testid = 'chat-connect-key';
   connectButton.addEventListener('click', () => onOpenSettings?.());
   const renderKeyStatus = (state) => {
@@ -25,39 +25,29 @@ export function mountChat(container, { model, onConfirm, aiSettings, onOpenSetti
   const header = el('header', { className: 'chat__header' }, [
     el('span', { className: 'chat__avatar' }, [icon('sparkle', { size: 22 })]),
     el('div', { className: 'chat__heading' }, [
-      el('h2', { className: 'chat__title', text: 'AI Designer' }),
-      el('p', { className: 'chat__subtitle', text: 'Design assistant' }),
+      el('h2', { className: 'chat__title', text: 'בנאי' }),
+      el('p', { className: 'chat__subtitle', text: 'רואה את התכנון · מציע, ואתם מאשרים' }),
     ]),
     statusChip,
   ]);
 
-  const input = el('textarea', { className: 'chat__input', attrs: { dir: 'auto', rows: '2', maxlength: String(MAX_MESSAGE_LENGTH), placeholder: 'Describe your wardrobe…', 'aria-label': 'Message to the AI designer' } });
+  const input = el('textarea', { className: 'chat__input', attrs: { dir: 'auto', rows: '2', maxlength: String(MAX_MESSAGE_LENGTH), placeholder: 'כתבו לבנאי…', 'aria-label': 'הודעה לבנאי' } });
   input.dataset.testid = 'chat-input';
-  const sendButton = el('button', { className: 'icon-btn icon-btn--filled chat__send', attrs: { type: 'submit', 'aria-label': 'Send message' } }, [icon('send')]);
+  const sendButton = el('button', { className: 'icon-btn icon-btn--filled chat__send', attrs: { type: 'submit', 'aria-label': 'שליחה' } }, [icon('send')]);
   sendButton.dataset.testid = 'chat-send';
   const composer = el('form', { className: 'chat__composer' }, [input, sendButton]);
-  const hint = el('p', { className: 'chat__hint', text: 'Enter to send · Shift+Enter for a new line' });
+  const hint = el('p', { className: 'chat__hint', text: 'Enter לשליחה · Shift+Enter לשורה חדשה' });
 
-  const chips = SUGGESTIONS.map((text) => {
-    const chip = el('button', { className: 'suggestion', attrs: { type: 'button' } }, [icon('sparkle', { size: 16 }), el('span', { text })]);
-    chip.dataset.testid = 'suggestion';
-    chip.addEventListener('click', () => {
-      input.value = text; // only fills the composer: nothing is sent until the customer presses send
-      input.focus();
-    });
-    return chip;
-  });
-  const welcome = el('section', { className: 'welcome', attrs: { 'aria-label': 'Get started' } }, [
-    el('h3', { className: 'welcome__title', text: 'What shall we design today?' }),
-    el('p', { className: 'welcome__text', text: "Describe your wardrobe in your own words. I'll turn it into a proposal that you confirm before anything changes." }),
-    el('div', { className: 'welcome__chips' }, chips),
+  const welcome = el('section', { className: 'welcome', attrs: { 'aria-label': 'פתיחה' } }, [
+    el('h3', { className: 'welcome__title', text: 'מה מתכננים היום?' }),
+    el('p', { className: 'welcome__text', text: 'ספרו במילים שלכם מה חשוב לכם בארון, מה צריך להיכנס אליו או מה מפריע לכם בתכנון. כל שינוי מגיע כהצעה, ושום דבר לא משתנה בלי אישור שלכם.' }),
     connectButton,
   ]);
   welcome.dataset.testid = 'chat-welcome';
 
-  const list = el('div', { className: 'chat__messages', attrs: { role: 'log', 'aria-live': 'polite', 'aria-label': 'Conversation' } });
+  const list = el('div', { className: 'chat__messages', attrs: { role: 'log', 'aria-live': 'polite', 'aria-label': 'שיחה' } });
   list.dataset.testid = 'chat-messages';
-  const typing = el('div', { className: 'chat__bubble chat__bubble--assistant chat__typing', attrs: { 'aria-label': 'The AI designer is typing' } }, [el('span'), el('span'), el('span')]);
+  const typing = el('div', { className: 'chat__bubble chat__bubble--assistant chat__typing', attrs: { 'aria-label': 'בנאי כותב' } }, [el('span'), el('span'), el('span')]);
   typing.dataset.testid = 'chat-typing';
   const proposalSlot = el('div', { className: 'chat__proposal' });
 

@@ -45,7 +45,7 @@
   --color-on-accent: #ffffff; /* Text and icons on an accent fill. */
 
   /* Typography: the platform font first, self-hosted Inter (imported in main.js) as the fallback. */
-  --font-ui: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+  --font-ui: 'Assistant', -apple-system, BlinkMacSystemFont, 'SF Hebrew', 'SF Pro Text', system-ui, sans-serif;
   --text-xs: 0.75rem; /* 12px: captions, section labels, chips */
   --text-sm: 0.8125rem; /* 13px: controls, labels, notes */
   --text-md: 0.875rem; /* 14px: body, field values */
@@ -149,4 +149,41 @@
     --color-fill-hover: rgba(118, 118, 128, 0.3);
     --color-slider-track: rgba(118, 118, 128, 0.5);
   }
+}
+
+/* Material 3 names used by the chat, dialogs and start screen (bobHabanai's pre-merge components).
+   The uxui merge replaced the file that defined them, so they resolved to nothing and those
+   surfaces lost their backgrounds. They are aliases of the Apple palette, so the components
+   follow .stitch/DESIGN.md instead of the old orange theme. */
+:root {
+  --md-sys-color-primary: var(--color-accent);
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: var(--color-accent-soft);
+  --md-sys-color-secondary-container: var(--color-fill);
+  --md-sys-color-surface: var(--color-bg);
+  --md-sys-color-on-surface: var(--color-ink);
+  --md-sys-color-on-surface-variant: var(--color-muted);
+  --md-sys-color-surface-container-lowest: var(--color-surface);
+  --md-sys-color-surface-container-low: #fbfbfd;
+  --md-sys-color-surface-container: var(--color-fill-subtle);
+  --md-sys-color-surface-container-high: var(--color-fill);
+  --md-sys-color-outline: var(--color-border-control);
+  --md-sys-color-outline-variant: var(--color-border);
+  --md-sys-color-scrim: rgba(0, 0, 0, 0.32);
+  --md-sys-typescale-headline-large: 700 40px/46px var(--font-ui);
+  --md-sys-typescale-headline-small: 700 24px/32px var(--font-ui);
+  --md-sys-typescale-title-medium: 600 16px/24px var(--font-ui);
+  --md-sys-typescale-title-small: 600 14px/20px var(--font-ui);
+  --md-sys-typescale-body-large: 400 16px/24px var(--font-ui);
+  --md-sys-typescale-body-medium: 400 14px/20px var(--font-ui);
+  --md-sys-typescale-body-small: 400 12px/16px var(--font-ui);
+  --md-sys-typescale-label-large: 600 14px/20px var(--font-ui);
+  --md-sys-typescale-label-medium: 600 12px/16px var(--font-ui);
+  --md-sys-typescale-label-small: 600 11px/16px var(--font-ui);
+  --md-sys-shape-extra-small: 4px;
+  --md-sys-shape-small: 8px;
+  --md-sys-shape-medium: 12px;
+  --md-sys-shape-large: 16px;
+  --md-sys-shape-extra-large: 28px;
+  --md-sys-shape-full: 999px;
 }

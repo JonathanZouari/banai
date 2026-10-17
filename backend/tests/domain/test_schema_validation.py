@@ -200,4 +200,4 @@ def test_catalog_keeps_existing_order_and_a_single_walnut():
     ids = [entry["id"] for entry in colors]
     assert ids[:6] == ["white", "light_grey", "anthracite", "black", "natural_oak", "walnut"]
     assert len(ids) == len(set(ids)) and "pink" not in ids
-    assert [e["id"] for e in colors if "walnut" in e["name"].lower()] == ["walnut"]
+    assert [e["id"] for e in colors if "אגוז" in e["name"]] == ["walnut"]  # one walnut, by its Hebrew name

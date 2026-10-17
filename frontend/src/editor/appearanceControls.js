@@ -6,7 +6,7 @@ import { materialOps } from './opsFromForm.js';
 const isCatalog = (ref, id) => !ref.custom && ref.catalogId === id;
 
 function swatches({ catalog, appearance, run, target }) {
-  const row = el('div', { className: 'swatches', attrs: { role: 'group', 'aria-label': 'Colour' } });
+  const row = el('div', { className: 'swatches', attrs: { role: 'group', 'aria-label': 'צבע' } });
   catalog.colors.forEach((color) => {
     const swatch = el('button', {
       className: 'swatch',
@@ -20,7 +20,7 @@ function swatches({ catalog, appearance, run, target }) {
   const selected = appearance.color.custom ? appearance.color.name : catalog.colors.find((c) => c.id === appearance.color.catalogId)?.name ?? '';
   return el('div', { className: 'swatch-group' }, [
     el('div', { className: 'swatch-group__head' }, [
-      el('span', { className: 'field__label', text: 'Colour' }),
+      el('span', { className: 'field__label', text: 'צבע' }),
       el('span', { className: 'swatch-group__name', text: selected }),
     ]),
     row,
@@ -29,16 +29,16 @@ function swatches({ catalog, appearance, run, target }) {
 
 function customColour({ appearance, run, target }) {
   const current = appearance.color.custom ? appearance.color : null;
-  const name = el('input', { className: 'field__input', attrs: { type: 'text', maxlength: '80', placeholder: 'Name, e.g. Sage green', 'aria-label': 'Custom colour name', 'data-key': 'Custom colour name' } });
+  const name = el('input', { className: 'field__input', attrs: { type: 'text', maxlength: '80', placeholder: 'שם, למשל ירוק מרווה', 'aria-label': 'שם הצבע המותאם', 'data-key': 'Custom colour name' } });
   name.value = current?.name ?? '';
-  const picker = el('input', { className: 'colour-input', attrs: { type: 'color', 'aria-label': 'Custom colour', 'data-key': 'Custom colour' } });
+  const picker = el('input', { className: 'colour-input', attrs: { type: 'color', 'aria-label': 'צבע מותאם', 'data-key': 'Custom colour' } });
   picker.value = current?.hex ?? '#9caf88';
-  const applyButton = button('Apply custom colour', () => {
-    run(materialOps(target, 'color', { custom: true, name: name.value.trim() || 'Custom colour', hex: picker.value }));
+  const applyButton = button('החלת צבע מותאם', () => {
+    run(materialOps(target, 'color', { custom: true, name: name.value.trim() || 'צבע מותאם', hex: picker.value }));
   }, { variant: 'ghost' });
-  const badge = current ? [el('p', { className: 'custom-badge', text: `Custom: ${current.name}` })] : [];
+  const badge = current ? [el('p', { className: 'custom-badge', text: `מותאם: ${current.name}` })] : [];
   return el('details', { className: 'custom-colour', attrs: current ? { open: '' } : {} }, [
-    el('summary', { text: 'Custom colour…', attrs: { 'data-key': 'summary' } }),
+    el('summary', { text: 'צבע מותאם…', attrs: { 'data-key': 'summary' } }),
     ...badge,
     el('div', { className: 'custom-colour__row' }, [picker, name]),
     applyButton,
@@ -50,10 +50,10 @@ export function appearanceControls({ catalog, appearance, target, run, label }) 
   return el('div', { className: 'appearance', attrs: { 'data-group': label } }, [
     el('p', { className: 'appearance__label', text: label }),
     selectField({
-      label: 'Material',
+      label: 'חומר',
       value: material.custom ? '' : material.catalogId,
       options: [
-        ...(material.custom ? [{ value: '', label: `Custom: ${material.name}` }] : []),
+        ...(material.custom ? [{ value: '', label: `מותאם: ${material.name}` }] : []),
         ...catalog.materials.map((m) => ({ value: m.id, label: m.name })),
       ],
       onChange: (id) => run(materialOps(target, 'material', { catalogId: id })),
@@ -61,7 +61,7 @@ export function appearanceControls({ catalog, appearance, target, run, label }) 
     swatches({ catalog, appearance, run, target }),
     customColour({ appearance, run, target }),
     segmented({
-      label: 'Finish',
+      label: 'גימור',
       value: appearance.finish.custom ? null : appearance.finish.catalogId,
       options: catalog.finishes.map((f) => ({ value: f.id, label: f.name })),
       onChange: (id) => run(materialOps(target, 'finish', { catalogId: id })),

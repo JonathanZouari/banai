@@ -17,20 +17,20 @@ export function compartmentsSection({ design, selection, run, select }) {
     if (inContext) row.setAttribute('aria-current', 'true');
     // The slider is the row's last child: it spans the full width on a line of its own (CSS).
     const { field, slider } = cmFieldParts({
-      label: 'Width', mm: compartment.width, testId: `width-${compartment.id}`, range: compartmentWidthRange(design, compartment.id),
+      label: 'רוחב', mm: compartment.width, testId: `width-${compartment.id}`, range: compartmentWidthRange(design, compartment.id),
       onCommit: (mm) => run([{ op: 'modify_compartment', compartmentId: compartment.id, width: mm }]),
     });
     row.append(
-      button(`Compartment ${index + 1}`, () => select(compartment.id), { variant: 'link', testId: `select-${compartment.id}` }),
+      button(`תא ${index + 1}`, () => select(compartment.id), { variant: 'link', testId: `select-${compartment.id}` }),
       field,
-      button('Remove', () => actionResult(row, run(removeOps(compartment.id))), {
+      button('הסרה', () => actionResult(row, run(removeOps(compartment.id))), {
         variant: 'danger-quiet', disabled: single, testId: `remove-${compartment.id}`,
       }),
       ...(slider ? [slider] : []),
     );
     list.append(row);
   });
-  const container = collapsibleSection('compartments', 'Compartments', [list]);
-  container.append(button('+ Add compartment', () => actionResult(container, run(addCompartmentOps(design))), { variant: 'secondary', testId: 'add-compartment' }));
+  const container = collapsibleSection('compartments', 'תאים', [list]);
+  container.append(button('+ הוספת תא', () => actionResult(container, run(addCompartmentOps(design))), { variant: 'secondary', testId: 'add-compartment' }));
   return container;
 }

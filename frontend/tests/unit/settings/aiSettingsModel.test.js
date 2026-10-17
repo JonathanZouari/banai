@@ -48,7 +48,7 @@ describe('AI settings model', () => {
     await expect(model.saveKey(KEY)).resolves.toEqual({ ok: false });
     expect(raw.data.has(STORAGE_KEY)).toBe(false);
     expect(model.getState().status).toBe('not_configured');
-    expect(model.getState().error).toMatch('not saved');
+    expect(model.getState().error).toMatch('לא נשמר');
   });
 
   it('rejects a malformed key without calling the backend', async () => {
@@ -62,7 +62,7 @@ describe('AI settings model', () => {
     const { model, raw } = setup({ stored: KEY, fail: true });
     await model.saveKey('sk-new-abcdefghijklmnopqrstuvwxyz');
     expect(raw.data.get(STORAGE_KEY)).toBe(KEY);
-    expect(model.getState().error).toBe('Key check failed');
+    expect(model.getState().error).toBe('לא הצלחנו לבדוק את המפתח. נסו שוב.'); // server text is never shown
   });
 
   it('removes the key from this browser', async () => {

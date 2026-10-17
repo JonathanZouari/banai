@@ -18,49 +18,49 @@ export function createAiSettingsDialog(model) {
     attrs: { id: 'openai-key', type: 'password', autocomplete: 'off', spellcheck: 'false', placeholder: 'sk-...', 'aria-describedby': 'openai-key-message' },
   });
   input.dataset.testid = 'ai-key-input';
-  const reveal = button('Show', () => {
+  const reveal = button('הצג', () => {
     const hidden = input.type === 'password';
     input.type = hidden ? 'text' : 'password';
-    reveal.textContent = hidden ? 'Hide' : 'Show';
+    reveal.textContent = hidden ? 'הסתר' : 'הצג';
   }, { variant: 'ghost', testId: 'ai-key-reveal' });
   const message = el('p', { className: 'field__message', attrs: { id: 'openai-key-message', role: 'alert', 'aria-live': 'polite' } });
 
-  const save = button('Save & test', async () => {
+  const save = button('שמירה ובדיקה', async () => {
     const result = await model.saveKey(input.value);
     if (result.ok) {
       input.value = '';
       input.type = 'password';
-      reveal.textContent = 'Show';
+      reveal.textContent = 'הצג';
     }
   }, { variant: 'primary', testId: 'ai-key-save' });
-  const test = button('Test connection', () => model.test(), { variant: 'secondary', testId: 'ai-key-test' });
-  const remove = button('Remove key', () => model.removeKey(), { variant: 'ghost', testId: 'ai-key-remove' });
+  const test = button('בדיקת חיבור', () => model.test(), { variant: 'secondary', testId: 'ai-key-test' });
+  const remove = button('הסרת המפתח', () => model.removeKey(), { variant: 'ghost', testId: 'ai-key-remove' });
   input.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') save.click();
   });
 
   const dialog = createDialog({
-    title: 'AI settings',
+    title: 'הגדרות AI',
     labelId: 'ai-settings-title',
     testId: 'ai-settings-dialog',
     body: [
       el('div', { className: 'ai-settings__status' }, [badge, detail]),
       meta,
       el('div', { className: 'field' }, [
-        el('label', { className: 'field__label', text: 'OpenAI API key', attrs: { for: 'openai-key' } }),
+        el('label', { className: 'field__label', text: 'מפתח OpenAI API', attrs: { for: 'openai-key' } }),
         el('div', { className: 'field__control field__control--key' }, [input, reveal]),
         message,
       ]),
-      el('p', { className: 'dialog__note', text: 'Saved only in this browser on this computer. The BanAI server checks the key with OpenAI and does not store it.' }),
+      el('p', { className: 'dialog__note', text: 'נשמר רק בדפדפן הזה, במחשב הזה. השרת של בנאי בודק את המפתח מול OpenAI ולא שומר אותו.' }),
     ],
-    actions: [remove, test, save, button('Close', () => dialog.close(), { variant: 'ghost', testId: 'ai-settings-close' })],
+    actions: [remove, test, save, button('סגירה', () => dialog.close(), { variant: 'ghost', testId: 'ai-settings-close' })],
   });
 
   function render(state) {
     badge.textContent = STATUS_LABELS[state.status];
     badge.dataset.status = state.status;
     detail.textContent = STATUS_DETAILS[state.status];
-    const parts = state.maskedKey ? [`Key ${state.maskedKey}`] : [];
+    const parts = state.maskedKey ? [`מפתח ${state.maskedKey}`] : [];
     if (state.model) parts.push(`model ${state.model}`);
     if (state.checkedAt) parts.push(`checked ${formatTime(state.checkedAt)}`);
     meta.textContent = parts.join(' · ');

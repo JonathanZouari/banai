@@ -16,18 +16,18 @@ export function renderProposalCard(proposal, status, { onConfirm, onCancel }) {
   confirm.disabled = stale;
   confirm.addEventListener('click', () => onConfirm(proposal));
 
-  const cancel = el('button', { className: 'btn', text: 'Cancel', attrs: { type: 'button' } });
+  const cancel = el('button', { className: 'btn', text: 'ביטול', attrs: { type: 'button' } });
   cancel.dataset.testid = 'proposal-cancel';
   cancel.addEventListener('click', () => onCancel(proposal));
 
-  const card = el('section', { className: `proposal${stale ? ' proposal--stale' : ''}`, attrs: { 'aria-label': 'Proposed changes' } }, [
+  const card = el('section', { className: `proposal${stale ? ' proposal--stale' : ''}`, attrs: { 'aria-label': 'שינויים מוצעים' } }, [
     el('header', { className: 'proposal__header' }, [
-      el('h3', { className: 'proposal__heading', text: 'Proposed changes' }),
+      el('h3', { className: 'proposal__heading', text: 'שינויים מוצעים' }),
       el('span', { className: 'proposal__count', text: `${proposal.changes.length} ${proposal.changes.length === 1 ? 'item' : 'items'}` }),
     ]),
     el('p', { className: 'proposal__summary', text: proposal.summary }),
     el('ul', { className: 'proposal__list' }, rows),
-    el('p', { className: 'proposal__note', text: 'Not applied yet. Confirm to apply these changes to your design.' }),
+    el('p', { className: 'proposal__note', text: 'עוד לא הוחל. אשרו כדי להחיל את השינויים על התכנון.' }),
     el('div', { className: 'button-row' }, [confirm, cancel]),
   ]);
   card.dataset.testid = 'proposal-card';

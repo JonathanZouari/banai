@@ -21,8 +21,8 @@ const propsCount = (page) => page.evaluate(() => {
   return props ? props.children.length : 0;
 });
 
-const widthLabel = (page) => page.locator('.dim-label', { hasText: /^W \d/ });
-const cmText = (mm) => `W ${(mm / 10).toFixed(1)} cm`;
+const widthLabel = (page) => page.locator('.dim-label', { hasText: /^רוחב \d/ });
+const cmText = (mm) => `רוחב ${(mm / 10).toFixed(1)} ס״מ`;
 
 test.describe('New features', () => {
   test.beforeEach(async ({ page }) => openDesigner(page));
@@ -85,7 +85,7 @@ test.describe('New features', () => {
 
   test('a wood swatch textures the carcass with the catalog colour', async ({ page }) => {
     const expectedHex = await page.evaluate(() => window.__banai.store.getState().catalog.colors.find((c) => c.id === 'light_oak').hex);
-    await page.getByRole('button', { name: 'Light oak', exact: true }).first().click();
+    await page.getByRole('button', { name: 'אלון בהיר', exact: true }).first().click();
 
     await expect.poll(() => page.evaluate(() => window.__banai.viewer.meshOf('carcass').material.map !== null)).toBe(true);
     await expect.poll(() => page.evaluate(() => window.__banai.viewer.meshOf('carcass').material.color.getHexString()))

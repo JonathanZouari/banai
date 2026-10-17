@@ -20,14 +20,14 @@ export function handleControls({ label, testPrefix, target, inherited, override,
   const nodes = [
     el('p', { className: 'appearance__label', text: label }),
     selectField({
-      label: 'Style',
+      label: 'סגנון',
       testId: `${testPrefix}-style`,
       value: current.style,
       options: HANDLE_STYLE_OPTIONS,
       onChange: (style) => run(handleOps(target, { style })),
     }),
     segmented({
-      label: 'Finish',
+      label: 'גימור',
       testId: `${testPrefix}-finish`,
       value: current.finish,
       options: HANDLE_FINISH_OPTIONS,
@@ -35,9 +35,9 @@ export function handleControls({ label, testPrefix, target, inherited, override,
     }),
   ];
   if (isItem && override) {
-    nodes.push(button('Use wardrobe handles', () => run(clearHandleOps(target)), { variant: 'ghost', testId: `${testPrefix}-reset` }));
+    nodes.push(button('חזרה לידיות הארון', () => run(clearHandleOps(target)), { variant: 'ghost', testId: `${testPrefix}-reset` }));
   } else if (isItem) {
-    nodes.push(el('p', { className: 'handle-group__note', text: 'Following the wardrobe handles.' }));
+    nodes.push(el('p', { className: 'handle-group__note', text: 'לפי ידיות הארון.' }));
   }
   return el('div', { className: 'appearance handle-group', attrs: { role: 'group', 'aria-label': label, 'data-group': label } }, nodes);
 }

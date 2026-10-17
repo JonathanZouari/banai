@@ -4,27 +4,34 @@
 // status: 'not_configured' | 'checking' | 'connected' | 'invalid_key' | 'model_unavailable' | 'unreachable'
 
 export const STATUS_LABELS = Object.freeze({
-  not_configured: 'Not connected',
-  checking: 'Checking…',
-  connected: 'Key connected',
-  invalid_key: 'Key invalid',
-  model_unavailable: 'Model unavailable',
-  unreachable: 'OpenAI unreachable',
+  not_configured: 'לא מחובר',
+  checking: 'בודק…',
+  connected: 'המפתח מחובר',
+  invalid_key: 'מפתח לא תקין',
+  model_unavailable: 'המודל לא זמין',
+  unreachable: 'אין חיבור ל-OpenAI',
 });
 
 export const STATUS_DETAILS = Object.freeze({
-  not_configured: 'Add your OpenAI API key to connect the AI designer.',
-  checking: 'Checking your key with OpenAI…',
-  connected: 'Your key works. It is stored only in this browser on this computer.',
-  invalid_key: 'OpenAI rejected this key. Check it or create a new one.',
-  model_unavailable: 'The key works, but it cannot use the configured model.',
-  unreachable: 'Could not reach OpenAI to check the key. Try again in a moment.',
+  not_configured: 'הוסיפו מפתח OpenAI כדי לחבר את בנאי.',
+  checking: 'בודק את המפתח מול OpenAI…',
+  connected: 'המפתח עובד. הוא שמור רק בדפדפן הזה, במחשב הזה.',
+  invalid_key: 'OpenAI דחה את המפתח. בדקו אותו או צרו מפתח חדש.',
+  model_unavailable: 'המפתח עובד, אבל אין לו גישה למודל שהוגדר.',
+  unreachable: 'לא הצלחנו להגיע ל-OpenAI כדי לבדוק את המפתח. נסו שוב בעוד רגע.',
 });
 
 const SAVEABLE = new Set(['connected', 'model_unavailable']);
 const KEY_PATTERN = /^sk-[A-Za-z0-9_-]{16,500}$/;
 
 export const maskKey = (apiKey) => `sk-...${apiKey.slice(-4)}`;
+
+const CHECK_ERRORS = Object.freeze({
+  INVALID_FORMAT: 'זה לא נראה כמו מפתח OpenAI API (הוא מתחיל ב-sk-).',
+  BUSY: 'בדיקת מפתח אחרת רצה כרגע. נסו שוב בעוד רגע.',
+  PAYLOAD_TOO_LARGE: 'הבקשה גדולה מדי.',
+  REQUEST_FAILED: 'לא הצלחנו לבדוק את המפתח. נסו שוב.',
+});
 
 export function createAiSettingsModel({ storage, verify }) {
   let state = { status: 'not_configured', maskedKey: null, model: null, checkedAt: null, busy: false, error: null };
@@ -38,7 +45,8 @@ export function createAiSettingsModel({ storage, verify }) {
     try {
       return { ok: true, result: await verify(apiKey) };
     } catch (error) {
-      return { ok: false, message: error.message, code: error.code };
+      // The server's messages are English; the UI speaks Hebrew, so errors are shown by code.
+      return { ok: false, message: CHECK_ERRORS[error.code] ?? CHECK_ERRORS.REQUEST_FAILED, code: error.code };
     }
   }
 
@@ -65,7 +73,7 @@ export function createAiSettingsModel({ storage, verify }) {
     async saveKey(rawKey) {
       const apiKey = String(rawKey ?? '').trim();
       if (!KEY_PATTERN.test(apiKey)) {
-        set({ error: "That doesn't look like an OpenAI API key (it starts with sk-)." });
+        set({ error: 'זה לא נראה כמו מפתח OpenAI API (הוא מתחיל ב-sk-).' });
         return { ok: false };
       }
       const previous = state;
@@ -77,11 +85,11 @@ export function createAiSettingsModel({ storage, verify }) {
       }
       const { status, model, checkedAt } = outcome.result;
       if (!SAVEABLE.has(status)) {
-        set({ ...previous, busy: false, error: `${STATUS_DETAILS[status]} The key was not saved.` });
+        set({ ...previous, busy: false, error: `${STATUS_DETAILS[status]} המפתח לא נשמר.` });
         return { ok: false };
       }
       if (!storage.set(apiKey)) {
-        set({ ...previous, busy: false, error: 'This browser blocked local storage, so the key could not be saved.' });
+        set({ ...previous, busy: false, error: 'הדפדפן חוסם אחסון מקומי, ולכן אי אפשר לשמור את המפתח.' });
         return { ok: false };
       }
       set({ status, model, checkedAt, maskedKey: maskKey(apiKey), busy: false, error: null });

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-  createChatModel, MAX_MESSAGE_LENGTH, NOT_CONNECTED_MESSAGE, proposalStatus, SUGGESTIONS,
+  AGENT_ERROR_MESSAGE, createChatModel, MAX_MESSAGE_LENGTH, NOT_CONNECTED_MESSAGE, proposalStatus,
 } from '../../../src/chat/chatModel.js';
 
 const proposal = (baseRevision = 1) => ({
@@ -65,7 +65,7 @@ describe('chat model', () => {
     model.setProposal(proposal());
     expect(model.cancelProposal()).toBe(true);
     expect(model.getProposal()).toBeNull();
-    expect(model.getMessages().at(-1).text).toMatch(/No changes were made/);
+    expect(model.getMessages().at(-1).text).toMatch(/התכנון לא השתנה/);
   });
 
   it('resolveProposal clears the proposal and optionally posts a message', () => {
@@ -77,18 +77,6 @@ describe('chat model', () => {
     model.setProposal(proposal());
     model.resolveProposal();
     expect(model.getMessages()).toHaveLength(1);
-  });
-});
-
-describe('suggestions', () => {
-  it('offers a few short, immutable starter prompts that fit the message limit', () => {
-    expect(SUGGESTIONS.length).toBeGreaterThanOrEqual(3);
-    expect(Object.isFrozen(SUGGESTIONS)).toBe(true);
-    SUGGESTIONS.forEach((text) => {
-      expect(text.trim()).toBe(text);
-      expect(text.length).toBeLessThan(MAX_MESSAGE_LENGTH);
-    });
-    expect(new Set(SUGGESTIONS).size).toBe(SUGGESTIONS.length);
   });
 });
 
@@ -119,11 +107,18 @@ describe('chat model with the agent', () => {
     expect(model.getMessages()).toHaveLength(2);
   });
 
-  it('shows the server error as a system note and never touches the design', async () => {
-    const model = createChatModel({ getRevision: () => 1, agent: readyAgent(async () => { throw new Error('OpenAI rejected the API key.'); }) });
+  it('shows a server error by its code, in Hebrew, and never touches the design', async () => {
+    const rejected = Object.assign(new Error('OpenAI rejected the API key.'), { code: 'INVALID_KEY' });
+    const model = createChatModel({ getRevision: () => 1, agent: readyAgent(async () => { throw rejected; }) });
     await model.send('hi').done;
-    expect(model.getMessages().at(-1)).toMatchObject({ role: 'system', text: 'OpenAI rejected the API key.' });
+    expect(model.getMessages().at(-1)).toMatchObject({ role: 'system', text: 'OpenAI דחה את המפתח. בדקו אותו בהגדרות AI.' });
     expect(model.getProposal()).toBeNull();
+  });
+
+  it('never shows an unknown server text: it falls back to the generic note', async () => {
+    const model = createChatModel({ getRevision: () => 1, agent: readyAgent(async () => { throw new Error('<b>raw upstream</b>'); }) });
+    await model.send('hi').done;
+    expect(model.getMessages().at(-1).text).toBe(AGENT_ERROR_MESSAGE);
   });
 
   it('falls back to the not-connected note when the agent is not ready', () => {

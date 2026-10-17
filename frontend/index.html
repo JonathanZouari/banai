@@ -1,69 +1,119 @@
 <!doctype html>
-<html lang="en">
+<html lang="he" dir="rtl">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light" />
     <meta name="theme-color" content="#f5f5f7" />
-    <title>BanAI Wardrobe Designer</title>
+    <title>בנאי · תכנון ארון</title>
+    <meta name="description" content="תכנון ארון בגדים בהתאמה אישית: תלת-ממד חי, ייעוץ מבוסס מחקר, רינדור ותיק נגר." />
     <link rel="stylesheet" href="/src/styles/index.css" />
   </head>
   <body>
     <header class="topbar">
-      <h1 class="topbar__title">BanAI <span>Wardrobe Designer</span></h1>
+      <div class="brand">
+        <svg class="brand__mark" viewBox="0 0 28 28" aria-hidden="true">
+          <rect x="1" y="1" width="26" height="26" rx="7" fill="#1d1d1f" />
+          <rect x="7" y="6.5" width="14" height="15" rx="1.6" fill="none" stroke="#f5f5f7" stroke-width="1.6" />
+          <path d="M14 6.5v15M12 13v2.4M16 13v2.4" stroke="#f5f5f7" stroke-width="1.6" stroke-linecap="round" />
+        </svg>
+        <h1 class="brand__text">
+          <span class="brand__name">בנאי</span>
+          <span class="brand__project">ארון בגדים בהתאמה אישית · טיוטה</span>
+        </h1>
+      </div>
       <div class="topbar__actions">
-        <button type="button" class="btn btn--sm btn--toggle" id="chat-toggle" aria-controls="chat-panel" aria-expanded="true">AI designer</button>
+        <div class="history" role="group" aria-label="היסטוריה">
+          <button type="button" class="icon-tool" id="undo" data-testid="undo" aria-label="ביטול (Ctrl+Z)" title="ביטול · Ctrl+Z" disabled>
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 6H7.2a4 4 0 0 0 0 8h5.3M12.5 6l-3-3M12.5 6l-3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>
+          </button>
+          <button type="button" class="icon-tool" id="redo" data-testid="redo" aria-label="ביצוע שוב (Ctrl+Shift+Z)" title="ביצוע שוב · Ctrl+Shift+Z" disabled>
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7.5 6h5.3a4 4 0 0 1 0 8H7.5M7.5 6l3-3M7.5 6l3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>
+          </button>
+        </div>
         <details class="help">
-          <summary>Controls</summary>
+          <summary>שליטה</summary>
           <div class="help__popover">
             <dl class="help__list">
-              <dt>Drag</dt><dd>Rotate the view</dd>
-              <dt>Right-drag</dt><dd>Pan the view</dd>
-              <dt>Scroll</dt><dd>Zoom in and out</dd>
-              <dt>Click a part</dt><dd>Select it for editing</dd>
-              <dt>Esc</dt><dd>Clear the selection</dd>
+              <dt>גרירה</dt><dd>סיבוב התצוגה</dd>
+              <dt>גרירה ימנית</dt><dd>הזזת התצוגה</dd>
+              <dt>גלגלת</dt><dd>קירוב והרחקה</dd>
+              <dt>לחיצה על חלק</dt><dd>בחירה לעריכה</dd>
+              <dt>Esc</dt><dd>ביטול הבחירה</dd>
+              <dt>Ctrl+Z</dt><dd>ביטול השינוי האחרון</dd>
             </dl>
           </div>
         </details>
-        <span class="topbar__units">Units: cm</span>
-        <button type="button" class="btn btn--sm" id="open-ai-settings" data-testid="open-ai-settings">AI settings</button>
-        <button type="button" class="btn btn--sm" id="open-render" data-testid="open-render">Render</button>
-        <button type="button" class="btn btn--sm btn--primary" id="open-save" data-testid="open-save">Save</button>
+        <span class="topbar__units">יחידות: ס״מ</span>
+        <button type="button" class="btn btn--sm" id="open-ai-settings" data-testid="open-ai-settings">הגדרות AI</button>
+        <button type="button" class="btn btn--sm" id="open-dossier" data-testid="open-dossier">תיק נגר</button>
+        <button type="button" class="btn btn--sm" id="open-render" data-testid="open-render">רינדור</button>
+        <button type="button" class="btn btn--sm btn--primary" id="open-save" data-testid="open-save">שמירה</button>
       </div>
     </header>
     <div class="banner banner--error" id="error-banner" role="alert" hidden>
       <span class="banner__message"></span>
-      <button type="button" class="btn btn--sm" id="error-retry">Retry</button>
+      <button type="button" class="btn btn--sm" id="error-retry">נסו שוב</button>
     </div>
     <main class="workspace">
-      <aside class="panel panel--chat" id="chat-panel" aria-label="AI designer">
-        <div class="chat__body" id="chat-body"></div>
-        <button type="button" class="chat__rail" id="chat-rail-toggle" aria-controls="chat-panel" aria-expanded="false" aria-label="Expand AI Designer panel">
-          <svg class="chat__rail-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>
-          <span class="chat__rail-label">AI Designer</span>
-        </button>
-      </aside>
-      <section class="viewer" id="viewer" aria-label="3D viewer">
-        <div class="viewer-toolbar" role="group" aria-label="Viewer tools">
-          <div class="segmented segmented--sm" role="group" aria-label="Camera view">
-            <button type="button" class="segmented__option" data-view="threeQuarter" data-testid="view-threeQuarter" aria-label="Three-quarter view (default)" aria-pressed="true" disabled>3/4</button>
-            <button type="button" class="segmented__option" data-view="front" data-testid="view-front" aria-pressed="false" disabled>Front</button>
-            <button type="button" class="segmented__option" data-view="side" data-testid="view-side" aria-pressed="false" disabled>Side</button>
-          </div>
-          <button type="button" class="btn btn--sm" id="view-fit" data-testid="view-fit" aria-label="Fit wardrobe to view" disabled>Fit</button>
-          <label class="switch">
-            <input type="checkbox" id="toggle-interior" disabled />
-            <span>Show interior</span>
-          </label>
-        </div>
-        <div class="viewer-loading" role="status">Loading design…</div>
-      </section>
-      <aside class="panel panel--properties" id="properties-panel" aria-label="Properties">
-        <h2 class="panel__title">Properties</h2>
-        <p class="panel__hint">Click a component in the 3D view to edit it.</p>
+      <aside class="panel panel--properties" id="properties-panel" aria-label="תכנון הארון">
+        <h2 class="panel__title">תכנון</h2>
+        <p class="panel__hint">לחצו על רכיב בתלת-ממד כדי לערוך אותו.</p>
         <div id="properties-content"></div>
       </aside>
+      <section class="viewer" id="viewer" aria-label="תצוגת תלת-ממד">
+        <div class="viewer-toolbar" role="group" aria-label="כלי תצוגה">
+          <div class="segmented segmented--sm" role="group" aria-label="זווית מצלמה">
+            <button type="button" class="segmented__option" data-view="front" data-testid="view-front" aria-pressed="false" disabled>חזית</button>
+            <button type="button" class="segmented__option" data-view="threeQuarter" data-testid="view-threeQuarter" aria-label="שלושה רבעים (ברירת מחדל)" aria-pressed="true" disabled>¾</button>
+            <button type="button" class="segmented__option" data-view="side" data-testid="view-side" aria-pressed="false" disabled>צד</button>
+          </div>
+          <button type="button" class="btn btn--sm" id="view-fit" data-testid="view-fit" aria-label="התאמת הארון לתצוגה" disabled>התאם</button>
+          <label class="switch">
+            <input type="checkbox" id="toggle-interior" disabled />
+            <span>הצג פנים</span>
+          </label>
+        </div>
+        <div class="compare-bar" role="group" aria-label="השוואת גרסאות">
+          <button type="button" class="btn btn--sm" id="version-save" data-testid="version-save">שמירת גרסה</button>
+          <div class="compare-bar__held" id="version-held" hidden>
+            <button type="button" class="btn btn--sm compare-hold" id="compare-hold" data-testid="compare-hold" aria-label="החזיקו כדי לראות את הגרסה השמורה">החזק להשוואה</button>
+            <button type="button" class="icon-tool icon-tool--sm" id="version-clear" data-testid="version-clear" aria-label="מחיקת הגרסה השמורה">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
+            </button>
+          </div>
+        </div>
+        <div class="compare-card" id="compare-card" data-testid="compare-card" hidden>
+          <span class="compare-card__title">הגרסה השמורה</span>
+          <ul class="compare-card__list" id="compare-list"></ul>
+          <span class="compare-card__hint">שחררו כדי לחזור לתכנון הנוכחי</span>
+        </div>
+        <div class="render-hud" id="render-hud" data-testid="render-hud" hidden>
+          <svg class="ring" viewBox="0 0 28 28" aria-hidden="true">
+            <circle class="ring-track" cx="14" cy="14" r="11" />
+            <circle class="ring-bar" cx="14" cy="14" r="11" />
+          </svg>
+          <div class="hud-text">
+            <span class="hud-title">רינדור פוטוריאליסטי</span>
+            <span class="hud-sub" aria-live="polite">טוען מנוע רינדור…</span>
+          </div>
+          <button type="button" class="btn btn--sm btn--primary" data-action="save" data-testid="render-save" hidden>שמירת תמונה</button>
+          <button type="button" class="btn btn--sm" data-action="exit" data-testid="render-exit">חזרה לעריכה</button>
+        </div>
+        <div class="viewer-loading" role="status">טוען את התכנון…</div>
+      </section>
+      <aside class="panel panel--side" id="side-panel" aria-label="ייעוץ ושיחה">
+        <div class="side-tabs" role="tablist" aria-label="ייעוץ או שיחה">
+          <button type="button" class="side-tab" role="tab" id="tab-advice" data-testid="tab-advice" aria-controls="advice-view" aria-selected="true">ייעוץ<span class="tab-badge" id="advice-badge" hidden></span></button>
+          <button type="button" class="side-tab" role="tab" id="tab-chat" data-testid="tab-chat" aria-controls="chat-panel" aria-selected="false" tabindex="-1">שיחה</button>
+        </div>
+        <section class="advice-view" id="advice-view" role="tabpanel" aria-labelledby="tab-advice" data-testid="advice-panel"></section>
+        <section class="side-chat" id="chat-panel" role="tabpanel" aria-labelledby="tab-chat" hidden>
+          <div class="chat__body" id="chat-body"></div>
+        </section>
+      </aside>
     </main>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
