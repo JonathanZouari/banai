@@ -1,0 +1,11 @@
+{% if p.first %}
+    <p class="lead">{{ p.nesting.sheets | length }} לוחות · ניצולת ממוצעת {{ (p.nesting.avg_yield * 100) | mm }}% · חיתוך גיליוטינה (מקצה לקצה), ניסור {{ num(sheet.kerf) }} מ״מ. בלוחות עם סיב עץ החלקים לא מסובבים, כדי לשמור על כיוון הסיב.</p>
+{% if p.oversize %}
+    <p class="lead bad">חלקים גדולים מלוח: {{ num(p.oversize) }}. צריך לפצל או להזמין לוח ארוך.</p>
+{% endif %}
+{% endif %}
+{% for svg in p.chunk %}
+    <figure class="fig" style="flex: 1">
+      <div class="fig-art">{{ svg }}</div>
+    </figure>
+{% endfor %}

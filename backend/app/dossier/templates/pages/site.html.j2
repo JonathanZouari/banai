@@ -1,0 +1,22 @@
+    <div>
+      <h3>מידות אתר (משוערות, מפי הלקוח)</h3>
+      <dl class="kv">
+        <div><dt>גובה תקרה</dt><dd>{% if p.ceiling %}{{ num(p.ceiling) }}{% else %}לא נמסר{% endif %}</dd></div>
+        <div><dt>רוחב נישה (הקטן מ-3)</dt><dd>{% if p.niche %}{{ num(p.niche) }}{% else %}לא נמסר{% endif %}</dd></div>
+        <div><dt>פילר לכל צד</dt><dd>{% if p.filler is not none %}{{ num(p.filler | mm) }}{% else %}—{% endif %}</dd></div>
+        <div><dt>אלכסון הרמה {{ num("√(H²+D²)") }}</dt><dd>
+{% if p.lift_ok is none %}{{ num(p.diagonal | mm) }}
+{% else %}<span class="{{ 'ok' if p.lift_ok else 'bad' }}">{{ num(p.diagonal | mm) }} · {{ "עובר" if p.lift_ok else "לא עובר" }}</span>{% endif %}
+        </dd></div>
+        <div><dt>עוגנים לשלד</dt><dd>{{ p.anchors }} (לפי רוחב {{ lay.width | cm }} ס״מ)</dd></div>
+        <div><dt>מרחב פתיחה מול הארון</dt><dd>{% if p.reach %}{{ num(p.reach | mm) }}{% else %}{{ p.reach_label }}{% endif %}</dd></div>
+      </dl>
+    </div>
+    <div>
+      <h3>לבדוק באתר לפני ייצור</h3>
+      <ul class="checks">
+{% for check in p.checks %}
+        <li>{{ check }}</li>
+{% endfor %}
+      </ul>
+    </div>

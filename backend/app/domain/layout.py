@@ -1,8 +1,10 @@
 """Manufacturing layout derived from a canonical design (port of `layout()` in the P1 prototype).
 
-Units are mm. Body x runs from the outer face of the left side panel. Hinged doors are full overlay:
-an end door covers the side panel, and a door meets its neighbour at the middle of the partition
-between them, with a DOOR_GAP joint. Shared by the advisories and, later, the production dossier.
+Units are mm. Body x runs from the outer face of the left side panel, y from the floor. Hinged doors
+are full overlay: an end door covers the side panel, and a door meets its neighbour at the middle of
+the partition between them, with a DOOR_GAP joint. Sliding panels run between the side panels, on a
+top track under the top panel and a bottom guide over the bottom panel. Shared by the advisories and
+the production dossier.
 """
 
 from __future__ import annotations
@@ -14,6 +16,9 @@ from app.domain.geometry import compartment_x_ranges, interior_height
 DOOR_GAP = 3
 SLIDE_OVERLAP = 20  # neighbouring sliding panels overlap [14]
 SLIDE_TRACK_DEPTH = 100  # sliding tracks take 80-100 mm of the depth [11][15]
+SLIDE_TOP_TRACK = 40  # top track under the top panel
+SLIDE_BOTTOM_TRACK = 12  # bottom guide over the bottom panel
+SLIDE_CLEARANCE = 4  # lift-out play between the panel and the tracks
 BOARD_KG_M2 = 11.6  # melamine on 17.6 mm board [7]
 MIRROR_KG_M2 = 10  # 2.5 kg/m2 per mm of glass, 4 mm mirror [17]
 
@@ -36,6 +41,9 @@ class DoorLayout:
     mirror: bool
     kg: float = 0.0
     hinges: int = 0
+    y0: float = 0.0  # bottom edge, above the floor
+    compartments: list[int] = field(default_factory=list)  # every compartment a hinged door covers
+    track: str | None = None  # sliding: "back" or "front"
 
 
 @dataclass
@@ -66,16 +74,29 @@ def layout(design: dict) -> Layout:
     out = Layout(width, height, depth, panel, plinth, interior_height(design), shelf_depth, sliding, ranges)
     if doors["type"] == "hinged":
         out.doors = _hinged(design, ranges, height - plinth - DOOR_GAP)
+        for door in out.doors:
+            door.y0 = plinth + DOOR_GAP / 2
     elif sliding:
-        count = len(doors["items"])
-        panel_width = (width - 2 * panel + (count - 1) * SLIDE_OVERLAP) / count
-        panel_height = height - plinth - 2 * panel - 4
-        out.doors = [DoorLayout(d["id"], panel + i * (panel_width - SLIDE_OVERLAP), panel_width, panel_height, None, None,
-                                d["mirror"]) for i, d in enumerate(doors["items"])]
+        out.doors = _sliding(design, out)
     for door in out.doors:
         door.kg = door.width * door.height / 1e6 * (BOARD_KG_M2 + (MIRROR_KG_M2 if door.mirror else 0))
         door.hinges = hinges_for(door.height, door.kg) if door.hinge else 0
     return out
+
+
+def _sliding(design: dict, lay: Layout) -> list[DoorLayout]:
+    items, panel = design["doors"]["items"], lay.panel
+    count = len(items)
+    panel_width = (lay.width - 2 * panel + (count - 1) * SLIDE_OVERLAP) / count
+    y0 = lay.plinth + panel + SLIDE_BOTTOM_TRACK
+    panel_height = lay.height - panel - SLIDE_TOP_TRACK - y0 - SLIDE_CLEARANCE
+    result = []
+    for i, d in enumerate(items):
+        # Alternate tracks: with three panels the middle one runs in front of the outer two.
+        track = ("front" if i == 1 else "back") if count == 3 else ("back" if i % 2 == 0 else "front")
+        result.append(DoorLayout(d["id"], panel + i * (panel_width - SLIDE_OVERLAP), panel_width, panel_height, None,
+                                 None, d["mirror"], y0=y0, track=track))
+    return result
 
 
 def _hinged(design: dict, ranges: list[tuple[int, int]], door_height: int) -> list[DoorLayout]:
@@ -95,5 +116,5 @@ def _hinged(design: dict, ranges: list[tuple[int, int]], door_height: int) -> li
                 middle = (left + right) / 2
                 left, right = (left, middle) if leaves[0] is door else (middle, right)
         result.append(DoorLayout(door["id"], left + DOOR_GAP / 2, right - left - DOOR_GAP, door_height, door["hingeSide"],
-                                 first if single else None, door["mirror"]))
+                                 first if single else None, door["mirror"], compartments=covered))
     return result

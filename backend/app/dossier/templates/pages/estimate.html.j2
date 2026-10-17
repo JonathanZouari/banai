@@ -1,0 +1,19 @@
+{% set est = p.est %}
+    <p class="lead">אומדן חומרים בלבד, לפי כמויות רשימת החיתוך והשיבוץ. לא כולל עבודה, הובלה, התקנה ופינוי.</p>
+    <div>
+      <h3>אומדן עלות חומרים (₪, לפני מע״מ)</h3>
+      <table>
+        <thead><tr><th>פריט</th><th class="n">כמות</th><th class="n">מ-</th><th class="n">עד</th><th>מקור</th></tr></thead>
+        <tbody>
+{% for line in est.lines %}
+          <tr><td>{{ line.name | ltr }}</td><td class="n">{{ line.qty }} {{ line.unit }}</td><td class="n">{{ line.lo | shekel }}</td><td class="n">{{ line.hi | shekel }}</td><td class="muted">{{ num(line.src) }}{% if line.note %} · {{ line.note }}{% endif %}</td></tr>
+{% endfor %}
+        </tbody>
+        <tfoot>
+          <tr><td>סה״כ לפני מע״מ</td><td></td><td class="n">{{ est.lo | shekel }}</td><td class="n">{{ est.hi | shekel }}</td><td></td></tr>
+          <tr><td>כולל מע״מ {{ p.vat }}%</td><td></td><td class="n">{{ est.lo_vat | shekel }}</td><td class="n">{{ est.hi_vat | shekel }}</td><td class="muted">{{ num("[73]") }}</td></tr>
+        </tfoot>
+      </table>
+      <p class="lead muted" style="margin-top: 1.5mm">מחירים אינדיקטיביים מטבלת המחקר ({{ num("§4.2") }}). ללא עבודה, הובלה והתקנה.
+{% if est.unpriced %} לא תומחר, כי אין מחיר במחקר: {% for name in est.unpriced %}{{ name | ltr }}{{ "; " if not loop.last else "." }}{% endfor %}{% endif %}</p>
+    </div>

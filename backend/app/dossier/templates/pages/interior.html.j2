@@ -1,0 +1,16 @@
+{% if p.first %}
+    <figure class="fig" style="flex: 1">
+      <div class="fig-art">{{ p.interior }}</div>
+      <figcaption>פנים ללא דלתות. המסגרות המקווקוות מסמנות אזורי תלייה.</figcaption>
+    </figure>
+{% endif %}
+{% for row in p.chunk | batch(4) %}
+    <div class="fig-row" style="grid-template-columns: repeat({{ [p.chunk | length, 4] | min }}, 1fr); flex: 1">
+{% for c in row %}
+      <figure class="fig">
+        <div class="fig-art">{{ c.svg }}</div>
+        <figcaption dir="rtl">{{ c.caption }}</figcaption>
+      </figure>
+{% endfor %}
+    </div>
+{% endfor %}
