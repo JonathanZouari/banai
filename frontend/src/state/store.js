@@ -109,6 +109,23 @@ export function createStore({ design, revision = 1, catalog, now = () => Date.no
       return { ok: true };
     },
 
+    /**
+     * Take a design the server produced (an applied chat proposal) with its new revision. It is
+     * validated like any input, and it is one undo step like any edit.
+     */
+    adopt(design, revision) {
+      const next = applyOps(design, [], state.catalog);
+      if (!Number.isInteger(revision) || revision <= state.revision) {
+        throw new DomainError('SCHEMA_INVALID', 'revision', 'the revision must move forward');
+      }
+      past.push(state.design);
+      if (past.length > HISTORY_LIMIT) past.shift();
+      future.length = 0;
+      last = { key: null, at: -Infinity };
+      const selection = state.selection && resolveSelection(next, state.selection.id);
+      commit({ design: next, revision, selection, history: historyInfo() });
+    },
+
     undo: () => travel(past, future),
     redo: () => travel(future, past),
 

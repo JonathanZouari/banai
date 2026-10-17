@@ -29,8 +29,9 @@ export function proposalStatus(proposal, currentRevision) {
 }
 
 /**
- * `agent` (optional): { isReady(): boolean, reply(history): Promise<string> }, where history is
- * [{ role: 'user'|'assistant', content }] ending with the new customer message.
+ * `agent` (optional): { isReady(): boolean, reply(history): Promise<string | { reply, proposal? }> }, where
+ * history is [{ role: 'user'|'assistant', content }] ending with the new customer message. A proposal
+ * replaces any pending one; it is never applied here (the host does that after Confirm).
  */
 export function createChatModel({ getRevision, agent = null }) {
   let nextId = 1;
@@ -74,7 +75,10 @@ export function createChatModel({ getRevision, agent = null }) {
       notify();
       const done = Promise.resolve()
         .then(() => agent.reply(history))
-        .then((answer) => push('assistant', answer))
+        .then((answer) => {
+          push('assistant', typeof answer === 'string' ? answer : answer.reply);
+          if (answer?.proposal) proposal = answer.proposal;
+        })
         .catch((error) => push('system', CHAT_ERRORS[error?.code] ?? AGENT_ERROR_MESSAGE))
         .finally(() => {
           thinking = false;

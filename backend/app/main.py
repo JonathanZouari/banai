@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import advisories, ai_settings, chat, dossier, health, reference
+from app.api import advisories, ai_settings, chat, dossier, health, proposals, reference
 from app.body_limit import BodySizeLimitMiddleware
 from app.config import get_settings
 
@@ -28,6 +28,7 @@ def create_app() -> FastAPI:
     app.include_router(reference.router)
     app.include_router(ai_settings.router)
     app.include_router(chat.router)
+    app.include_router(proposals.router)
     app.include_router(advisories.router)
     app.include_router(dossier.router)
     return app

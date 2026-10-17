@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     app_env: str = "local"
     cors_origins: str = "http://localhost:5173"
     openai_chat_model: str = ""
+    # HMAC key for chat proposals; empty = a random key per process (proposals expire on restart).
+    proposal_secret: str = ""
 
     @property
     def cors_origin_list(self) -> list[str]:

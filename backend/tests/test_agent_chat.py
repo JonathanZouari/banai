@@ -35,11 +35,14 @@ class FakeClient:
         return self.responses_queue.pop(0)
 
 
-def test_prompt_sets_language_scope_and_the_jerusalem_exception():
-    assert "language of their latest message" in SYSTEM_PROMPT
-    assert "WARDROBE DESIGN ONLY" in SYSTEM_PROMPT
+def test_prompt_sets_language_scope_conversation_and_the_jerusalem_exception():
+    assert "language of the customer's latest message" in SYSTEM_PROMPT
+    assert "Only custom wardrobes and closets" in SYSTEM_PROMPT
     assert "weather in Jerusalem" in SYSTEM_PROMPT and "get_jerusalem_weather" in SYSTEM_PROMPT
-    assert "Never say a design is manufacturable" in SYSTEM_PROMPT
+    assert "Never say it is approved, engineered or ready to build" in SYSTEM_PROMPT
+    # ADR-025: a conversation, not a menu; changes only as proposals the customer confirms.
+    assert "Never offer lists of options, buttons, multiple choice" in SYSTEM_PROMPT
+    assert "propose_changes" in SYSTEM_PROMPT and "Never say a change was made" in SYSTEM_PROMPT
 
 
 def test_plain_reply_uses_the_responses_api_without_storing_the_conversation():

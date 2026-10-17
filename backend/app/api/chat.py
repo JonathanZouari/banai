@@ -8,6 +8,12 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from app.api.limits import too_many_nodes
+from app.domain.catalog import load_catalog
+from app.domain.errors import DomainError
+from app.domain.schema import parse_design
+from app.domain.validation import validate_canonical
+
 from app.agent.chat import AgentError, answer
 from app.ai.verify import KEY_PATTERN
 from app.config import get_settings
@@ -29,6 +35,9 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     apiKey: str = Field(max_length=512)
     messages: list[ChatMessage] = Field(min_length=1, max_length=MAX_HISTORY)
+    # With the design, the agent sees it and may propose signed changes (ADR-020).
+    design: dict | None = None
+    revision: int | None = Field(default=None, ge=1)
 
 
 def get_chat_runner():
@@ -49,13 +58,31 @@ def chat(body: ChatRequest, runner=Depends(get_chat_runner)):
         return _error(400, "INVALID_FORMAT", "Add a valid OpenAI API key in AI settings.")
     if body.messages[-1].role != "user":
         return _error(400, "INVALID_HISTORY", "The last message must come from the customer.")
+    design = None
+    if body.design is not None:
+        if body.revision is None:
+            return _error(400, "INVALID_REVISION", "A design needs its revision.")
+        if too_many_nodes(body.design):
+            return _error(422, "SCHEMA_INVALID", "The design is too large.")
+        try:
+            design = parse_design(body.design)
+        except DomainError as error:
+            return _error(422, error.code, error.message)
+        issues = validate_canonical(design, load_catalog())
+        if issues:
+            return _error(422, issues[0].code, issues[0].message)
     if not _slots.acquire(blocking=False):
         return _error(429, "BUSY", "The AI designer is busy. Try again in a moment.")
     try:
         messages = [{"role": m.role, "content": m.content} for m in body.messages]
-        result = runner(api_key, messages, get_settings().openai_chat_model or None)
+        model = get_settings().openai_chat_model or None
+        result = (runner(api_key, messages, model, design=design, revision=body.revision) if design is not None
+                  else runner(api_key, messages, model))
     except AgentError as error:
         return _error(error.status_code, error.code, error.message)
     finally:
         _slots.release()
-    return {"success": True, "data": {"reply": result.reply, "model": result.model}}
+    data = {"reply": result.reply, "model": result.model}
+    if result.proposal is not None:
+        data["proposal"] = result.proposal
+    return {"success": True, "data": data}

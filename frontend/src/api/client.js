@@ -26,8 +26,19 @@ export const getDefaultDesign = (fetchImpl = fetch) => getJson('/api/designs/def
  */
 export const verifyAiKey = (apiKey, fetchImpl = fetch) => postJson('/api/settings/ai/verify', { apiKey }, fetchImpl);
 
-/** One agent turn. `messages` is [{ role: 'user'|'assistant', content }]. Returns { reply, model }. */
-export const sendChatMessage = (apiKey, messages, fetchImpl = fetch) => postJson('/api/chat', { apiKey, messages }, fetchImpl);
+/**
+ * One agent turn. `messages` is [{ role: 'user'|'assistant', content }]. With `context` ({ design, revision })
+ * the agent sees the design and may return a signed proposal. Returns { reply, model, proposal? }.
+ */
+export const sendChatMessage = (apiKey, messages, context = null, fetchImpl = fetch) =>
+  postJson('/api/chat', context ? { apiKey, messages, design: context.design, revision: context.revision } : { apiKey, messages }, fetchImpl);
+
+/**
+ * Apply a signed proposal the customer confirmed (ADR-020). Returns { design, revision }. A design that
+ * changed since the proposal is a 409 with code STALE.
+ */
+export const applyProposal = (design, revision, proposal, fetchImpl = fetch) =>
+  postJson('/api/proposals/apply', { design, revision, proposal }, fetchImpl);
 
 /**
  * Research-backed advisories for a design (ADR-018). Returns [{ id, level, title, body, grade, src,

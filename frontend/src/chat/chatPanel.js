@@ -6,7 +6,11 @@ import { MAX_MESSAGE_LENGTH } from './chatModel.js';
 import { renderProposalCard } from './proposalCard.js';
 import { STATUS_LABELS } from '../settings/aiSettingsModel.js';
 
-export function mountChat(container, { model, onConfirm, aiSettings, onOpenSettings }) {
+/**
+ * `voice` (optional): (micButton, { input, send(text) }) => void wires push-to-talk to the mic button;
+ * without it the button stays hidden.
+ */
+export function mountChat(container, { model, onConfirm, aiSettings, onOpenSettings, voice = null }) {
   container.classList.add('panel--chat');
 
   // Shows the OpenAI key status (kept in sync with AI settings); clicking it opens the settings.
@@ -35,7 +39,10 @@ export function mountChat(container, { model, onConfirm, aiSettings, onOpenSetti
   input.dataset.testid = 'chat-input';
   const sendButton = el('button', { className: 'icon-btn icon-btn--filled chat__send', attrs: { type: 'submit', 'aria-label': 'שליחה' } }, [icon('send')]);
   sendButton.dataset.testid = 'chat-send';
-  const composer = el('form', { className: 'chat__composer' }, [input, sendButton]);
+  const mic = el('button', { className: 'icon-btn chat__mic', attrs: { type: 'button', 'aria-label': 'החזיקו כדי לדבר', title: 'החזיקו כדי לדבר · שחררו לשליחה' } }, [icon('mic')]);
+  mic.dataset.testid = 'chat-mic';
+  mic.hidden = !voice;
+  const composer = el('form', { className: 'chat__composer' }, [input, mic, sendButton]);
   const hint = el('p', { className: 'chat__hint', text: 'Enter לשליחה · Shift+Enter לשורה חדשה' });
 
   const welcome = el('section', { className: 'welcome', attrs: { 'aria-label': 'פתיחה' } }, [
@@ -106,6 +113,8 @@ export function mountChat(container, { model, onConfirm, aiSettings, onOpenSetti
   }
 
   container.replaceChildren(header, el('div', { className: 'chat__body' }, [welcome, list, proposalSlot]), el('div', { className: 'chat__footer' }, [composer, hint]));
+  // A voice message goes through the same path as a typed one; the customer still confirms any change.
+  voice?.(mic, { input, send: (text) => model.send(text) });
   model.subscribe(render);
   render();
   aiSettings.subscribe(renderKeyStatus);

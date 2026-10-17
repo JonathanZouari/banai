@@ -2,7 +2,10 @@ import '@fontsource/assistant/400.css';
 import '@fontsource/assistant/500.css';
 import '@fontsource/assistant/600.css';
 import '@fontsource/assistant/700.css';
-import { getAdvisories, getCatalog, getDefaultDesign, getDossier, sendChatMessage, verifyAiKey } from './api/client.js';
+import {
+  applyProposal, getAdvisories, getCatalog, getDefaultDesign, getDossier, sendChatMessage, verifyAiKey,
+} from './api/client.js';
+import { applyOps } from './domain/apply.js';
 import { createAdvisoryFeed } from './advice/advisoryFeed.js';
 import { countLevels, mountAdvisoryPanel } from './advice/advisoryPanel.js';
 import { createStore } from './state/store.js';
@@ -246,6 +249,38 @@ function bindRenderAndDossier(store, viewer) {
   return hud;
 }
 
+const warnings = (items) => items.filter((item) => item.level !== 'info').length;
+
+/**
+ * The card data for a signed proposal: the changes (a dry run with the same engine the editor uses)
+ * and the advisory impact (the server's rules on the design before and after). The signed proposal
+ * rides along untouched; only the server can apply it.
+ */
+async function previewProposal(signed, design, catalog) {
+  let preview;
+  try {
+    preview = applyOps(design, signed.ops, catalog);
+  } catch {
+    return null; // cannot happen for a proposal signed on this design; never show what we could not check
+  }
+  const changes = diffDesigns(design, preview).map((line) => {
+    const at = line.indexOf(':');
+    return at > 0 ? { title: line.slice(0, at), detail: line.slice(at + 1).trim() } : { title: line, detail: '' };
+  });
+  let impact = null;
+  try {
+    const [before, after] = await Promise.all([getAdvisories(design), getAdvisories(preview)]);
+    const delta = warnings(after) - warnings(before);
+    if (delta > 0) impact = `+${delta} ${delta === 1 ? 'אזהרה' : 'אזהרות'} בייעוץ`;
+    else if (delta < 0) impact = `${-delta} ${delta === -1 ? 'אזהרה' : 'אזהרות'} פחות בייעוץ`;
+    else impact = 'בלי שינוי באזהרות';
+  } catch { /* the card works without the impact line */ }
+  return {
+    id: signed.signature.slice(0, 16), baseRevision: signed.baseRevision, summary: signed.summary,
+    changes: changes.length ? changes : [{ title: signed.summary, detail: '' }], impact, signed,
+  };
+}
+
 /** Esc: close an open top-bar menu, leave a render, ignore form fields, otherwise clear the selection. */
 function bindEscape(getApp) {
   const help = document.querySelector('details.help');
@@ -320,16 +355,35 @@ async function boot() {
   byId('open-ai-settings').addEventListener('click', settingsDialog.open);
   aiSettings.load();
 
-  // The agent sends the browser-held key with each turn; the server never stores it.
+  // The agent sends the browser-held key with each turn; the server never stores it. It sees the
+  // committed design and may return a signed proposal (ADR-020), shown as a card the customer confirms.
   const agent = {
     isReady: () => keyStorage.get() !== null && aiSettings.getState().status !== 'invalid_key',
-    reply: (history) => sendChatMessage(keyStorage.get(), history).then((data) => data.reply),
+    reply: async (history) => {
+      const { design, revision } = store.getState();
+      const data = await sendChatMessage(keyStorage.get(), history, { design, revision });
+      const proposal = data.proposal ? await previewProposal(data.proposal, design, catalog) : null;
+      return proposal ? { reply: data.reply, proposal } : { reply: data.reply };
+    },
   };
   const chatModel = createChatModel({ getRevision: () => store.getState().revision, agent });
-  // Signed proposals arrive with the design-aware agent (ADR-020); until then a proposal can only come from the dev-only demo.
+  // Confirm: the server checks the signature and that the design is exactly the one the proposal was
+  // made for (409 STALE otherwise), applies it, and the store adopts the result as one undo step.
   const chat = mountChat(byId('chat-body'), {
     model: chatModel,
-    onConfirm: () => chatModel.resolveProposal('הסוכן עוד לא מחובר לתכנון, ולכן שום דבר לא הוחל.'),
+    onConfirm: async (proposal) => {
+      const { design, revision } = store.getState();
+      try {
+        if (!proposal.signed) throw Object.assign(new Error('unsigned'), { code: 'BAD_SIGNATURE' });
+        const data = await applyProposal(design, revision, proposal.signed);
+        store.adopt(data.design, data.revision);
+        chatModel.resolveProposal('אושר והוחל. אפשר לבטל עם Ctrl+Z.');
+      } catch (error) {
+        chatModel.resolveProposal(error?.code === 'STALE'
+          ? 'התכנון השתנה מאז ההצעה, ולכן היא לא הוחלה. בקשו הצעה חדשה.'
+          : 'לא הצלחנו להחיל את ההצעה. התכנון לא השתנה.');
+      }
+    },
     aiSettings,
     onOpenSettings: settingsDialog.open,
   });

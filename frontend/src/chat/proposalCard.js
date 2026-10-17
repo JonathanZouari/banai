@@ -11,7 +11,7 @@ export function renderProposalCard(proposal, status, { onConfirm, onCancel }) {
     el('span', { className: 'proposal__detail', text: change.detail }),
   ]));
 
-  const confirm = el('button', { className: 'btn btn--primary', attrs: { type: 'button' } }, [icon('check', { size: 18 }), document.createTextNode(' Confirm')]);
+  const confirm = el('button', { className: 'btn btn--primary', attrs: { type: 'button' } }, [icon('check', { size: 18 }), document.createTextNode(' אישור')]);
   confirm.dataset.testid = 'proposal-confirm';
   confirm.disabled = stale;
   confirm.addEventListener('click', () => onConfirm(proposal));
@@ -23,10 +23,11 @@ export function renderProposalCard(proposal, status, { onConfirm, onCancel }) {
   const card = el('section', { className: `proposal${stale ? ' proposal--stale' : ''}`, attrs: { 'aria-label': 'שינויים מוצעים' } }, [
     el('header', { className: 'proposal__header' }, [
       el('h3', { className: 'proposal__heading', text: 'שינויים מוצעים' }),
-      el('span', { className: 'proposal__count', text: `${proposal.changes.length} ${proposal.changes.length === 1 ? 'item' : 'items'}` }),
+      el('span', { className: 'proposal__count', text: proposal.changes.length === 1 ? 'שינוי אחד' : `${proposal.changes.length} שינויים` }),
     ]),
     el('p', { className: 'proposal__summary', text: proposal.summary }),
     el('ul', { className: 'proposal__list' }, rows),
+    ...(proposal.impact ? [el('p', { className: 'proposal__impact', text: proposal.impact, attrs: { 'data-testid': 'proposal-impact' } })] : []),
     el('p', { className: 'proposal__note', text: 'עוד לא הוחל. אשרו כדי להחיל את השינויים על התכנון.' }),
     el('div', { className: 'button-row' }, [confirm, cancel]),
   ]);
