@@ -56,14 +56,18 @@ export function mountChat(container, {
       voice.recording.stop();
       return;
     }
+    if (voice.starting) return; // a second click while the permission prompt is open
     voice.notice = null;
+    voice.starting = true;
     try {
       voice.recording = await startRecording();
     } catch {
       voice.notice = view.t.micDenied;
+      voice.starting = false;
       showVoiceState();
       return;
     }
+    voice.starting = false;
     voice.status = 'recording';
     showVoiceState();
     const blob = await voice.recording.done;

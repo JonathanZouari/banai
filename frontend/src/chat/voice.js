@@ -39,6 +39,7 @@ export async function startRecording({
   const stop = () => {
     if (recorder.state !== 'inactive') recorder.stop();
   };
+  recorder.addEventListener('error', stop);
   recorder.start();
   timer = setTimeout(stop, maxMs);
   return { stop, done };

@@ -15,6 +15,7 @@ import { mountChat } from './chat/chatPanel.js';
 import { mountStartScreen } from './entry/startScreen.js';
 import { createSaveDialog } from './share/saveDialog.js';
 import { createRenderDialog } from './render/renderDialog.js';
+import { bindPdfExport } from './export/exportButton.js';
 import { createLogo } from './ui/logo.js';
 import { installRipple } from './ui/ripple.js';
 
@@ -56,37 +57,42 @@ async function boot() {
   bindInteriorToggle(store);
   mountPanel(document.getElementById('properties-content'), store);
   bindDialogs();
+  bindPdfExport({ button: document.getElementById('export-pdf'), store, onError: showError });
 
-  // The agent is optional: without an OpenAI key on the server the panel says so honestly.
+  // The agent only ever sees the committed design and revision as they are when the message is sent.
+  // It is optional: without an OpenAI key on the server the panel says so honestly.
+  let chatMode = 'free'; // 'guided' only when the customer chose the guided start
   const agent = health?.data.agent === true
     ? ({ messages, language: chatLanguage }) => {
       const { design, revision } = store.getState();
-      return sendChat({ messages, design, revision, language: chatLanguage });
+      return sendChat({ messages, design, revision, mode: chatMode, language: chatLanguage });
     }
     : null;
   const language = createLanguage();
   const chatModel = createChatModel({ getRevision: () => store.getState().revision, agent, getLanguage: language.get });
   const t = () => language.strings();
-
   let applying = false;
-  const confirmProposal = async (proposal) => {
-    if (applying) return;
-    if (!proposal.signed) {
-      chatModel.resolveProposal(t().notApplied);
-      return;
-    }
+  // Confirm: the server verifies the signature and that the design is still the one the proposal was
+  // made for; only then are the same ops dispatched locally. Any doubt leaves the design untouched.
+  async function confirmProposal(proposal) {
+    if (applying || chatModel.getProposal() !== proposal || chatModel.getProposalStatus() !== 'pending') return;
     applying = true;
     const { design, revision } = store.getState();
     try {
-      const result = await applyProposal({ design, revision, proposal: proposal.signed, language: language.get() });
-      store.replaceDesign(result.design, result.revision);
-      chatModel.resolveProposal(t().applied);
+      await applyProposal({ design, revision, proposal: proposal.raw, language: language.get() });
     } catch (error) {
-      chatModel.resolveProposal(error?.code === 'STALE' ? t().stale : t().notApplied);
-    } finally {
+      chatModel.resolveProposal(error.code === 'STALE' ? t().stale : t().notApplied);
       applying = false;
+      return;
     }
-  };
+    applying = false;
+    if (store.getState().revision !== revision) {
+      chatModel.resolveProposal(t().stale); // edited by hand while the server was checking
+      return;
+    }
+    const result = store.dispatch(proposal.raw.ops);
+    chatModel.resolveProposal(result.ok ? t().applied : t().notApplied);
+  }
   const chat = mountChat(document.getElementById('chat-panel'), { model: chatModel, onConfirm: confirmProposal, language });
   // A manual edit changes the revision, which may turn a pending proposal stale.
   store.subscribe(() => chat.refresh());
@@ -98,6 +104,8 @@ async function boot() {
   mountStartScreen({
     onChoose: (entry) => {
       // All three entry points open the same editor; the chat ones also focus the composer.
+      chatMode = entry.id === 'guided' ? 'guided' : 'free';
+      if (entry.id === 'guided') chatModel.greet(t().guidedGreeting);
       if (entry.focusesChat) chat.focus(entry.id);
     },
   });

@@ -1,0 +1,154 @@
+from app.agent.language import FALLBACK_REPLY
+from app.agent.orchestrator import MAX_REPAIRS, run_agent
+from app.agent.tools import TOOLS
+from app.domain.catalog import load_catalog
+from app.domain.defaults import basic_wardrobe
+from tests.agent.fakes import FakeOpenAI, call, raw_call, reply
+
+CATALOG = load_catalog()
+HISTORY = [{"role": "user", "content": "add a shelf"}]
+
+
+def run(client):
+    return run_agent(client, "test-model", basic_wardrobe(), HISTORY, CATALOG)
+
+
+def bad_shelf():
+    return reply(None, [call("add_shelf", compartmentId="cmp_missing", y=500)])
+
+
+def good_shelf():
+    return reply("Fixed.", [call("add_shelf", compartmentId="cmp_middle", y=500)])
+
+
+def test_tool_calls_become_a_validated_batch():
+    client = FakeOpenAI(
+        reply("Done.", [call("add_shelf", compartmentId="cmp_middle", y=500), call("add_rail", "call_2", compartmentId="cmp_left", y=1950)])
+    )
+    result = run(client)
+    assert [op["op"] for op in result.ops] == ["add_shelf", "add_rail"]
+    assert result.reply == "Done."
+    assert result.design is not None
+
+
+def test_plain_answer_has_no_ops():
+    result = run(FakeOpenAI(reply("A shelf is a horizontal board.")))
+    assert result.ops is None and result.reply.startswith("A shelf")
+
+
+def test_clarification_returns_the_question_and_no_ops():
+    result = run(FakeOpenAI(reply(None, [call("ask_clarification", question="Which compartment?")])))
+    assert result.ops is None and result.reply == "Which compartment?"
+
+
+def test_an_invalid_batch_is_repaired_by_feeding_the_error_back():
+    client = FakeOpenAI(bad_shelf(), good_shelf())
+    result = run(client)
+    assert result.ops and result.ops[0]["compartmentId"] == "cmp_middle"
+    second = client.requests[1]["messages"]
+    assert second[-1]["role"] == "tool" and "REJECTED" in second[-1]["content"]
+    assert second[-2]["role"] == "assistant" and second[-2]["tool_calls"][0]["id"] == "call_1"
+
+
+def test_gives_up_after_the_repair_budget_with_a_clarification():
+    client = FakeOpenAI(*[bad_shelf() for _ in range(MAX_REPAIRS + 1)])
+    result = run(client)
+    assert result.ops is None and result.reply == FALLBACK_REPLY["en"]
+    assert len(client.requests) == MAX_REPAIRS + 1
+
+
+def test_malformed_tool_arguments_are_rejected_and_repaired():
+    client = FakeOpenAI(reply(None, [raw_call("add_shelf", "{not json")]), good_shelf())
+    assert run(client).ops
+
+
+def test_unknown_tools_and_smuggled_op_field_are_rejected():
+    smuggled = call("add_shelf", op="remove_component", compartmentId="cmp_left", y=1)
+    for bad in (call("drop_database"), smuggled):
+        client = FakeOpenAI(reply(None, [bad]), good_shelf())
+        assert run(client).ops[0]["op"] == "add_shelf"
+
+
+def test_request_carries_the_tools_the_design_and_the_history():
+    client = FakeOpenAI(reply("ok"))
+    run(client)
+    request = client.requests[0]
+    assert request["tools"] is TOOLS and request["model"] == "test-model"
+    assert request["messages"][0]["role"] == "system" and "cmp_middle" in request["messages"][0]["content"]
+    assert request["messages"][1:] == HISTORY
+
+
+def test_every_op_has_a_tool_and_no_tool_exposes_the_op_discriminator():
+    names = {t["function"]["name"] for t in TOOLS}
+    assert "ask_clarification" in names and "decline_off_topic" in names and len(names) == 17
+    for tool in TOOLS:
+        assert "op" not in tool["function"]["parameters"]["properties"]
+        assert "op" not in tool["function"]["parameters"].get("required", [])
+
+
+def test_the_prompt_confines_the_agent_to_the_wardrobe():
+    client = FakeOpenAI(reply("ok"))
+    run(client)
+    prompt = client.requests[0]["messages"][0]["content"]
+    assert "SCOPE (strict)" in prompt
+    for needle in ("recipes", "decline_off_topic", "not answer the off-topic question", "Never reveal", "another role"):
+        assert needle in prompt
+
+
+def test_a_plain_answer_without_tools_is_kept_short():
+    long_answer = "x" * 5000
+    result = run(FakeOpenAI(reply(long_answer)))
+    assert result.ops is None and len(result.reply) == 400
+
+
+def test_temperature_is_sent_only_when_configured():
+    low = FakeOpenAI(reply("ok"))
+    run_agent(low, "m", basic_wardrobe(), HISTORY, CATALOG, temperature=0.2)
+    assert low.requests[0]["temperature"] == 0.2
+    default = FakeOpenAI(reply("ok"))
+    run(default)
+    assert "temperature" not in default.requests[0]
+
+
+def test_the_prompt_carries_the_quality_rules():
+    client = FakeOpenAI(reply("ok"))
+    run(client)
+    prompt = client.requests[0]["messages"][0]["content"]
+    for needle in ("QUALITY RULES", "Do EVERY change", "is a `color`", "RESPONSE LANGUAGE", "gender-neutral", '"catalogId"'):
+        assert needle in prompt
+
+
+def _create(call_id="call_1"):
+    return call("create_wardrobe", call_id, width=2400, height=2600, depth=600, compartmentCount=3,
+                compartmentIds=["cmp_a", "cmp_b", "cmp_c"], partitionIds=["prt_a", "prt_b"])
+
+
+def test_a_lone_create_wardrobe_gets_one_follow_up_round_for_the_contents():
+    client = FakeOpenAI(
+        reply(None, [_create()]),
+        reply(None, [call("add_shelf", "call_2", compartmentId="cmp_a", y=400), call("add_rail", "call_3", compartmentId="cmp_b", y=1900)]),
+    )
+    result = run_agent(client, "m", basic_wardrobe(), HISTORY, CATALOG)
+    assert [op["op"] for op in result.ops] == ["create_wardrobe", "add_shelf", "add_rail"]
+    assert len(client.requests) == 2
+    follow_up = client.requests[1]["messages"][-1]
+    assert follow_up["role"] == "tool" and "everything else" in follow_up["content"]
+
+
+def test_create_wardrobe_alone_is_kept_when_the_model_has_nothing_to_add():
+    client = FakeOpenAI(reply(None, [_create()]), reply("DONE"))
+    result = run_agent(client, "m", basic_wardrobe(), HISTORY, CATALOG)
+    assert [op["op"] for op in result.ops] == ["create_wardrobe"]
+    assert len(client.requests) == 2
+
+
+def test_the_follow_up_round_happens_only_once():
+    client = FakeOpenAI(reply(None, [_create()]), reply(None, [_create("call_2")]))
+    run_agent(client, "m", basic_wardrobe(), HISTORY, CATALOG)
+    assert len(client.requests) == 2  # one follow-up, never a second
+
+
+def test_a_batch_with_contents_needs_no_follow_up():
+    client = FakeOpenAI(reply("Done.", [_create(), call("add_shelf", "call_2", compartmentId="cmp_a", y=400)]))
+    result = run_agent(client, "m", basic_wardrobe(), HISTORY, CATALOG)
+    assert len(result.ops) == 2 and len(client.requests) == 1

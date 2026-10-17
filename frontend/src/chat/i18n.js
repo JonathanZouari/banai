@@ -49,6 +49,7 @@ export const STRINGS = Object.freeze({
     applied: 'השינויים הוחלו. העיצוב שלך עודכן.',
     notApplied: 'לא ניתן היה להחיל את ההצעה. לא בוצע שום שינוי.',
     cancelled: 'ההצעה בוטלה. לא בוצע שום שינוי.',
+    guidedGreeting: 'שלום! אנחה אותך צעד אחר צעד. קודם כל: מה הרוחב והגובה של הארון? לדוגמה 240 ס"מ רוחב ו-260 ס"מ גובה.',
     composerHints: Object.freeze({
       guided: 'ספר לי על החלל: מה הרוחב והגובה של הארון?',
       freeText: 'לדוגמה: ארון ברוחב 240 ס"מ וגובה 260 ס"מ, לבן, עם שלושה תאים',
@@ -96,6 +97,7 @@ export const STRINGS = Object.freeze({
     applied: 'Applied. Your design has been updated.',
     notApplied: 'The proposal could not be applied. Nothing was changed.',
     cancelled: 'Proposal cancelled. No changes were made.',
+    guidedGreeting: "Hi! I'll guide you step by step. First: how wide and how tall should the wardrobe be? For example 240 cm wide and 260 cm tall.",
     composerHints: Object.freeze({
       guided: 'Tell me about the space: how wide and tall should the wardrobe be?',
       freeText: 'e.g. 240 cm wide, 260 cm tall, white, three compartments',

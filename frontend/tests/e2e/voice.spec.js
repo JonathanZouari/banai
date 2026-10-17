@@ -18,7 +18,7 @@ async function mockVoice(page) {
       reply: 'Sure! Here is my proposal.',
       replySignature: 'c'.repeat(64),
       proposal: {
-        proposalId: 'prp_0123456789abcdef', baseRevision: 1, baseHash: 'a'.repeat(64),
+        id: 'prp0123456789abcdef', baseRevision: 1, baseHash: 'a'.repeat(64),
         ops: [{ op: 'update_dimensions', depth: 550 }], signature: 'b'.repeat(64),
         summary: 'Makes the wardrobe shallower.', changes: [{ title: 'Depth', detail: '60.0 cm to 55.0 cm' }],
       },
@@ -56,7 +56,7 @@ test.describe('voice', () => {
 
     await expect(page.getByTestId('proposal-card')).toContainText('60.0 cm to 55.0 cm');
     expect(calls.transcribe[0]).toBe('audio/webm');
-    expect(calls.chat[0].messages.at(-1)).toEqual({ role: 'user', text: 'make it shallower' });
+    expect(calls.chat[0].messages.at(-1)).toEqual({ role: 'user', content: 'make it shallower' });
     expect(calls.chat[0].language).toBe('en'); // the transcript's language switched the chat
     await expect(mic).toHaveAttribute('aria-pressed', 'false');
     expect(await depth(page)).toBe(600); // nothing applied by voice alone

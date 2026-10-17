@@ -1,147 +1,145 @@
-"""One agent turn: OpenAI tool calling -> validated, signed proposal (never applied here).
+"""One agent turn: OpenAI tool calling -> parsed ops -> dry run -> (repair x2) -> proposal ops.
 
-Flow: the model either answers in text, asks a clarifying question, or proposes ops. Proposed
-ops get ids filled in (so replaying an approved proposal is deterministic) and are dry-run on
-the domain engine. An invalid batch is sent back to the model to repair, up to MAX_REPAIRS
-times; after that the customer gets a clarification message instead of a broken proposal.
-"""
+The agent never applies anything. It returns either a reply (answer, question or clarification) or a
+validated, id-complete op batch; signing and the apply/stale protocol live in the API layer."""
 
 from __future__ import annotations
 
 import json
-import secrets
-from dataclasses import dataclass
-from typing import Any
+import time
+from dataclasses import dataclass, field
 
-from pydantic import ValidationError
-
-from app.agent.language import FALLBACK_REPLY, OFF_TOPIC_REPLY, Language, reply_language
+from app.agent.language import EMPTY_REPLY, FALLBACK_REPLY, OFF_TOPIC_REPLY, Language, reply_language
 from app.agent.prompts import build_system_prompt
-from app.agent.tools import ANSWER, CLARIFY, DECLINE, PROPOSE, TOOLS, AnswerArgs, ClarifyArgs, ProposeArgs
-from app.domain import ids
-from app.domain.apply import apply_ops
-from app.domain.errors import DomainError
-from app.services import signing
+from app.agent.proposal import complete_and_validate
+from app.agent.tools import CLARIFY, DECLINE, MAX_QUESTION, OP_NAMES, TOOLS
+from app.domain.errors import INVALID_OP, SCHEMA_INVALID, DomainError
 
-MAX_REPAIRS = 2
-# Token budget: only the latest messages go to the model, and each completion is capped.
-# The cap leaves room for the largest realistic batch of ops (a full new wardrobe).
-HISTORY_WINDOW = 10
-MAX_COMPLETION_TOKENS = 1200
+MAX_REPAIRS = 2  # extra model calls after a rejected batch
+MAX_TURN_SECONDS = 60  # no repair call starts after this (a request holds a worker thread)
+MAX_COMPLETION_TOKENS = 4000
+MAX_REPLY = 1000
+MAX_PLAIN_REPLY = 400  # an answer without tool calls is a short wardrobe answer or a refusal
+MAX_ARGUMENT_CHARS = 20_000
 
-# Add ops whose new-component id fields are filled in before signing.
-_ID_FIELDS: dict[str, tuple[tuple[str, str], ...]] = {
-    "add_shelf": (("id", ids.SHELF),),
-    "add_drawer": (("id", ids.DRAWER),),
-    "add_rail": (("id", ids.RAIL),),
-    "add_compartment": (("id", ids.COMPARTMENT), ("partitionId", ids.PARTITION)),
-    "add_partition": (("id", ids.PARTITION), ("newCompartmentId", ids.COMPARTMENT)),
-}
+CONTINUE_AFTER_CREATE = (
+    "OK: the new wardrobe exists with the compartment ids you gave. Now call the tools for everything else the customer "
+    "asked for (shelves, hanging rails, drawers, doors, colours), using those ids, all in this one response. "
+    "If the customer described nothing more, reply with the single word DONE and no tool calls."
+)
 
 
-@dataclass(frozen=True)
-class TurnResult:
+@dataclass
+class AgentResult:
     reply: str
-    proposal: dict | None = None
+    ops: list[dict] | None = None
+    design: dict | None = None  # the design the ops would produce (diagnostics and tests)
+    warnings: list[str] = field(default_factory=list)
 
 
-class AgentUnavailable(Exception):
-    """The model provider failed (network, auth, quota...). Never carries provider text."""
+def _clip(text: str | None, limit: int) -> str:
+    return (text or "").strip()[:limit]
 
 
-def fill_ids(ops: list[dict]) -> list[dict]:
-    """Give every new component an explicit id (copies; the input is not modified)."""
-    filled = []
-    for raw in ops:
-        op = dict(raw)
-        for field, prefix in _ID_FIELDS.get(op.get("op"), ()):
-            if op.get(field) is None:
-                op[field] = ids.new_id(prefix)
-        if op.get("op") == "create_wardrobe" and isinstance(op.get("compartmentCount"), int):
-            count = op["compartmentCount"]
-            if op.get("compartmentIds") is None and 1 <= count <= 20:
-                op["compartmentIds"] = [ids.new_id(ids.COMPARTMENT) for _ in range(count)]
-            if op.get("partitionIds") is None and 1 <= count <= 20:
-                op["partitionIds"] = [ids.new_id(ids.PARTITION) for _ in range(count - 1)]
-        filled.append(op)
-    return filled
+def _arguments(call, index: int) -> dict:
+    raw = call.function.arguments or "{}"
+    if len(raw) > MAX_ARGUMENT_CHARS:
+        raise DomainError(SCHEMA_INVALID, f"ops[{index}]", "tool arguments are too large")
+    try:
+        args = json.loads(raw)
+    except json.JSONDecodeError:
+        raise DomainError(SCHEMA_INVALID, f"ops[{index}]", "tool arguments are not valid JSON") from None
+    if not isinstance(args, dict):
+        raise DomainError(SCHEMA_INVALID, f"ops[{index}]", "tool arguments must be a JSON object")
+    return args
 
 
-def _history(messages: list[dict]) -> list[dict]:
-    return [{"role": m["role"], "content": m["text"]} for m in messages[-HISTORY_WINDOW:]]
+def _raw_ops(calls) -> list[dict]:
+    ops = []
+    for index, call in enumerate(calls):
+        name = call.function.name
+        if name not in OP_NAMES:
+            raise DomainError(INVALID_OP, f"ops[{index}]", "unknown tool")
+        args = _arguments(call, index)
+        if "op" in args:
+            raise DomainError(SCHEMA_INVALID, f"ops[{index}]", "do not pass 'op'; the tool name is the operation")
+        ops.append({"op": name, **args})
+    return ops
 
 
-def _tool_message(call_id: str, content: dict) -> dict:
-    return {"role": "tool", "tool_call_id": call_id, "content": json.dumps(content, default=str)}
-
-
-def _build_proposal(args: ProposeArgs, ops: list[dict], revision: int, base_hash: str, key: bytes) -> dict:
-    proposal_id = f"prp_{secrets.token_hex(8)}"
+def _assistant_message(message) -> dict:
     return {
-        "proposalId": proposal_id,
-        "baseRevision": revision,
-        "baseHash": base_hash,
-        "ops": ops,
-        "summary": args.summary,
-        "changes": [change.model_dump() for change in args.changes],
-        "signature": signing.sign(key, proposal_id=proposal_id, ops=ops, base_revision=revision, base_hash=base_hash),
+        "role": "assistant",
+        "content": message.content,
+        "tool_calls": [
+            {"id": c.id, "type": "function", "function": {"name": c.function.name, "arguments": c.function.arguments or "{}"}}
+            for c in message.tool_calls
+        ],
     }
 
 
-def run_turn(*, client: Any, model: str, messages: list[dict], design: dict, revision: int,
-             catalog: dict, signing_key: bytes, language: Language = "he") -> TurnResult:
-    """`design` must already be canonical (parsed and validated). The reply is in the language of the
-    latest customer message; `language` (the chat's choice) is the fallback when it has no letters."""
-    language = reply_language(messages, language)
-    conversation: list[dict] = [{"role": "system", "content": build_system_prompt(design, catalog, language)}, *_history(messages)]
-    base_hash = signing.design_hash(design)
-
-    for _ in range(MAX_REPAIRS + 1):
-        try:
-            response = client.chat.completions.create(
-                model=model, messages=conversation, tools=TOOLS, tool_choice="required", parallel_tool_calls=False,
-                max_completion_tokens=MAX_COMPLETION_TOKENS,
-            )
-        except Exception as error:  # provider/network errors: never leak details to the customer
-            raise AgentUnavailable() from error
-        message = response.choices[0].message
-        calls = message.tool_calls or []
+def run_agent(
+    client, model: str, design: dict, history: list[dict], catalog: dict, temperature: float | None = None,
+    mode: str = "free", language: Language = "en",
+) -> AgentResult:
+    """`history` is [{role: user|assistant, content}] ending with the customer's latest message. Fixed texts and
+    the reply language follow the language of that message; `language` (the chat's choice) is the fallback."""
+    language = reply_language(history, language)
+    fallback = FALLBACK_REPLY[language]
+    conversation = [{"role": "system", "content": build_system_prompt(design, catalog, mode, language)}, *history]
+    started = time.monotonic()
+    repairs = 0
+    rounds = 0
+    carried: list[dict] = []  # ops from an earlier round of this turn (see CONTINUE_AFTER_CREATE)
+    continued = False
+    while True:
+        if rounds and time.monotonic() - started > MAX_TURN_SECONDS:
+            return AgentResult(reply=fallback, warnings=["turn time budget exceeded"])
+        rounds += 1
+        options = {} if temperature is None else {"temperature": temperature}
+        completion = client.chat.completions.create(
+            model=model, messages=conversation, tools=TOOLS, max_completion_tokens=MAX_COMPLETION_TOKENS, **options,
+        )
+        message = completion.choices[0].message
+        all_calls = message.tool_calls or []
+        declined = any(c.function.name == DECLINE for c in all_calls)
+        calls = [c for c in all_calls if c.function.name != DECLINE]
+        text = _clip(message.content, MAX_REPLY)
+        if declined and not calls and not carried:
+            return AgentResult(reply=OFF_TOPIC_REPLY[language])  # fixed text: never model-written
         if not calls:
-            # Every turn must be classified through a tool; free text is never shown to the customer.
-            return TurnResult(reply=OFF_TOPIC_REPLY[language])
+            if carried:  # the model had nothing to add after create_wardrobe
+                try:
+                    ops, final = complete_and_validate(design, carried, catalog)
+                except DomainError as error:
+                    return AgentResult(reply=fallback, warnings=[str(error)])
+                return AgentResult(reply="" if text.strip(" .!").upper() == "DONE" else _clip(text, MAX_PLAIN_REPLY), ops=ops, design=final)
+            return AgentResult(reply=_clip(text, MAX_PLAIN_REPLY) or EMPTY_REPLY[language])
 
-        conversation.append({
-            "role": "assistant",
-            "content": message.content,
-            "tool_calls": [
-                {"id": c.id, "type": "function", "function": {"name": c.function.name, "arguments": c.function.arguments}}
-                for c in calls
-            ],
-        })
-        call, extra = calls[0], calls[1:]
-        for ignored in extra:
-            conversation.append(_tool_message(ignored.id, {"error": "Only one tool call per turn is processed."}))
+        question = next((c for c in calls if c.function.name == CLARIFY), None)
+        if question is not None:
+            try:
+                asked = _clip(str(_arguments(question, 0).get("question", "")), MAX_QUESTION)
+            except DomainError:
+                asked = ""
+            return AgentResult(reply=asked or text or EMPTY_REPLY[language])
 
         try:
-            arguments = json.loads(call.function.arguments or "{}")
-            if call.function.name == DECLINE:
-                return TurnResult(reply=OFF_TOPIC_REPLY[language])
-            if call.function.name == CLARIFY:
-                return TurnResult(reply=ClarifyArgs.model_validate(arguments).question)
-            if call.function.name == ANSWER:
-                return TurnResult(reply=AnswerArgs.model_validate(arguments).answer)
-            if call.function.name != PROPOSE:
-                raise ValueError(f"unknown tool {call.function.name!r}")
-            args = ProposeArgs.model_validate(arguments)
-            ops = fill_ids(args.ops)
-            apply_ops(design, ops, catalog)  # dry run on the engine's private copy
+            batch = carried + _raw_ops(calls)
+            if not continued and [op["op"] for op in batch] == ["create_wardrobe"]:
+                # The model tends to send create_wardrobe alone and expect a second step. Give it that step once.
+                continued, carried = True, batch
+                conversation.append(_assistant_message(message))
+                conversation.extend({"role": "tool", "tool_call_id": c.id, "content": CONTINUE_AFTER_CREATE} for c in all_calls)
+                continue
+            ops, final = complete_and_validate(design, batch, catalog)
         except DomainError as error:
-            conversation.append(_tool_message(call.id, {"error": error.to_dict(), "hint": "Fix the ops and call propose_changes again."}))
+            if repairs == MAX_REPAIRS:
+                return AgentResult(reply=fallback, warnings=[str(error)])
+            repairs += 1
+            carried, continued = [], True  # the model now redoes the whole request in one go
+            conversation.append(_assistant_message(message))
+            feedback = f"REJECTED, nothing was changed: {error}. Fix the arguments and call the tools again for the whole request."
+            conversation.extend({"role": "tool", "tool_call_id": c.id, "content": feedback} for c in all_calls)
             continue
-        except (ValidationError, ValueError, TypeError) as error:
-            detail = error.errors(include_input=False, include_url=False) if isinstance(error, ValidationError) else str(error)
-            conversation.append(_tool_message(call.id, {"error": "invalid tool arguments", "detail": detail}))
-            continue
-        return TurnResult(reply=args.reply, proposal=_build_proposal(args, ops, revision, base_hash, signing_key))
-
-    return TurnResult(reply=FALLBACK_REPLY[language])
+        return AgentResult(reply=_clip(text, MAX_PLAIN_REPLY), ops=ops, design=final)  # short: it is signed and may be read aloud

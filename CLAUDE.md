@@ -40,6 +40,8 @@ BanAI is an MVP AI wardrobe designer for standard straight wardrobes only. Three
   - Frontend: vanilla JS ES modules + Three.js, bundled with Vite. **No React, Vue, or R3F.**
   - Backend: FastAPI + Pydantic.
   - UI design comes from Google Stitch MCP, adapted to vanilla HTML/CSS.
+- **Voice is allowed (user-approved exception, 2026-10-17).** Voice chat is a chained pipeline: speech-to-text, then the normal `/api/chat`, then optional read-aloud. A transcript is only a typed message, so scope rules and the Confirm gate are unchanged. Do not build realtime or voice-driven approval.
+- **Carpenter PDF is allowed (user-approved exception, 2026-10-17).** A client-side "Carpenter PDF" button exports the committed design: sizes, a parts list, per-compartment heights and 3D pictures, always labelled as illustrative and not verified for manufacturing. It is not a CNC or manufacturing export and there are still no orders or pricing; do not add either.
 - **Defaults are not business rules.** Units, default dimensions, catalog contents, and model names are configurable defaults documented in Obsidian `04 - Decisions & Assumptions`. Label them that way.
 
 ## Commands
