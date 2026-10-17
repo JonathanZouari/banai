@@ -315,3 +315,27 @@ body.is-rendering .compare-bar { opacity: 0; pointer-events: none; }
 body.is-capturing .panel--properties,
 body.is-capturing .compare-bar,
 body.is-capturing .viewer-toolbar { opacity: 0.45; pointer-events: none; transition: opacity 200ms ease; }
+
+/* ---------- video menu ---------- */
+.video-menu__popover { width: 17rem; display: flex; flex-direction: column; gap: 4px; padding: 6px; }
+.menu-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-ink);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.menu-option b { font-size: 13px; font-weight: 600; }
+.menu-option span { font-size: 12px; color: var(--color-muted); }
+.menu-option:focus-visible { outline: var(--focus-outline); outline-offset: 1px; }
+@media (hover: hover) and (pointer: fine) {
+  .menu-option:hover { background: var(--color-fill-subtle); }
+}
+.video-menu summary[aria-busy='true'] { background: var(--color-accent-soft); color: var(--color-accent-text); }

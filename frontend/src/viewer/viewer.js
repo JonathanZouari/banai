@@ -154,6 +154,7 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
   let tracer = null;
   const isRendering = () => Boolean(tracer?.rendering);
   let capture = null; // video capture (render/video.js): saved camera and pixel ratio while frames are drawn on demand
+  let traced = null; // path-traced capture: { motion } of the last baked frame
   const overlaysVisible = () => !moving && !isRendering() && !capture;
   // Overlays copy the mesh transform when built, so they are rebuilt once the doors settle.
   const refreshOverlays = () => {
@@ -505,8 +506,55 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
       renderer.render(scene, camera);
       return true;
     },
+    /**
+     * A path-traced capture: beginCapture() plus the path tracer, compiled and staged. Resolves true when ready;
+     * rejects with the tracer's Hebrew error (and leaves the live view as it was).
+     */
+    async beginTracedCapture({ width, height, timeoutMs = 120_000 }) {
+      if (!this.beginCapture({ width, height })) return false;
+      try {
+        await tracer.start({});
+        const deadline = performance.now() + timeoutMs;
+        while (tracer.progress().compiling) {
+          if (performance.now() > deadline) throw new Error('מנוע הרינדור לא סיים להתכונן בזמן.');
+          await new Promise((resolve) => { setTimeout(resolve, 100); });
+        }
+        if (!isRendering()) throw new Error('הרינדור הופסק.');
+        traced = { motion: null };
+        return true;
+      } catch (error) {
+        tracer.stop();
+        this.endCapture();
+        throw error;
+      }
+    },
+    /**
+     * One path-traced capture frame: re-bake when the parts moved since the last frame (otherwise only the camera
+     * changed), then trace `samples` full samples. Returns the samples reached.
+     */
+    captureTracedFrame({ pose, motion, samples }) {
+      if (!capture || !traced) return 0;
+      camera.position.fromArray(pose.position);
+      controls.target.fromArray(pose.target);
+      camera.lookAt(controls.target);
+      camera.updateMatrixWorld();
+      if (motion !== traced.motion) {
+        driver.pin(motion, { immediate: true });
+        moving = false;
+        poseParts();
+        tracer.restage(); // a new bake from this camera; accumulation starts over
+        traced.motion = motion;
+      } else {
+        tracer.invalidate();
+      }
+      return tracer.step(samples).samples;
+    },
     endCapture() {
       if (!capture) return;
+      if (traced) {
+        traced = null;
+        tracer.stop();
+      }
       const saved = capture;
       capture = null;
       renderer.setPixelRatio(saved.pixelRatio);

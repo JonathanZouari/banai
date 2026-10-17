@@ -173,6 +173,19 @@ The page is `lang="he" dir="rtl"` (font: self-hosted Assistant). Columns, right 
 | `editor/interiorControls.js`, `editor/siteSection.js` | Preset and insert tiles plus the split switch for a selected compartment, fields of a selected insert, and the site section (empty field = unknown). |
 | `ui/toast.js` | One status line (`role=status`). |
 
+**Zones, motion and video:**
+
+- **Zones (ADR-027):** `editor/interiorControls.js` shows the zones control (1–4). Each zone row, top first, has a door choice and a preset. `interiorOps.zonesOf` derives the zones from the dividers.
+- **Motion:**
+  - `viewer/motion.js` + `motionDriver.js` sequence the doors, then the drawers and trouser racks, then the pull-down, each on its own spring. Selecting a drawer or pull-out brings out only that part.
+  - `setMotion(t)` pins a deterministic pose.
+- **Capture:** `beginCapture({width, height})`, `captureFrame({pose, motion})` and `endCapture()` give a fixed-size, label-free view drawn only on demand.
+- **Video** (`render/video.js`, `render/videoPlan.js`):
+  - **Timeline:** closed → opening → held open → closing, under a 64° orbit.
+  - **Encoding:** every frame is encoded with WebCodecs through Mediabunny, with explicit timestamps. H.264/MP4 where available, else WebM.
+  - **Path-traced mode:** `beginTracedCapture` / `captureTracedFrame` re-bakes only when the parts moved and traces N samples a frame.
+  - **Cost:** measure GPU time with a `readPixels` sync, since JS timing alone misses the GPU queue. On the dev GPU it was 38 ms a sample at 960×540, so the default traced video (6 s, 24 fps, 32 spp) takes about 2–3 minutes.
+
 Keyboard: Ctrl+Z, Ctrl+Shift+Z and Ctrl+Y use `event.code`, so they work on a Hebrew layout, and they never act inside text fields (which keep their own undo). Server error messages are English, so the UI shows chat and key-check errors by `code`, in Hebrew; unknown codes get a generic line, and server text is never shown.
 
 ## Testing

@@ -15,7 +15,7 @@ import { mountChat } from './chat/chatPanel.js';
 import { mountStartScreen } from './entry/startScreen.js';
 import { createSaveDialog } from './share/saveDialog.js';
 import { coverPng, createRenderHud } from './render/renderHud.js';
-import { bindVideoButton } from './render/video.js';
+import { bindVideoMenu } from './render/video.js';
 import { createKeyStorage } from './settings/keyStorage.js';
 import { createAiSettingsModel } from './settings/aiSettingsModel.js';
 import { createAiSettingsDialog } from './settings/aiSettingsDialog.js';
@@ -246,16 +246,17 @@ function bindRenderAndDossier(store, viewer) {
   return hud;
 }
 
-/** Esc: close the help popover, leave a render, ignore form fields, otherwise clear the selection. */
+/** Esc: close an open top-bar menu, leave a render, ignore form fields, otherwise clear the selection. */
 function bindEscape(getApp) {
   const help = document.querySelector('details.help');
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape' || event.isComposing) return;
     const target = event.target instanceof Element ? event.target : null;
     if (target?.closest('input, select, textarea') || target?.isContentEditable) return;
-    if (help.open && target?.closest('details.help')) {
-      help.open = false;
-      help.querySelector('summary').focus();
+    const menu = target?.closest('details.help');
+    if (menu?.open) {
+      menu.open = false;
+      menu.querySelector('summary').focus();
       return;
     }
     const app = getApp();
@@ -303,7 +304,7 @@ async function boot() {
   bindCompare(store);
   const feed = bindAdvice(store, viewer);
   const hud = bindRenderAndDossier(store, viewer);
-  bindVideoButton(byId('open-video'), { viewer, getDesign: () => store.getState().design, toast, isBusy: () => hud.isActive() });
+  bindVideoMenu(document.querySelector('.video-menu'), { viewer, getDesign: () => store.getState().design, toast, isBusy: () => hud.isActive() });
   const save = createSaveDialog();
   byId('open-save').addEventListener('click', save.open);
   app = { store, hud };

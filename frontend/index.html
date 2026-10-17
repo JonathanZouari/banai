@@ -48,7 +48,13 @@
         <button type="button" class="btn btn--sm" id="open-ai-settings" data-testid="open-ai-settings">הגדרות AI</button>
         <button type="button" class="btn btn--sm" id="open-dossier" data-testid="open-dossier">תיק נגר</button>
         <button type="button" class="btn btn--sm" id="open-render" data-testid="open-render">רינדור</button>
-        <button type="button" class="btn btn--sm" id="open-video" data-testid="open-video" title="סרטון המחשה: הדלתות נפתחות, המגירות נשלפות, והמצלמה מסתובבת">סרטון</button>
+        <details class="help video-menu" data-testid="video-menu">
+          <summary data-testid="open-video" title="סרטון המחשה: הדלתות נפתחות, המגירות נשלפות, והמצלמה מסתובבת">סרטון</summary>
+          <div class="help__popover video-menu__popover">
+            <button type="button" class="menu-option" data-video="quick" data-testid="video-quick"><b>מהיר</b><span>התצוגה החיה · כמה שניות</span></button>
+            <button type="button" class="menu-option" data-video="traced" data-testid="video-traced"><b>פוטוריאליסטי</b><span>path tracing לכל פריים · כמה דקות, עדיף עם כרטיס מסך</span></button>
+          </div>
+        </details>
         <button type="button" class="btn btn--sm btn--primary" id="open-save" data-testid="open-save">שמירה</button>
       </div>
     </header>

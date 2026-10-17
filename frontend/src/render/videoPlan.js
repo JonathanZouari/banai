@@ -4,6 +4,11 @@
 import { centerOf, fitDistance } from '../viewer/camera.js';
 
 export const VIDEO = Object.freeze({ seconds: 8, fps: 30, width: 1280, height: 720 });
+// Path-traced: every frame is its own render. Measured on the dev GPU with a readPixels sync (JS timing
+// alone misses the GPU queue): 38 ms a sample at 960x540, 64 ms at 1280x720; a re-bake after the parts
+// move adds about 10 ms. 32 samples at 960x540 is about 1.2 s a frame, so 6 s at 24 fps takes about 3
+// minutes. Some grain remains. A weaker GPU takes longer (the progress shows the time left).
+export const TRACED_VIDEO = Object.freeze({ seconds: 6, fps: 24, width: 960, height: 540, samples: 32 });
 // The camera keeps the wardrobe's bounding sphere in view: open doors and the lowered pull-down stay
 // inside it, so a small margin is enough.
 export const VIDEO_MARGIN = 1.1;

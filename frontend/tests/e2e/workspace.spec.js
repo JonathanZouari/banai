@@ -168,4 +168,14 @@ test.describe('workspace (RTL, schema v2)', () => {
     else expect(result.head.slice(0, 4)).toEqual([0x1a, 0x45, 0xdf, 0xa3]); // WebM (EBML)
     expect(result).toMatchObject({ capturing: false, pinned: false, sameCamera: true });
   });
+
+  test('the video menu offers a fast and a photoreal video, and Esc closes it', async ({ page }) => {
+    await page.getByTestId('open-video').click();
+    await expect(page.getByTestId('video-quick')).toBeVisible();
+    await expect(page.getByTestId('video-traced')).toContainText('פוטוריאליסטי');
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('video-quick')).toBeHidden();
+    // The photoreal path is not run here: a path-tracer compile on SwiftShader stalls the browser
+    // (see the render HUD test). It is unit-tested and was measured on a GPU (render/videoPlan.js).
+  });
 });

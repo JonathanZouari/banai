@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { VIDEO, VIDEO_MARGIN, motionAtVideo, orbitAt, poseAt, videoFrames } from '../../../src/render/videoPlan.js';
+import { TRACED_VIDEO, VIDEO, VIDEO_MARGIN, motionAtVideo, orbitAt, poseAt, videoFrames } from '../../../src/render/videoPlan.js';
 import { centerOf, fitDistance } from '../../../src/viewer/camera.js';
 
 const DIMS = { width: 2000, height: 2400, depth: 600 };
@@ -42,5 +42,12 @@ describe('video plan', () => {
     const distance = Math.hypot(...pose.position.map((v, i) => v - pose.target[i]));
     expect(distance).toBeCloseTo(fitDistance(DIMS, fov, aspect, VIDEO_MARGIN), 9);
     expect(pose.position[2]).toBeGreaterThan(pose.target[2]); // in front of the wardrobe
+  });
+
+  it('path-traced video keeps the frame plan and asks for a sane sample count', () => {
+    expect(videoFrames(TRACED_VIDEO)).toHaveLength(TRACED_VIDEO.seconds * TRACED_VIDEO.fps);
+    expect(TRACED_VIDEO.samples).toBeGreaterThanOrEqual(16);
+    expect(TRACED_VIDEO.samples).toBeLessThanOrEqual(400); // the tracer's per-render cap
+    expect(TRACED_VIDEO.width % 2 + TRACED_VIDEO.height % 2).toBe(0); // H.264 needs even sizes
   });
 });
