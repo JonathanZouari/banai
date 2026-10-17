@@ -7,6 +7,7 @@ const WEB_PORT = 5183;
 export default defineConfig({
   testDir: 'tests/e2e',
   fullyParallel: false,
+  workers: 1, // software WebGL (SwiftShader) makes parallel browsers slower and flaky, not faster
   retries: 0,
   reporter: [['list']],
   use: {
@@ -17,15 +18,16 @@ export default defineConfig({
   projects: [{
     name: 'chromium',
     use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 },
-      launchOptions: { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] } },
+      permissions: ['microphone'], // plus a fake microphone (a tone) for the voice tests
+      launchOptions: { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] } },
   }],
   webServer: [
     {
-      command: `uv run uvicorn app.main:app --port ${API_PORT}`,
+      // The real app with a scripted stand-in for OpenAI (backend/tests/e2e_app.py): no key, no network.
+      command: `uv run uvicorn tests.e2e_app:app --port ${API_PORT}`,
       cwd: '../backend',
       url: `http://localhost:${API_PORT}/api/health`,
-      // No key: E2E never calls OpenAI (it would read backend/.env otherwise). Agent tests mock /api.
-      env: { APP_ENV: 'e2e', CORS_ORIGINS: `http://localhost:${WEB_PORT}`, OPENAI_API_KEY: '' },
+      env: { APP_ENV: 'e2e', CORS_ORIGINS: `http://localhost:${WEB_PORT}`, CHAT_RATE_LIMIT: '1000/minute', VOICE_RATE_LIMIT: '1000/minute' },
       reuseExistingServer: false,
       timeout: 60_000,
     },

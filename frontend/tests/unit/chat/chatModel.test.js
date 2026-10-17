@@ -19,6 +19,25 @@ describe('proposalStatus', () => {
   });
 });
 
+describe('greeting', () => {
+  it('shows a fixed opening line once, without calling the agent', () => {
+    const respond = vi.fn();
+    const model = createChatModel({ getRevision: () => 1, agent: { respond } });
+    model.greet('Hello!');
+    model.greet('Again');
+    expect(model.getMessages()).toEqual([{ id: 1, role: 'assistant', text: 'Hello!', language: 'he' }]);
+    expect(respond).not.toHaveBeenCalled();
+    expect(model.isBusy()).toBe(false);
+  });
+
+  it('does not interrupt a conversation that has already started', () => {
+    const model = createChatModel({ getRevision: () => 1 });
+    model.send('hi');
+    model.greet('Hello!');
+    expect(model.getMessages().map((m) => m.role)).toEqual(['user', 'system']);
+  });
+});
+
 describe('chat model', () => {
   it('adds the customer message and an honest not-connected reply, and never an assistant answer', () => {
     const model = createChatModel({ getRevision: () => 1 });
@@ -100,7 +119,7 @@ describe('chat model with a connected agent', () => {
     const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
     return { promise, resolve, reject };
   };
-  const signed = { proposalId: 'prp_0123456789abcdef', baseRevision: 3, summary: 'Adds a shelf', changes: [{ title: 'Shelf', detail: '100 cm' }], ops: [], signature: 'x' };
+  const signed = { id: 'prp0123456789abcd', baseRevision: 3, summary: 'Adds a shelf', changes: [{ title: 'Shelf', detail: '100 cm' }], ops: [], signature: 'x' };
 
   it('sends the dialogue history, shows a busy state, then the reply and the proposal', async () => {
     const pending = deferred();
@@ -110,11 +129,11 @@ describe('chat model with a connected agent', () => {
     expect(model.send('add a shelf')).toEqual({ ok: true });
     expect(model.isBusy()).toBe(true);
     expect(model.send('another')).toEqual({ ok: false, reason: 'busy' });
-    expect(agent).toHaveBeenCalledWith({ messages: [{ role: 'user', text: 'add a shelf' }], language: 'he' });
+    expect(agent).toHaveBeenCalledWith({ messages: [{ role: 'user', content: 'add a shelf' }], language: 'he' });
     pending.resolve({ reply: 'Here you go', proposal: signed });
     await vi.waitFor(() => expect(model.isBusy()).toBe(false));
     expect(model.getMessages().map((m) => [m.role, m.text])).toEqual([['user', 'add a shelf'], ['assistant', 'Here you go']]);
-    expect(model.getProposal()).toEqual({ id: signed.proposalId, baseRevision: 3, summary: 'Adds a shelf', changes: signed.changes, language: 'he', signed });
+    expect(model.getProposal()).toEqual({ id: signed.id, baseRevision: 3, summary: 'Adds a shelf', changes: signed.changes, language: 'he', raw: signed });
     expect(model.getProposalStatus()).toBe('pending');
   });
 
@@ -127,7 +146,7 @@ describe('chat model with a connected agent', () => {
     model.send('second');
     await vi.waitFor(() => expect(agent).toHaveBeenCalledTimes(2));
     expect(agent.mock.calls[1][0].messages).toEqual([
-      { role: 'user', text: 'first' }, { role: 'assistant', text: 'ok' }, { role: 'user', text: 'second' },
+      { role: 'user', content: 'first' }, { role: 'assistant', content: 'ok' }, { role: 'user', content: 'second' },
     ]);
   });
 
@@ -148,6 +167,35 @@ describe('chat model with a connected agent', () => {
     model.send('something else');
     expect(model.getProposal()).toBeNull();
     await vi.waitFor(() => expect(model.isBusy()).toBe(false));
+  });
+
+  it('a proposal made for an older revision is stale as soon as it arrives', async () => {
+    let revision = 1;
+    const agent = vi.fn(async () => { revision = 2; return { reply: '', proposal: signed }; });
+    const model = createChatModel({ getRevision: () => revision, agent });
+    model.send('go');
+    await vi.waitFor(() => expect(model.isBusy()).toBe(false));
+    expect(model.getProposalStatus()).toBe('stale');
+    expect(model.getMessages().map((m) => m.role)).toEqual(['user']); // an empty reply adds no bubble
+  });
+
+  it('keeps the greeting in the history sent to the agent as an assistant turn', async () => {
+    const agent = vi.fn(async () => ({ reply: 'ok', proposal: null }));
+    const model = createChatModel({ getRevision: () => 1, agent });
+    model.greet('Hi!');
+    model.send('240 cm');
+    await vi.waitFor(() => expect(model.isBusy()).toBe(false));
+    expect(agent.mock.calls[0][0].messages).toEqual([{ role: 'assistant', content: 'Hi!' }, { role: 'user', content: '240 cm' }]);
+  });
+
+  it('keeps the reply signature (for read-aloud) on the assistant message only', async () => {
+    const agent = vi.fn(async () => ({ reply: 'ok', replySignature: 'f'.repeat(64), proposal: null }));
+    const model = createChatModel({ getRevision: () => 1, agent });
+    model.send('hello');
+    await vi.waitFor(() => expect(model.isBusy()).toBe(false));
+    const [user, reply] = model.getMessages();
+    expect(user).not.toHaveProperty('signature');
+    expect(reply).toMatchObject({ role: 'assistant', text: 'ok', signature: 'f'.repeat(64) });
   });
 });
 
@@ -181,7 +229,7 @@ describe('messages keep their language', () => {
     const model = createChatModel({ getRevision: () => 1, agent, getLanguage: () => language });
     model.send('תוסיף מדף');
     language = 'en'; // switched while the designer is thinking
-    release({ reply: 'אציע מדף.', proposal: { proposalId: 'prp_0123456789abcdef', baseRevision: 1, summary: 's', changes: [], ops: [], signature: 'x' } });
+    release({ reply: 'אציע מדף.', proposal: { id: 'prp0123456789abcd', baseRevision: 1, summary: 's', changes: [], ops: [], signature: 'x' } });
     await vi.waitFor(() => expect(model.isBusy()).toBe(false));
     expect(agent.mock.calls[0][0].language).toBe('he');
     expect(model.getMessages().map((m) => [m.role, m.language])).toEqual([['user', 'he'], ['assistant', 'he']]);

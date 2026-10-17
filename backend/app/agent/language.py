@@ -25,6 +25,15 @@ FALLBACK_REPLY: dict[Language, str] = {
     "en": "I couldn't turn that into a valid change to your wardrobe. Could you rephrase it, or tell me a bit more?",
 }
 
+EMPTY_REPLY: dict[Language, str] = {
+    "he": "לא בטוח מה לשנות. אפשר לספר לי קצת יותר על מה שתרצה?",
+    "en": "I'm not sure what to change. Could you tell me more about what you want?",
+}
+DEFAULT_PROPOSAL_REPLY: dict[Language, str] = {
+    "he": "הנה מה שהייתי משנה. בדוק ואשר כדי להחיל.",
+    "en": "Here is what I would change. Review it and confirm to apply.",
+}
+
 # The instruction appended at the very end of the system prompt (after the per-turn data).
 # It overrides the language of earlier messages in the conversation.
 INSTRUCTION: dict[Language, str] = {
@@ -47,5 +56,6 @@ def detect(text: str) -> Language | None:
 
 
 def reply_language(messages: list[dict], chosen: Language) -> Language:
-    latest = next((m["text"] for m in reversed(messages) if m["role"] == "user"), "")
+    """`messages` items carry the text under "content" (chat API) or "text"."""
+    latest = next((m.get("content", m.get("text", "")) for m in reversed(messages) if m["role"] == "user"), "")
     return detect(latest) or chosen

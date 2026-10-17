@@ -2,9 +2,9 @@
 // without one, it gets an honest "not connected" reply. Either way nothing is ever applied to the
 // design from here: a proposal only changes the design after the customer confirms it.
 //
-// A proposal is { id, baseRevision, summary, changes: [{ title, detail }], signed? }. It is kept
+// A proposal is { id, baseRevision, summary, changes: [{ title, detail }], language, raw }. It is kept
 // apart from the committed design and is only ever "pending" or "stale" (the design changed after
-// it was made). `signed` is the server's signed payload, sent back unchanged on confirm.
+// it was made). `raw` is the server's signed proposal, sent back unchanged on confirm.
 
 import { DEFAULT_LANGUAGE, STRINGS, stringsFor } from './i18n.js';
 
@@ -29,21 +29,21 @@ export function proposalStatus(proposal, currentRevision) {
  * Map the server's signed proposal to the view-model shape (the original travels in `signed`).
  * `language` is the language it was written in; the card keeps showing it in that language.
  */
-export function fromServerProposal(signed, language = DEFAULT_LANGUAGE) {
+export function fromServerProposal(raw, language = DEFAULT_LANGUAGE) {
   return {
-    id: signed.proposalId,
-    baseRevision: signed.baseRevision,
-    summary: signed.summary,
-    changes: signed.changes,
+    id: raw.id,
+    baseRevision: raw.baseRevision,
+    summary: raw.summary,
+    changes: raw.changes,
     language,
-    signed,
+    raw,
   };
 }
 
 /**
  * @param getRevision  () => current committed revision
- * @param agent        optional async ({ messages, language }) => { reply, proposal|null }, where
- *                     messages is the user/assistant history ending with the new customer message
+ * @param agent        optional async ({ messages, language }) => { reply, replySignature, proposal|null },
+ *                     where messages is the user/assistant history [{ role, content }] ending with the new customer message
  * @param getLanguage  () => the chat language ('he' | 'en'): the agent replies in it, and so do UI notes
  */
 export function createChatModel({ getRevision, agent = null, getLanguage = () => DEFAULT_LANGUAGE }) {
@@ -56,15 +56,16 @@ export function createChatModel({ getRevision, agent = null, getLanguage = () =>
   const t = () => stringsFor(getLanguage());
   // Every message remembers the language it was written in, so switching the chat language later
   // never changes how earlier messages look (a Hebrew message stays Hebrew and right-to-left).
-  const push = (role, text, language = getLanguage()) => {
-    messages.push(Object.freeze({ id: nextId, role, text, language }));
+  // An agent reply also keeps its server signature, which read-aloud needs (/api/voice/speech).
+  const push = (role, text, language = getLanguage(), signature = null) => {
+    messages.push(Object.freeze({ id: nextId, role, text, language, ...(signature && { signature }) }));
     nextId += 1;
   };
   // Only real dialogue goes to the model; system notes (cancelled, applied...) are UI-only.
   const history = () => messages
     .filter((m) => m.role === 'user' || m.role === 'assistant')
     .slice(-MAX_HISTORY)
-    .map(({ role, text }) => ({ role, text }));
+    .map(({ role, text }) => ({ role, content: text }));
 
   async function ask() {
     // The reply is written in the language chosen when the message was sent, even if the
@@ -73,8 +74,8 @@ export function createChatModel({ getRevision, agent = null, getLanguage = () =>
     busy = true;
     notify();
     try {
-      const { reply, proposal: signed } = await agent({ messages: history(), language });
-      push('assistant', reply, language);
+      const { reply, replySignature, proposal: signed } = await agent({ messages: history(), language });
+      if (reply) push('assistant', reply, language, replySignature); // an empty reply adds no bubble
       if (signed) proposal = fromServerProposal(signed, language);
     } catch (error) {
       push('system', error?.message && error.status ? error.message : stringsFor(language).agentError, language);
@@ -94,6 +95,7 @@ export function createChatModel({ getRevision, agent = null, getLanguage = () =>
     getProposalStatus: () => proposalStatus(proposal, getRevision()),
     isBusy: () => busy,
     isConnected: () => agent !== null,
+    hasAgent: agent !== null,
 
     /**
      * A customer message. Returns { ok } synchronously; with an agent, the reply (and maybe a
@@ -114,6 +116,13 @@ export function createChatModel({ getRevision, agent = null, getLanguage = () =>
       proposal = null;
       ask();
       return { ok: true };
+    },
+
+    /** An opening line from the designer. It is a fixed text, never an LLM call or a reaction to an edit. */
+    greet(text) {
+      if (!text || messages.length) return;
+      push('assistant', text);
+      notify();
     },
 
     /** Set by the agent integration (Phase 5) or the dev-only demo. */

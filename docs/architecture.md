@@ -74,13 +74,28 @@ Op set: `create_wardrobe, update_dimensions, configure_doors, add_compartment, m
 Revision and persistence metadata (`revision`, `designId`) stay **outside** the design object.
 
 ## 5. AI proposal and approval protocol
-1. Each chat message sends `POST /api/chat {messages, design, revision}`. The agent always sees the latest committed state, and it is only called on user messages.
-2. The backend calls OpenAI with function tools, one per op category plus `ask_clarification`. The tool arguments are parsed with Pydantic and then dry-run on a copy of the design. Any invalid op is fed back to the model to repair, up to 2 retries. If it still fails, the user gets a clarification message instead.
-3. The response is `{reply, proposal?: {proposalId, baseRevision, baseHash, ops, summary, signature}}`. The signature is an HMAC over (ops, baseRevision, baseHash) using `PROPOSAL_SIGNING_KEY`. The server stores nothing.
+1. Each chat message sends `POST /api/chat {messages, design, revision, mode?, language?}`. `language` (`he`|`en`) is the chat's choice and is used only when the latest message has no letters; otherwise the reply follows the language that message is written in. The agent always sees the latest committed state, and it is only called on user messages.
+2. The backend calls OpenAI with function tools, one per op plus `ask_clarification` and `decline_off_topic` (the app then shows a fixed refusal in the customer's language, never model-written text). The tool arguments are parsed with Pydantic and then dry-run on a copy of the design. Any invalid op is fed back to the model to repair, up to 2 retries. If it still fails, the user gets a clarification message instead.
+3. The response is `{reply, replySignature, proposal?: {id, baseRevision, baseHash, ops, summary, changes, signature}}`. `changes` is built by the server from the validated ops, in Hebrew or English. `replySignature` is an HMAC over the reply text, so only the agent's own replies can be read aloud. The signature is an HMAC over (ops, baseRevision, baseHash) using `PROPOSAL_SIGNING_KEY`. The server stores nothing.
 4. The UI shows the proposal card with **Confirm** and **Cancel**. The committed state is never touched while a proposal is pending. An optional ghost preview is drawn in a separate scene layer.
 5. **Confirm** sends `POST /api/proposals/apply {design, revision, proposal}`. The server verifies the signature, then checks `revision == baseRevision` and `hash(design) == baseHash`, otherwise it returns **409 STALE**. It re-validates, applies, and returns `{design, revision+1}`. The frontend then commits, and the viewer and editor re-render.
 6. **Cancel** discards the proposal on the client only, and a "cancelled" note goes into the chat history.
 7. Any manual edit made while a proposal is pending bumps the revision. The card then shows "design changed – ask agent to re-propose".
+
+### 5a. Voice (chained pipeline, added 2026-10-16)
+Voice was originally an excluded feature. It was added on request, following OpenAI's voice-agents guide, as a **chained pipeline**: speech-to-text, then the existing agent, then optional text-to-speech.
+- **Mic → `POST /api/voice/transcribe`.**
+  - The request is a raw audio body with a content-type allowlist and a 1 MB streamed cap. The browser stops recording itself at 60 s.
+  - It returns `{text}`. No language hint is sent, so either language is transcribed as spoken.
+  - The text then goes through the normal `submit()`, which detects the language and calls `/api/chat`.
+- **Read replies aloud** (opt-in, remembered per browser): `POST /api/voice/speech {text, language, signature}` returns `audio/mpeg`; `signature` is the chat's `replySignature` and anything else is refused with 403.
+  - The toggle and its notice disclose that the voice is AI-generated, as OpenAI's usage policies require.
+- **Why chained and not Realtime speech-to-speech.** A Realtime session would need its own tool loop and browser ephemeral keys, and it would bypass the signed-proposal protocol. Chained keeps one agent, one scope policy, and one Confirm step.
+- **Defaults (configurable):**
+  - `OPENAI_TRANSCRIBE_MODEL=gpt-4o-mini-transcribe`
+  - `OPENAI_TTS_MODEL=gpt-4o-mini-tts`
+  - `OPENAI_TTS_VOICE=marin`
+  - The voices are optimized for English, so Hebrew read-aloud may sound accented.
 
 ## 6. API contracts (FastAPI, Pydantic, `{success, data, error}` envelope)
 | Method | Route | Purpose |
@@ -90,6 +105,8 @@ Revision and persistence metadata (`revision`, `designId`) stay **outside** the 
 | GET | `/api/designs/default` | basic wardrobe template |
 | POST | `/api/chat` | agent turn → reply + optional signed proposal |
 | POST | `/api/proposals/apply` | verify, check stale, apply → new design |
+| POST | `/api/voice/transcribe` | raw audio (≤ 1 MB) → `{text}` |
+| POST | `/api/voice/speech` | `{text, language, signature}` → `audio/mpeg` |
 | POST | `/api/designs/validate` | server validation of a manual design (used before save) |
 | POST | `/api/designs` | create → `{designId, accessToken, revision}` |
 | GET | `/api/designs/{id}` | header `Authorization: Bearer <token>` → design |

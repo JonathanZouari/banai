@@ -7,6 +7,8 @@ import { icon } from '../ui/icons.js';
 import { MAX_MESSAGE_LENGTH } from './chatModel.js';
 import { createLanguage, detectLanguage, LANGUAGES, STRINGS, stringsFor } from './i18n.js';
 import { renderProposalCard } from './proposalCard.js';
+import { canRecord, createSpeaker, readAloudPreference, startRecording } from './voice.js';
+import { transcribe } from '../api/client.js';
 
 const LANGUAGE_NAMES = Object.freeze({ he: 'עב', en: 'EN' });
 
@@ -26,11 +28,82 @@ function languageSwitch(language, t) {
   return group;
 }
 
-export function mountChat(container, { model, onConfirm, language = createLanguage() }) {
+export function mountChat(container, {
+  model, onConfirm, language = createLanguage(), speaker = createSpeaker(), readAloud = readAloudPreference(),
+}) {
   container.classList.add('panel--chat');
   let draft = '';
   let hintKey = null; // a localized placeholder chosen on the start screen
   let view = null;
+  // Voice state outlives a rebuild (language switch). status: null | 'recording' | 'transcribing'.
+  const voice = { recording: null, status: null, notice: null };
+  let spokenCount = model.getMessages().length; // replies already present are never read aloud
+
+  const showVoiceState = () => {
+    const { t, hint, mic } = view;
+    hint.textContent = voice.notice ?? (voice.status ? t[voice.status] : t.hint);
+    if (!mic) return;
+    const recording = voice.status === 'recording';
+    mic.classList.toggle('chat__mic--recording', recording);
+    mic.setAttribute('aria-pressed', String(recording));
+    mic.setAttribute('aria-label', recording ? t.micStop : t.mic);
+    mic.replaceChildren(icon(recording ? 'stop' : 'mic'));
+    mic.disabled = voice.status === 'transcribing' || (!recording && model.isBusy());
+  };
+
+  async function toggleMic() {
+    if (voice.recording) {
+      voice.recording.stop();
+      return;
+    }
+    if (voice.starting) return; // a second click while the permission prompt is open
+    voice.notice = null;
+    voice.starting = true;
+    try {
+      voice.recording = await startRecording();
+    } catch {
+      voice.notice = view.t.micDenied;
+      voice.starting = false;
+      showVoiceState();
+      return;
+    }
+    voice.starting = false;
+    voice.status = 'recording';
+    showVoiceState();
+    const blob = await voice.recording.done;
+    voice.recording = null;
+    voice.status = 'transcribing';
+    showVoiceState();
+    try {
+      const { text } = await transcribe(blob, language.get());
+      view.input.value = text;
+      draft = text;
+      voice.status = null;
+      showVoiceState();
+      view.submit(); // the normal send path: language detection, then a proposal to confirm
+    } catch (error) {
+      voice.notice = error?.status ? error.message : view.t.voiceError;
+    } finally {
+      voice.status = null;
+      showVoiceState();
+    }
+  }
+
+  function readAloudToggle(t) {
+    const button = el('button', {
+      className: 'icon-btn chat__read-aloud',
+      attrs: { type: 'button', 'aria-pressed': String(readAloud.get()), 'aria-label': t.readAloud, title: t.readAloud },
+    }, [icon('volume', { size: 18 })]);
+    button.dataset.testid = 'chat-read-aloud';
+    button.addEventListener('click', () => {
+      readAloud.set(!readAloud.get());
+      button.setAttribute('aria-pressed', String(readAloud.get()));
+      if (!readAloud.get()) speaker.stop();
+      voice.notice = readAloud.get() ? view.t.readAloudOn : null; // the AI-voice disclosure
+      showVoiceState();
+    });
+    return button;
+  }
 
   function build() {
     const t = language.strings();
@@ -54,8 +127,15 @@ export function mountChat(container, { model, onConfirm, language = createLangua
     input.addEventListener('input', () => { draft = input.value; });
     const sendButton = el('button', { className: 'icon-btn icon-btn--filled chat__send', attrs: { type: 'submit', 'aria-label': t.send } }, [icon('send')]);
     sendButton.dataset.testid = 'chat-send';
-    const composer = el('form', { className: 'chat__composer' }, [input, sendButton]);
-    const hint = el('p', { className: 'chat__hint', text: t.hint });
+    const voiceReady = model.isConnected() && canRecord();
+    const mic = voiceReady ? el('button', { className: 'icon-btn chat__mic', attrs: { type: 'button' } }) : null;
+    if (mic) {
+      mic.dataset.testid = 'chat-mic';
+      mic.addEventListener('click', toggleMic);
+    }
+    const composer = el('form', { className: 'chat__composer' }, mic ? [input, mic, sendButton] : [input, sendButton]);
+    const hint = el('p', { className: 'chat__hint', text: t.hint, attrs: { 'aria-live': 'polite' } });
+    hint.dataset.testid = 'chat-hint';
 
     const chips = t.suggestions.map((text) => {
       const chip = el('button', { className: 'suggestion', attrs: { type: 'button' } }, [icon('sparkle', { size: 16 }), el('span', { text })]);
@@ -85,6 +165,7 @@ export function mountChat(container, { model, onConfirm, language = createLangua
 
     const submit = () => {
       if (model.isBusy() || !input.value.trim()) return;
+      voice.notice = null; // a new message clears an old mic/read-aloud notice
       // Writing in Hebrew or English switches the chat to that language first, so the reply (and
       // the UI) come back only in the language the customer wrote in.
       const written = detectLanguage(input.value);
@@ -110,9 +191,21 @@ export function mountChat(container, { model, onConfirm, language = createLangua
       }
     });
 
-    const footerRow = el('div', { className: 'chat__footer-row' }, [hint, languageSwitch(language, t)]);
+    const controls = model.isConnected() ? [readAloudToggle(t), languageSwitch(language, t)] : [languageSwitch(language, t)];
+    const footerRow = el('div', { className: 'chat__footer-row' }, [hint, el('div', { className: 'chat__footer-controls' }, controls)]);
     container.replaceChildren(header, el('div', { className: 'chat__body' }, [welcome, list, proposalSlot]), el('div', { className: 'chat__footer' }, [composer, footerRow]));
-    view = { t, input, sendButton, composer, welcome, list, proposalSlot, typing, submit, renderedCount: 0, renderedProposalKey: null };
+    view = { t, input, sendButton, composer, welcome, list, proposalSlot, typing, submit, hint, mic, renderedCount: 0, renderedProposalKey: null };
+    showVoiceState();
+  }
+
+  function speakNewReplies(messages) {
+    const reply = messages.slice(spokenCount).filter((message) => message.role === 'assistant').at(-1);
+    spokenCount = messages.length;
+    if (!reply || !readAloud.get()) return;
+    speaker.speak(reply.text, reply.language, reply.signature).catch(() => {
+      voice.notice = view.t.voiceError;
+      showVoiceState();
+    });
   }
 
   function render() {
@@ -144,6 +237,8 @@ export function mountChat(container, { model, onConfirm, language = createLangua
     sendButton.disabled = busy;
     composer.setAttribute('aria-busy', String(busy));
     list.scrollTop = list.scrollHeight;
+    showVoiceState();
+    speakNewReplies(messages);
 
     // Re-render the card only when the proposal or its status changed (keeps its entrance animation calm).
     const proposal = model.getProposal();

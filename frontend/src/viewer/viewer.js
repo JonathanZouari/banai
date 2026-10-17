@@ -14,9 +14,9 @@ import { toM } from './units.js';
 
 const BACKGROUND = '#eceeec';
 
-function createScene() {
+export function createScene({ background = BACKGROUND, grid: showGrid = true } = {}) {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(BACKGROUND);
+  scene.background = new THREE.Color(background);
   scene.add(new THREE.HemisphereLight('#ffffff', '#c9c4b8', 2.2));
   const key = new THREE.DirectionalLight('#ffffff', 1.6);
   key.position.set(3, 5, 4);
@@ -24,9 +24,11 @@ function createScene() {
   const fill = new THREE.DirectionalLight('#ffffff', 0.9);
   fill.position.set(-2, 2, 5);
   scene.add(fill);
-  const grid = new THREE.GridHelper(12, 24, '#c9ccc8', '#dcdfdb');
-  grid.position.y = -0.0005;
-  scene.add(grid);
+  if (showGrid) {
+    const grid = new THREE.GridHelper(12, 24, '#c9ccc8', '#dcdfdb');
+    grid.position.y = -0.0005;
+    scene.add(grid);
+  }
   return scene;
 }
 

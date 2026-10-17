@@ -31,8 +31,9 @@ test.describe('start screen', () => {
   });
 });
 
-test.describe('AI chat panel (agent not connected yet)', () => {
-  test('sending a message gets an honest reply and never changes the design', async ({ page }) => {
+test.describe('AI chat panel', () => {
+  test('without an agent on the server a message gets an honest reply and never changes the design', async ({ page }) => {
+    await page.route('**/api/health', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: { status: 'ok', env: 'e2e', agent: false } }) }));
     await openDesigner(page);
     const before = await page.evaluate(() => window.__banai.store.getState().revision);
     await page.getByTestId('chat-input').fill('תעשה אותו ברוחב 3 מטר');

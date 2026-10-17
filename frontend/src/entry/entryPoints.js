@@ -26,4 +26,5 @@ export const ENTRY_POINTS = Object.freeze([
   }),
 ]);
 
+
 export const getEntryPoint = (id) => ENTRY_POINTS.find((entry) => entry.id === id) ?? null;

@@ -1,6 +1,8 @@
-"""Proposal signing (HMAC-SHA256). The server stores nothing: a proposal is only applied
-when its signature verifies, it was made against the same revision, and the design the
-client sends back hashes to the same value it was proposed against."""
+"""Stateless proposal signing: HMAC-SHA256 over (ops, baseRevision, baseHash).
+
+The server stores nothing. A proposal is only applied when its signature verifies and the
+design it was made for is still the committed one (same revision and same hash).
+"""
 
 from __future__ import annotations
 
@@ -9,23 +11,39 @@ import hmac
 import json
 
 
-def canonical_json(value: object) -> bytes:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+class SigningUnavailable(RuntimeError):
+    """PROPOSAL_SIGNING_KEY is not configured."""
+
+
+def canonical_json(value: object) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
 def design_hash(design: dict) -> str:
-    """Hash of a canonical (already parsed) design."""
-    return hashlib.sha256(canonical_json(design)).hexdigest()
+    return hashlib.sha256(canonical_json(design).encode("utf-8")).hexdigest()
 
 
-def _payload(proposal_id: str, ops: list, base_revision: int, base_hash: str) -> bytes:
-    return canonical_json({"proposalId": proposal_id, "ops": ops, "baseRevision": base_revision, "baseHash": base_hash})
+def _digest(ops: list, base_revision: int, base_hash: str, key: str) -> str:
+    if not key:
+        raise SigningUnavailable("PROPOSAL_SIGNING_KEY is not set")
+    payload = canonical_json({"ops": ops, "baseRevision": base_revision, "baseHash": base_hash})
+    return hmac.new(key.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
-def sign(key: bytes, *, proposal_id: str, ops: list, base_revision: int, base_hash: str) -> str:
-    return hmac.new(key, _payload(proposal_id, ops, base_revision, base_hash), hashlib.sha256).hexdigest()
+def sign_proposal(ops: list, base_revision: int, base_hash: str, key: str) -> str:
+    return _digest(ops, base_revision, base_hash, key)
 
 
-def verify(key: bytes, signature: str, *, proposal_id: str, ops: list, base_revision: int, base_hash: str) -> bool:
-    expected = sign(key, proposal_id=proposal_id, ops=ops, base_revision=base_revision, base_hash=base_hash)
-    return hmac.compare_digest(expected, signature)
+def verify_proposal(ops: list, base_revision: int, base_hash: str, signature: str, key: str) -> bool:
+    return hmac.compare_digest(_digest(ops, base_revision, base_hash, key), signature)
+
+
+def sign_reply(text: str, key: str) -> str:
+    """Signs an agent reply, so text-to-speech only reads aloud what the agent said (not any text)."""
+    if not key:
+        raise SigningUnavailable("PROPOSAL_SIGNING_KEY is not set")
+    return hmac.new(key.encode("utf-8"), b"reply:" + text.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def verify_reply(text: str, signature: str, key: str) -> bool:
+    return hmac.compare_digest(sign_reply(text, key), signature)
