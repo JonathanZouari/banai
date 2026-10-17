@@ -21,6 +21,17 @@ test.describe('workspace (RTL, schema v2)', () => {
     expect(props.x).toBeGreaterThan(side.x);
   });
 
+  test('the app shell never scrolls as a page, even with the compartment list open and focused', async ({ page }) => {
+    // Hidden labels once escaped the panel and made <body> ~340 px taller (Chrome walkthrough, 2026-10-17).
+    await page.getByTestId('select-cmp_left').click();
+    const input = page.locator('.compartment-row .field__input').first();
+    await input.scrollIntoViewIfNeeded();
+    await input.focus();
+    const metrics = await page.evaluate(() => ({ height: document.scrollingElement.scrollHeight, top: document.scrollingElement.scrollTop, inner: innerHeight }));
+    expect(metrics.height).toBeLessThanOrEqual(metrics.inner);
+    expect(metrics.top).toBe(0);
+  });
+
   test('advisories arrive from the API with grade and source, and the tab badge counts warnings', async ({ page }) => {
     const wide = advice(page, 'r3-wide');
     await expect(wide).toBeVisible();

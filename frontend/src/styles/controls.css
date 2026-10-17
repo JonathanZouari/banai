@@ -276,6 +276,9 @@ select.field__input {
 /* ---------- Compartment list ---------- */
 .compartment-list { margin: 0 calc(-1 * var(--space-2)); padding: 0; list-style: none; }
 .compartment-row {
+  /* Contains its visually hidden labels. Without it they were placed against <body>, made the page
+     scrollable by ~340 px, and focus in the panel scrolled the whole app shell (walkthrough 2026-10-17). */
+  position: relative;
   display: grid;
   grid-template-columns: 6.125rem minmax(4.25rem, 6.5rem) auto;
   justify-content: space-between;
