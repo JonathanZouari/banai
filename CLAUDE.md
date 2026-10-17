@@ -16,12 +16,12 @@ BanAI started as an MVP AI wardrobe designer for standard straight wardrobes. Th
 - **Undo/redo** and hold-to-compare against a saved version.
 - **Design-aware chat** (ADR-020/025): the agent sees the design and proposes ops; the server signs them, and nothing changes until the customer confirms. Conversational: no chips or multiple choice. Jerusalem weather is the one deliberate off-topic answer (ADR-015).
 - **Push-to-talk voice** (ADR-021): record, transcribe on the server, send as a chat message. A change still needs a tap.
-- **Bob the Builder (בוב הבנאי):** the agent's name and character in every language (the app itself stays בנאי). A registered character: fine for this study project, a real product needs its own name.
+- **Bob the Builder (בוב הבנאי):** the agent's name and character in every language (the app itself stays בנאי). The character is a fictional master carpenter (in the workshop since 1994, over a thousand wardrobes), the same story as the P3 About page; the agent admits it is an AI when asked. A registered character: fine for this study project, a real product needs its own name.
 - **Languages** (ADR-029): Hebrew, English, Russian and Arabic.
   - The **carpenter's dossier** comes in the language the carpenter picks from the dossier menu; the page direction follows it.
   - The **conversation** has a session language, picked on the start screen or in the chat header and kept in the browser: the chat column's texts and direction, the agent's replies, the transcription hint and the spoken voice follow it.
   - The rest of the workspace stays Hebrew, and so do the proposal card's change lines (they come from the Hebrew diff).
-- **Spoken replies** (ADR-028): a reply to a spoken message is also read aloud by an AI voice (OpenAI `gpt-4o-mini-tts`; persona: young, warm, smiling, never salesy). Typed messages get silent replies. A speaker toggle mutes it; the voice is picked by ear in AI settings; the UI discloses that the voice is AI-generated (an OpenAI usage-policy requirement).
+- **Spoken replies** (ADR-028): a reply to a spoken message is also read aloud by an AI voice (OpenAI `gpt-4o-mini-tts`; persona: a seasoned master carpenter, calm, warm and confident, never salesy). Typed messages get silent replies. A speaker toggle mutes it; the voice is picked by ear in AI settings; the UI discloses that the voice is AI-generated (an OpenAI usage-policy requirement).
 
 Docs:
 - Product brief: Obsidian `BanAI/06 - Product Specification.md`. bobHabanai: `BanAI/11 - bobHabanai Characterization` and `BanAI/12 - bobHabanai Technical Plan` (also in `docs/bobhabanai/`).

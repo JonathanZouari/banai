@@ -1,5 +1,5 @@
 // Spoken replies (ADR-028). When the customer speaks to בנאי, the reply is also read aloud by an
-// AI voice: young, warm and smiling (the persona is set on the server, app/agent/speech.py). A typed
+// AI voice: a seasoned master carpenter, calm and warm (the persona is set on the server, app/agent/speech.py). A typed
 // message gets a silent reply. The speaker button mutes it, and the choice and the voice are kept in
 // this browser. Pressing the mic or sending a new message stops the voice at once. The voice only
 // talks: a design change still waits for a tap on Confirm.

@@ -1,8 +1,9 @@
 """Text to speech for the chat's spoken replies (ADR-028). OPENAI_TTS_MODEL wins; otherwise a current
 speech model is picked from the models the customer's own key can use, because model names change.
 
-The persona lives in INSTRUCTIONS: a young, warm, smiling voice, relaxed and never pushy (the user
-asked for "a youthful voice that smiles, not a tough salesman"). Only the gpt-4o-mini-tts family takes
+The persona lives in INSTRUCTIONS: a seasoned master carpenter, mature, calm and warm, never pushy (the
+About page persona; the user first asked for "not a tough salesman", then found a young, smiling voice
+infantile). Only the gpt-4o-mini-tts family takes
 instructions; the older tts-1 models get the text alone and a voice they support.
 
 PREFERRED and the voice list are configurable defaults (not business rules), checked against OpenAI's
@@ -28,10 +29,12 @@ MAX_SPOKEN_CHARS = 1200  # about a minute of speech; a longer reply is cut at th
 MAX_AUDIO_BYTES = 8 * 1024 * 1024  # 1200 characters is a few MB of MP3; anything larger is refused
 
 INSTRUCTIONS = (
-    "Voice: young, warm and friendly, with a smile you can hear. Sound like a helpful young carpenter's "
-    "apprentice chatting with a friend about their wardrobe. "
-    "Tone: relaxed, light and encouraging. Never pushy, never salesy, no hype, no announcer voice. "
-    "Pace: natural and unhurried, with short pauses between ideas. Say measurements clearly. "
+    "Voice: a mature man, a seasoned master carpenter with thirty years at the workbench. Warm, calm and "
+    "grounded, with quiet confidence. Sound like an experienced craftsman explaining a plan across the "
+    "workbench to a customer he respects. "
+    "Tone: steady, reassuring and precise. Friendly, never childish. Never pushy, never salesy, no hype, "
+    "no announcer voice. "
+    "Pace: unhurried, with short pauses between ideas. Say measurements clearly and deliberately. "
     "Language: speak the text in its own language. For Hebrew, use natural Israeli pronunciation."
 )
 

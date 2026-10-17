@@ -128,7 +128,8 @@ def test_real_speak_sends_the_persona_and_closes_the_client(real_speaker):
     assert made == [{"api_key": KEY, "timeout": 30.0, "max_retries": 1}]
     assert fake.created == [{"model": "gpt-4o-mini-tts", "voice": DEFAULT_VOICE, "input": "היי! בוא נתכנן.",
                              "response_format": "mp3", "instructions": INSTRUCTIONS}]
-    assert "smile" in INSTRUCTIONS and "Never pushy" in INSTRUCTIONS
+    assert "master carpenter" in INSTRUCTIONS and "Never pushy" in INSTRUCTIONS
+    assert "young" not in INSTRUCTIONS.lower() and "smile" not in INSTRUCTIONS.lower()
     assert fake.closed
     assert post(client).status_code == 200
     assert fake.listed == 1  # the model pick is cached per key, by fingerprint
