@@ -35,6 +35,13 @@ npm run dev
 npm test
 ```
 
+### Optional keys (`backend/.env`)
+
+- `OPENAI_API_KEY`: turns on the AI designer chat.
+- `ELEVENLABS_API_KEY`: gives the designer a Hebrew/English voice and a microphone (ElevenLabs free plan works, non-commercial). Without it, replies can still be read aloud by the browser's own voice.
+
+Restart the backend after changing `.env`.
+
 ## Environments
 
 | Railway environment | Git branch | Services (root dir) |

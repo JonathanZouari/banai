@@ -53,3 +53,28 @@ export const sendChat = (payload, fetchImpl = fetch) => postJson('/api/chat', pa
 
 /** Apply a signed proposal: { design, revision, proposal } -> { design, revision }. 409 = stale. */
 export const applyProposal = (payload, fetchImpl = fetch) => postJson('/api/proposals/apply', payload, fetchImpl);
+
+/** Speak a reply with the server's voice: { text, language } -> an audio Blob (MP3). */
+export async function speak(payload, fetchImpl = fetch) {
+  if (!API_BASE_URL) throw new Error('The API base URL is not configured');
+  let response;
+  try {
+    response = await fetchImpl(`${API_BASE_URL}/api/voice/speak`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    throw new ApiError('Could not reach the voice service.');
+  }
+  // Errors come back as the usual JSON envelope; success is raw audio.
+  if (!response.ok) throw new ApiError(`Voice failed with status ${response.status}`, { status: response.status, code: 'VOICE_ERROR' });
+  return response.blob();
+}
+
+/** Transcribe a recording: (Blob, 'he' | 'en') -> { text }. */
+export const transcribe = (audio, language, fetchImpl = fetch) => request(`/api/voice/transcribe?language=${encodeURIComponent(language)}`, fetchImpl, {
+  method: 'POST',
+  headers: { 'Content-Type': audio.type || 'audio/webm' },
+  body: audio,
+});
