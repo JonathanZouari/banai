@@ -1,6 +1,6 @@
-// Bob the Builder, our own drawing (not the TV character): a young carpenter with a pencil behind his
-// ear, drawn in flat geometric shapes. States: idle (breathes, blinks), thinking (looks up, dots),
-// speaking (the mouth and the warm glow follow the voice level), happy (smiling eyes, a small hop).
+// Bob, our own drawing (not the TV character): a master carpenter in his fifties (greying hair, a short beard,
+// thin glasses) with a pencil behind his ear, drawn in flat geometric shapes. States: idle (breathes, blinks), thinking (looks up, dots),
+// speaking (the mouth and the warm glow follow the voice level), pleased (closed eyes, a small nod).
 // Decorative: aria-hidden, the state is announced in text by whoever uses it.
 const NS = 'http://www.w3.org/2000/svg';
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -42,11 +42,13 @@ const ART = `
       <circle cx="144" cy="98" r="10" fill="#efc29f"/>
       <circle cx="100" cy="94" r="46" fill="#f3caa8"/>
       <!-- hair -->
-      <path d="M56 84 C56 52 80 40 102 42 C128 44 146 58 145 84 C138 70 124 62 108 64 C96 58 78 62 70 74 C64 78 60 80 56 84 Z" fill="#3b2a20"/>
-      <path d="M96 46 C104 38 118 38 124 46 C116 44 106 46 100 52 Z" fill="#4a3528"/>
+      <path d="M56 84 C56 52 80 40 102 42 C128 44 146 58 145 84 C138 70 124 62 108 64 C96 58 78 62 70 74 C64 78 60 80 56 84 Z" fill="#6f6862"/>
+      <path d="M60 78 C62 60 76 50 92 48 C80 54 70 62 66 74 Z" fill="#a8a29c" opacity="0.8"/>
+      <path d="M140 78 C138 64 130 56 120 52 C128 58 134 66 136 76 Z" fill="#a8a29c" opacity="0.7"/>
+      <path d="M96 46 C104 38 118 38 124 46 C116 44 106 46 100 52 Z" fill="#8a837c"/>
       <g class="bob__brows">
-        <path d="M76 80 Q84 75 92 79" stroke="#3b2a20" stroke-width="3.2" fill="none" stroke-linecap="round"/>
-        <path d="M108 79 Q116 75 124 80" stroke="#3b2a20" stroke-width="3.2" fill="none" stroke-linecap="round"/>
+        <path d="M75 80 Q84 74 93 78" stroke="#5e5852" stroke-width="4" fill="none" stroke-linecap="round"/>
+        <path d="M107 78 Q116 74 125 80" stroke="#5e5852" stroke-width="4" fill="none" stroke-linecap="round"/>
       </g>
       <g class="bob__eyes">
         <g class="bob__eyes-open">
@@ -60,10 +62,20 @@ const ART = `
           <path d="M110 96 Q116 88 122 96" stroke="#2a211c" stroke-width="3.4" fill="none" stroke-linecap="round"/>
         </g>
       </g>
-      <circle cx="74" cy="108" r="7" fill="#ee9e8f" opacity="0.35"/>
-      <circle cx="126" cy="108" r="7" fill="#ee9e8f" opacity="0.35"/>
+      <circle cx="74" cy="108" r="7" fill="#e0a08f" opacity="0.12"/>
+      <circle cx="126" cy="108" r="7" fill="#e0a08f" opacity="0.12"/>
       <path d="M98 100 Q100 106 104 104" stroke="#d9a07c" stroke-width="2.4" fill="none" stroke-linecap="round"/>
-      <path class="bob__smile" d="M86 114 Q100 126 114 114" stroke="#7a3e30" stroke-width="3.4" fill="none" stroke-linecap="round"/>
+      <path d="M58 106 C59 132 78 144 100 144 C122 144 141 132 142 106 C137 118 128 123 116 123 C110 127 90 127 84 123 C72 123 63 118 58 106 Z" fill="#7d766f"/>
+      <path d="M58 106 C61 121 70 127 82 129 C70 125 63 119 58 106 Z" fill="#a8a29c" opacity="0.5"/>
+      <path d="M84 111 Q92 106 100 109 Q108 106 116 111 Q110 115 100 113 Q90 115 84 111 Z" fill="#6f6862"/>
+      <g class="bob__glasses" fill="none" stroke="#2f2a26" stroke-width="2.2">
+        <circle cx="84" cy="94" r="11"/>
+        <circle cx="116" cy="94" r="11"/>
+        <path d="M95 93 Q100 90 105 93"/>
+        <path d="M73 92 L60 88"/>
+        <path d="M127 92 L140 88"/>
+      </g>
+      <path class="bob__smile" d="M88 116 Q100 122 112 116" stroke="#7a3e30" stroke-width="3.4" fill="none" stroke-linecap="round"/>
       <g class="bob__talk">
         <ellipse class="bob__mouth" cx="100" cy="117" rx="9" ry="6" fill="#6b2f27"/>
         <ellipse class="bob__tongue" cx="100" cy="121" rx="5" ry="2.4" fill="#e07f78"/>

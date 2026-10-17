@@ -104,33 +104,45 @@
     </div>
   </section>
 
-  <!-- 3. Bob -->
-  <section class="board board--bob" aria-labelledby="bob-title">
-    <header class="board__head">
-      <p class="eyebrow">בוב הבנאי</p>
-      <h2 id="bob-title" class="board__title">נגר צעיר שמחייך, לא איש מכירות</h2>
-      <p class="board__lead">ציור מקורי שלנו, לא הדמות מהטלוויזיה. עיפרון מאחורי האוזן, סינר עור, ומבט שמקשיב. כשבוב מדבר, הפה וההילה החמה עוקבים אחרי עוצמת הקול האמיתית.</p>
-    </header>
-    <div class="bob-stage">
+  <!-- 3. About. The persona and every figure here are fictional (the user asked for an invented, impressive
+       story for this study project). They are not claims about a real person or business. -->
+  <section class="about" aria-labelledby="about-title">
+    <div class="about__portrait">
       <div id="bob-big"></div>
-      <div class="bob-stage__side">
-        <div class="segmented segmented--wide" role="group" aria-label="מצב של בוב">
-          <button type="button" data-state="idle" aria-pressed="true">רגוע</button>
-          <button type="button" data-state="thinking" aria-pressed="false">חושב</button>
-          <button type="button" data-state="speaking" aria-pressed="false">מדבר</button>
-          <button type="button" data-state="happy" aria-pressed="false">שמח</button>
-        </div>
-        <p class="bob-stage__status" id="bob-status" aria-live="polite">בוב רגוע ומקשיב.</p>
-        <div class="chat-head">
-          <div id="bob-head"></div>
-          <div class="chat-head__text"><b>בוב הבנאי</b><span>רואה את התכנון · מציע, ואתם מאשרים</span></div>
-          <span class="chat-head__pill" id="bob-pill" hidden>בוב מדבר · קול שנוצר ב-AI</span>
-        </div>
+      <p class="about__sign">בוב · מאסטר נגר</p>
+    </div>
+    <div class="about__story">
+      <p class="eyebrow">אודות</p>
+      <h2 id="about-title" class="about__title">שלושים ואחת שנה בסדנה.<br>עכשיו בכל בית.</h2>
+      <p class="about__lead">בוב נכנס לסדנה של סבא שלו בשנת 1994, עם מסור יד ועיפרון מאחורי האוזן. מאז הוא תכנן ובנה יותר מאלף ארונות בהתאמה: נישות עקומות בבתים ישנים, חדרי ילדים צרים, וחדרי ארונות שלמים שאף מידה בהם לא הייתה ישרה.</p>
+      <blockquote class="about__quote">
+        <p>״אני לא מוכר ארונות. אני דואג שאף אחד לא יטעה במידה.״</p>
+      </blockquote>
+      <p class="about__text">בנאי נולד כשבוב ישב עם צוות קטן ולימד אותו את מה שלקח לו שלושים שנה ללמוד: עשרים כללי ייעוץ מבוססי מחקר, שיטת בנייה אחת מוצהרת, ותיק נגר שאף נגר לא צריך לנחש ממנו. הוא עדיין חותם על כל כלל לפני שהוא נכנס לאפליקציה.</p>
+      <dl class="about__stats">
+        <div class="stat"><dt>שנים בסדנה</dt><dd><span class="stat__value" data-count="31">31</span></dd></div>
+        <div class="stat"><dt>ארונות בהתאמה</dt><dd><span class="stat__value" data-count="1284">1,284</span></dd></div>
+        <div class="stat"><dt>כללי ייעוץ</dt><dd><span class="stat__value" data-count="20">20</span></dd></div>
+        <div class="stat"><dt>סבולת חיתוך, במ״מ</dt><dd><span class="stat__value" data-count="1">1</span></dd></div>
+      </dl>
+    </div>
+    <div class="about__states">
+      <div class="segmented segmented--wide" role="group" aria-label="בוב בשיחה">
+        <button type="button" data-state="idle" aria-pressed="true">מקשיב</button>
+        <button type="button" data-state="thinking" aria-pressed="false">חושב</button>
+        <button type="button" data-state="speaking" aria-pressed="false">מדבר</button>
+        <button type="button" data-state="happy" aria-pressed="false">מרוצה</button>
+      </div>
+      <p class="bob-stage__status" id="bob-status" aria-live="polite">בוב מקשיב.</p>
+      <div class="chat-head">
+        <div id="bob-head"></div>
+        <div class="chat-head__text"><b>בוב הבנאי</b><span>רואה את התכנון · מציע, ואתם מאשרים</span></div>
+        <span class="chat-head__pill" id="bob-pill" hidden>בוב מדבר · קול שנוצר ב-AI</span>
       </div>
     </div>
   </section>
 
-  <footer class="proto-note">אב-טיפוס P3 · לבדיקה ויזואלית בלבד · עדיין לא באפליקציה</footer>
+  <footer class="proto-note">אב-טיפוס P3 · לבדיקה ויזואלית בלבד · עדיין לא באפליקציה · הדמות והנתונים בעמוד בדיוניים</footer>
   <script type="module" src="js/main.js"></script>
 </body>
 </html>

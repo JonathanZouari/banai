@@ -73,13 +73,36 @@ measure($('#demo-column'), { side: 'side', count: 64, unit: ' ס״מ', gap: 10 }
 const bigBob = createBob($('#bob-big'), { size: 220 });
 const headBob = createBob($('#bob-head'), { size: 44 });
 const STATUS = {
-  idle: 'בוב רגוע ומקשיב.',
-  thinking: 'בוב חושב על ההצעה.',
+  idle: 'בוב מקשיב.',
+  thinking: 'בוב שוקל את ההצעה.',
   speaking: 'בוב מדבר. הפה וההילה עוקבים אחרי עוצמת הקול.',
-  happy: 'בוב שמח: ההצעה אושרה.',
+  happy: 'ההצעה אושרה.',
 };
+
+// The About figures count up under a pencil dimension line: the signature, with a purpose.
+document.querySelectorAll('.stat__value').forEach((node, i) => {
+  const target = Number(node.dataset.count);
+  const number = document.createElement('span');
+  number.textContent = target.toLocaleString('en-US');
+  node.replaceChildren(number);
+  measure(node, { label: '', delay: 150 + i * 120 });
+  if (reducedMotion) return;
+  number.textContent = '0';
+  const io = new IntersectionObserver((entries) => {
+    if (!entries.some((e) => e.isIntersecting)) return;
+    io.disconnect();
+    const begin = performance.now() + 150 + i * 120;
+    const step = (now) => {
+      const p = Math.max(0, Math.min(1, (now - begin) / 1300));
+      number.textContent = Math.round(target * (1 - (1 - p) ** 3)).toLocaleString('en-US');
+      if (p < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }, { threshold: 0.5 });
+  io.observe(node);
+});
 let stopBig = () => {};
-document.querySelectorAll('.bob-stage .segmented button').forEach((button, _, all) => button.addEventListener('click', () => {
+document.querySelectorAll('.about__states .segmented button').forEach((button, _, all) => button.addEventListener('click', () => {
   const state = button.dataset.state;
   all.forEach((b) => b.setAttribute('aria-pressed', String(b === button)));
   stopBig();
