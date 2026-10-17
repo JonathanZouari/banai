@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173"
     openai_chat_model: str = ""
     openai_transcribe_model: str = ""
+    # Spoken replies (ADR-028): empty = pick a speech model from the key's list / the default voice.
+    openai_tts_model: str = ""
+    openai_tts_voice: str = ""
     # HMAC key for chat proposals; empty = a random key per process (proposals expire on restart).
     proposal_secret: str = ""
 

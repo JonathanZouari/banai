@@ -90,13 +90,22 @@ describe('chat model with the agent', () => {
     expect(model.isThinking()).toBe(true);
     await done;
     expect(model.isThinking()).toBe(false);
-    expect(agent.reply).toHaveBeenCalledWith([{ role: 'user', content: 'היי' }]);
+    expect(agent.reply).toHaveBeenCalledWith([{ role: 'user', content: 'היי' }], { spoken: false });
     expect(model.getMessages().map((m) => [m.role, m.text])).toEqual([['user', 'היי'], ['assistant', 'שלום! איך אפשר לעזור?']]);
 
     await model.send('3 shelves').done;
     expect(agent.reply).toHaveBeenLastCalledWith([
       { role: 'user', content: 'היי' }, { role: 'assistant', content: 'שלום! איך אפשר לעזור?' }, { role: 'user', content: '3 shelves' },
-    ]);
+    ], { spoken: false });
+  });
+
+  it('tells the agent when the message was spoken (ADR-028)', async () => {
+    const agent = readyAgent(async () => 'בטח.');
+    const model = createChatModel({ getRevision: () => 1, agent });
+    await model.send('שתי מגירות', { spoken: true }).done;
+    expect(agent.reply).toHaveBeenLastCalledWith([{ role: 'user', content: 'שתי מגירות' }], { spoken: true });
+    await model.send('ועוד מדף').done;
+    expect(agent.reply).toHaveBeenLastCalledWith(expect.any(Array), { spoken: false });
   });
 
   it('refuses a second message while the agent is answering', async () => {

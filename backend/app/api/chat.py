@@ -38,6 +38,8 @@ class ChatRequest(BaseModel):
     # With the design, the agent sees it and may propose signed changes (ADR-020).
     design: dict | None = None
     revision: int | None = Field(default=None, ge=1)
+    # The customer spoke this message and will hear the reply (ADR-028): the agent answers for the ear.
+    spoken: bool = False
 
 
 def get_chat_runner():
@@ -76,8 +78,9 @@ def chat(body: ChatRequest, runner=Depends(get_chat_runner)):
     try:
         messages = [{"role": m.role, "content": m.content} for m in body.messages]
         model = get_settings().openai_chat_model or None
-        result = (runner(api_key, messages, model, design=design, revision=body.revision) if design is not None
-                  else runner(api_key, messages, model))
+        extra = {"spoken": True} if body.spoken else {}
+        result = (runner(api_key, messages, model, design=design, revision=body.revision, **extra) if design is not None
+                  else runner(api_key, messages, model, **extra))
     except AgentError as error:
         return _error(error.status_code, error.code, error.message)
     finally:

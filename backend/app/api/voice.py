@@ -1,4 +1,7 @@
-"""POST /api/voice/transcribe: speech to text for the chat's push-to-talk. The customer's OpenAI key
+"""POST /api/voice/transcribe: speech to text for the chat's push-to-talk (ADR-021), and
+POST /api/voice/speak: the agent's reply as speech (ADR-028).
+
+Transcription: The customer's OpenAI key
 comes with each request; the key and the audio pass through memory only and are never stored or logged.
 
 The transcript is only text for the chat composer: it goes through the same agent turn as a typed
@@ -7,10 +10,14 @@ message, so any design change still waits for the customer's confirmation.
 
 import threading
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends, File, Form, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
+from pydantic import BaseModel, Field
 
 from app.agent.chat import AgentError
+from app.agent.speech import DEFAULT_VOICE, VOICES, speak, spoken_text
 from app.agent.transcribe import transcribe
 from app.ai.verify import KEY_PATTERN
 from app.config import get_settings
@@ -95,3 +102,44 @@ def transcribe_audio(
     finally:
         _slots.release()
     return {"success": True, "data": {"text": text}}
+
+
+# --- spoken replies (ADR-028) ------------------------------------------------------------------
+
+# The agent's replies stay short (the prompt asks for a few sentences), so 4000 characters is generous;
+# what is actually spoken is cut to MAX_SPOKEN_CHARS at a sentence end (app/agent/speech.py).
+MAX_SPEAK_INPUT = 4000
+_speak_slots = threading.BoundedSemaphore(2)
+
+
+class SpeakRequest(BaseModel):
+    apiKey: str = Field(max_length=512)
+    text: str = Field(max_length=MAX_SPEAK_INPUT)
+    voice: Literal[VOICES] | None = None  # type: ignore[valid-type]
+
+
+def get_speaker():
+    return speak
+
+
+@router.post("/speak")
+def speak_reply(body: SpeakRequest, speaker=Depends(get_speaker)):
+    """MP3 of the reply. The key comes with the request and is never stored or logged; nothing in the
+    response echoes the text. Not cached by the browser (the reply is private to this customer)."""
+    api_key = body.apiKey.strip()
+    if not KEY_PATTERN.fullmatch(api_key):
+        return _error(400, "INVALID_FORMAT", "Add a valid OpenAI API key in AI settings.")
+    text = spoken_text(body.text)
+    if not text:
+        return _error(400, "EMPTY_TEXT", "There is nothing to read aloud.")
+    settings = get_settings()
+    voice = body.voice or (settings.openai_tts_voice if settings.openai_tts_voice in VOICES else DEFAULT_VOICE)
+    if not _speak_slots.acquire(blocking=False):
+        return _error(429, "BUSY", "Speech is busy. Try again in a moment.")
+    try:
+        audio = speaker(api_key, text, voice, settings.openai_tts_model or None)
+    except AgentError as error:
+        return _error(error.status_code, error.code, error.message)
+    finally:
+        _speak_slots.release()
+    return Response(content=audio, media_type="audio/mpeg", headers={"Cache-Control": "no-store"})

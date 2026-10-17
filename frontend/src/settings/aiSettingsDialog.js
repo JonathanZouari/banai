@@ -3,10 +3,17 @@
 import { el, button } from '../editor/fields.js';
 import { createDialog } from '../ui/dialog.js';
 import { STATUS_DETAILS, STATUS_LABELS } from './aiSettingsModel.js';
+import { AI_VOICE_DISCLOSURE, RECOMMENDED_VOICES, SAMPLE_TEXT, VOICES } from '../chat/speech.js';
 
 const formatTime = (iso) => (iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '');
 
-export function createAiSettingsDialog(model) {
+const voiceLabel = (name) => `${name[0].toUpperCase()}${name.slice(1)}${RECOMMENDED_VOICES.includes(name) ? ' · מומלץ' : ''}`;
+
+/**
+ * `speech` (optional, ADR-028): { prefs, speaker }. Adds the reply voice picker with a sample, so the
+ * customer chooses the voice by ear.
+ */
+export function createAiSettingsDialog(model, { speech = null } = {}) {
   const badge = el('span', { className: 'status-chip' });
   badge.dataset.testid = 'ai-settings-status';
   const detail = el('p', { className: 'dialog__text' });
@@ -39,6 +46,26 @@ export function createAiSettingsDialog(model) {
     if (event.key === 'Enter') save.click();
   });
 
+  let voiceSection = [];
+  let preview = null;
+  if (speech) {
+    const voiceSelect = el('select', { className: 'field__input', attrs: { id: 'reply-voice' } }, VOICES.map((name) => {
+      const option = el('option', { text: voiceLabel(name), attrs: { value: name } });
+      option.selected = name === speech.prefs.getVoice();
+      return option;
+    }));
+    voiceSelect.dataset.testid = 'ai-voice-select';
+    voiceSelect.addEventListener('change', () => speech.prefs.setVoice(voiceSelect.value));
+    preview = button('השמע דוגמה', () => speech.speaker.speak(SAMPLE_TEXT, voiceSelect.value), { variant: 'secondary', testId: 'ai-voice-preview' });
+    voiceSection = [
+      el('div', { className: 'field' }, [
+        el('label', { className: 'field__label', text: 'קול התשובות', attrs: { for: 'reply-voice' } }),
+        el('div', { className: 'field__control field__control--key' }, [voiceSelect, preview]),
+      ]),
+      el('p', { className: 'dialog__note', text: `כשמדברים לבנאי, הוא עונה גם בקול: ${AI_VOICE_DISCLOSURE} של OpenAI, צעיר ומחייך. אפשר להשתיק בלחצן הרמקול בשיחה.` }),
+    ];
+  }
+
   const dialog = createDialog({
     title: 'הגדרות AI',
     labelId: 'ai-settings-title',
@@ -52,6 +79,7 @@ export function createAiSettingsDialog(model) {
         message,
       ]),
       el('p', { className: 'dialog__note', text: 'נשמר רק בדפדפן הזה, במחשב הזה. השרת של בנאי בודק את המפתח מול OpenAI ולא שומר אותו.' }),
+      ...voiceSection,
     ],
     actions: [remove, test, save, button('סגירה', () => dialog.close(), { variant: 'ghost', testId: 'ai-settings-close' })],
   });
@@ -70,8 +98,11 @@ export function createAiSettingsDialog(model) {
     save.disabled = state.busy;
     test.disabled = state.busy || !state.maskedKey;
     remove.hidden = !state.maskedKey;
+    // The sample is made with the customer's key, one at a time (repeat clicks would each be paid for).
+    if (preview) preview.disabled = !state.maskedKey || speech.speaker.getState() !== 'idle';
   }
   model.subscribe(render);
+  speech?.speaker.subscribe(() => render(model.getState()));
   render(model.getState());
 
   return {

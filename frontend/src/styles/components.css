@@ -33,7 +33,7 @@
 
 /* Chat panel */
 .panel--chat { padding: 0; gap: 0; overflow: hidden; background: linear-gradient(180deg, #fff1ec 0%, var(--md-sys-color-surface-container-lowest) 220px); }
-.chat__header { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-4); }
+.chat__header { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); padding: var(--space-4); }
 .chat__avatar {
   display: grid;
   place-items: center;
@@ -45,7 +45,8 @@
   color: #fff;
   box-shadow: 0 6px 14px rgba(180, 83, 42, 0.32);
 }
-.chat__heading { flex: 1; min-width: 0; }
+.chat__heading { flex: 1 1 10rem; min-width: 0; }
+.chat__tools { display: flex; align-items: center; gap: var(--space-1); margin-inline-start: auto; }
 .chat__title { margin: 0; font: var(--md-sys-typescale-title-medium); font-size: 18px; letter-spacing: -0.01em; }
 .chat__subtitle { margin: 0; color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-small); }
 .status-chip { padding: 3px var(--space-3); border: 0; border-radius: var(--md-sys-shape-full); background: #ffeaa6; color: #3d2f00; font: var(--md-sys-typescale-label-small); white-space: nowrap; }

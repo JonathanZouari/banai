@@ -11,7 +11,7 @@ import openai
 
 from app.advice.rules import advisories
 from app.agent.models import chat_model_for
-from app.agent.prompts import SYSTEM_PROMPT, design_context
+from app.agent.prompts import SPOKEN_NOTE, SYSTEM_PROMPT, design_context
 from app.agent.proposals import MAX_SUMMARY, sign
 from app.agent.weather import get_jerusalem_weather
 from app.domain.apply import apply_ops
@@ -154,7 +154,7 @@ def to_agent_error(error: openai.OpenAIError) -> AgentError:
     return AgentError(502, "UPSTREAM", "The AI service is unavailable right now. Try again in a moment.")
 
 
-def describe_error(error: openai.OpenAIError, model: str | None) -> str:
+def describe_error(error: openai.OpenAIError, model: str | None, with_message: bool = True) -> str:
     """Key-free summary for the server log: class, HTTP status and OpenAI's error code/type/param.
 
     The message is logged only for 400s: request errors describe our parameters, never the key
@@ -162,20 +162,23 @@ def describe_error(error: openai.OpenAIError, model: str | None) -> str:
     """
     body = getattr(error, "body", None)
     details = {k: body.get(k) for k in ("code", "type", "param")} if isinstance(body, dict) else {}
-    if isinstance(error, openai.BadRequestError) and isinstance(body, dict):
+    if with_message and isinstance(error, openai.BadRequestError) and isinstance(body, dict):
         details["message"] = str(body.get("message", ""))[:300]
     return f"{type(error).__name__} status={getattr(error, 'status_code', None)} model={model} {details}"
 
 
 def answer(api_key: str, messages: list[dict], configured_model: str | None, client_factory=openai.OpenAI,
-           design: dict | None = None, revision: int | None = None) -> ChatResult:
-    """One turn. With a canonical `design` (and its `revision`) the agent sees it and may propose signed ops."""
+           design: dict | None = None, revision: int | None = None, spoken: bool = False) -> ChatResult:
+    """One turn. With a canonical `design` (and its `revision`) the agent sees it and may propose signed ops.
+    `spoken`: the customer spoke and will hear the reply, so it is written for the ear (ADR-028)."""
     holder: dict = {"proposal": None}
     context = propose = None
     if design is not None:
         catalog = load_catalog()
         context = design_context(design, revision, advisories(design, catalog), catalog)
         propose = make_proposer(design, revision, catalog, holder)
+    if spoken:
+        context = f"{context}\n\n{SPOKEN_NOTE}" if context else SPOKEN_NOTE
     client = client_factory(api_key=api_key, timeout=45.0, max_retries=1)
     model = None
     try:

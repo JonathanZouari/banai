@@ -29,8 +29,9 @@ export function proposalStatus(proposal, currentRevision) {
 }
 
 /**
- * `agent` (optional): { isReady(): boolean, reply(history): Promise<string | { reply, proposal? }> }, where
- * history is [{ role: 'user'|'assistant', content }] ending with the new customer message. A proposal
+ * `agent` (optional): { isReady(): boolean, reply(history, { spoken }): Promise<string | { reply, proposal? }> },
+ * where history is [{ role: 'user'|'assistant', content }] ending with the new customer message and
+ * `spoken` says the customer said it out loud (ADR-028). A proposal
  * replaces any pending one; it is never applied here (the host does that after Confirm).
  */
 export function createChatModel({ getRevision, agent = null }) {
@@ -55,8 +56,8 @@ export function createChatModel({ getRevision, agent = null }) {
     getProposalStatus: () => proposalStatus(proposal, getRevision()),
     isThinking: () => thinking,
 
-    /** A customer message. Returns { ok, done? } and never touches the design. */
-    send(rawText) {
+    /** A customer message (`spoken`: it came from the mic). Returns { ok, done? } and never touches the design. */
+    send(rawText, { spoken = false } = {}) {
       const text = String(rawText ?? '').trim();
       if (!text) return { ok: false, reason: 'empty' };
       if (text.length > MAX_MESSAGE_LENGTH) return { ok: false, reason: 'too-long' };
@@ -74,7 +75,7 @@ export function createChatModel({ getRevision, agent = null }) {
       thinking = true;
       notify();
       const done = Promise.resolve()
-        .then(() => agent.reply(history))
+        .then(() => agent.reply(history, { spoken: Boolean(spoken) }))
         .then((answer) => {
           push('assistant', typeof answer === 'string' ? answer : answer.reply);
           if (answer?.proposal) proposal = answer.proposal;

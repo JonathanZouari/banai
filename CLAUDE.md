@@ -15,7 +15,8 @@ BanAI started as an MVP AI wardrobe designer for standard straight wardrobes. Th
 - **Render and video:** a WebGL path tracer for a near-photoreal still (the dossier cover), and an MP4 demo of the doors, drawers and pull-down opening, live or path-traced.
 - **Undo/redo** and hold-to-compare against a saved version.
 - **Design-aware chat** (ADR-020/025): the agent sees the design and proposes ops; the server signs them, and nothing changes until the customer confirms. Conversational: no chips or multiple choice. Jerusalem weather is the one deliberate off-topic answer (ADR-015).
-- **Push-to-talk voice** (ADR-021): record, transcribe on the server, send as a chat message. Nothing is read aloud, and a change still needs a tap.
+- **Push-to-talk voice** (ADR-021): record, transcribe on the server, send as a chat message. A change still needs a tap.
+- **Spoken replies** (ADR-028): a reply to a spoken message is also read aloud by an AI voice (OpenAI `gpt-4o-mini-tts`; persona: young, warm, smiling, never salesy). Typed messages get silent replies. A speaker toggle mutes it; the voice is picked by ear in AI settings; the UI discloses that the voice is AI-generated (an OpenAI usage-policy requirement).
 
 Docs:
 - Product brief: Obsidian `BanAI/06 - Product Specification.md`. bobHabanai: `BanAI/11 - bobHabanai Characterization` and `BanAI/12 - bobHabanai Technical Plan` (also in `docs/bobhabanai/`).
@@ -87,7 +88,7 @@ python .claude/hooks/install_git_hooks.py      # (repo root) the Obsidian post-c
 - Copy `.env.example` to `.env` in each service directory.
 - The frontend reads the backend URL from `VITE_API_BASE_URL` at build time; it defaults to `http://localhost:8000`.
 - The backend's CORS origins come from `CORS_ORIGINS`.
-- Other backend variables (all optional): `OPENAI_CHAT_MODEL` and `OPENAI_TRANSCRIBE_MODEL` (otherwise a current model is picked from the customer key's model list), and `PROPOSAL_SECRET` (the HMAC key for chat proposals; empty means a random key per process, so pending proposals expire on restart). The OpenAI key itself is never configured on the server: it lives in the customer's browser and comes with each request.
+- Other backend variables (all optional): `OPENAI_CHAT_MODEL`, `OPENAI_TRANSCRIBE_MODEL` and `OPENAI_TTS_MODEL` (otherwise a current model is picked from the customer key's model list), `OPENAI_TTS_VOICE` (the default reply voice when the browser sends none), and `PROPOSAL_SECRET` (the HMAC key for chat proposals; empty means a random key per process, so pending proposals expire on restart). The OpenAI key itself is never configured on the server: it lives in the customer's browser and comes with each request.
 
 ## Architecture (target design; implemented incrementally by phase)
 
@@ -116,9 +117,9 @@ python .claude/hooks/install_git_hooks.py      # (repo root) the Obsidian post-c
   - `backend/app/domain/layout.py`: manufacturing geometry (full-overlay and split doors, sliding panels, hinges by height and weight). The viewer, the advisories and the dossier all follow it, so the 3D, the advice and the PDF describe the same wardrobe.
   - `backend/app/advice/rules.py`: R1–R20. A quick fix is an op list that must apply through `apply_ops` and clear its own advisory (a test checks every one).
   - `backend/app/production/` (parts, boards, nesting, estimate, drawings) and `backend/app/dossier/` (Jinja2 templates, Chromium with JavaScript off and every non-`data:` request aborted).
-  - `backend/app/agent/`: the chat turn, the prompt, signed proposals and transcription. `backend/app/api/voice.py` takes multipart audio up to 1 MiB, checks the declared type against the magic bytes, and allows two transcriptions at a time.
+  - `backend/app/agent/`: the chat turn, the prompt, signed proposals, transcription and speech. `backend/app/api/voice.py` takes multipart audio up to 1 MiB (declared type checked against the magic bytes, two transcriptions at a time) and, on `/api/voice/speak`, returns MP3 for a reply (text cleaned and cut at a sentence end, two at a time, `Cache-Control: no-store`). A chat request with `spoken: true` asks the agent to answer for the ear.
   - `frontend/src/viewer/`: builders, motion (one spring per moving part), `pathtrace.js`. `frontend/src/render/`: the render HUD and the video recorder (Mediabunny, explicit timestamps).
-  - `frontend/src/chat/`: the chat model, panel, proposal card and `voice.js` (a pure gesture state machine plus the MediaRecorder wiring).
+  - `frontend/src/chat/`: the chat model, panel, proposal card, `voice.js` (a pure gesture state machine plus the MediaRecorder wiring) and `speech.js` (reply playback: a newer answer or a press on the mic cancels an older one).
 - **DoS guards on the unauthenticated API:** a body cap per route (`backend/app/body_limit.py`: 1 MiB, 4 MiB for the dossier, 1 MiB + 8 KiB for voice), a JSON node count before Pydantic (`api/limits.py`), and non-blocking concurrency slots on every endpoint that calls OpenAI or Chromium (a busy server answers 429 BUSY at once instead of holding a worker thread).
 
 ## Infrastructure

@@ -67,3 +67,31 @@
   .chat__mic[aria-pressed="true"] { outline: 3px solid Highlight; outline-offset: 2px; }
   .voice-ui__bars i { background: CanvasText; }
 }
+
+/* Spoken replies (ADR-028): the mute toggle in the chat header, and the pill above the composer while
+   the AI voice is getting ready or talking (it names the voice as AI-generated; a click stops it). */
+.chat__speaker { flex: none; }
+.chat__speaker[aria-pressed="true"] { color: var(--color-accent-text); }
+.chat__speaking {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 100%;
+  margin-bottom: var(--space-2);
+  padding: 4px var(--space-3);
+  border: 0;
+  border-radius: var(--md-sys-shape-full);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+  font: var(--md-sys-typescale-label-small);
+  cursor: pointer;
+}
+.chat__speaking[hidden] { display: none; }
+.chat__speaking:hover { background: var(--color-accent-soft-hover); }
+.chat__speaking:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
+.chat__speaking span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.chat__speaking[data-state="playing"] .icon { animation: speaking-pulse 1.1s ease-in-out infinite; }
+@keyframes speaking-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) {
+  .chat__speaking[data-state="playing"] .icon { animation: none; }
+}

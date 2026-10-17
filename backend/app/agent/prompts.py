@@ -73,6 +73,13 @@ OPS (units: mm; interior y is measured up from the top face of the bottom panel)
 """
 
 
+SPOKEN_NOTE = """\
+SPOKEN REPLY: the customer said their latest message out loud and will HEAR your answer read by a voice. \
+Write for the ear: at most three short sentences, plain words, no lists, no symbols, no parentheses, no \
+abbreviations like ס"מ (say סנטימטר). Round numbers the way people say them. If you made a proposal, say \
+in one sentence what it changes and that it waits for their confirmation on the screen."""
+
+
 def design_context(design: dict, revision: int, advisories: list[dict], catalog: dict) -> str:
     """The developer message sent with each turn: the current design, its advisories and the catalog ids."""
     names = {section: [f"{entry['id']} ({entry['name']})" for entry in catalog[section]] for section in catalog}

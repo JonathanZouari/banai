@@ -78,7 +78,7 @@ def test_the_tool_signs_only_what_the_engine_accepts():
     assert bad["ok"] is False and bad["error"]["code"] == "NOT_FOUND" and holder["proposal"] is None
     assert propose("not json")["ok"] is False
     assert propose(json.dumps({"ops": WIDER}))["error"]["path"] == "summary"
-    good = propose(json.dumps({"summary": "רוחב 240‮\x07", "ops": WIDER}))
+    good = propose(json.dumps({"summary": "רוחב 240\u202e\x07", "ops": WIDER}))
     assert good["ok"] is True
     proposal = holder["proposal"]
     assert verify(proposal) and proposal["baseRevision"] == 5 and proposal["ops"] == WIDER

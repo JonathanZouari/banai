@@ -3,7 +3,8 @@ import '@fontsource/assistant/500.css';
 import '@fontsource/assistant/600.css';
 import '@fontsource/assistant/700.css';
 import {
-  applyProposal, getAdvisories, getCatalog, getDefaultDesign, getDossier, sendChatMessage, transcribeAudio, verifyAiKey,
+  applyProposal, getAdvisories, getCatalog, getDefaultDesign, getDossier, sendChatMessage, synthesizeSpeech, transcribeAudio,
+  verifyAiKey,
 } from './api/client.js';
 import { applyOps } from './domain/apply.js';
 import { createAdvisoryFeed } from './advice/advisoryFeed.js';
@@ -16,6 +17,7 @@ import { bindQuickControls, stepDimension } from './quickControls.js';
 import { createChatModel } from './chat/chatModel.js';
 import { mountChat } from './chat/chatPanel.js';
 import { bindPushToTalk } from './chat/voice.js';
+import { createSpeaker, createSpeechPrefs, speechErrorMessage } from './chat/speech.js';
 import { mountStartScreen } from './entry/startScreen.js';
 import { createSaveDialog } from './share/saveDialog.js';
 import { coverPng, createRenderHud } from './render/renderHud.js';
@@ -352,7 +354,18 @@ async function boot() {
   // The OpenAI key stays in this browser; the backend only checks it. load() re-checks a stored key.
   const keyStorage = createKeyStorage();
   const aiSettings = createAiSettingsModel({ storage: keyStorage, verify: (apiKey) => verifyAiKey(apiKey) });
-  const settingsDialog = createAiSettingsDialog(aiSettings);
+  // Spoken replies (ADR-028): made on the server with the customer's key, played here.
+  const speechPrefs = createSpeechPrefs();
+  const speaker = createSpeaker({
+    synthesize: (text, voice, { signal } = {}) => {
+      const apiKey = keyStorage.get();
+      if (!apiKey) return Promise.reject(Object.assign(new Error('no key'), { code: 'INVALID_FORMAT' }));
+      return synthesizeSpeech(apiKey, text, voice, { signal });
+    },
+    onError: (error) => toast(speechErrorMessage(error?.code)),
+  });
+  const speech = { prefs: speechPrefs, speaker };
+  const settingsDialog = createAiSettingsDialog(aiSettings, { speech });
   byId('open-ai-settings').addEventListener('click', settingsDialog.open);
   aiSettings.load();
 
@@ -360,9 +373,11 @@ async function boot() {
   // committed design and may return a signed proposal (ADR-020), shown as a card the customer confirms.
   const agent = {
     isReady: () => keyStorage.get() !== null && aiSettings.getState().status !== 'invalid_key',
-    reply: async (history) => {
+    reply: async (history, { spoken = false } = {}) => {
+      speaker.stop(); // a new question ends the previous answer
       const { design, revision } = store.getState();
-      const data = await sendChatMessage(keyStorage.get(), history, { design, revision });
+      const data = await sendChatMessage(keyStorage.get(), history, { design, revision, spoken });
+      if (spoken && speechPrefs.isEnabled()) speaker.speak(data.reply, speechPrefs.getVoice());
       const proposal = data.proposal ? await previewProposal(data.proposal, design, catalog) : null;
       return proposal ? { reply: data.reply, proposal } : { reply: data.reply };
     },
@@ -390,16 +405,24 @@ async function boot() {
     onOpenSettings: settingsDialog.open,
     // Push-to-talk (ADR-021): the recording goes to the server with the browser-held key and comes back
     // as text, which is sent like a typed message. Without a key nothing is uploaded.
-    voice: (mic, { input, send }) => bindPushToTalk(mic, {
-      input,
-      send,
-      toast,
-      transcribe: (audio) => {
-        const apiKey = keyStorage.get();
-        if (!apiKey) return Promise.reject(Object.assign(new Error('no key'), { code: 'INVALID_FORMAT' }));
-        return transcribeAudio(apiKey, audio);
-      },
-    }),
+    speech,
+    voice: (mic, { input, send }) => {
+      // Talking over בנאי ends the current answer: a press on the mic, or Space / Enter on it.
+      mic.addEventListener('pointerdown', () => speaker.stop());
+      mic.addEventListener('keydown', (event) => {
+        if (event.key === ' ' || event.key === 'Enter') speaker.stop();
+      });
+      return bindPushToTalk(mic, {
+        input,
+        send,
+        toast,
+        transcribe: (audio) => {
+          const apiKey = keyStorage.get();
+          if (!apiKey) return Promise.reject(Object.assign(new Error('no key'), { code: 'INVALID_FORMAT' }));
+          return transcribeAudio(apiKey, audio);
+        },
+      });
+    },
   });
   // A manual edit changes the revision, which may turn a pending proposal stale.
   store.subscribe(() => chat.refresh());

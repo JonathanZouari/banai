@@ -28,10 +28,14 @@ export const verifyAiKey = (apiKey, fetchImpl = fetch) => postJson('/api/setting
 
 /**
  * One agent turn. `messages` is [{ role: 'user'|'assistant', content }]. With `context` ({ design, revision })
- * the agent sees the design and may return a signed proposal. Returns { reply, model, proposal? }.
+ * the agent sees the design and may return a signed proposal. `context.spoken`: the customer spoke and
+ * will hear the reply, so the agent answers for the ear (ADR-028). Returns { reply, model, proposal? }.
  */
-export const sendChatMessage = (apiKey, messages, context = null, fetchImpl = fetch) =>
-  postJson('/api/chat', context ? { apiKey, messages, design: context.design, revision: context.revision } : { apiKey, messages }, fetchImpl);
+export const sendChatMessage = (apiKey, messages, context = null, fetchImpl = fetch) => {
+  const body = context?.design ? { apiKey, messages, design: context.design, revision: context.revision } : { apiKey, messages };
+  if (context?.spoken) body.spoken = true;
+  return postJson('/api/chat', body, fetchImpl);
+};
 
 /**
  * Apply a signed proposal the customer confirmed (ADR-020). Returns { design, revision }. A design that
@@ -58,6 +62,27 @@ export async function transcribeAudio(apiKey, blob, { fetchImpl = fetch } = {}) 
     throw error;
   }
   return String(body.data?.text ?? '');
+}
+
+/**
+ * A reply read aloud (ADR-028): MP3 from the server, made with the customer's key and an AI voice.
+ * The key goes in the JSON body, never in the URL. Errors carry the envelope's `code`.
+ */
+export async function synthesizeSpeech(apiKey, text, voice, { fetchImpl = fetch, signal } = {}) {
+  if (!API_BASE_URL) throw new Error('The API base URL is not configured');
+  const response = await fetchImpl(`${API_BASE_URL}/api/voice/speak`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ apiKey: apiKey ?? '', text, ...(voice ? { voice } : {}) }),
+    ...(signal ? { signal } : {}),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const error = new Error(body?.error?.message ?? `Request to /api/voice/speak failed with status ${response.status}`);
+    error.code = body?.error?.code ?? 'REQUEST_FAILED';
+    throw error;
+  }
+  return response.blob();
 }
 
 /**
