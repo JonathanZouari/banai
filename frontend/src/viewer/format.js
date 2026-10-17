@@ -17,6 +17,20 @@ export function describeInsert(insert) {
   return name;
 }
 
+/**
+ * Zone number (1 from the bottom) of a door anchored to dividers, or null for a full-height door. The
+ * dividers (fixed shelves) of its compartment, by height, bound the zones (docs/schema.md "Zones").
+ */
+export function doorZone(design, door) {
+  const bottom = door.bottomShelfId ?? null;
+  if (bottom === null && (door.topShelfId ?? null) === null) return null;
+  if (bottom === null) return 1;
+  const compartment = design.compartments.find((c) => c.id === door.compartmentIds[0]);
+  const dividers = (compartment?.shelves ?? []).filter((s) => s.fixed === true).sort((a, b) => a.y - b.y);
+  const index = dividers.findIndex((s) => s.id === bottom);
+  return index < 0 ? null : index + 2;
+}
+
 /** One-line description of a selected component, for labels and readouts. */
 export function describeSelection(design, selection) {
   if (!selection) return '';
@@ -26,7 +40,7 @@ export function describeSelection(design, selection) {
   for (const [ci, compartment] of design.compartments.entries()) {
     if (compartment.id === id) return `תא ${ci + 1} · רוחב ${cm(compartment.width)} ${CM}`;
     const shelf = compartment.shelves.find((s) => s.id === id);
-    if (shelf) return `מדף · ${fromBase(shelf.y)} · עובי ${cm(shelf.thickness)} ${CM}`;
+    if (shelf) return `${shelf.fixed === true ? 'מדף קבוע' : 'מדף'} · ${fromBase(shelf.y)} · עובי ${cm(shelf.thickness)} ${CM}`;
     const drawer = compartment.drawers.find((d) => d.id === id);
     if (drawer) return `מגירה · ${fromBase(drawer.y)} · גובה ${cm(drawer.height)} ${CM}`;
     const rail = compartment.rails.find((r) => r.id === id);
@@ -37,6 +51,10 @@ export function describeSelection(design, selection) {
   const pi = design.partitions.findIndex((p) => p.id === id);
   if (pi >= 0) return `מחיצה ${pi + 1} · עובי ${cm(design.partitions[pi].thickness)} ${CM}`;
   const door = design.doors.items.find((d) => d.id === id);
-  if (door) return design.doors.type === 'sliding' ? 'דלת הזזה' : `דלת ציר${HINGE[door.hingeSide] ? ` · ${HINGE[door.hingeSide]}` : ''}`;
+  if (door && design.doors.type === 'sliding') return 'דלת הזזה';
+  if (door) {
+    const zone = doorZone(design, door);
+    return `דלת ציר${HINGE[door.hingeSide] ? ` · ${HINGE[door.hingeSide]}` : ''}${zone ? ` · אזור ${zone}` : ''}`;
+  }
   return kind;
 }

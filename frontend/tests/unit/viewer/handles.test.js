@@ -2,11 +2,13 @@ import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { applyOps } from '../../../src/domain/apply.js';
 import { buildWardrobe, disposeWardrobe } from '../../../src/viewer/buildWardrobe.js';
+import { HANDLE_EDGE_CLEARANCE, doorHandleY } from '../../../src/viewer/builders/handles.js';
 import { applyDoorMotion, doorPose } from '../../../src/viewer/doorMotion.js';
 import { createHardware } from '../../../src/viewer/hardware.js';
 import { createMaterials } from '../../../src/viewer/materials.js';
 import { buildProps, disposeProps } from '../../../src/viewer/props.js';
 import { loadCatalog, loadDesign } from '../domain/helpers.js';
+import { threeZones, zonePair } from './zoneDesigns.js';
 
 const catalog = loadCatalog();
 const basic = loadDesign('basic');
@@ -107,6 +109,63 @@ describe('handles on split leaves', () => {
     ['dr_middle', 'dr_middle2'].forEach((id) => {
       expect(handlesOf(leaf(group, id))[0].getWorldPosition(new THREE.Vector3()).z).toBeGreaterThan(0.2);
     });
+  });
+});
+
+describe('handles on zone doors', () => {
+  // Zone door spans (mm above the floor) from zones.test.js; the usual handle height is 1050 and a
+  // handle centre stays HANDLE_EDGE_CLEARANCE (110) inside its door's edges.
+  const handleY = (group, id) => {
+    group.updateMatrixWorld(true);
+    return Math.round(handlesOf(group.children.find((m) => m.userData.componentId === id))[0].getWorldPosition(new THREE.Vector3()).y * 1e4) / 10;
+  };
+
+  it('keeps the usual height on a door that spans it and clamps it into a shorter one', () => {
+    expect(HANDLE_EDGE_CLEARANCE).toBe(110);
+    expect(doorHandleY(1.5, 2398.5)).toBe(1050); // full height
+    expect(doorHandleY(828.5, 1625.5)).toBe(1050); // a middle zone that spans 1050
+    expect(doorHandleY(1628.5, 2398.5)).toBe(1738.5); // upper door: near its bottom edge (1628.5 + 110)
+    expect(doorHandleY(1.5, 825.5)).toBe(715.5); // lower door: near its top edge (825.5 - 110)
+    expect(doorHandleY(1000, 1200)).toBe(1100); // too short for the clearance: its middle
+    expect(doorHandleY(0, 2000, 1500)).toBe(1500); // another usual height
+  });
+
+  it('puts each zone door handle inside its own door', () => {
+    const group = build(threeZones);
+    expect(handleY(group, 'dr_l_z1')).toBe(715.5);
+    expect(handleY(group, 'dr_l_z2')).toBe(1050);
+    expect(handleY(group, 'dr_l_z3')).toBe(1738.5);
+    expect(handleY(group, 'dr_middle')).toBe(1050); // full height: as before
+    expect(handleY(group, 'dr_r_z1')).toBe(715.5);
+    expect(handleY(group, 'dr_r_z3')).toBe(1538.5); // the pair over zone 3 (1428.5 .. 2398.5)
+    expect(handleY(group, 'dr_r_z3r')).toBe(1538.5);
+    // Opposite the hinge, as on full-height doors: dr_l_z3 is hinged right.
+    const handleX = (id) => handlesOf(group.children.find((m) => m.userData.componentId === id))[0].position.x;
+    expect(handleX('dr_l_z1')).toBeGreaterThan(0);
+    expect(handleX('dr_l_z3')).toBeLessThan(0);
+  });
+
+  it('meets the pair handles at the middle of a split zone', () => {
+    const group = build(zonePair);
+    group.updateMatrixWorld(true);
+    const worldX = (id) => handlesOf(group.children.find((m) => m.userData.componentId === id))[0].getWorldPosition(new THREE.Vector3()).x;
+    expect(worldX('dr_l_z2')).toBeLessThan(0.335);
+    expect(worldX('dr_l_z2r')).toBeGreaterThan(0.335);
+    expect(0.335 - worldX('dr_l_z2')).toBeLessThan(0.06);
+    expect(handleY(group, 'dr_l_z2')).toBe(1050);
+  });
+
+  it('gives a drawer a handle only where no door covers its zone', () => {
+    const group = build(threeZones);
+    const drawer = (id) => group.children.find((m) => m.userData.componentId === id);
+    expect(handlesOf(drawer('drw_r1'))).toHaveLength(0); // zone 1, behind dr_r_z1
+    expect(handlesOf(drawer('drw_r2'))).toHaveLength(0);
+    expect(handlesOf(drawer('drw_r3'))).toHaveLength(1); // the open zone 2
+    // On the drawer front, which ends at the shelf line (25 mm behind the carcass front).
+    group.updateMatrixWorld(true);
+    expect(handlesOf(drawer('drw_r3'))[0].getWorldPosition(new THREE.Vector3()).z).toBeCloseTo(-0.025, 9);
+    const open = build(threeZones, { doorsVisible: false });
+    expect(['drw_r1', 'drw_r2', 'drw_r3'].every((id) => handlesOf(open.children.find((m) => m.userData.componentId === id)).length === 1)).toBe(true);
   });
 });
 

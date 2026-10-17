@@ -1,5 +1,7 @@
 // Interior inserts (schema v2), ported from the P1 prototype: a pull-down rail on two arms, sloped
 // shoe shelves, a trouser pull-out and an LED strip with its light. Pure and Node-safe.
+// The pull-down and the trouser rack are moving parts (pullOuts.js): the rack slides out, and the
+// pull-down rail swings out and down on its arms, as a wardrobe lift does.
 // Interior y is measured from the top face of the bottom panel (frame.baseY above the floor); depth
 // placement is relative to the shelf line (frame.innerFront), so inserts stay clear of sliding tracks.
 // Every part is its own mesh, a direct child of the wardrobe group (picking is not recursive),
@@ -8,6 +10,7 @@
 // clothes toggle. The LED light hangs under its strip mesh, so group.children stays meshes only.
 import * as THREE from 'three';
 import { SHOE_TIER } from '../../domain/defaults.js';
+import { PULL_OUT_SHARE, asMover } from '../pullOuts.js';
 import { VISUAL, toM } from '../units.js';
 import { box } from './frame.js';
 
@@ -19,8 +22,15 @@ const SHOE_SHALLOWER = 63;
 const SHOE_DEPTH_MAX = 520;
 const SHOE_BOARD_Y = 100; // board centre above the tier bottom
 const SHOE_FRONT_GAP = 25;
-const ARM_TILT = 0.45; // rad: the arms lean back from the rail to their pivots
-const ARM_RISE = 300;
+// Pull-down (wardrobe lift): two arms stand on pivots low on the compartment walls, the rail across
+// their tips. Pulled, the arms swing forward over the top, so the rail comes out of the carcass and
+// down in front of it, level all the way. Angles are measured from straight up, + toward the front.
+const ARM_LENGTH_MAX = 450;
+const ARM_LENGTH_MIN = 40;
+const ARM_CLEARANCE = 30; // the pivots stay this far above the surface below the rail
+const ARM_LEAN = 0.12; // rad: stowed, the arms lean back a little (the rail sits behind the pivots)
+const ARM_SWING = 2.07; // rad: to 1.95 rad (112 degrees) at the bottom of the swing
+const PROP_BOTTOM = 20; // mm: the garments on a rail end this far above the surface below (props.js)
 const ROD_TILT = 0.12;
 const ROD_LENGTH = 420;
 const TROUSER_DEPTH_MAX = 500;
@@ -64,29 +74,59 @@ export function insertZone(insert) {
   return null;
 }
 
-// Pull-down rail (pantograph), shown stowed: the rail, two arms leaning back up to their pivots
-// on the side walls, and a pull rod with a hook hanging in front.
+/**
+ * The pull-down's linkage (mm, y above the floor): arm `length`, `pivot` { y, z }, swing angles `from`
+ * (stowed) and `to` (lowered), and the rail at angle theta: at(theta) = { y, z }. `floor` is the interior y
+ * of the surface below the rail. The arms fit above that surface, and the swing stops early when the
+ * garments hanging from the rail would otherwise reach the floor.
+ */
+export function pulldownLinkage(frame, compartment, insert) {
+  const floor = floorBelow(compartment, insert.y);
+  const length = Math.max(ARM_LENGTH_MIN, Math.min(ARM_LENGTH_MAX, insert.y - floor - ARM_CLEARANCE));
+  const from = -ARM_LEAN;
+  const rail = { y: frame.baseY + insert.y, z: frame.innerCenterZ };
+  const pivot = { y: rail.y - length * Math.cos(from), z: rail.z - length * Math.sin(from) };
+  // The lowest garment ends PROP_BOTTOM over the surface below; lowered, it must stay over the floor.
+  const maxDrop = frame.baseY + floor;
+  const lowest = Math.cos(from) - maxDrop / length;
+  const to = Math.min(from + ARM_SWING, lowest <= -1 ? Math.PI : Math.acos(Math.min(1, lowest)));
+  const at = (theta) => ({ y: pivot.y + length * Math.cos(theta), z: pivot.z + length * Math.sin(theta) });
+  return { length, pivot, from, to, floor, at };
+}
+
+/** Interior y (mm) down to which the garments on a pull-down reach once it is lowered. */
+export function pulldownReach(frame, compartment, insert) {
+  const { from, to, floor, at } = pulldownLinkage(frame, compartment, insert);
+  return floor + PROP_BOTTOM - (at(from).y - at(to).y);
+}
+
+// Pull-down rail (wardrobe lift), built stowed: the rail across the tips of two arms that stand on
+// pivots low on the side walls, and a pull rod with a hook hanging in front. The arms swing, and the
+// rail, rod and hook ride on their tips (pullOuts.js).
 function pulldown(insert, { frame, compartment, x0, x1, materials }) {
   const cx = (x0 + x1) / 2;
   const y = frame.baseY + insert.y;
   const z = frame.innerCenterZ;
-  const parts = [rod(VISUAL.railRadius, Math.max(x1 - x0 - 60, 20), materials.chrome, [cx, y, z])];
-  const rise = Math.max(30, Math.min(ARM_RISE, frame.innerHeight - insert.y - 25));
-  const back = rise * Math.tan(ARM_TILT);
+  const linkage = pulldownLinkage(frame, compartment, insert);
+  const { length, pivot, from, to } = linkage;
+  const swing = { pivot: [toM(pivot.y), toM(pivot.z)], length: toM(length), from, to };
+  const carried = { type: 'carried', ...swing };
+  const parts = [asMover(rod(VISUAL.railRadius, Math.max(x1 - x0 - 60, 20), materials.chrome, [cx, y, z]), carried)];
   for (const ax of [x0 + 14, x1 - 14]) {
-    const arm = metalBox(8, rise / Math.cos(ARM_TILT), 40, materials.metal, [ax, y + rise / 2, z - back / 2]);
-    arm.rotation.x = -ARM_TILT;
-    parts.push(arm);
+    const arm = metalBox(8, length, 40, materials.metal,
+      [ax, pivot.y + (length / 2) * Math.cos(from), pivot.z + (length / 2) * Math.sin(from)]);
+    arm.rotation.x = from; // the box's long axis (y) runs along the arm
+    parts.push(asMover(arm, { type: 'arm', ...swing }));
   }
-  const length = Math.min(ROD_LENGTH, insert.y - floorBelow(compartment, insert.y) - 60);
-  if (length >= 100) {
+  const rodLength = Math.min(ROD_LENGTH, insert.y - linkage.floor - 60);
+  if (rodLength >= 100) {
     const top = y - 10;
-    const pull = rod(4.5, length, materials.metal, [cx, top - (length / 2) * Math.cos(ROD_TILT), z + 40 + (length / 2) * Math.sin(ROD_TILT)], 'y', 16);
+    const pull = rod(4.5, rodLength, materials.metal, [cx, top - (rodLength / 2) * Math.cos(ROD_TILT), z + 40 + (rodLength / 2) * Math.sin(ROD_TILT)], 'y', 16);
     pull.rotation.x = -ROD_TILT; // the lower end leans toward the front, where it is grabbed
     const hook = mesh(new THREE.TorusGeometry(toM(12), toM(3), 16, 24, Math.PI), materials.metal,
-      [cx, top - length * Math.cos(ROD_TILT) - 12, z + 40 + length * Math.sin(ROD_TILT)]);
+      [cx, top - rodLength * Math.cos(ROD_TILT) - 12, z + 40 + rodLength * Math.sin(ROD_TILT)]);
     hook.rotation.z = Math.PI; // the open side up: a U under the rod
-    parts.push(pull, hook);
+    parts.push(asMover(pull, carried), asMover(hook, carried));
   }
   return parts;
 }
@@ -140,11 +180,12 @@ function shoes(insert, { frame, x0, x1, materials, board }) {
 // the trousers hang below the bars, down through the zone.
 function trousers(insert, { frame, x0, x1, materials }) {
   const { depth, front, zc, top, barY, barXs } = trouserRack(frame, insert, x0, x1);
+  const slide = { type: 'slide', travel: toM(PULL_OUT_SHARE * frame.innerDepth) };
   return [
     metalBox(Math.max(x1 - x0 - 40, 20), 35, 16, materials.metal, [(x0 + x1) / 2, top - 30, front - 8]),
     ...[x0 + 16, x1 - 16].map((rx) => metalBox(12, 30, depth, materials.metal, [rx, top - 20, zc])),
     ...barXs.map((bx) => rod(5, depth, materials.chrome, [bx, barY, zc], 'z', 12)),
-  ];
+  ].map((part) => asMover(part, slide));
 }
 
 // LED strip under the compartment top, near the front, with a downward area light. Like a door
@@ -172,7 +213,8 @@ export function buildInserts(design, frame, materials) {
     if (!build) return [];
     const [x0, x1] = frame.ranges[ci];
     return build(insert, { frame, compartment, x0, x1, materials, board }).map((part) => {
-      part.userData = { componentId: insert.id, kind: 'insert', compartmentId: compartment.id, insertType: insert.type };
+      // Keep a moving part's motion tags (pullOuts.js).
+      part.userData = { ...part.userData, componentId: insert.id, kind: 'insert', compartmentId: compartment.id, insertType: insert.type };
       return part;
     });
   }));

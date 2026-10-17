@@ -4,7 +4,7 @@
 // [plinth, plinth + panel]); interior y is measured from its top face, `baseY`.
 // Depths follow the manufacturing layout (backend/app/domain/layout.py): shelves (and drawers,
 // rails, inserts) end SHELF_SETBACK behind the front, or clear of the sliding tracks; partitions
-// reach the front, or stop behind the tracks.
+// and dividers (fixed shelves, which bound zones) reach the front, or stop behind the tracks.
 import * as THREE from 'three';
 import { compartmentXRanges, interiorHeight, interiorWidth } from '../../domain/geometry.js';
 import { VISUAL, toM } from '../units.js';
@@ -65,10 +65,20 @@ function applyGrainUVs(geometry, size, [x, y, z]) {
   uv.needsUpdate = true;
 }
 
+/**
+ * A box geometry from a size in millimetres, moved `offset` mm from its mesh origin (for parts merged
+ * into one mesh). `seed` (mm, usually the part's world centre) varies the grain per panel.
+ */
+export function boxGeometry([w, h, d], [ox, oy, oz] = [0, 0, 0], seed = [ox, oy, oz]) {
+  const geometry = new THREE.BoxGeometry(toM(w), toM(h), toM(d));
+  applyGrainUVs(geometry, [toM(w), toM(h), toM(d)], seed);
+  if (ox || oy || oz) geometry.translate(toM(ox), toM(oy), toM(oz));
+  return geometry;
+}
+
 /** A box mesh from a size and centre given in millimetres. */
 export function box({ size: [w, h, d], center: [x, y, z], material, userData }) {
-  const geometry = new THREE.BoxGeometry(toM(w), toM(h), toM(d));
-  applyGrainUVs(geometry, [toM(w), toM(h), toM(d)], [x, y, z]);
+  const geometry = boxGeometry([w, h, d], [0, 0, 0], [x, y, z]);
   const mesh = new THREE.Mesh(geometry, material);
   mesh.position.set(toM(x), toM(y), toM(z));
   mesh.userData = { ...userData };

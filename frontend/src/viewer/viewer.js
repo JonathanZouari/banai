@@ -2,6 +2,8 @@
 // whenever the committed design (or door visibility) changes, and never edits state
 // except through store.select(). While `ui.comparing` is on it shows the saved `version`
 // instead of the design (read defensively: older stores have neither).
+// Moving parts (doors, drawers, trouser racks, pull-down rails) follow ui.doorsOpen and the selection
+// through the motion driver; setMotion() pins them to the deterministic open sequence (video).
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
@@ -16,8 +18,11 @@ import { createEnvironment } from './environment.js';
 import { createFlasher, resolveFlashTargets } from './flash.js';
 import { createHighlighter } from './highlight.js';
 import { createMaterials } from './materials.js';
+import { doorsInScene, motionAt, pullOutAccess } from './motion.js';
+import { createMotionDriver } from './motionDriver.js';
 import { createPathTracer } from './pathtrace.js';
 import { attachPicking } from './picking.js';
+import { applyPullOuts } from './pullOuts.js';
 import { fitShadowCamera } from './shadow.js';
 
 RectAreaLightUniformsLib.init(); // LED strips and the render's window light are area lights
@@ -33,8 +38,6 @@ const RENDER_EXPOSURE = 0.85;
 const VIEW_MS = 300;
 const MAX_DISTANCE = 14;
 const FLOOR_SIZE = 12; // m, same as the grid
-const DOOR_RESPONSE_S = 0.35; // critically damped spring, ~0.35 s response
-const DOOR_OMEGA = (2 * Math.PI) / DOOR_RESPONSE_S;
 const PROPS_SEED = 7;
 const CANVAS_LABEL = 'תצוגת תלת־ממד של הארון';
 const noRaycast = () => {};
@@ -137,21 +140,21 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
   let rendered = { design: null, doorsVisible: null, showClothes: null, propsDesign: null, selection: undefined, dimsKey: null };
   const shown = () => shownState(store.getState());
 
-  // --- Door motion: openness (0 closed .. 1 open) follows ui.doorsOpen through a critically damped spring.
-  let openness = 0;
-  let velocity = 0;
+  // --- Motion: doors (openness 0 closed .. 1 open) and pull-outs follow ui.doorsOpen and the selection
+  // on critically damped springs, sequenced by the driver; setMotion() pins them instead.
+  const driver = createMotionDriver();
   let lastFrame = performance.now();
   let moving = false;
-  const targetOpenness = () => (store.getState().ui.doorsOpen ? 1 : 0);
   // The LED strips follow the doors like a door sensor (always on without doors).
   const updateLed = () => {
     if (!rendered.design) return;
-    setLedLevel(ledLights, materials.led, ledLevel(rendered.design, store.getState().ui, openness));
+    setLedLevel(ledLights, materials.led, ledLevel(rendered.design, store.getState().ui, driver.doors));
   };
   // Path tracer, created below; overlays stay hidden while it renders.
   let tracer = null;
   const isRendering = () => Boolean(tracer?.rendering);
-  const overlaysVisible = () => !moving && !isRendering();
+  let capture = null; // video capture (render/video.js): saved camera and pixel ratio while frames are drawn on demand
+  const overlaysVisible = () => !moving && !isRendering() && !capture;
   // Overlays copy the mesh transform when built, so they are rebuilt once the doors settle.
   const refreshOverlays = () => {
     const { design, selection } = shown();
@@ -160,46 +163,35 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
     highlighter.setHover(group, design, hoveredId);
     dimensions.update(group, design, selection);
   };
-  const stepDoors = (now) => {
-    const dt = Math.min((now - lastFrame) / 1000, 0.1);
-    lastFrame = now;
-    if (!group || !applyDoorMotion) return;
-    const target = targetOpenness();
-    if (openness === target && velocity === 0) return;
-    if (reducedMotion()) {
-      openness = target;
-      velocity = 0;
-    } else {
-      const e0 = openness - target;
-      const c = velocity + DOOR_OMEGA * e0;
-      const decay = Math.exp(-DOOR_OMEGA * dt);
-      openness = target + (e0 + c * dt) * decay;
-      velocity = (velocity - DOOR_OMEGA * c * dt) * decay;
-      if (Math.abs(openness - target) < 5e-4 && Math.abs(velocity) < 5e-3) {
-        openness = target;
-        velocity = 0;
-      }
-    }
-    if (!moving) {
-      moving = true;
-      highlighter.setVisible(false); // hide stale outlines while the mesh moves
-    }
-    applyDoorMotion(group, openness);
+  /** Pose the doors, the pull-outs and the clothes they carry from the driver. */
+  const poseParts = () => {
+    if (!group) return;
+    applyDoorMotion?.(group, driver.doors);
+    applyPullOuts(group, driver.opennessOf, props);
     updateLed();
     renderer.shadowMap.needsUpdate = true;
-    if (openness === target && velocity === 0) {
+  };
+  const stepMotion = (now) => {
+    const dt = Math.min((now - lastFrame) / 1000, 0.1);
+    lastFrame = now;
+    if (!group) return;
+    const changed = driver.step(dt, { reducedMotion: reducedMotion() });
+    if (!changed && !moving) return;
+    if (!moving) {
+      moving = true;
+      highlighter.setVisible(false); // hide stale outlines while the meshes move
+    }
+    poseParts();
+    if (driver.settled) {
       moving = false;
       refreshOverlays();
     }
   };
-  /** Jump the doors to their target pose (the path tracer bakes a static scene). */
-  const snapDoors = () => {
-    openness = targetOpenness();
-    velocity = 0;
+  /** Jump every moving part to its end pose (the path tracer bakes a static scene). */
+  const snapMotion = () => {
+    driver.snap();
     moving = false;
-    if (group && applyDoorMotion) applyDoorMotion(group, openness);
-    updateLed();
-    renderer.shadowMap.needsUpdate = true;
+    poseParts();
   };
 
   const rebuildProps = (design, show) => {
@@ -284,7 +276,7 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
   // --- Path-traced render: the viewer stages the scene, the tracer bakes and accumulates it.
   const stageRender = (on, set) => {
     if (on) {
-      snapDoors();
+      snapMotion();
       flasher.clear();
       hoveredId = null;
       highlighter.setHover(group, shown().design, null);
@@ -314,6 +306,7 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
     const showClothes = ui.showClothes !== false;
     const geometryChanged = design !== rendered.design || ui.doorsVisible !== rendered.doorsVisible;
     let sceneChanged = geometryChanged;
+    driver.setInputs({ doorsOpen: ui.doorsOpen, selectedId: selection?.id ?? null });
     if (geometryChanged) {
       if (group) {
         scene.remove(group);
@@ -330,17 +323,17 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
         object.castShadow = true;
         inUse.add(object.material);
       });
-      // Fit the shadow camera around the closed AND fully open poses, then pose the doors.
-      const shadowBox = new THREE.Box3();
-      if (applyDoorMotion) {
-        applyDoorMotion(group, 0);
-        shadowBox.setFromObject(group);
-        applyDoorMotion(group, 1);
-        shadowBox.union(new THREE.Box3().setFromObject(group));
-        applyDoorMotion(group, openness);
-      } else {
-        shadowBox.setFromObject(group);
-      }
+      driver.configure(pullOutAccess(design, { doorsVisible: ui.doorsVisible }), { hasDoors: doorsInScene(design, ui) });
+      // Fit the shadow camera around the closed AND fully open poses (doors, drawers out, rails down);
+      // the parts are posed from the driver below, once the clothes are built too.
+      const poseAll = (openness) => {
+        applyDoorMotion?.(group, openness);
+        applyPullOuts(group, () => openness);
+      };
+      poseAll(0);
+      const shadowBox = new THREE.Box3().setFromObject(group);
+      poseAll(1);
+      shadowBox.union(new THREE.Box3().setFromObject(group));
       fitShadowCamera(key, shadowBox);
       const center = shadowBox.getCenter(new THREE.Vector3());
       environment.focus(center.x, center.z);
@@ -348,7 +341,6 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
       // Hardware and prop materials are not cached, so retainOnly can never dispose them.
       materials.retainOnly(inUse);
       rendered = { ...rendered, design, doorsVisible: ui.doorsVisible };
-      updateLed();
     }
     // First render: the default 3/4 view. Later size changes of the live design (e.g. the on-canvas
     // steppers) only refit, keeping the direction; showing a saved version never moves the camera.
@@ -362,6 +354,7 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
       rendered = { ...rendered, propsDesign: design, showClothes };
       sceneChanged = true;
     }
+    if (sceneChanged) poseParts();
     if (geometryChanged || selection !== rendered.selection) {
       hoveredId = null;
       highlighter.setHover(group, design, null);
@@ -374,6 +367,7 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
   };
 
   const resize = () => {
+    if (capture) return; // the capture keeps its fixed video size
     const { clientWidth, clientHeight } = container;
     renderer.setSize(clientWidth, clientHeight);
     labels.setSize(clientWidth, clientHeight);
@@ -387,11 +381,16 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
   resize();
 
   // No picking while a render runs or a saved version is shown (its parts are not in the design).
-  const pickable = () => !isRendering() && !shown().comparing;
+  const pickable = () => !isRendering() && !capture && !shown().comparing;
   const detachPicking = attachPicking({
     dom: renderer.domElement,
     camera,
-    getTargets: () => (group && pickable() ? group.children : []),
+    // Parts may have moved since the last frame (setMotion): raycast against their current pose.
+    getTargets: () => {
+      if (!group || !pickable()) return [];
+      group.updateMatrixWorld();
+      return group.children;
+    },
     onPick: (hit) => { if (pickable()) store.select(componentAt(hit, shown().design)); },
     onHover: (hit) => {
       const { design, selection } = shown();
@@ -407,17 +406,18 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
   sync(store.getState());
 
   renderer.setAnimationLoop(() => {
+    if (capture) return; // captureFrame() draws every frame of a video
     const now = performance.now();
     if (isRendering()) {
-      lastFrame = now; // the doors stay at rest; no dt jump once the render ends
-      if (openness !== targetOpenness()) tracer.restage(); // doors toggled mid-render: re-bake them at rest
+      lastFrame = now; // the moving parts stay at rest; no dt jump once the render ends
+      if (!driver.settled) tracer.restage(); // doors toggled (or a part selected) mid-render: re-bake at rest
       stepAnimation(now);
       controls.update();
       tracer.tick();
       labels.render(scene, camera);
       return;
     }
-    stepDoors(now);
+    stepMotion(now);
     stepAnimation(now);
     flasher.step(now);
     controls.update();
@@ -437,10 +437,95 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
     get backdrop() { return environment.backdrop; },
     /** The last backdrop load error (or null); the viewer stays in the studio when the room fails to load. */
     get backdropError() { return environment.lastError; },
-    /** Door openness 0..1 (animated towards ui.doorsOpen). */
-    get doorOpenness() { return openness; },
+    /** Door openness 0..1 (animated towards ui.doorsOpen, or held by setMotion). */
+    get doorOpenness() { return driver.doors; },
+    /** Openness 0..1 of every pull-out (drawers, trouser racks, pull-down rails): { componentId: openness }. */
+    get pullOutOpenness() { return driver.pullOuts(); },
+    /** Whether setMotion() holds the moving parts (until releaseMotion()). */
+    get motionPinned() { return driver.pinned; },
+    /**
+     * Pose every moving part at time t (0..1) of the open sequence (motion.js motionAt): the doors
+     * open, then the drawers and trouser racks slide out and the pull-down rails come down; t back
+     * to 0 closes. The parts stay there, ignoring the store, until releaseMotion(). immediate (the
+     * default) poses them now, deterministically, without the springs; immediate: false lets the
+     * springs carry them there. Returns the openness per category: { doors, drawers, trousers, pulldown }.
+     */
+    setMotion(t, { immediate = true } = {}) {
+      driver.pin(t, { immediate });
+      if (immediate && group) {
+        moving = false;
+        poseParts();
+        if (isRendering()) tracer.restage();
+        else refreshOverlays();
+      }
+      return motionAt(t);
+    },
+    /** Hand the moving parts back to the store (ui.doorsOpen and the selection); they spring back from where they are. */
+    releaseMotion() {
+      driver.release();
+    },
+    /** Render one frame of the live view now, as posed (frame capture; a hidden page pauses rAF). False while path tracing. */
+    renderFrame() {
+      if (isRendering()) return false;
+      renderer.render(scene, camera);
+      labels.render(scene, camera);
+      return true;
+    },
+    /**
+     * Video capture (render/video.js): a fixed-size view, without labels or highlights, whose frames are
+     * drawn only by captureFrame(). endCapture() gives back the user's camera, size and moving parts.
+     */
+    beginCapture({ width, height }) {
+      if (capture || isRendering() || !group) return false;
+      capture = { pixelRatio: renderer.getPixelRatio(), position: camera.position.toArray(), target: controls.target.toArray() };
+      animation = null;
+      flasher.clear();
+      hoveredId = null;
+      highlighter.setHover(group, shown().design, null);
+      highlighter.setVisible(false);
+      dimensions.setVisible(false);
+      labels.domElement.classList.add('viewer-labels--hidden');
+      renderer.setPixelRatio(1);
+      renderer.setSize(width, height, false); // the drawing buffer only; the page layout stays
+      renderer.domElement.style.objectFit = 'contain'; // show the true frame, letterboxed, while it records
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      return true;
+    },
+    /** Draw one capture frame: the camera at `pose` ({ position, target }, metres), the parts at sequence time `motion`. */
+    captureFrame({ pose, motion }) {
+      if (!capture) return false;
+      driver.pin(motion, { immediate: true });
+      moving = false;
+      poseParts();
+      camera.position.fromArray(pose.position);
+      controls.target.fromArray(pose.target);
+      camera.lookAt(controls.target);
+      camera.updateMatrixWorld();
+      renderer.render(scene, camera);
+      return true;
+    },
+    endCapture() {
+      if (!capture) return;
+      const saved = capture;
+      capture = null;
+      renderer.setPixelRatio(saved.pixelRatio);
+      renderer.domElement.style.objectFit = '';
+      camera.position.fromArray(saved.position);
+      controls.target.fromArray(saved.target);
+      const { clientWidth, clientHeight } = container;
+      renderer.setSize(clientWidth, clientHeight);
+      camera.aspect = clientWidth / Math.max(clientHeight, 1);
+      camera.updateProjectionMatrix();
+      controls.update();
+      driver.release();
+      dimensions.setVisible(true);
+      labels.domElement.classList.remove('viewer-labels--hidden');
+      refreshOverlays();
+    },
+    get capturing() { return capture !== null; },
     /** LED level 0..1 (follows the doors; 1 without doors). */
-    get ledLevel() { return rendered.design ? ledLevel(rendered.design, store.getState().ui, openness) : 0; },
+    get ledLevel() { return rendered.design ? ledLevel(rendered.design, store.getState().ui, driver.doors) : 0; },
     /** The current named view ('threeQuarter' | 'front' | 'side'), or null after a manual orbit. */
     get viewName() { return viewName; },
     /** Calls fn(viewName) whenever the named view changes (including to null). Returns unsubscribe. */

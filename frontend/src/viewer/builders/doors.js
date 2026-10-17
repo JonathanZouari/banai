@@ -4,6 +4,9 @@
 //   outer edge; between neighbours the edge is the middle of the partition. A DOOR_JOINT joint
 //   (each edge inset by half of it); height H - plinth - joint from y = plinth + joint / 2. Two
 //   leaves over one compartment are a split pair: the first in doors.items order takes the left half.
+// - zones (docs/schema.md): a door anchored to dividers (bottomShelfId / topShelfId, fixed shelves of its
+//   one compartment) spans from the centre line of its bottom anchor (else the plinth) to the centre line
+//   of its top anchor (else the carcass top), less the same joint. Leaves pair up only within one zone.
 // - sliding: inside the carcass, between the side panels: (W - 2 panel + (n - 1) overlap) / n wide,
 //   panel i at x = panel + i (width - overlap), standing on a 12 mm bottom guide over the bottom
 //   panel and 4 mm under a 40 mm top track; odd panels run on the front track. The tracks are
@@ -22,6 +25,31 @@ const SLIDE_TRACK_BACK = { front: -30, back: -60 }; // dossier: back face of a p
 const TRACK_PROFILE = { depth: 78, z: -43 }; // P1: one profile holding both tracks, 4 mm behind the front
 
 const sameCompartment = (a, b) => a.compartmentIds.length === 1 && b.compartmentIds.length === 1 && a.compartmentIds[0] === b.compartmentIds[0];
+// The zone fields may be missing from older (and not yet migrated) designs: missing = null.
+const anchorsOf = (door) => [door.bottomShelfId ?? null, door.topShelfId ?? null];
+const sameZone = (a, b) => {
+  const [[aBottom, aTop], [bBottom, bTop]] = [anchorsOf(a), anchorsOf(b)];
+  return sameCompartment(a, b) && aBottom === bBottom && aTop === bTop;
+};
+
+/**
+ * Vertical span [bottom, top] of a hinged door in mm above the floor, before the joint: from the
+ * centre line of its bottom anchor (else the plinth) to the centre line of its top anchor (else the
+ * carcass top). Null when an anchor is not a shelf of the door's compartment (never drawn from invalid data).
+ */
+export function hingedDoorSpan(design, frame, door) {
+  const [bottomId, topId] = anchorsOf(door);
+  if (bottomId === null && topId === null) return [frame.plinth, frame.height];
+  const shelves = design.compartments.find((c) => c.id === door.compartmentIds[0])?.shelves ?? [];
+  const centreLine = (id) => {
+    const shelf = shelves.find((s) => s.id === id);
+    return shelf ? frame.baseY + shelf.y + shelf.thickness / 2 : null;
+  };
+  const bottom = bottomId === null ? frame.plinth : centreLine(bottomId);
+  const top = topId === null ? frame.height : centreLine(topId);
+  if (bottom === null || top === null || top <= bottom) return null;
+  return [bottom, top];
+}
 
 /** Hinged door rectangles in mm: [{ door, x0, width, y0, height, z0, leaf }], leaf = 'left' | 'right' | null, z0 = back face. */
 export function hingedDoorRects(design, frame) {
@@ -31,11 +59,13 @@ export function hingedDoorRects(design, frame) {
   return doors.items.flatMap((door) => {
     const covered = door.compartmentIds.map((id) => indexOf.get(id));
     if (!covered.length || covered.some((i) => i === undefined)) return []; // never drawn from invalid data
+    const span = hingedDoorSpan(design, frame, door);
+    if (!span) return [];
     const [first, end] = [covered[0], covered.at(-1)];
     let left = first === 0 ? 0 : frame.ranges[first][0] - partitions[first - 1].thickness / 2;
     let right = end === last ? frame.width : frame.ranges[end][1] + partitions[end].thickness / 2;
     let leaf = null;
-    const leaves = covered.length === 1 ? doors.items.filter((other) => sameCompartment(other, door)) : [];
+    const leaves = covered.length === 1 ? doors.items.filter((other) => sameZone(other, door)) : [];
     if (leaves.length === 2) {
       const middle = (left + right) / 2;
       leaf = leaves[0] === door ? 'left' : 'right';
@@ -45,8 +75,8 @@ export function hingedDoorRects(design, frame) {
       door, leaf,
       x0: left + DOOR_JOINT / 2,
       width: right - left - DOOR_JOINT,
-      y0: frame.plinth + DOOR_JOINT / 2,
-      height: frame.height - frame.plinth - DOOR_JOINT,
+      y0: span[0] + DOOR_JOINT / 2,
+      height: span[1] - span[0] - DOOR_JOINT,
       z0: 0, // on the carcass front
     }];
   });

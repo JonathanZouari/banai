@@ -2,6 +2,8 @@
 // and nothing goes into the wardrobe group. Deterministic for a seed (no Math.random).
 // Garments hang from rails and pull-down rails, folded stacks sit on shelves, shoes on the shoe
 // shelves and trousers over the trouser rack (the inserts' hardware is built in builders/inserts.js).
+// Clothes on a pull-out are tagged with it (userData.carrier = its id, userData.rest = their rest
+// position), so they ride out with the trouser rack and come down with the pull-down rail (pullOuts.js).
 import * as THREE from 'three';
 import { frameOf } from './builders/frame.js';
 import { SHOE_TILT, insertZone, shoeShelf, trouserRack } from './builders/inserts.js';
@@ -46,9 +48,9 @@ export function buildProps(design, { seed = 1 } = {}) {
   group.userData.materials = [...materials, ...shoeMaterials, hangerMaterial];
   const pick = () => materials[Math.floor(random() * materials.length)];
   const room = (count) => group.children.length + count <= MAX_PROP_MESHES;
-  const add = (mesh, part) => {
+  const add = (mesh, part, carrier = null) => {
     mesh.raycast = noRaycast;
-    mesh.userData = { part, decorative: true };
+    mesh.userData = carrier ? { part, decorative: true, carrier } : { part, decorative: true };
     group.add(mesh);
     return mesh;
   };
@@ -62,8 +64,11 @@ export function buildProps(design, { seed = 1 } = {}) {
     const inserts = compartment.inserts ?? [];
 
     // Hanging garments on rails and the pull-down rail, clamped above the next surface below.
-    const hangers = [...compartment.rails.map((rail) => rail.y), ...inserts.filter((i) => i.type === 'pulldown').map((i) => i.y)];
-    hangers.forEach((railY) => {
+    const hangers = [
+      ...compartment.rails.map((rail) => [rail.y, null]),
+      ...inserts.filter((i) => i.type === 'pulldown').map((i) => [i.y, i.id]),
+    ];
+    hangers.forEach(([railY, carrier]) => {
       const floorTop = Math.max(0, ...solids(compartment).map(([, top]) => top).filter((top) => top <= railY));
       const available = railY - 30 - floorTop - 20;
       if (available < 250) return;
@@ -76,9 +81,9 @@ export function buildProps(design, { seed = 1 } = {}) {
         const w = Math.min(jacket ? 500 : 450, 62);
         const d = 40 + Math.floor(random() * 40);
         const top = base + railY - 30;
-        add(new THREE.Mesh(new THREE.TorusGeometry(toM(25), toM(2), 6, 12), hangerMaterial), 'hanger')
+        add(new THREE.Mesh(new THREE.TorusGeometry(toM(25), toM(2), 6, 12), hangerMaterial), 'hanger', carrier)
           .position.set(toM(x), toM(base + railY), cz);
-        const body = add(new THREE.Mesh(new THREE.BoxGeometry(toM(w), toM(h), toM(d)), pick()), 'garment');
+        const body = add(new THREE.Mesh(new THREE.BoxGeometry(toM(w), toM(h), toM(d)), pick()), 'garment', carrier);
         body.position.set(toM(x), toM(top - h / 2), cz);
       }
     });
@@ -132,11 +137,12 @@ export function buildProps(design, { seed = 1 } = {}) {
       if (length < 120) return;
       for (let b = 0; b < rack.barXs.length; b += 2) {
         if (!room(1)) return;
-        const trouser = add(new THREE.Mesh(new THREE.BoxGeometry(toM(16), toM(length), toM(Math.min(280, rack.depth))), pick()), 'trousers');
+        const trouser = add(new THREE.Mesh(new THREE.BoxGeometry(toM(16), toM(length), toM(Math.min(280, rack.depth))), pick()), 'trousers', insert.id);
         trouser.position.set(toM(rack.barXs[b]), toM(rack.barY - length / 2), toM(rack.zc));
       }
     });
   });
+  group.children.forEach((item) => { if (item.userData.carrier) item.userData.rest = item.position.toArray(); });
   return group;
 }
 
