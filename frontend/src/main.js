@@ -15,6 +15,7 @@ import { mountChat } from './chat/chatPanel.js';
 import { mountStartScreen } from './entry/startScreen.js';
 import { createSaveDialog } from './share/saveDialog.js';
 import { createRenderDialog } from './render/renderDialog.js';
+import { createFinishFlow } from './order/finishDialog.js';
 import { icon } from './ui/icons.js';
 import { createLogo } from './ui/logo.js';
 import { installRipple } from './ui/ripple.js';
@@ -51,11 +52,13 @@ function bindInteriorToggle(store) {
   render(store.getState());
 }
 
-function bindDialogs() {
+function bindDialogs(store, viewer) {
   const save = createSaveDialog();
   const render = createRenderDialog();
+  const finish = createFinishFlow({ store, viewer, topbarButton: document.getElementById('open-maker') });
   document.getElementById('open-save').addEventListener('click', save.open);
   document.getElementById('open-render').addEventListener('click', render.open);
+  document.getElementById('open-finish').addEventListener('click', finish.open);
 }
 
 async function boot() {
@@ -76,7 +79,7 @@ async function boot() {
   const viewer = createViewer(document.getElementById('viewer'), store);
   bindInteriorToggle(store);
   mountPanel(document.getElementById('properties-content'), store);
-  bindDialogs();
+  bindDialogs(store, viewer);
 
   // The agent is optional: without an OpenAI key on the server the panel says so honestly.
   const agent = health?.data.agent === true

@@ -145,6 +145,16 @@
   font: var(--md-sys-typescale-body-small);
 }
 
+/* Finish order dialog (Hebrew, RTL) */
+.finish { display: flex; flex-direction: column; gap: var(--space-3); text-align: start; }
+.finish__summary, .finish__findings { margin: 0; padding-inline-start: var(--space-4); font: var(--md-sys-typescale-body-medium); }
+.finish__heading { margin: 0; font: var(--md-sys-typescale-title-small); }
+.finish__findings { max-height: 200px; overflow-y: auto; font: var(--md-sys-typescale-body-small); }
+.finish__finding--warn { color: #8a4b00; }
+.finish__agree { display: flex; align-items: center; gap: var(--space-2); font: var(--md-sys-typescale-label-large); cursor: pointer; }
+.finish__agree input { width: 18px; height: 18px; accent-color: var(--md-sys-color-primary); }
+.finish__done { margin: 0; padding: var(--space-3); border-radius: var(--md-sys-shape-small); background: #dcefe0; color: #1f4d2b; font: var(--md-sys-typescale-label-large); }
+
 /* Start screen */
 .start {
   width: 100vw;

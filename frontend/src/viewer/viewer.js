@@ -207,6 +207,28 @@ export function createViewer(container, store) {
     canvas: renderer.domElement,
     /** How far the doors are open, 0..1 (eased), for tests and tooling. */
     doorsOpenAmount: doorsAmount,
+    /**
+     * A JPEG data URL of the wardrobe, framed like the default view at a fixed square size, for
+     * the cabinetmaker sheet. The on-screen size and the customer's camera are restored after.
+     */
+    snapshot({ size = 1000 } = {}) {
+      const previous = { size: renderer.getSize(new THREE.Vector2()), aspect: camera.aspect, position: camera.position.clone(), target: controls.target.clone() };
+      renderer.setSize(size, size, false);
+      camera.aspect = 1;
+      camera.updateProjectionMatrix();
+      if (rendered.design) fitCamera(rendered.design);
+      renderer.shadowMap.needsUpdate = true;
+      renderer.render(scene, camera);
+      const url = renderer.domElement.toDataURL('image/jpeg', 0.9);
+      renderer.setSize(previous.size.x, previous.size.y, false);
+      camera.aspect = previous.aspect;
+      camera.updateProjectionMatrix();
+      camera.position.copy(previous.position);
+      controls.target.copy(previous.target);
+      controls.update();
+      invalidate({ shadows: true });
+      return url;
+    },
     meshOf: (componentId) => group?.children.find((mesh) => mesh.userData.componentId === componentId) ?? null,
     /** Client (page) coordinates of a component's centre, for tests and tooling. */
     screenPointOf(componentId) {
