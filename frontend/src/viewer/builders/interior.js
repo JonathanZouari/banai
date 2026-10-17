@@ -26,17 +26,33 @@ export function buildCompartmentItems(design, frame, materials) {
       material: materials.forAppearance(shelf.appearance ?? carcassAppearance),
       userData: { componentId: shelf.id, kind: 'shelf', compartmentId: compartment.id },
     }));
-    const drawers = compartment.drawers.map((drawer) => box({
-      size: [width - 2 * VISUAL.drawerGap, drawer.height - 2 * VISUAL.drawerGap, frame.innerDepth],
-      center: [cx, floor + drawer.y + drawer.height / 2, frame.innerCenterZ],
-      material: materials.forAppearance(drawer.appearance ?? carcassAppearance),
-      userData: { componentId: drawer.id, kind: 'drawer', compartmentId: compartment.id },
-    }));
+    const drawers = compartment.drawers.flatMap((drawer) => {
+      const centerY = floor + drawer.y + drawer.height / 2;
+      const front = frame.innerCenterZ + frame.innerDepth / 2;
+      const body = box({
+        size: [width - 2 * VISUAL.drawerGap, drawer.height - 2 * VISUAL.drawerGap, frame.innerDepth],
+        center: [cx, centerY, frame.innerCenterZ],
+        material: materials.forAppearance(drawer.appearance ?? carcassAppearance),
+        userData: { componentId: drawer.id, kind: 'drawer', compartmentId: compartment.id },
+        rounded: true,
+      });
+      // Visual-only pull, centred on the drawer front. Clicks pass through to the drawer.
+      const pull = box({
+        size: [Math.min(VISUAL.pullWidth, width * 0.5), VISUAL.pullHeight, VISUAL.pullDepth],
+        center: [cx, centerY, front + VISUAL.pullDepth / 2],
+        material: materials.hardware,
+        userData: { kind: 'pull' },
+        rounded: true,
+      });
+      pull.raycast = () => {};
+      return [body, pull];
+    });
     const rails = compartment.rails.map((rail) => {
       const geometry = new THREE.CylinderGeometry(toM(VISUAL.railRadius), toM(VISUAL.railRadius), toM(width), 16);
       geometry.rotateZ(Math.PI / 2);
       const mesh = new THREE.Mesh(geometry, materials.rail);
       mesh.position.set(toM(cx), toM(floor + rail.y), toM(frame.innerCenterZ));
+      mesh.castShadow = true;
       mesh.userData = { componentId: rail.id, kind: 'rail', compartmentId: compartment.id };
       return mesh;
     });

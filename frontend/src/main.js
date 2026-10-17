@@ -15,6 +15,7 @@ import { mountChat } from './chat/chatPanel.js';
 import { mountStartScreen } from './entry/startScreen.js';
 import { createSaveDialog } from './share/saveDialog.js';
 import { createRenderDialog } from './render/renderDialog.js';
+import { icon } from './ui/icons.js';
 import { createLogo } from './ui/logo.js';
 import { installRipple } from './ui/ripple.js';
 
@@ -24,10 +25,30 @@ function showError(message) {
   banner.hidden = false;
 }
 
+// Two controls open the doors: the top-bar switch and a button on the 3D view itself.
+// Both only write ui.doorsVisible; the viewer animates the doors from that state.
 function bindInteriorToggle(store) {
   const toggle = document.getElementById('toggle-interior');
   toggle.addEventListener('change', () => store.setDoorsVisible(!toggle.checked));
-  store.subscribe((state) => { toggle.checked = !state.ui.doorsVisible; });
+
+  const label = document.createElement('span');
+  const doorsButton = document.createElement('button');
+  doorsButton.type = 'button';
+  doorsButton.className = 'btn btn--tonal viewer__doors';
+  doorsButton.dataset.testid = 'viewer-doors';
+  doorsButton.append(icon('wardrobe', { size: 18 }), label);
+  doorsButton.addEventListener('click', () => store.setDoorsVisible(!store.getState().ui.doorsVisible));
+  document.getElementById('viewer').append(doorsButton);
+
+  const render = (state) => {
+    const open = !state.ui.doorsVisible;
+    toggle.checked = open;
+    label.textContent = open ? 'Close doors' : 'Open doors';
+    doorsButton.setAttribute('aria-pressed', String(open));
+    doorsButton.hidden = state.design.doors.type === 'none'; // nothing to open
+  };
+  store.subscribe(render);
+  render(store.getState());
 }
 
 function bindDialogs() {

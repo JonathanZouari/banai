@@ -70,15 +70,17 @@
   font: var(--md-sys-typescale-body-medium);
   text-align: left;
   cursor: pointer;
-  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease;
+  transition: transform var(--dur-press) var(--ease-out), box-shadow var(--dur-fast) ease, border-color var(--dur-fast) ease, background-color var(--dur-fast) ease;
 }
 .suggestion .icon { margin-top: 2px; color: var(--md-sys-color-primary); }
-.suggestion:hover { transform: translateY(-2px); border-color: var(--md-sys-color-primary); background: #fff6f2; box-shadow: 0 6px 14px rgba(180, 83, 42, 0.14); }
-.suggestion:active { transform: translateY(0) scale(0.99); }
+@media (hover: hover) and (pointer: fine) {
+  .suggestion:hover { transform: translateY(-1px); border-color: var(--md-sys-color-primary); background: #fff6f2; box-shadow: 0 4px 12px rgba(180, 83, 42, 0.12); }
+}
+.suggestion:active { transform: scale(0.98); }
 .suggestion:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
 
 .chat__messages { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-1) 0; }
-.chat__bubble { max-width: 90%; padding: var(--space-3) var(--space-4); border-radius: 18px; font: var(--md-sys-typescale-body-medium); overflow-wrap: anywhere; white-space: pre-wrap; animation: pop-in 260ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+.chat__bubble { max-width: 90%; padding: var(--space-3) var(--space-4); border-radius: 18px; font: var(--md-sys-typescale-body-medium); overflow-wrap: anywhere; white-space: pre-wrap; animation: pop-in var(--dur-base) var(--ease-out) both; }
 .chat__bubble--user { align-self: flex-end; border-bottom-right-radius: 6px; background: linear-gradient(135deg, #c8602f 0%, #b4532a 100%); color: var(--md-sys-color-on-primary); box-shadow: 0 4px 12px rgba(180, 83, 42, 0.25); }
 .chat__bubble--assistant { align-self: flex-start; border-bottom-left-radius: 6px; background: var(--md-sys-color-surface-container-high); }
 .chat__bubble--system { display: flex; align-items: flex-start; gap: var(--space-2); align-self: stretch; max-width: 100%; border-radius: var(--md-sys-shape-medium); background: #fff6dc; color: #3d2f00; font: var(--md-sys-typescale-body-small); }
@@ -94,16 +96,15 @@
   border: 1px solid var(--md-sys-color-outline);
   border-radius: 26px;
   background: var(--md-sys-color-surface-container-lowest);
-  transition: border-color 160ms ease, box-shadow 160ms ease;
+  transition: border-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
 }
 .chat__composer:focus-within { border-color: var(--md-sys-color-primary); box-shadow: 0 0 0 3px rgba(180, 83, 42, 0.16); }
 .chat__input { flex: 1; min-width: 0; padding: var(--space-2) 0; border: 0; outline: none; background: transparent; color: var(--md-sys-color-on-surface); font: var(--md-sys-typescale-body-medium); resize: none; }
-.chat__send { flex: none; transition: transform 160ms ease, background 160ms ease; }
-.chat__send:hover { transform: scale(1.08) rotate(-8deg); }
+.chat__send { flex: none; }
 .chat__hint { margin: var(--space-2) 0 0 var(--space-4); color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-small); }
 
 /* Proposal card */
-.proposal { animation: rise-in 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both; padding: var(--space-4); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-sys-shape-medium); background: var(--md-sys-color-surface-container-low); }
+.proposal { animation: rise-in var(--dur-base) var(--ease-out) both; padding: var(--space-4); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-sys-shape-medium); background: var(--md-sys-color-surface-container-low); }
 .proposal__header { display: flex; align-items: center; justify-content: space-between; }
 .proposal__heading { margin: 0; font: var(--md-sys-typescale-title-small); }
 .proposal__count { padding: 2px var(--space-2); border-radius: var(--md-sys-shape-extra-small); background: var(--md-sys-color-surface-container-high); font: var(--md-sys-typescale-label-small); }
@@ -181,39 +182,65 @@
 
 /* Logo */
 .logo { display: inline-flex; align-items: center; gap: 10px; }
-.logo__mark { flex: none; filter: drop-shadow(0 3px 6px rgba(180, 83, 42, 0.3)); transition: transform 240ms cubic-bezier(0.2, 0.9, 0.3, 1.4); }
-.logo:hover .logo__mark { transform: rotate(-6deg) scale(1.06); }
+.logo__mark { flex: none; filter: drop-shadow(0 3px 6px rgba(180, 83, 42, 0.3)); }
 .logo__word { font: 800 26px/1 var(--md-ref-typeface-display); letter-spacing: -0.045em; color: var(--md-sys-color-on-surface); }
 .logo__ai { background: linear-gradient(135deg, #e9814d, #b4532a 55%, #8f3a17); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .logo__tagline { padding-left: 10px; border-left: 1px solid var(--md-sys-color-outline-variant); color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-label-large); letter-spacing: 0.01em; }
 
 /* Interaction: ripple, press, hover */
 .btn, .icon-btn, .segmented__option, .swatch { position: relative; overflow: hidden; }
-.ripple { position: absolute; border-radius: 50%; background: currentColor; opacity: 0.18; pointer-events: none; transform: scale(0); animation: ripple 520ms ease-out forwards; }
-.btn, .icon-btn, .segmented__option, .swatch, .compartment-row, .entry-card, .dialog { transition: background 160ms ease, border-color 160ms ease, box-shadow 200ms ease, transform 160ms ease, color 160ms ease; }
-.btn:active:not(:disabled), .icon-btn:active, .segmented__option:active { transform: scale(0.97); }
-.btn--primary:hover:not(:disabled) { box-shadow: 0 4px 12px rgba(180, 83, 42, 0.35); }
-.swatch:hover { transform: scale(1.1); }
-.compartment-row:hover { transform: translateX(2px); }
-.entry-card { animation: rise-in 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-.entry-card:nth-child(2) { animation-delay: 70ms; }
-.entry-card:nth-child(3) { animation-delay: 140ms; }
-.entry-card:hover { transform: translateY(-4px); border-color: var(--md-sys-color-primary); box-shadow: 0 12px 28px rgba(180, 83, 42, 0.16); }
-.entry-card:hover .entry-card__icon { transform: rotate(-6deg) scale(1.08); }
-.entry-card__icon { transition: transform 240ms cubic-bezier(0.2, 0.9, 0.3, 1.4); }
-.start__title, .start__subtitle { animation: rise-in 420ms ease both; }
-.dialog[open] { animation: dialog-in 220ms cubic-bezier(0.2, 0.9, 0.3, 1.1) both; }
-.dialog[open]::backdrop { animation: fade-in 200ms ease both; }
-.viewer { transition: background 200ms ease; }
+.ripple { position: absolute; border-radius: 50%; background: currentColor; opacity: 0.16; pointer-events: none; transform: scale(0.1); animation: ripple 450ms var(--ease-out) forwards; }
+.btn, .icon-btn, .segmented__option, .swatch {
+  transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease, color var(--dur-fast) ease, transform var(--dur-press) var(--ease-out);
+}
+.compartment-row { transition: background-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease; }
+.btn:active:not(:disabled), .icon-btn:active, .segmented__option:active, .swatch:active { transform: scale(0.97); }
+.entry-card { animation: rise-in 300ms var(--ease-out) both; transition: border-color var(--dur-fast) ease, box-shadow var(--dur-base) ease, transform var(--dur-base) var(--ease-out); }
+.entry-card:nth-child(2) { animation-delay: 50ms; }
+.entry-card:nth-child(3) { animation-delay: 100ms; }
+.start__title, .start__subtitle { animation: rise-in 300ms var(--ease-out) both; }
+@media (hover: hover) and (pointer: fine) {
+  .btn--primary:hover:not(:disabled) { box-shadow: 0 4px 12px rgba(180, 83, 42, 0.3); }
+  .swatch:hover { transform: scale(1.05); }
+  .entry-card:hover { transform: translateY(-2px); border-color: var(--md-sys-color-primary); box-shadow: 0 10px 24px rgba(180, 83, 42, 0.12); }
+}
 
-@keyframes pop-in { from { opacity: 0; transform: translateY(8px) scale(0.96); } to { opacity: 1; transform: none; } }
-@keyframes rise-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
-@keyframes dialog-in { from { opacity: 0; transform: translateY(12px) scale(0.96); } to { opacity: 1; transform: none; } }
+/* Dialogs: interruptible transitions in and out. Open eases out over 220ms; close is quicker (150ms)
+   because the user has already decided. Modals stay centred (no transform-origin trick). */
+.dialog {
+  opacity: 0;
+  transform: translateY(8px) scale(0.97);
+  transition: opacity 150ms ease, transform 150ms var(--ease-out), overlay 150ms allow-discrete, display 150ms allow-discrete;
+}
+.dialog[open] {
+  opacity: 1;
+  transform: none;
+  transition-duration: 220ms;
+}
+@starting-style {
+  .dialog[open] { opacity: 0; transform: translateY(8px) scale(0.97); }
+}
+.dialog::backdrop { background-color: transparent; transition: background-color 150ms ease, overlay 150ms allow-discrete, display 150ms allow-discrete; }
+.dialog[open]::backdrop { background-color: var(--md-sys-color-scrim); transition-duration: 220ms; }
+@starting-style {
+  .dialog[open]::backdrop { background-color: transparent; }
+}
+
+@keyframes pop-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes rise-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes ripple { to { transform: scale(1); opacity: 0; } }
 
+/* Reduced motion means gentler, not none: keep fades and colour changes, drop movement. */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 0.01ms !important; animation-delay: 0ms !important; transition-duration: 0.01ms !important; }
+  .chat__bubble, .proposal, .entry-card, .start__title, .start__subtitle { animation-name: fade-in; }
+  .dialog, .dialog[open] { transform: none; }
+  @starting-style {
+    .dialog[open] { transform: none; }
+  }
+  .btn:active:not(:disabled), .icon-btn:active, .segmented__option:active, .swatch:active, .suggestion:active,
+  .suggestion:hover, .swatch:hover, .entry-card:hover { transform: none; }
+  .entry-card:nth-child(n) { animation-delay: 0ms; }
 }
 
 /* Agent connected: status chip and typing indicator. */
@@ -227,6 +254,7 @@
 .chat__dot:nth-child(3) { animation-delay: 300ms; }
 @keyframes typing-dot { 0%, 60%, 100% { opacity: 0.35; transform: none; } 30% { opacity: 1; transform: translateY(-3px); } }
 .chat__send:disabled { opacity: 0.5; cursor: progress; transform: none; }
+.chat__send:active:not(:disabled) { transform: scale(0.94); }
 .chat__bubble { unicode-bidi: plaintext; text-align: start; } /* Hebrew/RTL replies read correctly */
 @media (prefers-reduced-motion: reduce) {
   .chat__dot, .chat__status--online::before { animation: none; }
@@ -239,8 +267,10 @@
 .panel--chat[dir="rtl"] .chat__bubble--assistant { align-self: flex-end; border-bottom-left-radius: 18px; border-bottom-right-radius: 6px; }
 
 .lang-switch { display: inline-flex; flex: none; padding: 2px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-sys-shape-full); background: var(--md-sys-color-surface-container-lowest); }
-.lang-switch__option { min-width: 34px; padding: 3px var(--space-2); border: 0; border-radius: var(--md-sys-shape-full); background: transparent; color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-label-small); cursor: pointer; transition: background 160ms ease, color 160ms ease; }
-.lang-switch__option:hover { color: var(--md-sys-color-on-surface); }
+.lang-switch__option { min-width: 34px; padding: 3px var(--space-2); border: 0; border-radius: var(--md-sys-shape-full); background: transparent; color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-label-small); cursor: pointer; transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease; }
+@media (hover: hover) and (pointer: fine) {
+  .lang-switch__option:hover { color: var(--md-sys-color-on-surface); }
+}
 .lang-switch__option[aria-pressed="true"] { background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); }
 .lang-switch__option:focus-visible { outline: var(--focus-outline); outline-offset: 1px; }
 .chat__input { unicode-bidi: plaintext; }

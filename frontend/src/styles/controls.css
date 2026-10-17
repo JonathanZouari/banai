@@ -33,7 +33,7 @@
   font-variant-numeric: tabular-nums;
 }
 .field__input:hover { border-color: var(--md-sys-color-on-surface); }
-input.field__input[inputmode] { text-align: right; }
+input.field__input[inputmode] { padding: 0 var(--space-2); text-align: right; }
 /* Dropdowns: a custom chevron with room on the right, so text never runs under it. */
 select.field__input {
   appearance: none;
@@ -71,7 +71,9 @@ select.field__input {
   cursor: pointer;
 }
 .segmented__option:last-child { border-right: 0; }
-.segmented__option:hover { background: rgba(35, 25, 23, 0.08); }
+@media (hover: hover) and (pointer: fine) {
+  .segmented__option:hover { background: rgba(35, 25, 23, 0.08); }
+}
 .segmented__option[aria-pressed="true"] { background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
 .segmented__option[aria-pressed="true"]::before { content: '\2713\00a0'; }
 
@@ -111,22 +113,25 @@ select.field__input {
   border-radius: var(--md-sys-shape-full);
   background: var(--md-sys-color-surface-container-highest);
   cursor: pointer;
-  transition: background 120ms, border-color 120ms;
+  transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease;
 }
+/* The thumb is always 24px and moves with transform only (no layout work per frame). */
 .toggle input::before {
   content: '';
   position: absolute;
-  top: 50%;
-  left: 6px;
-  width: 16px;
-  height: 16px;
+  top: 2px;
+  left: 2px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: var(--md-sys-color-outline);
-  transform: translateY(-50%);
-  transition: left 120ms, width 120ms, height 120ms, background 120ms;
+  transform: scale(0.667);
+  transition: transform var(--dur-fast) var(--ease-out), background-color var(--dur-fast) ease;
 }
+.toggle input:active::before { transform: scale(0.75); }
 .toggle input:checked { border-color: var(--md-sys-color-primary); background: var(--md-sys-color-primary); }
-.toggle input:checked::before { left: 22px; width: 24px; height: 24px; background: var(--md-sys-color-on-primary); }
+.toggle input:checked::before { transform: translateX(20px); background: var(--md-sys-color-on-primary); }
+.toggle input:checked:active::before { transform: translateX(20px) scale(0.92); }
 
 .appearance { margin-bottom: var(--space-4); }
 .appearance__label { margin: 0 0 var(--space-2); font: var(--md-sys-typescale-title-small); }
@@ -154,6 +159,32 @@ select.field__input {
   font: var(--md-sys-typescale-label-medium);
 }
 
+/* Interior layout options */
+.layout-options { display: grid; gap: var(--space-2); }
+.layout-option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-medium);
+  background: var(--md-sys-color-surface-container-lowest);
+  color: var(--md-sys-color-on-surface);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) ease, background-color var(--dur-fast) ease, transform var(--dur-press) var(--ease-out);
+}
+.layout-option__label { font: var(--md-sys-typescale-label-large); }
+.layout-option__text { color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-small); }
+.layout-option:active { transform: scale(0.98); }
+.layout-option:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) {
+  .layout-option:hover { border-color: var(--md-sys-color-primary); background: #fff6f2; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .layout-option:active { transform: none; }
+}
+
 /* List items */
 .compartment-list { margin: 0; padding: 0; list-style: none; }
 .compartment-row {
@@ -165,6 +196,8 @@ select.field__input {
   border-radius: var(--md-sys-shape-medium);
 }
 .compartment-row .field { margin: 0; }
-.compartment-row .field__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-.compartment-row:hover { background: rgba(35, 25, 23, 0.06); }
+.compartment-row .field__label { position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (hover: hover) and (pointer: fine) {
+  .compartment-row:hover { background: rgba(35, 25, 23, 0.06); }
+}
 .compartment-row.is-selected { background: var(--md-sys-color-secondary-container); box-shadow: inset 3px 0 0 var(--md-sys-color-primary); }

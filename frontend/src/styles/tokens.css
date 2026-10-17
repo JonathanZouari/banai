@@ -74,6 +74,14 @@
 
   --focus-outline: 2px solid var(--md-sys-color-primary);
 
+  /* Motion: strong custom curves (built-in CSS easings are too weak). UI motion stays under 300ms;
+     ease-out for enter/exit and feedback, ease-in-out for things moving on screen. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --dur-press: 140ms;
+  --dur-fast: 180ms;
+  --dur-base: 240ms;
+
   /* Aliases used by existing component CSS and JS-created elements */
   --color-bg: var(--md-sys-color-surface);
   --color-surface: var(--md-sys-color-surface-container-lowest);
