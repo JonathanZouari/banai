@@ -39,7 +39,7 @@ class ScriptedAgent(FakeOpenAI):
                 *[call("add_drawer", f"d{n}", compartmentId="cmp_c", y=200 * n - 200, height=200) for n in range(1, 4)],
             ])
         if "raise" in text:  # reads the shelf from the design in the prompt: proves the agent saw the latest state
-            design = json.loads(system.split("CURRENT DESIGN (canonical JSON):\n", 1)[1])
+            design = json.loads(system.split("CURRENT DESIGN (canonical JSON):\n", 1)[1].split("\n\nRESPONSE LANGUAGE", 1)[0])
             shelf = design["compartments"][0]["shelves"][0]
             return reply("Raising the first shelf by 10 cm.", [call("modify_shelf", id=shelf["id"], y=shelf["y"] + 100)])
         if "shelf" in text:

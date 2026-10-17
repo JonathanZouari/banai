@@ -81,10 +81,81 @@ def describe_op(op: dict, design: dict) -> dict:
     return {"title": name.replace("_", " ").capitalize(), "detail": ""}
 
 
-def describe_ops(ops: list[dict], design: dict, apply: Callable[[dict, list], dict]) -> list[dict]:
+# --- Hebrew: the same descriptions, written for right-to-left customers (catalog names stay as the catalog has them).
+
+def cm_he(mm: int) -> str:
+    return f"{mm / 10:g} ס\"מ"
+
+
+_KEYS_HE = {"width": "רוחב", "height": "גובה", "depth": "עומק", "position": "מיקום", "thickness": "עובי", "y": "גובה מהבסיס"}
+
+
+def _where_he(design: dict, component_id: str | None) -> str:
+    found = locate(design, component_id) if component_id else None
+    if not found:
+        return "רכיב חדש"
+    kind, index, _ = found
+    if kind == "compartment":
+        return f"תא {index + 1}"
+    if kind == "partition":
+        return f"מחיצה {index + 1}"
+    if kind == "door":
+        return f"דלת {index + 1}"
+    singular = {"shelves": "מדף", "drawers": "מגירה", "rails": "מוט תלייה"}[kind]
+    return f"{singular} בתא {index + 1}"
+
+
+def _pairs_he(op: dict, keys: tuple[str, ...]) -> str:
+    return ", ".join(f"{_KEYS_HE[key]} {cm_he(op[key])}" for key in keys if key in op)
+
+
+def describe_op_he(op: dict, design: dict) -> dict:
+    """Hebrew twin of `describe_op`. `design` is the state *before* this op."""
+    name = op["op"]
+    cid = op.get("compartmentId")
+    if name == "create_wardrobe":
+        return {"title": "ארון חדש", "detail": f"רוחב {cm_he(op['width'])}, גובה {cm_he(op['height'])}, עומק {cm_he(op['depth'])}, {op['compartmentCount']} תאים. מחליף את העיצוב הנוכחי."}
+    if name == "update_dimensions":
+        return {"title": "שינוי מידות", "detail": _pairs_he(op, ("width", "height", "depth"))}
+    if name == "configure_doors":
+        kind = op["type"]
+        if kind == "sliding":
+            return {"title": "דלתות הזזה", "detail": f"{op.get('count', 2)} דלתות הזזה."}
+        if kind == "none":
+            return {"title": "הסרת דלתות", "detail": "בלי דלתות."}
+        count = len(op["doors"]) if op.get("doors") else len(design["compartments"])
+        return {"title": "דלתות ציר", "detail": f"{count} דלתות ציר."}
+    if name == "add_compartment":
+        return {"title": "הוספת תא", "detail": f"במקום {op['position'] + 1}, ברוחב {cm_he(op['width'])}."}
+    if name == "modify_compartment":
+        return {"title": "שינוי רוחב תא", "detail": f"{_where_he(design, op['compartmentId'])} לרוחב {cm_he(op['width'])}."}
+    if name == "add_partition":
+        return {"title": "הוספת מחיצה", "detail": f"ב{_where_he(design, cid)}, {cm_he(op['offset'])} מהקצה השמאלי."}
+    if name == "modify_partition":
+        return {"title": "שינוי מחיצה", "detail": f"{_where_he(design, op['partitionId'])}: {_pairs_he(op, ('position', 'thickness'))}."}
+    if name == "add_shelf":
+        return {"title": "הוספת מדף", "detail": f"ב{_where_he(design, cid)}, {cm_he(op['y'])} מהבסיס."}
+    if name == "add_drawer":
+        return {"title": "הוספת מגירה", "detail": f"ב{_where_he(design, cid)}, בגובה {cm_he(op['height'])}, {cm_he(op['y'])} מהבסיס."}
+    if name == "add_rail":
+        return {"title": "הוספת מוט תלייה", "detail": f"ב{_where_he(design, cid)}, {cm_he(op['y'])} מהבסיס."}
+    if name in ("modify_shelf", "modify_drawer", "modify_rail"):
+        title = {"modify_shelf": "שינוי מדף", "modify_drawer": "שינוי מגירה", "modify_rail": "שינוי מוט תלייה"}[name]
+        return {"title": title, "detail": f"{_where_he(design, op['id'])}: {_pairs_he(op, ('y', 'height', 'thickness'))}."}
+    if name == "set_material":
+        target = op["target"]
+        label = "הגוף" if target == "carcass" else "הדלתות" if target == "doors" else _where_he(design, target)
+        return {"title": "שינוי מראה", "detail": f"{label}: {'חזרה לברירת המחדל' if op.get('clear') else _appearance(op)}."}
+    if name == "remove_component":
+        return {"title": "הסרה", "detail": f"{_where_he(design, op['id'])}."}
+    return {"title": name.replace("_", " "), "detail": ""}
+
+
+def describe_ops(ops: list[dict], design: dict, apply: Callable[[dict, list], dict], language: str = "en") -> list[dict]:
     """Describe a batch, stepping the design forward so each op is described against its own base."""
+    describe = describe_op_he if language == "he" else describe_op
     changes, current = [], design
     for op in ops:
-        changes.append(describe_op(op, current))
+        changes.append(describe(op, current))
         current = apply(current, [op])
     return changes

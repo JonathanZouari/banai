@@ -31,6 +31,12 @@ def use_client(client):
     return client
 
 
+def speak(text="hi", language="en", signature=None):
+    from app.services.signing import sign_reply
+
+    return http.post("/api/voice/speech", json={"text": text, "language": language, "signature": signature or sign_reply(text, SETTINGS.proposal_signing_key)})
+
+
 def transcribe(content=AUDIO, content_type="audio/webm;codecs=opus"):
     return http.post("/api/voice/transcribe", content=content, headers={"content-type": content_type})
 
@@ -40,7 +46,7 @@ def test_transcribe_returns_the_text_and_sends_the_audio_to_the_configured_model
     response = transcribe()
     assert response.status_code == 200 and response.json() == {"success": True, "data": {"text": "add a shelf please"}}
     call = client.audio_requests[0]
-    assert call["model"] == "gpt-transcribe"
+    assert call["model"] == "gpt-4o-mini-transcribe" and "ארון" in call["prompt"] and "language" not in call
     assert call["file"] == ("voice.webm", AUDIO, "audio/webm")
 
 
@@ -97,7 +103,7 @@ def test_openai_failures_are_generic_and_never_leak_details():
                     raise openai.APIConnectionError(request=None)
 
     use_client(Boom)
-    for response in (transcribe(), http.post("/api/voice/speak", json={"text": "hi"})):
+    for response in (transcribe(), speak("hi")):
         assert response.status_code == 502 and response.json()["error"]["code"] == "VOICE_ERROR"
         assert "test" not in response.text.lower()
 
@@ -105,24 +111,46 @@ def test_openai_failures_are_generic_and_never_leak_details():
 def test_voice_is_unavailable_without_a_key():
     app.dependency_overrides[get_agent_client] = lambda: None
     assert transcribe().status_code == 503
-    assert http.post("/api/voice/speak", json={"text": "hi"}).status_code == 503
+    assert speak("hi").status_code == 503
 
 
 def test_speak_returns_mp3_audio_with_the_configured_model_and_voice():
     client = use_client(FakeOpenAI(speech=b"ID3abc"))
-    response = http.post("/api/voice/speak", json={"text": "Here is what I would change."})
+    response = speak("Here is what I would change.")
     assert response.status_code == 200 and response.headers["content-type"] == "audio/mpeg"
     assert response.content == b"ID3abc" and response.headers["cache-control"] == "no-store"
     call = client.audio_requests[0]
-    assert (call["model"], call["voice"], call["response_format"]) == ("gpt-4o-mini-tts", "alloy", "mp3")
-    assert call["input"] == "Here is what I would change."
+    assert (call["model"], call["voice"], call["response_format"]) == ("gpt-4o-mini-tts", "marin", "mp3")
+    assert call["input"] == "Here is what I would change." and "Israeli Hebrew" in call["instructions"]
 
 
-@pytest.mark.parametrize("payload", [{}, {"text": ""}, {"text": "x" * 601}, {"text": "hi", "voice": "x"}, {"text": 5}])
-def test_speak_validates_its_input(payload):
+SIG = "a" * 64
+
+
+@pytest.mark.parametrize("payload", [
+    {}, {"text": "hi"}, {"text": "", "signature": SIG}, {"text": "x" * 1001, "signature": SIG},
+    {"text": "hi", "signature": SIG, "voice": "x"}, {"text": 5, "signature": SIG}, {"text": "hi", "signature": "short"},
+])
+def test_speech_validates_its_input(payload):
     client = use_client(FakeOpenAI())
-    assert http.post("/api/voice/speak", json=payload).status_code == 422
+    assert http.post("/api/voice/speech", json=payload).status_code == 422
     assert client.audio_requests == []
+
+
+def test_only_signed_agent_replies_can_be_read_aloud():
+    client = use_client(FakeOpenAI())
+    response = speak("anything you like", signature=SIG)
+    assert response.status_code == 403 and response.json()["error"]["code"] == "BAD_REPLY_SIGNATURE"
+    assert client.audio_requests == []  # not an open text-to-speech proxy
+    assert speak("a genuine reply").status_code == 200
+
+
+def test_spoken_units_are_written_as_words_and_errors_are_localized():
+    client = use_client(FakeOpenAI())
+    assert speak('רוחב 240 ס"מ', "he").status_code == 200
+    assert client.audio_requests[0]["input"] == "רוחב 240 סנטימטר"
+    app.dependency_overrides[get_agent_client] = lambda: None
+    assert "הקול" in speak("hi", "he").json()["error"]["message"]
 
 
 def test_voice_endpoints_are_rate_limited():
@@ -146,14 +174,6 @@ def test_a_transcript_goes_through_the_normal_chat_so_scope_and_confirm_still_ap
     body = {"messages": [{"role": "user", "content": "recipe for cake"}], "design": basic_wardrobe(), "revision": 1}
     data = http.post("/api/chat", json=body).json()["data"]
     assert data["proposal"] is None  # a voice message cannot apply anything by itself
-
-
-def test_blank_speech_is_rejected_and_not_billed():
-    client = use_client(FakeOpenAI())
-    assert http.post("/api/voice/speak", json={"text": "   \n "}).status_code == 422
-    assert client.audio_requests == []
-    http.post("/api/voice/speak", json={"text": "  hi  "})
-    assert client.audio_requests[0]["input"] == "hi"
 
 
 def test_unexpected_server_errors_use_the_envelope_without_details():

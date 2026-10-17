@@ -96,3 +96,27 @@ describe('store input validation (Phase 3 security review M1)', () => {
     expect(() => createStore({ design: loadDesign('basic'), revision: 0, catalog })).toThrow();
   });
 });
+
+describe('replaceDesign (applied AI proposal)', () => {
+  it('commits a valid server design with the new revision and keeps a still-valid selection', () => {
+    const store = makeStore();
+    store.select('shf_l1');
+    const next = structuredClone(loadDesign('basic'));
+    next.dimensions.depth = 550;
+    store.replaceDesign(next, 2);
+    const state = store.getState();
+    expect(state.revision).toBe(2);
+    expect(state.design.dimensions.depth).toBe(550);
+    expect(state.selection).toEqual({ id: 'shf_l1', kind: 'shelf' });
+  });
+
+  it('rejects an invalid design or a non-increasing revision and leaves the state untouched', () => {
+    const store = makeStore();
+    const before = store.getState();
+    const bad = structuredClone(loadDesign('basic'));
+    bad.dimensions.width = 10;
+    expect(() => store.replaceDesign(bad, 2)).toThrow();
+    expect(() => store.replaceDesign(loadDesign('basic'), 1)).toThrow();
+    expect(store.getState()).toBe(before);
+  });
+});

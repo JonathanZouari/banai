@@ -86,6 +86,10 @@ npm run build                                  # vite build -> dist/
   - OpenAI tool calls are parsed with Pydantic, dry-run on a copy of the design, and returned as an HMAC-signed proposal `{ops, baseRevision, baseHash}`.
   - `/api/proposals/apply` verifies the signature and returns **409** if the revision or hash is stale.
   - Pending proposals are never part of the committed state. Cancel is client-only.
+- **Voice is a chained pipeline** (added 2026-10-16; it was excluded before).
+  - `/api/voice/transcribe` turns speech into text. The text is sent as a normal `/api/chat` message.
+  - `/api/voice/speech` reads replies aloud. It is opt-in and labelled as an AI voice.
+  - Voice never applies a change by itself: it always ends in the same signed proposal and **Confirm**. OpenAI keys stay on the backend; there is no Realtime session in the browser.
 - **Persistence.**
   - Only the backend talks to Supabase. The `designs` table has RLS enabled with no policies, and anon/authenticated grants are revoked.
   - Share link: `/#d=<uuid>.<token>`. The token is 256-bit, stored only as a SHA-256 hash, and compared in constant time.

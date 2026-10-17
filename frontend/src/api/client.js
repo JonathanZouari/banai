@@ -55,53 +55,64 @@ async function postJson(path, payload, fetchImpl) {
   return body.data;
 }
 
-/** One agent turn. Returns { reply, proposal | null }; the design is never changed by this call. */
-export const sendChat = ({ messages, design, revision, mode }, fetchImpl = fetch) => (
-  postJson('/api/chat', { messages, design, revision, ...(mode ? { mode } : {}) }, fetchImpl)
+/** One agent turn. Returns { reply, replySignature, proposal | null }; the design is never changed by this call. */
+export const sendChat = ({ messages, design, revision, mode, language }, fetchImpl = fetch) => (
+  postJson('/api/chat', { messages, design, revision, ...(mode ? { mode } : {}), ...(language ? { language } : {}) }, fetchImpl)
 );
 
 /** Ask the server to verify and apply a signed proposal. Returns { design, revision }; 409 STALE throws. */
-export const applyProposal = ({ design, revision, proposal }, fetchImpl = fetch) => postJson('/api/proposals/apply', { design, revision, proposal }, fetchImpl);
+export const applyProposal = ({ design, revision, proposal, language }, fetchImpl = fetch) => (
+  postJson('/api/proposals/apply', { design, revision, proposal, ...(language ? { language } : {}) }, fetchImpl)
+);
 
-/** Speech to text. `audio` is a recorded Blob; returns the transcript string. */
-export async function transcribeAudio(audio, fetchImpl = fetch) {
-  if (!API_BASE_URL) throw new ApiError(0, 'NO_API', 'The API base URL is not configured');
-  let response;
-  try {
-    response = await fetchImpl(`${API_BASE_URL}/api/voice/transcribe`, {
-      method: 'POST',
-      headers: { 'Content-Type': audio.type || 'audio/webm' },
-      body: audio,
-    });
-  } catch {
-    throw new ApiError(0, 'NETWORK', 'Could not reach the design service');
-  }
+async function failure(response, fallback) {
   let body = null;
   try {
     body = await response.json();
   } catch {
     body = null;
   }
-  if (!response.ok || !body || body.success !== true) {
-    const error = body && body.error ? body.error : {};
-    throw new ApiError(response.status, error.code ?? 'UNKNOWN', error.message ?? 'Transcription failed');
-  }
-  return body.data.text;
+  const error = body && body.error ? body.error : {};
+  return new ApiError(response.status, error.code ?? 'UNKNOWN', error.message ?? fallback);
 }
 
-/** Text to speech. Returns an audio Blob (MP3). */
-export async function speakText(text, fetchImpl = fetch) {
+/** Speech to text. `audio` is a recorded Blob; returns { text }. `language` only localizes server errors. */
+export async function transcribe(audio, language, fetchImpl = fetch) {
   if (!API_BASE_URL) throw new ApiError(0, 'NO_API', 'The API base URL is not configured');
   let response;
   try {
-    response = await fetchImpl(`${API_BASE_URL}/api/voice/speak`, {
+    response = await fetchImpl(`${API_BASE_URL}/api/voice/transcribe?language=${encodeURIComponent(language ?? 'en')}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
+      headers: { 'Content-Type': (audio.type || 'audio/webm').split(';')[0] },
+      body: audio,
     });
   } catch {
     throw new ApiError(0, 'NETWORK', 'Could not reach the design service');
   }
-  if (!response.ok) throw new ApiError(response.status, 'VOICE_ERROR', 'Speech failed');
+  if (!response.ok) throw await failure(response, 'Transcription failed');
+  let body = null;
+  try {
+    body = await response.json();
+  } catch {
+    body = null;
+  }
+  if (!body || body.success !== true) throw new ApiError(response.status, 'UNKNOWN', 'Transcription failed');
+  return body.data;
+}
+
+/** Text to speech: { text, language, signature } -> an audio/mpeg Blob (signature = the chat replySignature). */
+export async function fetchSpeech(payload, fetchImpl = fetch) {
+  if (!API_BASE_URL) throw new ApiError(0, 'NO_API', 'The API base URL is not configured');
+  let response;
+  try {
+    response = await fetchImpl(`${API_BASE_URL}/api/voice/speech`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    throw new ApiError(0, 'NETWORK', 'Could not reach the design service');
+  }
+  if (!response.ok) throw await failure(response, 'Speech failed');
   return response.blob();
 }

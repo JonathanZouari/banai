@@ -56,7 +56,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.143.1" },
-    { name = "openai", specifier = ">=2.0.0" },
+    { name = "openai", specifier = ">=3.31.0" },
     { name = "pydantic", specifier = ">=2.14.1" },
     { name = "pydantic-settings", specifier = ">=2.16.0" },
     { name = "slowapi", specifier = ">=0.1.9" },

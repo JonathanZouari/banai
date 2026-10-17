@@ -36,3 +36,14 @@ def sign_proposal(ops: list, base_revision: int, base_hash: str, key: str) -> st
 
 def verify_proposal(ops: list, base_revision: int, base_hash: str, signature: str, key: str) -> bool:
     return hmac.compare_digest(_digest(ops, base_revision, base_hash, key), signature)
+
+
+def sign_reply(text: str, key: str) -> str:
+    """Signs an agent reply, so text-to-speech only reads aloud what the agent said (not any text)."""
+    if not key:
+        raise SigningUnavailable("PROPOSAL_SIGNING_KEY is not set")
+    return hmac.new(key.encode("utf-8"), b"reply:" + text.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def verify_reply(text: str, signature: str, key: str) -> bool:
+    return hmac.compare_digest(sign_reply(text, key), signature)

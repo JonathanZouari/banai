@@ -73,6 +73,19 @@ export function createStore({ design, revision = 1, catalog }) {
       commit({ selection, ui: hideDoors ? { ...state.ui, doorsVisible: false } : state.ui });
     },
 
+    /**
+     * Commit a design produced by the server (an applied AI proposal). It is validated like the
+     * initial design; invalid data throws and leaves the state untouched.
+     */
+    replaceDesign(design, revision) {
+      const next = applyOps(design, [], state.catalog);
+      if (!Number.isInteger(revision) || revision <= state.revision) {
+        throw new DomainError('SCHEMA_INVALID', 'revision', 'invalid revision');
+      }
+      const selection = state.selection && resolveSelection(next, state.selection.id);
+      commit({ design: next, revision, selection });
+    },
+
     setDoorsVisible(doorsVisible) {
       commit({ ui: { ...state.ui, doorsVisible } });
     },

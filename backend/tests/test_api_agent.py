@@ -73,7 +73,8 @@ def test_chat_returns_a_signed_proposal_and_never_touches_the_design():
 def test_chat_question_has_no_proposal():
     use_client(FakeOpenAI(reply("Which compartment do you mean?")))
     data = http.post("/api/chat", json=chat_body()).json()["data"]
-    assert data == {"reply": "Which compartment do you mean?", "proposal": None}
+    assert data["reply"] == "Which compartment do you mean?" and data["proposal"] is None
+    assert len(data["replySignature"]) == 64
 
 
 @pytest.mark.parametrize(
@@ -105,12 +106,17 @@ def test_chat_last_message_must_be_from_the_customer():
     assert client.requests == []
 
 
-def test_chat_is_unavailable_without_a_key_or_model():
+def test_chat_is_unavailable_without_a_key():
     app.dependency_overrides[get_agent_client] = lambda: None
     assert http.post("/api/chat", json=chat_body()).status_code == 503
-    app.dependency_overrides[get_agent_client] = lambda: FakeOpenAI()
+
+
+def test_chat_uses_the_default_model_when_none_is_configured():
+    client = use_client(FakeOpenAI(reply("Which compartment?")))
     app.dependency_overrides[get_settings] = lambda: Settings(openai_api_key="k", openai_chat_model="", proposal_signing_key=KEY)
-    assert http.post("/api/chat", json=chat_body()).status_code == 503
+    assert http.post("/api/chat", json=chat_body()).status_code == 200
+    request = client.requests[0]
+    assert request["model"] == "gpt-5.4-mini" and "temperature" not in request  # the fallback model may reject it
 
 
 def test_chat_is_unavailable_without_a_signing_key():

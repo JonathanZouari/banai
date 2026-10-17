@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ApiError, applyProposal, getCatalog, getDefaultDesign, getHealth, sendChat } from '../../src/api/client.js';
+import { ApiError, applyProposal, fetchSpeech, getCatalog, getDefaultDesign, getHealth, sendChat, transcribe } from '../../src/api/client.js';
 
 const okResponse = (body) => vi.fn().mockResolvedValue({ ok: true, json: async () => body });
 
@@ -66,5 +66,44 @@ describe('agent calls', () => {
     await expect(sendChat(payload, vi.fn().mockRejectedValue(new Error('offline')))).rejects.toMatchObject({ code: 'NETWORK' });
     const html = vi.fn().mockResolvedValue({ ok: false, status: 502, json: async () => { throw new Error('not json'); } });
     await expect(sendChat(payload, html)).rejects.toMatchObject({ status: 502, code: 'UNKNOWN' });
+  });
+});
+
+describe('language and voice calls', () => {
+  const ok = (data) => vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ success: true, data }) });
+  const payload = { messages: [{ role: 'user', content: 'hi' }], design: {}, revision: 1 };
+
+  it('sends the chat language to the chat and apply calls only when given', async () => {
+    const chat = ok({ reply: 'x', proposal: null });
+    await sendChat({ ...payload, language: 'he' }, chat);
+    expect(JSON.parse(chat.mock.calls[0][1].body).language).toBe('he');
+    const apply = ok({ design: {}, revision: 2 });
+    await applyProposal({ design: {}, revision: 1, proposal: {}, language: 'en' }, apply);
+    expect(JSON.parse(apply.mock.calls[0][1].body).language).toBe('en');
+    const plain = ok({ reply: 'x', proposal: null });
+    await sendChat(payload, plain);
+    expect(JSON.parse(plain.mock.calls[0][1].body)).not.toHaveProperty('language');
+  });
+
+  it('uploads a recording as raw audio and returns the transcript', async () => {
+    const fetchImpl = ok({ text: 'שלום' });
+    const blob = new Blob(['x'], { type: 'audio/webm;codecs=opus' });
+    await expect(transcribe(blob, 'he', fetchImpl)).resolves.toEqual({ text: 'שלום' });
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url).toBe('http://localhost:8000/api/voice/transcribe?language=he');
+    expect(init.headers['Content-Type']).toBe('audio/webm');
+    expect(init.body).toBe(blob);
+  });
+
+  it('fetches speech for a signed reply and surfaces refusals as ApiErrors', async () => {
+    const audio = new Blob(['mp3'], { type: 'audio/mpeg' });
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true, status: 200, blob: async () => audio });
+    await expect(fetchSpeech({ text: 'hi', language: 'en', signature: 'a'.repeat(64) }, fetchImpl)).resolves.toBe(audio);
+    expect(fetchImpl.mock.calls[0][0]).toBe('http://localhost:8000/api/voice/speech');
+    const refused = vi.fn().mockResolvedValue({
+      ok: false, status: 403, json: async () => ({ success: false, error: { code: 'BAD_REPLY_SIGNATURE', message: 'nope' } }),
+    });
+    await expect(fetchSpeech({ text: 'hi', language: 'en', signature: 'b'.repeat(64) }, refused)).rejects.toMatchObject({ status: 403, code: 'BAD_REPLY_SIGNATURE' });
+    await expect(transcribe(new Blob(['x']), 'en', refused)).rejects.toBeInstanceOf(ApiError);
   });
 });

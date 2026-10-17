@@ -12,7 +12,9 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.envelope import fail, ok
+from app.agent.language import Language
 from app.api.limits import limiter
+from app.api.messages import localized
 from app.config import Settings, get_settings
 from app.domain.apply import apply_ops
 from app.domain.catalog import load_catalog
@@ -38,6 +40,7 @@ class ApplyRequest(BaseModel):
     design: dict[str, Any]
     revision: Annotated[int, Field(ge=1, le=1_000_000_000, strict=True)]
     proposal: SignedProposal
+    language: Language = "en"  # localizes the error texts only
 
 
 @router.post("/proposals/apply")
@@ -53,11 +56,11 @@ def apply_proposal(
             proposal.ops, proposal.baseRevision, proposal.baseHash, proposal.signature, settings.proposal_signing_key
         )
     except SigningUnavailable:
-        return fail(503, "AGENT_UNAVAILABLE", "The AI designer is not configured on this server.")
+        return localized(503, "AGENT_UNAVAILABLE", body.language)
     if not genuine:
-        return fail(403, "INVALID_SIGNATURE", "This proposal was not issued by the server.")
+        return localized(403, "INVALID_SIGNATURE", body.language)
 
-    stale = fail(409, "STALE", "The design changed since this proposal was made. Ask the designer to propose again.")
+    stale = localized(409, "STALE", body.language)
     if body.revision != proposal.baseRevision:
         return stale
     catalog = load_catalog()

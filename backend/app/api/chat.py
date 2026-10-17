@@ -14,21 +14,22 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.agent.describe import describe_ops
+from app.agent.language import DEFAULT_PROPOSAL_REPLY, Language, reply_language
 from app.agent.orchestrator import run_agent
 from app.api.envelope import fail, ok
 from app.api.limits import limiter
+from app.api.messages import localized
 from app.config import Settings, get_settings
 from app.domain.apply import apply_ops
 from app.domain.catalog import load_catalog
 from app.domain.errors import DomainError
-from app.services.signing import SigningUnavailable, design_hash, sign_proposal
+from app.services.signing import SigningUnavailable, design_hash, sign_proposal, sign_reply
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api")
 
 MAX_MESSAGES = 30
 MAX_MESSAGE_CHARS = 2000
-DEFAULT_REPLY = "Here is what I would change. Review it and confirm to apply."
 
 
 class ChatMessage(BaseModel):
@@ -43,6 +44,7 @@ class ChatRequest(BaseModel):
     design: dict[str, Any]
     revision: Annotated[int, Field(ge=1, le=1_000_000_000, strict=True)]
     mode: Literal["guided", "free"] = "free"
+    language: Language = "en"  # the chat language: used when the latest message has no letters to go by
 
 
 @lru_cache
@@ -52,7 +54,21 @@ def _client(api_key: str) -> openai.OpenAI:
 
 def get_agent_client(settings: Annotated[Settings, Depends(get_settings)]) -> openai.OpenAI | None:
     """Overridden in tests with a fake client."""
-    return _client(settings.openai_api_key) if settings.openai_api_key else None
+    return _client(settings.openai_api_key.strip()) if settings.agent_enabled else None
+
+
+def _summary(count: int, language: Language) -> str:
+    if language == "he":
+        return "שינוי אחד בארון שלך" if count == 1 else f"{count} שינויים בארון שלך"
+    return f"{count} {'change' if count == 1 else 'changes'} to your wardrobe"
+
+
+def _reply_signature(reply: str, settings: Settings) -> str | None:
+    """Lets /api/voice/speech read aloud only what this server said. None when signing is not configured."""
+    try:
+        return sign_reply(reply, settings.proposal_signing_key)
+    except SigningUnavailable:
+        return None
 
 
 @router.post("/chat")
@@ -63,10 +79,10 @@ def chat(
     settings: Annotated[Settings, Depends(get_settings)],
     client: Annotated[openai.OpenAI | None, Depends(get_agent_client)],
 ):
-    if client is None or not settings.openai_chat_model:
-        return fail(503, "AGENT_UNAVAILABLE", "The AI designer is not configured on this server.")
+    if client is None:
+        return localized(503, "AGENT_UNAVAILABLE", body.language)
     if body.messages[-1].role != "user":
-        return fail(422, "INVALID_MESSAGES", "The last message must come from the customer.")
+        return localized(422, "INVALID_MESSAGES", body.language)
 
     catalog = load_catalog()
     try:
@@ -75,33 +91,35 @@ def chat(
         return fail(422, error.code, error.message, {"path": error.path})
 
     history = [{"role": m.role, "content": m.content} for m in body.messages]
+    language = reply_language(history, body.language)
     try:
         result = run_agent(
-            client, settings.openai_chat_model, design, history, catalog, temperature=settings.openai_temperature,
-            mode=body.mode,
+            client, settings.chat_model, design, history, catalog, temperature=settings.chat_temperature,
+            mode=body.mode, language=language,
         )
     except openai.OpenAIError as error:
         logger.warning("OpenAI call failed: %s", type(error).__name__)  # never log the request or the key
-        return fail(502, "AGENT_ERROR", "The AI designer is unavailable right now. Please try again.")
+        return localized(502, "AGENT_ERROR", language)
 
     if result.warnings:
         logger.info("agent proposal rejected after repairs: %s", result.warnings[0][:200])
     if not result.ops:
-        return ok({"reply": result.reply, "proposal": None})
+        return ok({"reply": result.reply, "replySignature": _reply_signature(result.reply, settings), "proposal": None})
 
     try:
         base_hash = design_hash(design)
         signature = sign_proposal(result.ops, body.revision, base_hash, settings.proposal_signing_key)
     except SigningUnavailable:
-        return fail(503, "AGENT_UNAVAILABLE", "The AI designer is not configured on this server.")
+        return localized(503, "AGENT_UNAVAILABLE", language)
     count = len(result.ops)
     proposal = {
         "id": signature[:16],
         "baseRevision": body.revision,
         "baseHash": base_hash,
         "ops": result.ops,
-        "summary": f"{count} {'change' if count == 1 else 'changes'} to your wardrobe",
-        "changes": describe_ops(result.ops, design, lambda d, o: apply_ops(d, o, catalog)),
+        "summary": _summary(count, language),
+        "changes": describe_ops(result.ops, design, lambda d, o: apply_ops(d, o, catalog), language),
         "signature": signature,
     }
-    return ok({"reply": result.reply or DEFAULT_REPLY, "proposal": proposal})
+    reply = result.reply or DEFAULT_PROPOSAL_REPLY[language]
+    return ok({"reply": reply, "replySignature": _reply_signature(reply, settings), "proposal": proposal})

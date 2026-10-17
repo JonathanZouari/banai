@@ -26,12 +26,24 @@ test.describe('start screen', () => {
     await page.goto('/');
     await page.getByTestId('entry-freeText').click();
     await expect(page.getByTestId('chat-input')).toBeFocused();
-    await expect(page.getByTestId('chat-input')).toHaveAttribute('placeholder', /240 cm wide/);
+    await expect(page.getByTestId('chat-input')).toHaveAttribute('placeholder', /ברוחב 240/);
     await page.waitForFunction(() => window.__banai?.viewer.meshOf('shf_l1'));
   });
 });
 
 test.describe('AI chat panel', () => {
+  test('without an agent on the server a message gets an honest reply and never changes the design', async ({ page }) => {
+    await page.route('**/api/health', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: { status: 'ok', env: 'e2e', agent: false } }) }));
+    await openDesigner(page);
+    const before = await page.evaluate(() => window.__banai.store.getState().revision);
+    await page.getByTestId('chat-input').fill('תעשה אותו ברוחב 3 מטר');
+    await page.getByTestId('chat-send').click();
+    const messages = page.getByTestId('chat-messages');
+    await expect(messages).toContainText('תעשה אותו ברוחב 3 מטר');
+    await expect(messages).toContainText('עדיין לא מחובר');
+    expect(await page.evaluate(() => window.__banai.store.getState().revision)).toBe(before);
+  });
+
   test('a proposal shows Confirm/Cancel, goes stale after a manual edit, and Cancel changes nothing', async ({ page }) => {
     await openDesigner(page);
     await page.evaluate(() => {
@@ -42,18 +54,18 @@ test.describe('AI chat panel', () => {
       });
     });
     const card = page.getByTestId('proposal-card');
-    await expect(card).toContainText('Proposed changes');
+    await expect(card).toContainText('שינויים מוצעים');
     await expect(page.getByTestId('proposal-confirm')).toBeEnabled();
 
     await page.getByTestId('dim-width').fill('210');
     await page.getByTestId('dim-width').press('Enter');
-    await expect(card).toContainText('Design changed. Ask the agent to re-propose.');
+    await expect(card).toContainText('העיצוב השתנה. בקש מהמעצב הצעה חדשה.');
     await expect(page.getByTestId('proposal-confirm')).toBeDisabled();
 
     const revision = await page.evaluate(() => window.__banai.store.getState().revision);
     await page.getByTestId('proposal-cancel').click();
     await expect(card).toHaveCount(0);
-    await expect(page.getByTestId('chat-messages')).toContainText('No changes were made');
+    await expect(page.getByTestId('chat-messages')).toContainText('לא בוצע שום שינוי');
     expect(await page.evaluate(() => window.__banai.store.getState().revision)).toBe(revision);
   });
 });
@@ -95,11 +107,11 @@ test.describe('look and feel', () => {
     await openDesigner(page);
     await expect(page.getByTestId('chat-welcome')).toBeVisible();
     await page.getByTestId('suggestion').first().click();
-    await expect(page.getByTestId('chat-input')).toHaveValue(/240 cm wide/);
+    await expect(page.getByTestId('chat-input')).toHaveValue(/ברוחב 240/);
     await expect(page.getByTestId('chat-messages')).toBeHidden();
     await page.getByTestId('chat-send').click();
     await expect(page.getByTestId('chat-welcome')).toBeHidden();
-    await expect(page.getByTestId('chat-messages')).toContainText('240 cm wide');
+    await expect(page.getByTestId('chat-messages')).toContainText('ברוחב 240');
   });
 
   test('the cursor becomes a pointer over a component and a press shows a ripple that cleans up', async ({ page }) => {

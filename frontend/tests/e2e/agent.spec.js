@@ -2,6 +2,11 @@
 // scripted stand-in for OpenAI (backend/tests/e2e_app.py), so the whole protocol runs for real.
 import { expect, openDesigner, test } from './fixtures.js';
 
+// These specs read the English chat; the app starts in Hebrew, so ask for English like a returning customer would.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('banai.chat.language', 'en'));
+});
+
 const state = (page) => page.evaluate(() => {
   const { design, revision } = window.__banai.store.getState();
   return { revision, design };
@@ -26,7 +31,7 @@ test.describe('AI agent', () => {
     expect(await state(page)).toEqual(before); // pending proposals never touch the committed design
 
     await page.getByTestId('proposal-confirm').click();
-    await expect(page.getByTestId('chat-messages')).toContainText('Changes applied.');
+    await expect(page.getByTestId('chat-messages')).toContainText('Applied. Your design has been updated.');
     await expect(card).toHaveCount(0);
     const after = await state(page);
     expect(after.revision).toBe(before.revision + 1);
@@ -50,7 +55,7 @@ test.describe('AI agent', () => {
     await expect(page.getByTestId('proposal-card')).toContainText('Sliding doors');
     await page.getByTestId('dim-width').fill('210');
     await page.getByTestId('dim-width').press('Enter');
-    await expect(page.getByTestId('proposal-card')).toContainText('Design changed. Ask the agent to re-propose.');
+    await expect(page.getByTestId('proposal-card')).toContainText('Design changed. Ask the designer to re-propose.');
     await expect(page.getByTestId('proposal-confirm')).toBeDisabled();
     const after = await state(page);
     expect(after.design.doors.type).toBe('hinged');
@@ -124,10 +129,10 @@ test.describe('AI agent', () => {
       await route.continue();
     });
     await ask(page, 'hello');
-    await expect(page.getByTestId('chat-thinking')).toBeVisible();
+    await expect(page.getByTestId('chat-typing')).toBeVisible();
     await expect(page.getByTestId('chat-send')).toBeDisabled();
     release();
-    await expect(page.getByTestId('chat-thinking')).toBeHidden();
+    await expect(page.getByTestId('chat-typing')).toBeHidden();
     await expect(page.getByTestId('chat-send')).toBeEnabled();
   });
 
@@ -135,10 +140,10 @@ test.describe('AI agent', () => {
     await openDesigner(page);
     await page.route('**/api/chat', (route) => route.fulfill({
       status: 503, contentType: 'application/json',
-      body: JSON.stringify({ success: false, data: null, error: { code: 'AGENT_UNAVAILABLE', message: 'x' } }),
+      body: JSON.stringify({ success: false, data: null, error: { code: 'AGENT_UNAVAILABLE', message: 'The AI designer is not configured on this server.' } }),
     }));
     await ask(page, 'hello');
-    await expect(page.getByTestId('chat-messages')).toContainText('not available right now');
+    await expect(page.getByTestId('chat-messages')).toContainText('not configured on this server');
     await expect(page.getByTestId('chat-send')).toBeEnabled();
   });
 });

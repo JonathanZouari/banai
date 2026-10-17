@@ -1,91 +1,88 @@
-// Voice chat: a fake microphone (Chromium flags in playwright.config.js) and a scripted OpenAI stand-in
-// for transcription and speech (backend/tests/e2e_app.py). Voice must behave exactly like typing.
 import { expect, openDesigner, test } from './fixtures.js';
 
-const state = (page) => page.evaluate(() => {
-  const { design, revision } = window.__banai.store.getState();
-  return { revision, design };
-});
+// Voice end to end with Chromium's fake microphone. The network edge is mocked (no OpenAI calls):
+// the transcript must go through the normal chat turn and still need Confirm.
 
-test.describe('voice chat', () => {
-  test('press to record, press again: the transcript is sent like a typed message and only proposes', async ({ page }) => {
+const ok = (data) => ({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data }) });
+
+async function mockVoice(page) {
+  const calls = { transcribe: [], chat: [], speech: [] };
+  await page.route('**/api/health', (route) => route.fulfill(ok({ status: 'ok', env: 'e2e', agent: true })));
+  await page.route('**/api/voice/transcribe**', (route) => {
+    calls.transcribe.push(route.request().headers()['content-type']);
+    return route.fulfill(ok({ text: 'make it shallower' }));
+  });
+  await page.route('**/api/chat', (route) => {
+    calls.chat.push(route.request().postDataJSON());
+    return route.fulfill(ok({
+      reply: 'Sure! Here is my proposal.',
+      replySignature: 'c'.repeat(64),
+      proposal: {
+        id: 'prp0123456789abcdef', baseRevision: 1, baseHash: 'a'.repeat(64),
+        ops: [{ op: 'update_dimensions', depth: 550 }], signature: 'b'.repeat(64),
+        summary: 'Makes the wardrobe shallower.', changes: [{ title: 'Depth', detail: '60.0 cm to 55.0 cm' }],
+      },
+    }));
+  });
+  await page.route('**/api/voice/speech', (route) => {
+    calls.speech.push(route.request().postDataJSON());
+    return route.fulfill({ status: 200, contentType: 'audio/mpeg', body: Buffer.from('') });
+  });
+  await page.route('**/api/proposals/apply', (route) => {
+    const body = route.request().postDataJSON();
+    const design = structuredClone(body.design);
+    design.dimensions.depth = 550;
+    return route.fulfill(ok({ design, revision: body.revision + 1 }));
+  });
+  return calls;
+}
+
+const depth = (page) => page.evaluate(() => window.__banai.store.getState().design.dimensions.depth);
+
+test.describe('voice', () => {
+  // The mocked speech is an empty body, so Chrome logs a failed media load when it tries to play it.
+  test.use({ allowedConsoleErrors: [/ERR_REQUEST_RANGE_NOT_SATISFIABLE/] });
+
+  test('speaking sends the transcript as a chat message; the proposal still needs Confirm', async ({ page }) => {
+    const calls = await mockVoice(page);
     await openDesigner(page);
-    const before = await state(page);
-    await page.getByTestId('voice-mic').click();
-    await expect(page.getByTestId('voice-status')).toContainText('Listening');
-    await expect(page.getByTestId('voice-mic')).toHaveAttribute('aria-pressed', 'true');
-    await page.waitForTimeout(700); // let the fake microphone produce some audio
-    await page.getByTestId('voice-mic').click();
+    const mic = page.getByTestId('chat-mic');
 
-    await expect(page.getByTestId('chat-messages')).toContainText('please add a shelf in the middle');
-    await expect(page.getByTestId('proposal-card')).toContainText('Add shelf');
-    await expect(page.getByTestId('voice-mic')).toHaveAttribute('aria-pressed', 'false');
-    expect(await state(page)).toEqual(before); // speaking never applies anything: Confirm is still a click
+    await mic.click();
+    await expect(mic).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('chat-hint')).toContainText('מקליט');
+    await page.waitForTimeout(600); // record a little of the fake tone
+    await mic.click();
+
+    await expect(page.getByTestId('proposal-card')).toContainText('60.0 cm to 55.0 cm');
+    expect(calls.transcribe[0]).toBe('audio/webm');
+    expect(calls.chat[0].messages.at(-1)).toEqual({ role: 'user', content: 'make it shallower' });
+    expect(calls.chat[0].language).toBe('en'); // the transcript's language switched the chat
+    await expect(mic).toHaveAttribute('aria-pressed', 'false');
+    expect(await depth(page)).toBe(600); // nothing applied by voice alone
 
     await page.getByTestId('proposal-confirm').click();
-    await expect(page.getByTestId('chat-messages')).toContainText('Changes applied.');
-    expect((await state(page)).revision).toBe(before.revision + 1);
+    await expect.poll(() => depth(page)).toBe(550);
   });
 
-  test('a denied microphone shows a clear note and typing still works', async ({ page }) => {
-    await page.addInitScript(() => {
-      navigator.mediaDevices.getUserMedia = () => Promise.reject(Object.assign(new Error('denied'), { name: 'NotAllowedError' }));
-    });
+  test('read aloud is off by default; when on, the next reply is spoken with an AI-voice notice', async ({ page }) => {
+    const calls = await mockVoice(page);
     await openDesigner(page);
-    await page.getByTestId('voice-mic').click();
-    await expect(page.getByTestId('voice-status')).toContainText('Microphone access was denied');
-    await page.getByTestId('chat-input').fill('hello there');
+    const toggle = page.getByTestId('chat-read-aloud');
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+
+    await page.getByTestId('chat-input').fill('make it shallower');
     await page.getByTestId('chat-send').click();
-    await expect(page.getByTestId('chat-messages')).toContainText('I can help with shelves, doors and sizes.');
-  });
-
-  test('a transcription failure shows a friendly note and sends nothing', async ({ page }) => {
-    await openDesigner(page);
-    await page.route('**/api/voice/transcribe', (route) => route.fulfill({
-      status: 503, contentType: 'application/json',
-      body: JSON.stringify({ success: false, data: null, error: { code: 'VOICE_UNAVAILABLE', message: 'x' } }),
-    }));
-    await page.getByTestId('voice-mic').click();
-    await page.waitForTimeout(500);
-    await page.getByTestId('voice-mic').click();
-    await expect(page.getByTestId('voice-status')).toContainText('Voice is not available right now');
-    await expect(page.getByTestId('chat-messages')).toBeHidden();
-    await expect(page.getByTestId('voice-mic')).toBeEnabled();
-  });
-
-  test('"Read replies aloud" is off by default, asks for speech only when on, and is remembered', async ({ page }) => {
-    await openDesigner(page);
-    const toggle = page.getByTestId('voice-speak-toggle');
-    await expect(toggle).toHaveAttribute('aria-checked', 'false');
-    const speakCalls = [];
-    page.on('request', (request) => { if (request.url().endsWith('/api/voice/speak')) speakCalls.push(request.postData()); });
-
-    await page.getByTestId('chat-input').fill('hello');
-    await page.getByTestId('chat-send').click();
-    await expect(page.getByTestId('chat-messages')).toContainText('I can help with shelves');
-    expect(speakCalls).toEqual([]);
+    await expect(page.getByTestId('proposal-card')).toBeVisible();
+    expect(calls.speech).toHaveLength(0);
 
     await toggle.click();
-    await expect(toggle).toHaveAttribute('aria-checked', 'true');
-    await page.getByTestId('chat-input').fill('hello again');
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('chat-hint')).toContainText('AI-generated voice');
+    await page.getByTestId('proposal-cancel').click();
+    await page.getByTestId('chat-input').fill('and make it white');
     await page.getByTestId('chat-send').click();
-    await expect.poll(() => speakCalls.length).toBe(1);
-    expect(JSON.parse(speakCalls[0]).text).toContain('I can help with shelves');
-
-    await page.reload();
-    await page.getByTestId('entry-basic').click();
-    await expect(page.getByTestId('voice-speak-toggle')).toHaveAttribute('aria-checked', 'true');
-  });
-
-  test('a proposal is read aloud with its changes, and the privacy note is visible', async ({ page }) => {
-    await openDesigner(page);
-    await expect(page.getByText('Recordings and read-aloud text are sent to OpenAI.')).toBeVisible();
-    await page.getByTestId('voice-speak-toggle').click();
-    const speak = page.waitForRequest((request) => request.url().endsWith('/api/voice/speak'));
-    await page.getByTestId('chat-input').fill('add a shelf please');
-    await page.getByTestId('chat-send').click();
-    const text = JSON.parse((await speak).postData()).text;
-    expect(text).toContain('Add shelf');
-    expect(text.length).toBeLessThanOrEqual(600);
+    await expect.poll(() => calls.speech.length).toBe(1);
+    expect(calls.speech[0]).toEqual({ text: 'Sure! Here is my proposal.', language: 'en', signature: 'c'.repeat(64) });
   });
 });

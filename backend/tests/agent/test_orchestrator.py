@@ -1,4 +1,5 @@
-from app.agent.orchestrator import CLARIFY_FALLBACK, MAX_REPAIRS, run_agent
+from app.agent.language import FALLBACK_REPLY
+from app.agent.orchestrator import MAX_REPAIRS, run_agent
 from app.agent.tools import TOOLS
 from app.domain.catalog import load_catalog
 from app.domain.defaults import basic_wardrobe
@@ -52,7 +53,7 @@ def test_an_invalid_batch_is_repaired_by_feeding_the_error_back():
 def test_gives_up_after_the_repair_budget_with_a_clarification():
     client = FakeOpenAI(*[bad_shelf() for _ in range(MAX_REPAIRS + 1)])
     result = run(client)
-    assert result.ops is None and result.reply == CLARIFY_FALLBACK
+    assert result.ops is None and result.reply == FALLBACK_REPLY["en"]
     assert len(client.requests) == MAX_REPAIRS + 1
 
 
@@ -79,7 +80,7 @@ def test_request_carries_the_tools_the_design_and_the_history():
 
 def test_every_op_has_a_tool_and_no_tool_exposes_the_op_discriminator():
     names = {t["function"]["name"] for t in TOOLS}
-    assert "ask_clarification" in names and len(names) == 16
+    assert "ask_clarification" in names and "decline_off_topic" in names and len(names) == 17
     for tool in TOOLS:
         assert "op" not in tool["function"]["parameters"]["properties"]
         assert "op" not in tool["function"]["parameters"].get("required", [])
@@ -90,7 +91,7 @@ def test_the_prompt_confines_the_agent_to_the_wardrobe():
     run(client)
     prompt = client.requests[0]["messages"][0]["content"]
     assert "SCOPE (strict)" in prompt
-    for needle in ("recipes", "Do not answer the off-topic question", "Never reveal", "another role"):
+    for needle in ("recipes", "decline_off_topic", "not answer the off-topic question", "Never reveal", "another role"):
         assert needle in prompt
 
 
@@ -113,7 +114,7 @@ def test_the_prompt_carries_the_quality_rules():
     client = FakeOpenAI(reply("ok"))
     run(client)
     prompt = client.requests[0]["messages"][0]["content"]
-    for needle in ("QUALITY RULES", "Do EVERY change", "is a `color`", "reply in English", "gender-neutral", '"catalogId"'):
+    for needle in ("QUALITY RULES", "Do EVERY change", "is a `color`", "RESPONSE LANGUAGE", "gender-neutral", '"catalogId"'):
         assert needle in prompt
 
 

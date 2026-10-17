@@ -9,9 +9,10 @@ import json
 import time
 from dataclasses import dataclass, field
 
+from app.agent.language import EMPTY_REPLY, FALLBACK_REPLY, OFF_TOPIC_REPLY, Language, reply_language
 from app.agent.prompts import build_system_prompt
 from app.agent.proposal import complete_and_validate
-from app.agent.tools import CLARIFY, MAX_QUESTION, OP_NAMES, TOOLS
+from app.agent.tools import CLARIFY, DECLINE, MAX_QUESTION, OP_NAMES, TOOLS
 from app.domain.errors import INVALID_OP, SCHEMA_INVALID, DomainError
 
 MAX_REPAIRS = 2  # extra model calls after a rejected batch
@@ -21,13 +22,11 @@ MAX_REPLY = 1000
 MAX_PLAIN_REPLY = 400  # an answer without tool calls is a short wardrobe answer or a refusal
 MAX_ARGUMENT_CHARS = 20_000
 
-CLARIFY_FALLBACK = "I couldn't turn that into a valid change. Could you rephrase it, or give me the exact sizes you want?"
 CONTINUE_AFTER_CREATE = (
     "OK: the new wardrobe exists with the compartment ids you gave. Now call the tools for everything else the customer "
     "asked for (shelves, hanging rails, drawers, doors, colours), using those ids, all in this one response. "
     "If the customer described nothing more, reply with the single word DONE and no tool calls."
 )
-EMPTY_REPLY = "I'm not sure what to change. Could you tell me more about what you want?"
 
 
 @dataclass
@@ -81,10 +80,13 @@ def _assistant_message(message) -> dict:
 
 def run_agent(
     client, model: str, design: dict, history: list[dict], catalog: dict, temperature: float | None = None,
-    mode: str = "free",
+    mode: str = "free", language: Language = "en",
 ) -> AgentResult:
-    """`history` is [{role: user|assistant, content}] ending with the customer's latest message."""
-    conversation = [{"role": "system", "content": build_system_prompt(design, catalog, mode)}, *history]
+    """`history` is [{role: user|assistant, content}] ending with the customer's latest message. Fixed texts and
+    the reply language follow the language of that message; `language` (the chat's choice) is the fallback."""
+    language = reply_language(history, language)
+    fallback = FALLBACK_REPLY[language]
+    conversation = [{"role": "system", "content": build_system_prompt(design, catalog, mode, language)}, *history]
     started = time.monotonic()
     repairs = 0
     rounds = 0
@@ -92,23 +94,27 @@ def run_agent(
     continued = False
     while True:
         if rounds and time.monotonic() - started > MAX_TURN_SECONDS:
-            return AgentResult(reply=CLARIFY_FALLBACK, warnings=["turn time budget exceeded"])
+            return AgentResult(reply=fallback, warnings=["turn time budget exceeded"])
         rounds += 1
         options = {} if temperature is None else {"temperature": temperature}
         completion = client.chat.completions.create(
             model=model, messages=conversation, tools=TOOLS, max_completion_tokens=MAX_COMPLETION_TOKENS, **options,
         )
         message = completion.choices[0].message
-        calls = message.tool_calls or []
+        all_calls = message.tool_calls or []
+        declined = any(c.function.name == DECLINE for c in all_calls)
+        calls = [c for c in all_calls if c.function.name != DECLINE]
         text = _clip(message.content, MAX_REPLY)
+        if declined and not calls and not carried:
+            return AgentResult(reply=OFF_TOPIC_REPLY[language])  # fixed text: never model-written
         if not calls:
             if carried:  # the model had nothing to add after create_wardrobe
                 try:
                     ops, final = complete_and_validate(design, carried, catalog)
                 except DomainError as error:
-                    return AgentResult(reply=CLARIFY_FALLBACK, warnings=[str(error)])
+                    return AgentResult(reply=fallback, warnings=[str(error)])
                 return AgentResult(reply="" if text.strip(" .!").upper() == "DONE" else _clip(text, MAX_PLAIN_REPLY), ops=ops, design=final)
-            return AgentResult(reply=_clip(text, MAX_PLAIN_REPLY) or EMPTY_REPLY)
+            return AgentResult(reply=_clip(text, MAX_PLAIN_REPLY) or EMPTY_REPLY[language])
 
         question = next((c for c in calls if c.function.name == CLARIFY), None)
         if question is not None:
@@ -116,7 +122,7 @@ def run_agent(
                 asked = _clip(str(_arguments(question, 0).get("question", "")), MAX_QUESTION)
             except DomainError:
                 asked = ""
-            return AgentResult(reply=asked or text or EMPTY_REPLY)
+            return AgentResult(reply=asked or text or EMPTY_REPLY[language])
 
         try:
             batch = carried + _raw_ops(calls)
@@ -124,16 +130,16 @@ def run_agent(
                 # The model tends to send create_wardrobe alone and expect a second step. Give it that step once.
                 continued, carried = True, batch
                 conversation.append(_assistant_message(message))
-                conversation.extend({"role": "tool", "tool_call_id": c.id, "content": CONTINUE_AFTER_CREATE} for c in calls)
+                conversation.extend({"role": "tool", "tool_call_id": c.id, "content": CONTINUE_AFTER_CREATE} for c in all_calls)
                 continue
             ops, final = complete_and_validate(design, batch, catalog)
         except DomainError as error:
             if repairs == MAX_REPAIRS:
-                return AgentResult(reply=CLARIFY_FALLBACK, warnings=[str(error)])
+                return AgentResult(reply=fallback, warnings=[str(error)])
             repairs += 1
             carried, continued = [], True  # the model now redoes the whole request in one go
             conversation.append(_assistant_message(message))
             feedback = f"REJECTED, nothing was changed: {error}. Fix the arguments and call the tools again for the whole request."
-            conversation.extend({"role": "tool", "tool_call_id": c.id, "content": feedback} for c in calls)
+            conversation.extend({"role": "tool", "tool_call_id": c.id, "content": feedback} for c in all_calls)
             continue
-        return AgentResult(reply=text, ops=ops, design=final)
+        return AgentResult(reply=_clip(text, MAX_PLAIN_REPLY), ops=ops, design=final)  # short: it is signed and may be read aloud

@@ -2,6 +2,11 @@
 // (only the LLM is scripted, backend/tests/e2e_app.py). Plus the three entry paths and the manual/AI rules.
 import { clickComponent, expect, test } from './fixtures.js';
 
+// These specs read the English chat; the app starts in Hebrew, so ask for English like a returning customer would.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('banai.chat.language', 'en'));
+});
+
 const DESCRIPTION = '240 cm wide, 260 cm tall, three compartments, four shelves left, hanging middle, three drawers right';
 
 const state = (page) => page.evaluate(() => {
@@ -41,7 +46,7 @@ test.describe('Phase 6: acceptance scenario (spec 21, steps 1-16)', () => {
 
     // 5-6. The customer approves; the 3D wardrobe appears and the starter is gone.
     await page.getByTestId('proposal-confirm').click();
-    await expect(page.getByTestId('chat-messages')).toContainText('Changes applied.');
+    await expect(page.getByTestId('chat-messages')).toContainText('Applied. Your design has been updated.');
     const built = await state(page);
     expect(built.revision).toBe(starter.revision + 1);
     expect(built.design.dimensions).toMatchObject({ width: 2400, height: 2600 });
@@ -84,7 +89,7 @@ test.describe('Phase 6: acceptance scenario (spec 21, steps 1-16)', () => {
 
     // 15-16. The customer approves; the model and the editor show the same new value.
     await page.getByTestId('proposal-confirm').click();
-    await expect(page.getByTestId('chat-messages')).toContainText('Changes applied.');
+    await expect(page.getByTestId('chat-messages')).toContainText('Applied. Your design has been updated.');
     await expect.poll(async () => (await state(page)).design.compartments[0].shelves[0].y).toBe(650);
     await expect(page.getByTestId('shelf-y')).toHaveValue('65.0');
     await expect.poll(() => meshY(page, shelf.id)).toBeGreaterThan(afterManual);
@@ -114,7 +119,7 @@ test.describe('Phase 6: entry paths and concurrency', () => {
     expect((await state(page)).design.dimensions.width).toBe(2000);
     await ask(page, 'make it wider');
     await page.getByTestId('proposal-confirm').click();
-    await expect(page.getByTestId('chat-messages')).toContainText('Changes applied.');
+    await expect(page.getByTestId('chat-messages')).toContainText('Applied. Your design has been updated.');
     expect((await state(page)).design.dimensions.width).toBe(2400);
     expect(calls[0].mode).toBe('free');
   });
@@ -133,7 +138,7 @@ test.describe('Phase 6: entry paths and concurrency', () => {
     await expect(page.getByTestId('proposal-confirm')).toBeEnabled();
     expect(calls.at(-1).design.dimensions.width).toBe(2100);
     await page.getByTestId('proposal-confirm').click();
-    await expect(page.getByTestId('chat-messages')).toContainText('Changes applied.');
+    await expect(page.getByTestId('chat-messages')).toContainText('Applied. Your design has been updated.');
     const after = await state(page);
     expect(after.design.doors.type).toBe('sliding');
     expect(after.design.dimensions.width).toBe(2100); // the manual change survived the AI change
