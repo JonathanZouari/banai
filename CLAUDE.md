@@ -4,10 +4,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-BanAI is an MVP AI wardrobe designer for standard straight wardrobes only. Three parts stay synchronized through **one canonical design state**: a chat agent (OpenAI, structured proposals), a manual properties editor, and a Three.js 3D viewer. Designs are persisted in Supabase behind secure share links, and an AI photoreal preview is generated from the 3D view.
+BanAI started as an MVP AI wardrobe designer for standard straight wardrobes. Three parts stay synchronized through **one canonical design state**: a chat agent (OpenAI, signed proposals), a manual properties editor, and a Three.js 3D viewer.
 
-- The full product brief is in Obsidian: `BanAI/06 - Product Specification.md`.
-- The approved architecture and phase plan is in `docs/architecture.md`. Read it before starting any phase.
+**Branch `bobHabanai`** (fork `ariel-korenn/banai`) grows it into a **custom wardrobe** designer for homeowners, with a carpenter hand-off. It is a **proposal** to the repo owner (ADR-007): the scope changes below are made on this branch so he can judge them, and nothing reaches `dev`/`main` except through a PR he reviews. What the branch adds:
+
+- **Hebrew RTL workspace** (Apple-style): inspector on the right, 3D in the centre, advice and chat on the left. `<html lang="he" dir="rtl">`, Assistant font.
+- **Schema v2:** site (ceiling, niche), plinth, presets, inserts (pull-down rail, shoe shelves, trouser rack, LED), split doors, and **zones** (2–4 per column, each with its own door or none and its own preset; ADR-027).
+- **Advisories** R1–R20 (`/api/advisories`): research-backed, non-blocking, each with an evidence grade, a source and, where possible, a one-click fix dry-run through the engine. The customer decides; advice never restricts a choice ("capabilities, not taste").
+- **Carpenter dossier PDF** (`/api/dossier`): drawings, cut list, sheet nesting, hardware, estimate and advisories, rendered by headless Chromium.
+- **Render and video:** a WebGL path tracer for a near-photoreal still (the dossier cover), and an MP4 demo of the doors, drawers and pull-down opening, live or path-traced.
+- **Undo/redo** and hold-to-compare against a saved version.
+- **Design-aware chat** (ADR-020/025): the agent sees the design and proposes ops; the server signs them, and nothing changes until the customer confirms. Conversational: no chips or multiple choice. Jerusalem weather is the one deliberate off-topic answer (ADR-015).
+- **Push-to-talk voice** (ADR-021): record, transcribe on the server, send as a chat message. Nothing is read aloud, and a change still needs a tap.
+
+Docs:
+- Product brief: Obsidian `BanAI/06 - Product Specification.md`. bobHabanai: `BanAI/11 - bobHabanai Characterization` and `BanAI/12 - bobHabanai Technical Plan` (also in `docs/bobhabanai/`).
+- Decisions: Obsidian `BanAI/04 - Decisions & Assumptions` (ADR-001…027). Progress: `BanAI/01 - Process Log (Phases)`.
+- The original architecture and phase plan: `docs/architecture.md`. Schema: `docs/schema.md` (v1 and "Schema v2").
 
 ## Working rules for this repo
 
@@ -34,8 +47,10 @@ BanAI is an MVP AI wardrobe designer for standard straight wardrobes only. Three
 
   **Do not move to the next phase until the security review passes:** every CRITICAL and HIGH finding fixed and re-verified. Summarize the review result in the phase report.
 - **Phased delivery.** Work proceeds Phase 1 → 10 (`docs/architecture.md` §10a). After each phase, stop, report (what was implemented, files changed, real test output, known issues, next step), and wait for the user's approval. Never roll into the next phase on your own.
-- **Branches.** All work lands on `dev`, which Railway auto-deploys to the `dev` environment. Pushing or merging to `main` deploys **production** and needs explicit user approval.
-- **Excluded features (do not build):** pricing, quotes, orders, accounts or registration, dashboards, manufacturing/CNC export, feasibility rules, room design, image uploads, voice, mobile-first layout, drag-and-drop geometry, and any AI change applied without approval. The app must never claim a design is manufacturable.
+- **Branches.** On the upstream repo all work lands on `dev`, which Railway auto-deploys to the `dev` environment. Pushing or merging to `main` deploys **production** and needs explicit user approval.
+  - **bobHabanai:** commit on `bobHabanai` only. Push only to `fork` (`ariel-korenn/banai`), only with the user's OK and after a secret scan of the diff. Never push or merge to `origin` (JonathanZouari); the owner gets a PR from the fork.
+- **Excluded features (do not build):** quotes, orders, accounts or registration, dashboards, CNC export, room design, image uploads, mobile-first layout, drag-and-drop geometry, and any AI change applied without approval. The app must never claim a design is manufacturable.
+  - **Changed on `bobHabanai` (ADR-007, ADR-016, proposed to the owner):** advisories (feasibility rules, but non-blocking and sourced), the carpenter dossier with cut list and nesting (labelled a draft brief, not CNC output), a material **estimate** range in the dossier (not a quote), and push-to-talk **voice**. Scope is wardrobes only: no kitchens or other furniture (ADR-012).
   - **User decisions (2026-10-16) that extend the brief:** handles (5 styles + none, global with per-door/drawer overrides) and mirror door fronts are part of the design model. The viewer may show a decorative **room backdrop** (a self-hosted CC0 photo in `frontend/public/env/`), decorative clothes, and animated door opening. These are visual only: no room editing, no uploads. On-canvas `−`/`+` steppers are allowed; they are click-based, not drag-and-drop geometry.
 - **Mandatory stack.**
   - Frontend: vanilla JS ES modules + Three.js, bundled with Vite. **No React, Vue, or R3F.**
@@ -61,11 +76,18 @@ npm run dev                                    # http://localhost:5173
 npm test                                       # vitest run (tests/unit/**/*.test.js)
 npx vitest run tests/unit/client.test.js -t "throws"   # single file / test name
 npm run build                                  # vite build -> dist/
+npx playwright test                            # E2E (starts its own servers on 8010/5183)
+npx playwright test tests/e2e/voice.spec.js    # one spec
+
+# Once per clone
+uv run playwright install chromium            # (backend/) the dossier PDF renders in headless Chromium
+python .claude/hooks/install_git_hooks.py      # (repo root) the Obsidian post-commit hook
 ```
 
 - Copy `.env.example` to `.env` in each service directory.
 - The frontend reads the backend URL from `VITE_API_BASE_URL` at build time; it defaults to `http://localhost:8000`.
 - The backend's CORS origins come from `CORS_ORIGINS`.
+- Other backend variables (all optional): `OPENAI_CHAT_MODEL` and `OPENAI_TRANSCRIBE_MODEL` (otherwise a current model is picked from the customer key's model list), and `PROPOSAL_SECRET` (the HMAC key for chat proposals; empty means a random key per process, so pending proposals expire on restart). The OpenAI key itself is never configured on the server: it lives in the customer's browser and comes with each request.
 
 ## Architecture (target design; implemented incrementally by phase)
 
@@ -89,7 +111,15 @@ npm run build                                  # vite build -> dist/
   - Only the backend talks to Supabase. The `designs` table has RLS enabled with no policies, and anon/authenticated grants are revoked.
   - Share link: `/#d=<uuid>.<token>`. The token is 256-bit, stored only as a SHA-256 hash, and compared in constant time.
   - Saves use optimistic concurrency (`UPDATE ... WHERE revision = n`).
-- **API responses** use the envelope `{success, data, error}`.
+- **API responses** use the envelope `{success, data, error}`. Error messages are English and never echo input; the UI shows Hebrew text by `error.code`.
+- **bobHabanai modules.**
+  - `backend/app/domain/layout.py`: manufacturing geometry (full-overlay and split doors, sliding panels, hinges by height and weight). The viewer, the advisories and the dossier all follow it, so the 3D, the advice and the PDF describe the same wardrobe.
+  - `backend/app/advice/rules.py`: R1–R20. A quick fix is an op list that must apply through `apply_ops` and clear its own advisory (a test checks every one).
+  - `backend/app/production/` (parts, boards, nesting, estimate, drawings) and `backend/app/dossier/` (Jinja2 templates, Chromium with JavaScript off and every non-`data:` request aborted).
+  - `backend/app/agent/`: the chat turn, the prompt, signed proposals and transcription. `backend/app/api/voice.py` takes multipart audio up to 1 MiB, checks the declared type against the magic bytes, and allows two transcriptions at a time.
+  - `frontend/src/viewer/`: builders, motion (one spring per moving part), `pathtrace.js`. `frontend/src/render/`: the render HUD and the video recorder (Mediabunny, explicit timestamps).
+  - `frontend/src/chat/`: the chat model, panel, proposal card and `voice.js` (a pure gesture state machine plus the MediaRecorder wiring).
+- **DoS guards on the unauthenticated API:** a body cap per route (`backend/app/body_limit.py`: 1 MiB, 4 MiB for the dossier, 1 MiB + 8 KiB for voice), a JSON node count before Pydantic (`api/limits.py`), and non-blocking concurrency slots on every endpoint that calls OpenAI or Chromium (a busy server answers 429 BUSY at once instead of holding a worker thread).
 
 ## Infrastructure
 
@@ -104,7 +134,10 @@ npm run build                                  # vite build -> dist/
   - The CLI is linked to **dev**. Link prod only for an approved release.
   - DB passwords are in the gitignored root file `.env.supabase`.
   - Create migrations with `supabase migration new <name>` and push with `supabase db push`.
-- **Obsidian docs** live in the vault folder `BanAI/`. A project Stop hook (`.claude/hooks/obsidian_worklog.py`) appends every agent turn to `BanAI/10 - Work Log.md` through the Obsidian Local REST API. Update the curated notes (`01 - Process Log`, `05 - Open Items`) at the end of each phase.
+- **Obsidian docs** live in the vault folder `BanAI/`, written through the Obsidian Local REST API (`https://127.0.0.1:27124`; the key comes from `OBSIDIAN_API_KEY` or the `obsidian` MCP entry in `~/.claude.json`, never from the repo). Two hooks append to `BanAI/10 - Work Log.md` (ADR-024):
+  - **git post-commit** (`.claude/hooks/obsidian_commit_log.py`, installed into this clone's `.git/hooks` by `install_git_hooks.py`): each commit's subject, body, `Decision:` trailers and file stats. Add a `Decision: ADR-0xx …` trailer to commits that implement a decision. `--dry-run` prints the entry.
+  - **Claude Code Stop hook** (`.claude/hooks/obsidian_worklog.py`): only turns that changed files (an editing tool ran, or HEAD / `git status` changed since the last Stop). Read-only turns are not logged.
+  - Neither hook ever blocks a commit or a turn. Update the curated notes (`01 - Process Log`, `04 - Decisions & Assumptions`, `05 - Open Items`) when a task or phase completes.
 
 ## Gotchas
 
@@ -113,3 +146,12 @@ npm run build                                  # vite build -> dist/
 - **`frontend/package.json` overrides `compression` to 1.8.2.** `serve@14` pulls a vulnerable version. Keep the override.
 - **Supabase `projects create`** can time out on the client and still create the project. List projects before retrying. It also auto-links the new project, so re-link to dev afterwards.
 - **`railway logs`** needs `--service` even when you pass a deployment ID.
+- **Git on this drive:** the checkout is on a drive that records no file ownership, so git stops with "dubious ownership". Run it as `git -c safe.directory=<repo path> …` (the hooks do this for their own repo only), or have the user add the exception. Don't change the global config yourself.
+- **The Write tool fails on the Hebrew path** (`E:\לימודים מסודר\…`) with an auto-mode "no verdict". Write the file in the scratchpad and copy it with Bash, or edit with a short script.
+- **Dev servers run from their own folder** (`backend/`, `frontend/`): Vite resolves CSS `@import` from its cwd. The uvicorn dev server has no `--reload`, so restart it after backend changes. Other sessions may hold 8020/5298; the Playwright suite uses 8010/5183.
+- **SwiftShader in E2E:** the path tracer is not compiled or run under Playwright (the software renderer stalls on it), and the background prewarm is skipped on a software renderer. Render and video are checked on a GPU with the deterministic hooks (`stepRender`, `setMotion`, `captureFrame`).
+- **GPU timing:** time render work with a `readPixels` sync. JavaScript timing alone misses the GPU queue (it once read 10 ms for a 38 ms sample).
+- **A hidden Browser pane pauses** `requestAnimationFrame` and CSS transitions. Drive motion and samples through the test hooks, and turn transitions off for screenshots.
+- **Voice in E2E** uses Chromium's fake microphone (`--use-fake-device-for-media-stream --use-fake-ui-for-media-stream`, set per spec with `test.use`). Hold the button for about 2 s: a recording under 0.6 s, or one whose level meter never rises, is not uploaded.
+- **E2E console errors fail the test** (`tests/e2e/fixtures.js`). A test that expects a refused request (409, 400) declares it with `allowConsoleErrors(/pattern/)`.
+- **Signed proposals in E2E:** `playwright.config.js` gives the API `PROPOSAL_SECRET=e2e-proposal-secret`, and `chatProposals.spec.js` signs proposals with the backend's own code, so the real `/api/proposals/apply` is exercised.
