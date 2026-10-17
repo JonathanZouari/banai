@@ -52,6 +52,9 @@ SAMPLES = {
                     {"op": "add_insert", "compartmentId": "cmp_b", "type": "trousers", "id": "ins_t"},
                     {"op": "add_insert", "compartmentId": "cmp_b", "type": "led", "id": "ins_l"},
                     {"op": "add_rail", "compartmentId": "cmp_a", "y": 1500, "id": "rail_a"}, depth=400),
+    # 725 mm compartments: cmp_a in three zones, a pair in zone 2; every single door is about 75 cm wide.
+    "zones": make(hinged(), {"op": "set_zones", "compartmentId": "cmp_a", "count": 3},
+                   {"op": "set_zone_door", "compartmentId": "cmp_a", "zone": 2, "leaves": 2}, width=1500),
 }
 
 
@@ -210,3 +213,63 @@ def test_plinth_raises_the_floor_height():
     rail = {"op": "add_rail", "compartmentId": "cmp_a", "y": 1850, "id": "rail_a"}
     assert "r16-high-0" not in by_id(make(hinged(), rail, width=1900))
     assert "r16-high-0" in by_id(make(hinged(), rail, width=1900, plinth=80))
+
+
+# ---------- zones ----------
+
+def thirds() -> dict:
+    """basic with its left compartment in thirds: dr_left becomes three zone doors of 82.4, 79.7 and 77 cm."""
+    return apply_ops(basic_wardrobe(), [{"op": "set_zones", "compartmentId": "cmp_left", "count": 3}], CATALOG)
+
+
+def test_a_zone_door_alone_in_its_zone_can_be_split():
+    design = SAMPLES["zones"]
+    r3 = by_id(design)["r3-wide"]
+    assert r3["level"] == "warn"
+    assert r3["targets"] == ["door:dr_a_z1", "door:dr_a_z3", "door:dr_b"]  # the zone 2 leaves are 37 cm
+    # Each wide door is alone in its (compartment, anchors) group, so each is split, the zone doors included.
+    assert r3["fix"]["ops"] == [{"op": "split_door", "id": i, "newId": f"{i}_2"} for i in ("dr_a_z1", "dr_a_z3", "dr_b")]
+    after = apply_ops(design, r3["fix"]["ops"], CATALOG)
+    assert len(after["doors"]["items"]) == 5 + 3 and "r3-wide" not in by_id(after)
+    assert {(d.id, d.width) for d in layout(after).doors if d.anchors == (None, "shf_a_z1")} == {
+        ("dr_a_z1", 372.25), ("dr_a_z1_2", 372.25)}  # 0 .. 17 + 725 + 8.5 = 750.5, halved, minus 3
+
+
+def test_split_ids_never_clash():
+    design = make({"op": "configure_doors", "type": "hinged", "doors": [
+        {"id": "dr_a", "compartmentIds": ["cmp_a"], "hingeSide": "left"},
+        {"id": "dr_a_2", "compartmentIds": ["cmp_b"], "hingeSide": "right"}]}, width=1500)
+    assert [op["newId"] for op in by_id(design)["r3-wide"]["fix"]["ops"]] == ["dr_a_2_2", "dr_a_2_2_2"]
+
+
+def test_hinges_are_counted_per_zone_door():
+    r4 = by_id(thirds())["r4-hinges"]
+    assert r4["title"] == "2–5 צירים לדלת, לפי הגובה"
+    assert r4["body"].endswith("הגבוה מביניהם: 239.7 ס״מ – 5, 82.4 ס״מ – 2, 79.7 ס״מ – 2, 77 ס״מ – 2.")
+    assert len(r4["targets"]) == 5
+    assert by_id(basic_wardrobe())["r4-hinges"]["title"] == "5 צירים לכל דלת"  # one height: as before
+
+
+def test_drawers_in_an_open_zone_need_no_hinge_clearance():
+    halves = apply_ops(basic_wardrobe(), [{"op": "set_zones", "compartmentId": "cmp_right", "count": 2}], CATALOG)
+    assert by_id(halves)["r10-hinge"]["targets"] == ["comp:2"]  # the zone 1 door fronts the drawers
+    opened = apply_ops(halves, [{"op": "set_zone_door", "compartmentId": "cmp_right", "zone": 1, "leaves": 0}], CATALOG)
+    assert "r10-hinge" not in by_id(opened)
+
+
+def test_dividers_are_explained():
+    item = by_id(SAMPLES["zones"])["r20-dividers"]
+    assert (item["level"], item["title"], item["src"], item["targets"]) == (
+        "info", "2 מדפים קבועים בין אזורים", "[26][29]", ["comp:0"])
+    assert "fix" not in item and "קונפירמט" in item["body"]
+    assert by_id(make(hinged(1), {"op": "set_zones", "compartmentId": "cmp_a", "count": 2}, count=1, width=600))[
+        "r20-dividers"]["title"] == "מדף קבוע בין אזורים"
+    assert "r20-dividers" not in by_id(make(hinged()))
+
+
+@pytest.mark.parametrize(("width", "shelf", "sag"), [(950, False, False), (950, True, True), (1100, False, True)])
+def test_fixed_ends_let_a_divider_span_further(width, shelf, sag):
+    # 950 mm: a 916 mm compartment, past 80 cm for a shelf on pins but within 100 cm for a fixed one [26].
+    ops = [{"op": "set_zones", "compartmentId": "cmp_a", "count": 2}]
+    ops += [{"op": "add_shelf", "compartmentId": "cmp_a", "y": 400, "id": "shf_x"}] if shelf else []
+    assert ("r7-sag" in by_id(make(hinged(1), *ops, width=width, count=1))) == sag

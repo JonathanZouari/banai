@@ -11,6 +11,7 @@ from __future__ import annotations
 import math
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
+from itertools import pairwise
 
 from app.domain.defaults import SHOE_TIER
 from app.domain.layout import SLIDE_OVERLAP, SLIDE_TRACK_DEPTH, Layout, layout
@@ -33,6 +34,7 @@ DRAWER_GAP = 3  # reveal between drawer fronts: a front is the drawer height - 3
 MIN_BOX_SIDE, MIN_BOX_INNER = 40, 100  # below this no standard box fits: front only, flagged
 SHOE_SLOPE, SHOE_INSET, SHOE_RISE = 14, 50, 90  # degrees; shallower than a shelf; tier base to front edge
 TIP_ON_LONG = 1300  # TIP-ON comes in a long version for doors above ~1300 mm [16]
+CONFIRMAT_PER_JOINT = 3  # carcass joints, partitions and dividers alike
 
 GROUPS = ("גוף", "גב", "פנים", "חזיתות", "מגירות")
 
@@ -149,7 +151,7 @@ def method(design: dict, lay: Layout) -> list[str]:
     shelves = "מדפים מתכווננים על פינים בשיטת System 32."
     if any(c["rails"] for c in design["compartments"]):
         shelves += " מדף שמעל מוט תלייה קבוע."
-    return [
+    steps = [
         "דפנות לכל הגובה. תקרה ורצפה בין הדפנות.",
         f"גב {BACK_T} מ״מ בחריץ של {BACK_GROOVE} מ״מ, מפוצל מאחורי מחיצות.",
         plinth,
@@ -157,6 +159,31 @@ def method(design: dict, lay: Layout) -> list[str]:
         shelves,
         f"לוח {lay.panel} מ״מ ({LRI}{SHEET.length}×{SHEET.width}{PDI}). תיבות מגירה מלוח {DRAWER_SIDE} מ״מ.",
     ]
+    if any(dividers(c) for c in design["compartments"]):
+        front = "מאחורי תחום המסילות" if lay.sliding else "עד קו החזית"
+        step = f"מדפים קבועים בין אזורים: בעומק המחיצות, {front}. חיבור בקונפירמט לדפנות ולמחיצות, בלי פינים."
+        if facing_dividers(design):
+            step += " מדפים קבועים באותו גובה משני צידי מחיצה: מסיטים את הברגים של צד אחד מאלה של הצד השני."
+        steps.insert(5, step)
+    return steps
+
+
+def dividers(c: dict) -> list[dict]:
+    """A compartment's fixed shelves (zone dividers), in list order."""
+    return [s for s in c["shelves"] if s["fixed"]]
+
+
+def zone_of(c: dict, anchors: tuple[str | None, str | None]) -> int:
+    """The 1-based zone (from the bottom) of a door anchored in compartment `c`: the one above its bottom anchor."""
+    order = [s["id"] for s in sorted(dividers(c), key=lambda s: s["y"])]
+    return 1 if anchors[0] is None else order.index(anchors[0]) + 2
+
+
+def facing_dividers(design: dict) -> bool:
+    """Whether two dividers meet one partition from both sides at overlapping heights: confirmat screws
+    driven through the partition from both sides would hit each other."""
+    return any(s["y"] < t["y"] + t["thickness"] and t["y"] < s["y"] + s["thickness"]
+               for a, b in pairwise(design["compartments"]) for s in dividers(a) for t in dividers(b))
 
 
 class _Rows:
@@ -211,6 +238,14 @@ def production(design: dict, catalog: dict) -> Production:
         rows.merge(("partition", t),
                    lambda t=t: Part("מחיצה", "גוף", 0, lay.interior_height, part_d, board_for(carcass_app, t, catalog), FRONT_EDGE),
                    boxes=[box(x, floor, INNER_Z, x + t, H - P, INNER_Z + part_d)])
+    # Dividers (fixed shelves between zones) are structural: flush with the partitions, the full width of the
+    # compartment, fixed with confirmat through the sides and partitions instead of resting on shelf pins.
+    for i, c in enumerate(comps):
+        x0, x1 = lay.ranges[i]
+        for s in dividers(c):
+            b, y = board_for(resolve(s["appearance"], carcass_app), s["thickness"], catalog), lay.floor_y(s["y"])
+            rows.merge(("divider", x1 - x0, b.key), lambda b=b, w=x1 - x0: Part("מדף קבוע", "גוף", 0, w, part_d, b, FRONT_EDGE),
+                       comp=i, boxes=[box(x0, y, INNER_Z, x1, y + s["thickness"], INNER_Z + part_d, (0, 0, 0.6))])
 
     # Backs: split behind partitions so no piece is wider than a sheet allows. Each piece runs from a side
     # groove (or a joint) to the centre of a partition, where the joint is hidden.
@@ -234,28 +269,30 @@ def production(design: dict, catalog: dict) -> Production:
                       boxes=[box(g["xa"], floor - BACK_INSERT, BACK_Z, g["xb"], floor - BACK_INSERT + back_h, BACK_Z + BACK_T,
                                  (0, 0, -1.3)) for g in gs]))
 
-    # Shelves, merged when sizes and boards match.
+    # Adjustable shelves, merged when sizes and boards match.
     shelf_d = lay.shelf_depth - INNER_Z
     for i, c in enumerate(comps):
         x0, x1 = lay.ranges[i]
-        for s in c["shelves"]:
+        for s in (s for s in c["shelves"] if not s["fixed"]):
             b, y = board_for(resolve(s["appearance"], carcass_app), s["thickness"], catalog), lay.floor_y(s["y"])
             rows.merge(("shelf", x1 - x0 - 2, b.key), lambda b=b, w=x1 - x0 - 2: Part("מדף", "פנים", 0, w, shelf_d, b, FRONT_EDGE),
                        comp=i, boxes=[box(x0 + 1, y, INNER_Z, x1 - 1, y + s["thickness"], INNER_Z + shelf_d, (0, 0, 0.9))])
 
-    # Fronts.
+    # Fronts. A zone door is its own front, named by its compartment and zone.
     items, door_app = design["doors"]["items"], design["doors"]["appearance"]
     for door, d in zip(items, lay.doors, strict=True):
-        b, w = board_for(resolve(door["appearance"], door_app), P, catalog), half_up(d.width)
+        b, w, h = board_for(resolve(door["appearance"], door_app), P, catalog), half_up(d.width), half_up(d.height)
         mirror_note = "מראה 4 מ״מ מודבקת, עם גיבוי בטיחות"
+        zone = zone_of(comps[d.compartment], d.anchors) if d.compartment is not None and any(d.anchors) else None
         if d.hinge:
             name, z0 = ("דלת מראה" if d.mirror else "דלת"), D + 1
-            note = " · ".join([f"{d.hinges} צירים"] + ([mirror_note] if d.mirror else []))
+            note = " · ".join(([f"אזור {zone}"] if zone else []) + [f"{d.hinges} צירים"] + ([mirror_note] if d.mirror else []))
         else:
             name, z0 = ("כנף הזזה עם מראה" if d.mirror else "כנף הזזה"), D - (30 if d.track == "front" else 60)
             note = ", ".join(([f"חפיפה {SLIDE_OVERLAP} מ״מ"] if len(items) > 1 else []) + ([mirror_note] if d.mirror else []))
-        rows.merge(("front", name, w, d.height, b.key, note),
-                   lambda name=name, w=w, h=d.height, b=b: Part(name, "חזיתות", 0, h, w, b, ALL_EDGES),
+        rows.merge(("front", name, w, h, b.key, note),
+                   lambda name=name, w=w, h=h, b=b: Part(name, "חזיתות", 0, h, w, b, ALL_EDGES),
+                   comp=d.compartment if zone else None,
                    boxes=[box(d.x0, d.y0, z0, d.x0 + d.width, d.y0 + d.height, z0 + P, (0, 0, 3.6))], suffix=note)
 
     # Drawers: an internal front at the shelf line, on concealed runners. Box parts are a fixed white board.
@@ -334,16 +371,20 @@ def _hardware(design: dict, lay: Layout, parts: list[Part], runner: int | None, 
         push_doors = long_push = 0
         for door, d in zip(items, lay.doors, strict=True):
             push = handle_of(door, design)["style"] == "none"
-            # A door in front of drawers needs a zero-protrusion hinge, or the drawer hits it (R10).
-            hinges[(155 if any(comps[i]["drawers"] for i in d.compartments) else 110, push)] += d.hinges
+            # A door in front of drawers needs a zero-protrusion hinge, or the drawer hits it (R10). A zone
+            # door only fronts the drawers inside its own extent.
+            drawers = any(lay.behind(d, dr["y"], dr["height"]) for i in d.compartments for dr in comps[i]["drawers"])
+            hinges[(155 if drawers else 110, push)] += d.hinges
             push_doors += push
             long_push += push and d.height > TIP_ON_LONG
         add("ציר סמוי 110° עם טריקה שקטה", hinges[(110, False)], "כוס Ø35, עם פלטה", "hinge110", "[2][77]")
         add("ציר סמוי 155° ללא בליטה", hinges[(155, False)], "לדלתות מול מגירות (R10)", "hinge155", "[37][77]")
         add("ציר סמוי 110° ללא קפיץ", hinges[(110, True)], "לפתיחה בלחיצה, כוס Ø35, עם פלטה", None, "[2][16]")
         add("ציר סמוי 155° ללא בליטה וללא קפיץ", hinges[(155, True)], "לדלתות מול מגירות, לפתיחה בלחיצה", None, "[16][37]")
-        add("מנגנון פתיחה בלחיצה לדלת", push_doors,
-            "עם ציר ללא קפיץ" + (f", גרסה ארוכה לדלת מעל {TIP_ON_LONG} מ״מ" if long_push else ""), None, "[16]")
+        # TIP-ON comes short and long [16]; with zone doors one wardrobe can need both.
+        long_note = ("" if not long_push else f", גרסה ארוכה לדלת מעל {TIP_ON_LONG} מ״מ" if long_push == push_doors
+                     else f", {long_push} בגרסה ארוכה (דלת מעל {TIP_ON_LONG} מ״מ) והשאר בקצרה")
+        add("מנגנון פתיחה בלחיצה לדלת", push_doors, "עם ציר ללא קפיץ" + long_note, None, "[16]")
     if lay.sliding and lay.doors:
         add("ערכת מסילות הזזה עליונה ותחתונה", 1, f"{len(lay.doors)} כנפיים, עד 50 ק״ג לכנף", "slideKit", "[10][78]")
     if runner:
@@ -374,6 +415,10 @@ def _hardware(design: dict, lay: Layout, parts: list[Part], runner: int | None, 
     add("פס LED עם חיישן דלת", len(lit), f"{sum(w - 40 for w in lit) / 1000:.1f} מ׳ בסך הכול, ספק 12V מוסתר", None, "§6")
     add("זווית עיגון מגולוונת", anchors_for(lay.width), "לשלד הקיר, לא לגב. בורג 8 מ״מ ודיבל לפי סוג הקיר", "anchor",
         "[103]")
-    joints = 4 + 2 * len(design["partitions"]) + (2 if has_plinth else 0)
-    add("בורג קונפירמט (אומדן)", joints * 3, "3 לכל חיבור")
+    # Joints: four carcass corners, both ends of every partition, the plinth, and both ends of every divider.
+    fixed = sum(len(dividers(c)) for c in comps)
+    joints = 4 + 2 * len(design["partitions"]) + (2 if has_plinth else 0) + 2 * fixed
+    add("בורג קונפירמט (אומדן)", joints * CONFIRMAT_PER_JOINT, f"{CONFIRMAT_PER_JOINT} לכל חיבור"
+        + (f", מהם {2 * fixed * CONFIRMAT_PER_JOINT} ל{'מדף קבוע' if fixed == 1 else f'-{fixed} מדפים קבועים'}"
+           if fixed else ""))
     return hw

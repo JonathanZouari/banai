@@ -79,9 +79,10 @@ def row_pages(rows: list[dict], size: int) -> list[list[dict]]:
 
 
 def _contents(c: dict) -> str:
-    out = []
+    fixed = sum(s["fixed"] for s in c["shelves"])
+    out = [f"{fixed + 1} אזורים"] if fixed else []
     for key, one, many in (("shelves", "מדף", "מדפים"), ("rails", "מוט", "מוטות"), ("drawers", "מגירה", "מגירות")):
-        n = len(c[key])
+        n = len(c[key]) - (fixed if key == "shelves" else 0)  # dividers are counted as zones
         if n:
             out.append(one if n == 1 else f"{n} {many}")
     out += [INSERT_NAMES[x["type"]] for x in c["inserts"]]
@@ -108,11 +109,15 @@ def build(design: dict, catalog: dict, render_png: bytes | None = None, today: d
     # Front and plan.
     front_svg = drawings.front_elevation(design, lay, catalog)
     site_note = " · ".join(([f"נישה {niche}"] if niche else []) + ([f"תקרה {ceiling}"] if ceiling else []))
+    lead = "כל המידות במילימטרים."
+    if doors_type == "hinged":
+        lead += " החזית מוצגת עם דלתות סגורות. קווי הפתיחה מצביעים לצד הציר, והעיגולים המקווקווים הם כוסות הצירים."
+    if doors_type != "sliding" and any(s["fixed"] for c in design["compartments"] for s in c["shelves"]):
+        lead += " בתא שמחולק לאזורים, המידות האנכיות בתוכו נמדדות בין קווי האמצע של המדפים הקבועים."
     pages.append({"kind": "front", "title": "חזית ותוכנית", "toc": True, "front": front_svg,
                   "plan": drawings.plan_view(design, lay, catalog, prod.partition_depth),
                   "caption": f"חזית · {site_note} (מידות משוערות של הלקוח)" if site_note else "חזית · לא נמסרו מידות אתר",
-                  "lead": "כל המידות במילימטרים. החזית מוצגת עם דלתות סגורות. קווי הפתיחה מצביעים לצד הציר."
-                          if doors_type == "hinged" else "כל המידות במילימטרים."})
+                  "lead": lead})
 
     # Interior. Shop drawings follow the physical left-to-right order, even on an RTL page.
     comps = [{"svg": drawings.compartment_elevation(design, lay, i),

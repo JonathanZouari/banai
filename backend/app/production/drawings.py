@@ -25,6 +25,8 @@ from app.production.parts import DRAWER_GAP, INNER_Z, LRI, PDI, PLINTH_FLOOR_GAP
 WALL = 140  # wall thickness drawn around a niche
 NICHE_WALLS = 400  # walls are drawn when the niche is at most this much wider than the wardrobe
 HANDLE_Y, HANDLE_HALF = 1050, 170  # bar handle centre above the floor, and half its length
+HANDLE_MARGIN = 110  # a handle's centre stays this far inside a door's ends (the viewer's rule)
+HINGE_END, CUP_R, CUP_INSET = 100, 17.5, 22.5  # outer hinge cups from the door's ends; a Ø35 cup [1], its centre from the edge
 ISO_C, ISO_S = math.cos(math.pi / 6), 0.5
 
 
@@ -156,8 +158,8 @@ def _compartment(g: El, design: dict, lay: Layout, i: int) -> None:
     c = design["compartments"][i]
     x0, x1 = lay.ranges[i]
     w, y0 = x1 - x0, lay.floor_y(0)
-    for s in c["shelves"]:
-        g.add(rect(x0, y0 + s["y"], w, s["thickness"], "shelf"))
+    for s in c["shelves"]:  # a divider (fixed shelf) is drawn as structure, like the carcass
+        g.add(rect(x0, y0 + s["y"], w, s["thickness"], "shelf shelf--fixed" if s["fixed"] else "shelf"))
     tops = item_tops(c)
     for r in c["rails"]:
         y = y0 + r["y"]
@@ -208,11 +210,51 @@ def _interior(design: dict, lay: Layout, only: Iterable[int] | None = None) -> E
     return g
 
 
+def _open_spans(lay: Layout, i: int) -> list[tuple[float, float]]:
+    """Heights above the floor of compartment i's interior that no hinged door covers: its open zones.
+    A door covers up to the centre lines of its anchors (its edges plus half a joint)."""
+    low, high = lay.floor_y(0), lay.floor_y(lay.interior_height)
+    covered = sorted((d.y0 - DOOR_GAP / 2, d.y0 + d.height + DOOR_GAP / 2) for d in lay.doors if i in d.compartments)
+    spans, at = [], low
+    for a, b in covered:
+        if a > at:
+            spans.append((at, min(a, high)))
+        at = max(at, b)
+    if at < high:
+        spans.append((at, high))
+    return [(a, b) for a, b in spans if b > a]
+
+
+def _open_zones(cv: Canvas, design: dict, lay: Layout, i: int, spans: list[tuple[float, float]]) -> El:
+    """The interior of a compartment's open zones, beside its zone doors: the items are clipped to the spans."""
+    x0, x1 = lay.ranges[i]
+    clip = f"open{i}"
+    g = El("g", {}, El("clipPath", {"id": f"{cv.uid}-{clip}"}, *(rect(x0, a, x1 - x0, b - a, None) for a, b in spans)),
+           *(rect(x0, a, x1 - x0, b - a, "inside") for a, b in spans))
+    items = El("g", {"clip-path": cv.url(clip)})
+    _compartment(items, design, lay, i)
+    return g.add(items)
+
+
+def _hinge_marks(g: El, d: DoorLayout) -> None:
+    """The door's hinge cups, hidden behind it: evenly spaced, the outer ones HINGE_END from its ends."""
+    end = min(HINGE_END, d.height / 4)
+    x = d.x0 + CUP_INSET if d.hinge == "left" else d.x0 + d.width - CUP_INSET
+    for k in range(d.hinges):
+        y = d.y0 + end + k * (d.height - 2 * end) / max(1, d.hinges - 1)
+        g.add(El("circle", {"cx": x, "cy": y, "r": CUP_R, "class": "hinge-mark"}))
+
+
 def _door_handle(g: El, d: DoorLayout, style: str) -> None:
     left = d.hinge != "right"  # the handle sits on the edge opposite the hinge
     edge = d.x0 + d.width if left else d.x0
     hx = edge - 42 if left else edge + 42
-    cy = min(HANDLE_Y, d.y0 + d.height / 2)
+    # HANDLE_Y above the floor, kept inside the door, as in the viewer: a zone door above that height has its
+    # handle near its bottom edge, and one below it near its top edge.
+    half = {"bar": HANDLE_HALF, "cup": 45, "knob": 14}.get(style, 0)
+    limit = max(0.0, d.height / 2 - max(HANDLE_MARGIN, half + 40))
+    centre = d.y0 + d.height / 2
+    cy = centre + max(-limit, min(limit, HANDLE_Y - centre))
     if style == "bar":
         g.add(rect(hx - 7, cy - HANDLE_HALF, 14, 2 * HANDLE_HALF, "handle", rx=7))
     elif style == "knob":
@@ -257,14 +299,18 @@ def front_elevation(design: dict, lay: Layout, catalog: dict, uid: str = "fe") -
             open_comps = [i for i in range(len(lay.ranges)) if i not in covered]
             if open_comps:  # compartments no door covers stay open in the front view
                 g.add(_interior(design, lay, open_comps))
+            for i in sorted(covered):  # and so do the open zones beside zone doors
+                if spans := _open_spans(lay, i):
+                    g.add(_open_zones(cv, design, lay, i, spans))
             for door, d, b in zip(items, lay.doors, boards, strict=True):
                 g.add(rect(d.x0, d.y0, d.width, d.height, "front", fill=b.tint))
-                if d.mirror:
-                    g.add(rect(d.x0 + 35, d.y0 + 35, d.width - 70, d.height - 70, "mirror", fill=cv.url("glass")))
+                if d.mirror:  # a zone door can be short: never a negative size
+                    g.add(rect(d.x0 + 35, d.y0 + 35, max(0, d.width - 70), max(0, d.height - 70), "mirror", fill=cv.url("glass")))
                 # Opening convention: lines from the handle-edge corners to the middle of the hinge edge.
                 hx, ox = (d.x0, d.x0 + d.width) if d.hinge == "left" else (d.x0 + d.width, d.x0)
                 points = [(ox, d.y0), (hx, d.y0 + d.height / 2), (ox, d.y0 + d.height)]
                 g.add(El("polyline", {"points": " ".join(f"{_num(px)},{_num(py)}" for px, py in points), "class": "ln-swing"}))
+                _hinge_marks(g, d)
                 _door_handle(g, d, handle_of(door, design)["style"])
         else:
             back_first = sorted(range(len(lay.doors)), key=lambda k: lay.doors[k].track != "back")
@@ -279,8 +325,32 @@ def front_elevation(design: dict, lay: Layout, catalog: dict, uid: str = "fe") -
     cv.svg.add(t)
     cv.dim(t, 0, 0, W, 0, W, fs, offset=fs * 2.6)
     if doors_type == "hinged":
-        for d in sorted(lay.doors, key=lambda d: d.x0):
-            cv.dim(t, d.x0 - DOOR_GAP / 2, -H, d.x0 + d.width + DOOR_GAP / 2, -H, half_up(d.width), fs * 0.8, offset=-fs * 1.6)
+        # Door widths over the top, once per span. A door that doesn't reach the top (under an open zone, or a
+        # pair in a lower zone) has its width just inside its own top edge, once per span.
+        top_row = sorted({(d.x0, d.width) for d in lay.doors if d.anchors[1] is None})
+        for x0, w in top_row:
+            cv.dim(t, x0 - DOOR_GAP / 2, -H, x0 + w + DOOR_GAP / 2, -H, half_up(w), fs * 0.8, offset=-fs * 1.6)
+        inner: dict[tuple[float, float], float] = {}
+        for d in lay.doors:
+            if (d.x0, d.width) not in top_row:
+                inner[(d.x0, d.width)] = max(inner.get((d.x0, d.width), 0), d.y0 + d.height)
+        for (x0, w), top in sorted(inner.items()):
+            cv.dim(t, x0, -top, x0 + w, -top, half_up(w), fs * 0.7, offset=fs * 0.9, ext=False)
+    if doors_type != "sliding":
+        # Zone heights of a zoned column, between the centre lines of its dividers (where zone doors meet),
+        # rounded as positions so the chain adds up. The end columns' chains run outside the carcass: the left
+        # one continues the plinth's chain, the right one sits inside the overall height. A middle column's
+        # runs inside it, at 0.3 of its width: clear of a pair's joint and handles, and of the width labels.
+        last = len(lay.ranges) - 1
+        for i, c in enumerate(design["compartments"]):
+            fixed = sorted((s for s in c["shelves"] if s["fixed"]), key=lambda s: s["y"])
+            if not fixed:
+                continue
+            marks = [lay.plinth, *(half_up(lay.floor_y(s["y"]) + s["thickness"] / 2) for s in fixed), H]
+            x0, x1 = lay.ranges[i]
+            x, offset = (0, -fs * 1.4) if i == 0 else (W, fs * 1.0) if i == last else (x0 + 0.3 * (x1 - x0), 0)
+            for a, b in pairwise(marks):
+                cv.dim(t, x, -a, x, -b, b - a, fs * 0.75, offset=offset)
     cv.dim(t, W, 0, W, -H, H, fs, offset=fs * 2.2)
     if lay.plinth:
         cv.dim(t, 0, 0, 0, -lay.plinth, lay.plinth, fs * 0.75, offset=-fs * 1.4)
@@ -326,6 +396,7 @@ def compartment_elevation(design: dict, lay: Layout, i: int, uid: str | None = N
     c = design["compartments"][i]
     marks = {0, y0, H - P} | {y0 + top for top in item_tops(c)} | {y0 + r["y"] for r in c["rails"]}
     marks |= {y0 + x["y"] for x in c["inserts"] if x["type"] == "pulldown"}
+    marks |= {y0 + s["y"] for s in c["shelves"] if s["fixed"]}  # both faces of a divider bound a zone's usable height
     ys = sorted({half_up(m) for m in marks})
     t = El("g")
     cv.svg.add(t)
@@ -361,7 +432,11 @@ def plan_view(design: dict, lay: Layout, catalog: dict, partition_depth: int, ui
     for i, c in enumerate(design["compartments"]):
         if c["rails"] or any(x["type"] == "pulldown" for x in c["inserts"]):
             svg.add(line(lay.ranges[i][0] + 20, rail_z, lay.ranges[i][1] - 20, rail_z, "rail"))
+    seen: set[tuple] = set()
     for d, b in zip(lay.doors, _door_boards(design, catalog), strict=True):
+        if (d.x0, d.width, d.hinge, d.track, b.tint) in seen:  # zone doors stacked in one column: one section
+            continue
+        seen.add((d.x0, d.width, d.hinge, d.track, b.tint))
         if hinged:
             left = d.hinge == "left"
             hx, ex, z = (d.x0, d.x0 + d.width, D + 1) if left else (d.x0 + d.width, d.x0, D + 1)

@@ -72,6 +72,7 @@ h3 { margin: 0 0 2mm; font-size: 10.5pt; font-weight: 700; }
 .drawing .inside { fill: #fbfbfa; stroke: var(--ink); stroke-width: 1.4; }
 .drawing .recess { fill: #f0efec; stroke: var(--ink); stroke-width: 1.4; }
 .drawing .shelf { fill: #ffffff; stroke: var(--ink); stroke-width: 1.6; }
+.drawing .shelf--fixed { fill: #dcdcd8; stroke-width: 2.2; }
 .drawing .front { stroke: var(--ink); stroke-width: 2.2; fill-opacity: 0.32; }
 .drawing .front--near { fill-opacity: 0.45; }
 .drawing .front--ghost { fill-opacity: 0.12; stroke-dasharray: 10 8; }
@@ -92,6 +93,7 @@ h3 { margin: 0 0 2mm; font-size: 10.5pt; font-weight: 700; }
 .drawing .ln-thin { stroke: var(--ink-2); stroke-width: 1.4; }
 .drawing .ln-dash { stroke: var(--ink-3); stroke-width: 2; stroke-dasharray: 22 14; fill: none; }
 .drawing .ln-swing { fill: none; stroke: #6e6e73; stroke-width: 1.5; stroke-dasharray: 16 10; }
+.drawing .hinge-mark { fill: none; stroke: var(--ink-2); stroke-width: 1.6; stroke-dasharray: 6 5; }
 .drawing .dim line { stroke: var(--accent); stroke-width: 1.4; }
 .drawing .dim .ext { stroke: var(--accent); stroke-width: 0.9; opacity: 0.7; }
 .drawing .tick { stroke: var(--accent); stroke-width: 1.4; }

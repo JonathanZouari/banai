@@ -1,4 +1,4 @@
-"""Advisory layer: research-backed, non-blocking guidance on a canonical design (R1-R19).
+"""Advisory layer: research-backed, non-blocking guidance on a canonical design (R1-R20).
 
 Pure: (design, catalog) -> advisories. Every item carries its evidence grade and its source in
 docs/research/carpentry-wardrobes-research.md, so the app explains why instead of claiming a design
@@ -22,6 +22,7 @@ LEVEL_ORDER = {"critical": 0, "warn": 1, "info": 2}
 HANG_DEPTH = 580  # minimum depth for hangers [39]
 PULLDOWN_WIDTH = (830, 1150)  # pull-down rails on the market [43]
 MAX_SHELF_SPAN = 800  # 17 mm melamine, folded clothes [22][25]
+MAX_FIXED_SHELF_SPAN = 1000  # 800-1000 mm: 25 mm board, a front strip or fixed ends [26]; above that, split
 RAIL_SUPPORT_SPAN, MAX_RAIL_SPAN = 800, 1000  # 25 mm round rail [41]
 MAX_HINGED_WIDTH, MAX_HINGED_WIDTH_EXTRA = 600, 650  # concealed hinges [3]
 HEAVY_DOOR_KG = 27.2  # top of the hinge weight tables [3][5]
@@ -36,6 +37,25 @@ def cm(mm: float) -> str:
 def _tag(component_id: str, size: int) -> str:
     """A component id without its prefix, cut so a derived id stays within the 40-char suffix limit."""
     return component_id.split("_", 1)[1][:size]
+
+
+def _ids(design: dict) -> set[str]:
+    """Every component id in the design."""
+    found = {p["id"] for p in design["partitions"]} | {d["id"] for d in design["doors"]["items"]}
+    for c in design["compartments"]:
+        found.add(c["id"])
+        for kind in ("shelves", "drawers", "rails", "inserts"):
+            found |= {item["id"] for item in c[kind]}
+    return found
+
+
+def _free(base: str, taken: set[str]) -> str:
+    """`base`, or `base_2`, `base_3`... when taken; the result is reserved in `taken`."""
+    name, n = base, 2
+    while name in taken:
+        name, n = f"{base}_{n}", n + 1
+    taken.add(name)
+    return name
 
 
 class _Collector:
@@ -61,7 +81,7 @@ def advisories(design: dict, catalog: dict | None) -> list[dict]:
     """All advisories for a canonical, already validated design, most severe first (stable within a level)."""
     out = _Collector(design, catalog)
     lay = layout(design)
-    for rule in (_site, _hinged_doors, _sliding_doors, _drawers, _spans, _inserts, _hanging, _board):
+    for rule in (_site, _hinged_doors, _sliding_doors, _drawers, _spans, _zones, _inserts, _hanging, _board):
         rule(design, lay, out)
     return sorted(out.items, key=lambda a: LEVEL_ORDER[a["level"]])
 
@@ -109,9 +129,12 @@ def _hinged_doors(design: dict, lay: Layout, out: _Collector) -> None:
         wide = [d for d in lay.doors if d.width > MAX_HINGED_WIDTH]
         if wide:
             worst = max(d.width for d in wide)
+            # A door can be split when it is alone over its compartment and its zone: the same compartment
+            # and the same anchors (a full-height door has none).
             lone = [d for d in wide if d.compartment is not None
-                    and sum(1 for x in lay.doors if x.compartment == d.compartment) == 1]
-            split = out.fix("פצל לשתי דלתות", [{"op": "split_door", "id": d.id, "newId": f"dr_{_tag(d.id, 30)}_2"}
+                    and sum(1 for x in lay.doors if (x.compartment, x.anchors) == (d.compartment, d.anchors)) == 1]
+            taken = _ids(design)
+            split = out.fix("פצל לשתי דלתות", [{"op": "split_door", "id": d.id, "newId": _free(f"dr_{_tag(d.id, 30)}_2", taken)}
                                                 for d in lone]) if lone else None
             count = "דלת אחת" if len(wide) == 1 else f"{len(wide)} דלתות"
             out.add("r3-wide", "warn" if worst > MAX_HINGED_WIDTH_EXTRA else "info", "דלת רחבה מדי לציר סמוי",
@@ -127,9 +150,19 @@ def _hinged_doors(design: dict, lay: Layout, out: _Collector) -> None:
                     f"מראה של 4 מ״מ על לוח מוסיפה כ-10 ק״ג למ״ר. הדלת שוקלת כ-{round(mirror.kg)} ק״ג, מעבר לטבלאות "
                     "הצירים. בדלת כזו עדיפה הזזה במסילה של 50–100 ק״ג.", "הערכה", "[17][13]", [f"door:{mirror.id}"],
                     to_sliding)
-        out.add("r4-hinges", "info", f"{plain.hinges} צירים לכל דלת",
-                f"דלת {cm(plain.height)} ס״מ, כ-{round(plain.kg)} ק״ג. המספר נקבע לפי הגובה ולפי המשקל, הגבוה מביניהם."
-                + (f" לדלת המראה: {mirror.hinges}." if mirror and mirror is not plain else ""), "יצרן", "[3][5]",
+        plains = [d for d in lay.doors if not d.mirror] or lay.doors
+        if len({d.height for d in plains}) == 1:
+            title = f"{plain.hinges} צירים לכל דלת"
+            body = f"דלת {cm(plain.height)} ס״מ, כ-{round(plain.kg)} ק״ג. המספר נקבע לפי הגובה ולפי המשקל, הגבוה מביניהם."
+        else:  # zone doors: each door by its own height and weight
+            counts = sorted({d.hinges for d in plains})
+            title = (f"{counts[0]} צירים לכל דלת" if len(counts) == 1
+                     else f"{counts[0]}–{counts[-1]} צירים לדלת, לפי הגובה")
+            heights = sorted({(d.height, d.hinges) for d in plains}, reverse=True)
+            body = ("המספר נקבע לכל דלת לפי הגובה שלה ולפי המשקל, הגבוה מביניהם: "
+                    + ", ".join(f"{cm(h)} ס״מ – {n}" for h, n in heights) + ".")
+        out.add("r4-hinges", "info", title,
+                body + (f" לדלת המראה: {mirror.hinges}." if mirror and mirror is not plain else ""), "יצרן", "[3][5]",
                 [f"door:{d.id}" for d in lay.doors])
     if any(d.mirror for d in lay.doors):
         out.add("r6-safety", "info", "מראה עם גיבוי בטיחות",
@@ -164,10 +197,14 @@ def _sliding_doors(design: dict, lay: Layout, out: _Collector) -> None:
             out.add("r10-slide", "warn", "מגירות בתחום החפיפה",
                     "מאחורי דלתות הזזה, מגירה חייבת לשבת בתוך הפתח של דלת אחת ומחוץ לחפיפה. אחרת הדלת חוסמת אותה.",
                     "יצרן", "[38][15]", [f"comp:{i}" for i in blocked])
-    elif design["doors"]["type"] == "hinged" and any(c["drawers"] for c in comps):
-        out.add("r10-hinge", "info", "מגירות מאחורי דלת ציר",
-                "כדי שהמגירה לא תתנגש בציר, מוסיפים ספייסר של עד 25 מ״מ בכל צד, או ציר 155° ללא בליטה.",
-                "יצרן", "[36][37]", [f"comp:{i}" for i, c in enumerate(comps) if c["drawers"]])
+    elif design["doors"]["type"] == "hinged":
+        # Only drawers behind a door: an open compartment or an open zone has no hinge to hit.
+        behind = [i for i, c in enumerate(comps)
+                  if any(lay.behind(d, dr["y"], dr["height"]) for d in lay.doors if i in d.compartments for dr in c["drawers"])]
+        if behind:
+            out.add("r10-hinge", "info", "מגירות מאחורי דלת ציר",
+                    "כדי שהמגירה לא תתנגש בציר, מוסיפים ספייסר של עד 25 מ״מ בכל צד, או ציר 155° ללא בליטה.",
+                    "יצרן", "[36][37]", [f"comp:{i}" for i in behind])
 
 
 def _drawers(design: dict, lay: Layout, out: _Collector) -> None:
@@ -190,7 +227,10 @@ def _spans(design: dict, lay: Layout, out: _Collector) -> None:
         return out.fix("חלק את התא", [{"op": "add_partition", "compartmentId": c["id"], "offset": (c["width"] - lay.panel) // 2,
                                        "id": f"prt_{tag}_s", "newCompartmentId": f"cmp_{tag}_s"}])
 
-    long_shelves = [i for i, c in enumerate(comps) if c["shelves"] and c["width"] > MAX_SHELF_SPAN]
+    # A divider is fixed at both ends, which halves the sag [26]. The research's work rule (§2.1) takes fixing as
+    # a remedy for 80-100 cm spans, so dividers alone are flagged only above that.
+    long_shelves = [i for i, c in enumerate(comps)
+                    if any(c["width"] > (MAX_FIXED_SHELF_SPAN if s["fixed"] else MAX_SHELF_SPAN) for s in c["shelves"])]
     if long_shelves:
         out.add("r7-sag", "warn", "מדף ארוך עלול לשקוע",
                 f"מדף של {cm(max(comps[i]['width'] for i in long_shelves))} ס״מ במלמין 17 מ״מ: עד כ-80 ס״מ לבגדים "
@@ -204,6 +244,19 @@ def _spans(design: dict, lay: Layout, out: _Collector) -> None:
                 f"מוט עגול 25 מ״מ: מ-80 ס״מ צריך תמיכה באמצע, ולא יותר מ-100 ס״מ בסך הכול. כאן {cm(worst)} ס״מ.",
                 "יצרן", "[41]", [f"comp:{i}" for i in long_rails],
                 split(next(i for i in long_rails if comps[i]["width"] == worst)) if too_long else None)
+
+
+def _zones(design: dict, lay: Layout, out: _Collector) -> None:
+    """R20: a divider between zones is a fixed shelf. It stiffens the carcass [29] and, fixed at both ends, sags
+    about half as much [26], but unlike a shelf on pins its height is set before manufacturing."""
+    comps = design["compartments"]
+    zoned = [i for i, c in enumerate(comps) if any(s["fixed"] for s in c["shelves"])]
+    if zoned:
+        count = sum(s["fixed"] for i in zoned for s in comps[i]["shelves"])
+        out.add("r20-dividers", "info", "מדף קבוע בין אזורים" if count == 1 else f"{count} מדפים קבועים בין אזורים",
+                "מדף שמחלק תא לאזורים מחובר בקונפירמט לדפנות ולמחיצות, בעומק המחיצות, ולא יושב על פינים. הוא מקשיח "
+                "את הגוף, וקיבוע הקצוות מקטין את השקיעה בכחצי. את הגובה שלו קובעים לפני הייצור: אחר כך הוא לא זז "
+                "כמו מדף על פינים.", "כלל אצבע", "[26][29]", [f"comp:{i}" for i in zoned])
 
 
 def _inserts(design: dict, lay: Layout, out: _Collector) -> None:

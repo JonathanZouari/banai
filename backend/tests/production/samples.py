@@ -75,6 +75,30 @@ def rich() -> dict:
     return make(*ops, width=2400, height=2500, depth=650, count=4, plinth=80)
 
 
+def thirds() -> dict:
+    """The basic wardrobe with its left compartment in three zones: shf_l2 (y 800) and shf_l4 (y 1600) become
+    dividers, and dr_left becomes one door per zone."""
+    return apply_ops(basic_wardrobe(), [{"op": "set_zones", "compartmentId": "cmp_left", "count": 3}], CATALOG)
+
+
+def zoned() -> dict:
+    """Left in thirds: a door, a pair, and an open zone with a shelf. Right in halves: a door over the drawers
+    and one above it."""
+    return apply_ops(basic_wardrobe(), [
+        {"op": "set_zones", "compartmentId": "cmp_left", "count": 3},
+        {"op": "set_zone_door", "compartmentId": "cmp_left", "zone": 2, "leaves": 2},
+        {"op": "set_zone_door", "compartmentId": "cmp_left", "zone": 3, "leaves": 0},
+        {"op": "apply_preset", "compartmentId": "cmp_left", "zone": 3, "preset": "shelves"},
+        {"op": "set_zones", "compartmentId": "cmp_right", "count": 2},
+    ], CATALOG)
+
+
+def zoned_sliding() -> dict:
+    """Behind sliding doors, zones are dividers only."""
+    return make(sliding(2), {"op": "set_zones", "compartmentId": "cmp_a", "count": 2},
+                {"op": "set_zones", "compartmentId": "cmp_b", "count": 3})
+
+
 DESIGNS = {
     "basic": basic_wardrobe,
     "sliding": sliding_walnut,
@@ -84,6 +108,8 @@ DESIGNS = {
     "open": lambda: make({"op": "add_drawer", "compartmentId": "cmp_a", "y": 0, "height": 300, "id": "drw_a"}, count=3,
                          width=2600),
     "tall": lambda: make(hinged(2), height=2700, width=1300),  # sides and backs longer than a sheet
+    "zones": zoned,
+    "zones-sliding": zoned_sliding,
 }
 
 

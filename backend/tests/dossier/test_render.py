@@ -98,3 +98,22 @@ def test_a_render_over_the_deadline_fails_cleanly(timeout):
     html = render_html(build(DESIGNS["rich"](), CATALOG))  # takes well over 0.3 s to load and print
     with pytest.raises(RenderError):
         html_to_pdf(html, timeout=timeout)
+
+
+def test_a_zoned_dossier():
+    """Left in thirds (a door, a pair, an open zone), right in halves: the zones reach every section."""
+    ctx = build(DESIGNS["zones"](), CATALOG, today=date(2026, 10, 17))
+    pages = {p["kind"]: p for p in reversed(ctx["pages"])}  # the first page of each kind
+    assert [c["caption"] for c in pages["interior"]["chunk"]] == [
+        "תא 1 · 3 אזורים, 3 מדפים · גבהים מהרצפה", "תא 2 · מדף, מוט · גבהים מהרצפה",
+        "תא 3 · 2 אזורים, 2 מדפים, 2 מגירות · גבהים מהרצפה"]
+    assert "כוסות הצירים" in pages["front"]["lead"] and "קווי האמצע של המדפים הקבועים" in pages["front"]["lead"]
+    assert any(step.startswith("מדפים קבועים בין אזורים") for step in pages["materials"]["method"])
+    advice = {a["id"] for page in ctx["pages"] if page["kind"] == "advice" for a in page["chunk"]}
+    assert "r20-dividers" in advice
+    pdf = html_to_pdf(render_html(ctx))
+    reader = PdfReader(io.BytesIO(pdf))
+    assert len(reader.pages) == len(ctx["pages"])  # nothing spills onto an extra page
+    assert 8 <= len(reader.pages) <= 40
+    text = "\n".join(page.extract_text() for page in reader.pages)
+    assert "מדף קבוע" in text and "אזור" in text and "תיק נגר" in text

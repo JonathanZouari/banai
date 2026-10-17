@@ -2,9 +2,11 @@
 
 Units are mm. Body x runs from the outer face of the left side panel, y from the floor. Hinged doors
 are full overlay: an end door covers the side panel, and a door meets its neighbour at the middle of
-the partition between them, with a DOOR_GAP joint. Sliding panels run between the side panels, on a
-top track under the top panel and a bottom guide over the bottom panel. Shared by the advisories and
-the production dossier.
+the partition between them, with a DOOR_GAP joint. Vertically a hinged door runs from the carcass
+bottom (the top of the plinth) to the carcass top. A zone door (docs/schema.md "Zones") is anchored
+instead to the centre line of a divider, where it meets the zone door above or below it with the same
+joint. Sliding panels run between the side panels, on a top track under the top panel and a bottom
+guide over the bottom panel. Shared by the advisories and the production dossier.
 """
 
 from __future__ import annotations
@@ -35,7 +37,7 @@ class DoorLayout:
     id: str
     x0: float
     width: float
-    height: int
+    height: float  # a zone door's height can end in .5 (half a divider's thickness)
     hinge: str | None
     compartment: int | None  # index, when the door covers a single compartment
     mirror: bool
@@ -44,6 +46,7 @@ class DoorLayout:
     y0: float = 0.0  # bottom edge, above the floor
     compartments: list[int] = field(default_factory=list)  # every compartment a hinged door covers
     track: str | None = None  # sliding: "back" or "front"
+    anchors: tuple[str | None, str | None] = (None, None)  # hinged: (bottomShelfId, topShelfId)
 
 
 @dataclass
@@ -59,9 +62,14 @@ class Layout:
     ranges: list[tuple[int, int]]  # body x of each compartment
     doors: list[DoorLayout] = field(default_factory=list)
 
-    def floor_y(self, y: int) -> int:
+    def floor_y(self, y: float) -> float:
         """Height above the floor of an interior y."""
         return self.plinth + self.panel + y
+
+    def behind(self, door: DoorLayout, y: float, height: float) -> bool:
+        """Whether the interior span y..y + height lies, at least partly, behind the door's extent."""
+        low = self.floor_y(y)
+        return low < door.y0 + door.height and door.y0 < low + height
 
 
 def layout(design: dict) -> Layout:
@@ -73,9 +81,7 @@ def layout(design: dict) -> Layout:
     shelf_depth = depth - SLIDE_TRACK_DEPTH - 10 if sliding else depth - 25
     out = Layout(width, height, depth, panel, plinth, interior_height(design), shelf_depth, sliding, ranges)
     if doors["type"] == "hinged":
-        out.doors = _hinged(design, ranges, height - plinth - DOOR_GAP)
-        for door in out.doors:
-            door.y0 = plinth + DOOR_GAP / 2
+        out.doors = _hinged(design, out)
     elif sliding:
         out.doors = _sliding(design, out)
     for door in out.doors:
@@ -99,9 +105,16 @@ def _sliding(design: dict, lay: Layout) -> list[DoorLayout]:
     return result
 
 
-def _hinged(design: dict, ranges: list[tuple[int, int]], door_height: int) -> list[DoorLayout]:
-    items, partitions = design["doors"]["items"], design["partitions"]
-    index_of = {c["id"]: i for i, c in enumerate(design["compartments"])}
+def _edge(lay: Layout, compartment: dict, shelf_id: str | None, default: float) -> float:
+    """Height above the floor of an anchor's centre line; `default` (a carcass edge) without an anchor."""
+    shelf = next((s for s in compartment["shelves"] if s["id"] == shelf_id), None) if shelf_id else None
+    return default if shelf is None else lay.plinth + lay.panel + shelf["y"] + shelf["thickness"] / 2
+
+
+def _hinged(design: dict, lay: Layout) -> list[DoorLayout]:
+    items, partitions, comps = design["doors"]["items"], design["partitions"], design["compartments"]
+    ranges = lay.ranges
+    index_of = {c["id"]: i for i, c in enumerate(comps)}
     last_index = len(ranges) - 1
     result = []
     for door in items:
@@ -109,12 +122,20 @@ def _hinged(design: dict, ranges: list[tuple[int, int]], door_height: int) -> li
         first, last = covered[0], covered[-1]
         left = 0 if first == 0 else ranges[first][0] - partitions[first - 1]["thickness"] / 2
         right = design["dimensions"]["width"] if last == last_index else ranges[last][1] + partitions[last]["thickness"] / 2
+        anchors = (door["bottomShelfId"], door["topShelfId"])
         single = len(covered) == 1
         if single:
-            leaves = [d for d in items if d["compartmentIds"] == door["compartmentIds"]]
-            if len(leaves) == 2:  # a split pair, in item order: the first leaf is the left one
+            # A split pair: two doors over the same compartment with the same anchors. In item order, the
+            # first leaf is the left one.
+            leaves = [d for d in items
+                      if d["compartmentIds"] == door["compartmentIds"] and (d["bottomShelfId"], d["topShelfId"]) == anchors]
+            if len(leaves) == 2:
                 middle = (left + right) / 2
                 left, right = (left, middle) if leaves[0] is door else (middle, right)
-        result.append(DoorLayout(door["id"], left + DOOR_GAP / 2, right - left - DOOR_GAP, door_height, door["hingeSide"],
-                                 first if single else None, door["mirror"], compartments=covered))
+        # Anchors are dividers of the door's one compartment (validation), so `first` is that compartment.
+        bottom = _edge(lay, comps[first], anchors[0], lay.plinth)
+        top = _edge(lay, comps[first], anchors[1], lay.height)
+        result.append(DoorLayout(door["id"], left + DOOR_GAP / 2, right - left - DOOR_GAP, top - bottom - DOOR_GAP,
+                                 door["hingeSide"], first if single else None, door["mirror"], y0=bottom + DOOR_GAP / 2,
+                                 compartments=covered, anchors=anchors))
     return result
