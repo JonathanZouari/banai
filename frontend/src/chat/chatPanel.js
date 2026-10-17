@@ -5,7 +5,7 @@ import { icon } from '../ui/icons.js';
 import { MAX_MESSAGE_LENGTH } from './chatModel.js';
 import { renderProposalCard } from './proposalCard.js';
 import { STATUS_LABELS } from '../settings/aiSettingsModel.js';
-import { AI_VOICE_DISCLOSURE } from './speech.js';
+import { AGENT_NAME, AI_VOICE_DISCLOSURE } from './speech.js';
 
 /**
  * `voice` (optional): (micButton, { input, send(text) }) => void wires push-to-talk to the mic button;
@@ -53,7 +53,7 @@ export function mountChat(container, { model, onConfirm, aiSettings, onOpenSetti
       speaking.hidden = state === 'idle';
       speaking.dataset.state = state;
       speaking.replaceChildren(icon('volume', { size: 16 }), el('span', {
-        text: state === 'loading' ? `בנאי מכין תשובה קולית · ${AI_VOICE_DISCLOSURE}` : `בנאי מדבר · ${AI_VOICE_DISCLOSURE} · עצירה`,
+        text: state === 'loading' ? `בוב מכין תשובה קולית · ${AI_VOICE_DISCLOSURE}` : `בוב מדבר · ${AI_VOICE_DISCLOSURE} · עצירה`,
       }));
     };
     speech.prefs.subscribe(renderToggle);
@@ -65,14 +65,14 @@ export function mountChat(container, { model, onConfirm, aiSettings, onOpenSetti
   const header = el('header', { className: 'chat__header' }, [
     el('span', { className: 'chat__avatar' }, [icon('sparkle', { size: 22 })]),
     el('div', { className: 'chat__heading' }, [
-      el('h2', { className: 'chat__title', text: 'בנאי' }),
+      el('h2', { className: 'chat__title', text: AGENT_NAME }),
       el('p', { className: 'chat__subtitle', text: 'רואה את התכנון · מציע, ואתם מאשרים' }),
     ]),
     // The controls drop to a second row when the column is narrow, instead of squeezing the title.
     el('div', { className: 'chat__tools' }, [...(speakerToggle ? [speakerToggle] : []), statusChip]),
   ]);
 
-  const input = el('textarea', { className: 'chat__input', attrs: { dir: 'auto', rows: '2', maxlength: String(MAX_MESSAGE_LENGTH), placeholder: 'כתבו לבנאי…', 'aria-label': 'הודעה לבנאי' } });
+  const input = el('textarea', { className: 'chat__input', attrs: { dir: 'auto', rows: '2', maxlength: String(MAX_MESSAGE_LENGTH), placeholder: 'כתבו לבוב…', 'aria-label': 'הודעה לבוב הבנאי' } });
   input.dataset.testid = 'chat-input';
   const sendButton = el('button', { className: 'icon-btn icon-btn--filled chat__send', attrs: { type: 'submit', 'aria-label': 'שליחה' } }, [icon('send')]);
   sendButton.dataset.testid = 'chat-send';
@@ -91,7 +91,7 @@ export function mountChat(container, { model, onConfirm, aiSettings, onOpenSetti
 
   const list = el('div', { className: 'chat__messages', attrs: { role: 'log', 'aria-live': 'polite', 'aria-label': 'שיחה' } });
   list.dataset.testid = 'chat-messages';
-  const typing = el('div', { className: 'chat__bubble chat__bubble--assistant chat__typing', attrs: { 'aria-label': 'בנאי כותב' } }, [el('span'), el('span'), el('span')]);
+  const typing = el('div', { className: 'chat__bubble chat__bubble--assistant chat__typing', attrs: { 'aria-label': 'בוב כותב' } }, [el('span'), el('span'), el('span')]);
   typing.dataset.testid = 'chat-typing';
   const proposalSlot = el('div', { className: 'chat__proposal' });
 

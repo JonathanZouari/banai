@@ -46,7 +46,7 @@ export const VOICE_MESSAGES = Object.freeze({
   NO_SPEECH: 'לא נשמע דיבור. נסו שוב קרוב יותר למיקרופון.',
   TOO_LONG: 'ההקלטה ארוכה מדי. נסו הודעה קצרה יותר.',
   FAILED: 'התמלול נכשל. נסו שוב.',
-  INVALID_FORMAT: 'כדי לדבר עם בנאי, הוסיפו מפתח OpenAI תקין בהגדרות AI.',
+  INVALID_FORMAT: 'כדי לדבר עם בוב, הוסיפו מפתח OpenAI תקין בהגדרות AI.',
   INVALID_KEY: 'OpenAI דחה את המפתח. בדקו אותו בהגדרות AI.',
   MODEL_UNAVAILABLE: 'למפתח שלכם אין גישה למודל התמלול.',
   OPENAI_RATE_LIMIT: 'OpenAI מגביל כרגע את המפתח הזה, או שהמכסה נגמרה. נסו שוב מאוחר יותר.',
@@ -169,7 +169,7 @@ export function deliverTranscript(text, { send, input, toast }) {
   input.value = input.value.trim() ? `${input.value.trimEnd()} ${text}` : text;
   input.dispatchEvent?.(new Event('input', { bubbles: true }));
   input.focus?.();
-  toast(result.reason === 'busy' ? 'בנאי עוד עונה. ההודעה הקולית מחכה בתיבה.' : 'ההודעה הקולית מחכה בתיבה. ערכו אותה ושלחו.');
+  toast(result.reason === 'busy' ? 'בוב עוד עונה. ההודעה הקולית מחכה בתיבה.' : 'ההודעה הקולית מחכה בתיבה. ערכו אותה ושלחו.');
   return false;
 }
 

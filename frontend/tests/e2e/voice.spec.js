@@ -203,7 +203,7 @@ test.describe('push-to-talk voice', () => {
     await page.getByTestId('ai-voice-preview').click();
     await expect.poll(() => speaks.length).toBe(1);
     expect(speaks[0].voice).toBe('marin');
-    expect(speaks[0].text).toContain('בנאי');
+    expect(speaks[0].text).toContain('בוב הבנאי');
     expect(await page.evaluate(() => localStorage.getItem('banai.speech.voice'))).toBe('marin');
   });
 });

@@ -7,7 +7,7 @@
 
 export const NOT_CONNECTED_MESSAGE =
   'הסוכן עוד לא מחובר. הוסיפו מפתח OpenAI בהגדרות AI, או המשיכו לתכנן ידנית בפאנל התכנון.';
-export const AGENT_ERROR_MESSAGE = 'בנאי לא הצליח לענות. נסו שוב.';
+export const AGENT_ERROR_MESSAGE = 'בוב הבנאי לא הצליח לענות. נסו שוב.';
 const HISTORY_LIMIT = 20;
 export const STALE_MESSAGE = 'התכנון השתנה מאז ההצעה. בקשו הצעה חדשה.';
 export const MAX_MESSAGE_LENGTH = 2000;
@@ -19,7 +19,7 @@ const CHAT_ERRORS = Object.freeze({
   OPENAI_RATE_LIMIT: 'OpenAI מגביל כרגע את המפתח הזה, או שהמכסה נגמרה. נסו שוב מאוחר יותר.',
   UPSTREAM: 'שירות ה-AI לא זמין כרגע. נסו שוב בעוד רגע.',
   EMPTY_REPLY: 'התקבלה תשובה ריקה. נסו שוב.',
-  BUSY: 'בנאי עסוק כרגע. נסו שוב בעוד רגע.',
+  BUSY: 'בוב עסוק כרגע. נסו שוב בעוד רגע.',
 });
 
 

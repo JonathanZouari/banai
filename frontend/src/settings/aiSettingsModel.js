@@ -13,7 +13,7 @@ export const STATUS_LABELS = Object.freeze({
 });
 
 export const STATUS_DETAILS = Object.freeze({
-  not_configured: 'הוסיפו מפתח OpenAI כדי לחבר את בנאי.',
+  not_configured: 'הוסיפו מפתח OpenAI כדי לחבר את בוב הבנאי.',
   checking: 'בודק את המפתח מול OpenAI…',
   connected: 'המפתח עובד. הוא שמור רק בדפדפן הזה, במחשב הזה.',
   invalid_key: 'OpenAI דחה את המפתח. בדקו אותו או צרו מפתח חדש.',

@@ -62,7 +62,7 @@ export function createAiSettingsDialog(model, { speech = null } = {}) {
         el('label', { className: 'field__label', text: 'קול התשובות', attrs: { for: 'reply-voice' } }),
         el('div', { className: 'field__control field__control--key' }, [voiceSelect, preview]),
       ]),
-      el('p', { className: 'dialog__note', text: `כשמדברים לבנאי, הוא עונה גם בקול: ${AI_VOICE_DISCLOSURE} של OpenAI, צעיר ומחייך. אפשר להשתיק בלחצן הרמקול בשיחה.` }),
+      el('p', { className: 'dialog__note', text: `כשמדברים לבוב, הוא עונה גם בקול: ${AI_VOICE_DISCLOSURE} של OpenAI, צעיר ומחייך. אפשר להשתיק בלחצן הרמקול בשיחה.` }),
     ];
   }
 

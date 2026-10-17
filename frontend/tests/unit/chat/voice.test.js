@@ -195,7 +195,7 @@ describe('deliverTranscript', () => {
     expect(empty.value).toBe('מגירה');
     expect(empty.focus).toHaveBeenCalled();
     expect(empty.dispatchEvent.mock.calls[0][0].type).toBe('input');
-    expect(toast.mock.calls[0][0]).toContain('בנאי עוד עונה');
+    expect(toast.mock.calls[0][0]).toContain('בוב עוד עונה');
     const drafted = fakeInput('ארון לבן  ');
     deliverTranscript('עם מראה', { send: () => ({ ok: false, reason: 'too-long' }), input: drafted, toast });
     expect(drafted.value).toBe('ארון לבן עם מראה');

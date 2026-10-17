@@ -10,7 +10,10 @@
 export const VOICES = Object.freeze(['cedar', 'marin', 'ash', 'ballad', 'coral', 'echo', 'fable', 'nova', 'onyx', 'sage', 'shimmer', 'verse', 'alloy']);
 export const DEFAULT_VOICE = 'cedar';
 export const RECOMMENDED_VOICES = Object.freeze(['cedar', 'marin']);
-export const SAMPLE_TEXT = 'היי, אני בנאי. בואו נתכנן יחד ארון שמתאים בדיוק לכם.';
+/** The agent's name (the app itself stays בנאי). Bob the Builder is a registered character: fine for this
+ * study project, a real product would need its own name. */
+export const AGENT_NAME = 'בוב הבנאי';
+export const SAMPLE_TEXT = 'היי, אני בוב הבנאי. בואו נתכנן יחד ארון שמתאים בדיוק לכם.';
 /** OpenAI's usage policies ask for a clear disclosure that the voice is AI-generated. */
 export const AI_VOICE_DISCLOSURE = 'קול שנוצר ב-AI';
 export const MAX_SPEAK_CHARS = 4000; // the server's input cap; it speaks at most ~1200 of them
@@ -20,7 +23,7 @@ const VOICE_KEY = 'banai.speech.voice';
 
 // The server's messages are English; the chat speaks Hebrew, so errors are shown by code.
 const SPEECH_ERRORS = Object.freeze({
-  INVALID_FORMAT: 'כדי לשמוע את בנאי, הוסיפו מפתח OpenAI בהגדרות AI.',
+  INVALID_FORMAT: 'כדי לשמוע את בוב, הוסיפו מפתח OpenAI בהגדרות AI.',
   INVALID_KEY: 'OpenAI דחה את המפתח. בדקו אותו בהגדרות AI.',
   MODEL_UNAVAILABLE: 'למפתח שלכם אין גישה למודל הקול. התשובה מופיעה בכתב.',
   OPENAI_RATE_LIMIT: 'OpenAI מגביל כרגע את המפתח הזה. התשובה מופיעה בכתב.',
