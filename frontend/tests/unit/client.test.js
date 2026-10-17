@@ -36,3 +36,15 @@ describe('verifyAiKey', () => {
     await expect(verifyAiKey('x', fetchImpl)).rejects.toMatchObject({ code: 'INVALID_FORMAT', message: 'bad key' });
   });
 });
+
+describe('getDossier', () => {
+  it('sends the carpenter\'s language only when it is not Hebrew (ADR-029)', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true, blob: async () => new Blob(['%PDF-']) });
+    const { getDossier } = await import('../../src/api/client.js');
+    await getDossier({ id: 'd' }, { fetchImpl });
+    await getDossier({ id: 'd' }, { language: 'ar', fetchImpl });
+    const bodies = fetchImpl.mock.calls.map(([, init]) => JSON.parse(init.body));
+    expect(bodies[0]).toEqual({ design: { id: 'd' } });
+    expect(bodies[1]).toEqual({ design: { id: 'd' }, language: 'ar' });
+  });
+});

@@ -15,6 +15,8 @@ import threading
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse, Response
 from PIL import Image, UnidentifiedImageError
+from typing import Literal
+
 from pydantic import BaseModel
 
 from app.api.limits import too_many_nodes
@@ -41,6 +43,8 @@ _slots = threading.BoundedSemaphore(RENDER_SLOTS)
 class DossierRequest(BaseModel):
     design: dict
     renderPng: str | None = None
+    # The carpenter's language (ADR-029); the dossier's direction follows it.
+    language: Literal["he", "en", "ru", "ar"] = "he"
 
 
 class InvalidPng(ValueError):
@@ -105,6 +109,10 @@ def normalize_png(data: bytes) -> bytes:
     return out.getvalue()
 
 
+def _filename(lang: str) -> str:
+    return "banai-dossier.pdf" if lang == "he" else f"banai-dossier-{lang}.pdf"
+
+
 @router.post("/dossier")
 def post_dossier(body: DossierRequest, renderer=Depends(get_pdf_renderer)):
     if too_many_nodes(body.design):
@@ -131,7 +139,7 @@ def post_dossier(body: DossierRequest, renderer=Depends(get_pdf_renderer)):
         # Decoded inside a slot, so at most RENDER_SLOTS images are in memory at once.
         if png is not None:
             png = normalize_png(png)
-        pdf = renderer(design, catalog, png)
+        pdf = renderer(design, catalog, png, **({"lang": body.language} if body.language != "he" else {}))
     except InvalidPng:
         return _error(422, "INVALID_IMAGE", "renderPng must be a base64 PNG image.", "renderPng")
     except RenderError:
@@ -140,4 +148,5 @@ def post_dossier(body: DossierRequest, renderer=Depends(get_pdf_renderer)):
     finally:
         _slots.release()
     return Response(pdf, media_type="application/pdf",
-                    headers={"Content-Disposition": 'attachment; filename="banai-dossier.pdf"', "Cache-Control": "no-store"})
+                    headers={"Content-Disposition": f'attachment; filename="{_filename(body.language)}"',
+                             "Cache-Control": "no-store"})

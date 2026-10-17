@@ -95,3 +95,20 @@
 @media (prefers-reduced-motion: reduce) {
   .chat__speaking[data-state="playing"] .icon { animation: none; }
 }
+
+/* The session language (ADR-029): a compact picker in the chat header and a row on the start screen. */
+.chat__language {
+  height: 30px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-full);
+  background: var(--md-sys-color-surface-container-lowest);
+  color: var(--md-sys-color-on-surface);
+  font: var(--md-sys-typescale-label-small);
+  cursor: pointer;
+}
+.chat__language:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
+.start__language { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--space-2); margin-top: var(--space-4); }
+.start__language-label { color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-small); }
+/* The dossier menu marks the session language as the default choice. */
+.dossier-menu .menu-option[aria-current="true"] { background: var(--color-accent-soft); }

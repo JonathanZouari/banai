@@ -1,0 +1,154 @@
+"""The dossier in Hebrew, English, Russian and Arabic (ADR-029): a complete catalog, no Hebrew left in a foreign
+dossier, the page direction, the API parameter, and the workspace untouched (it stays Hebrew)."""
+
+import ast
+import re
+from datetime import date
+from pathlib import Path
+from string import Formatter
+
+import pytest
+from fastapi.testclient import TestClient
+
+from app import i18n
+from app.advice.rules import advisories
+from app.api.dossier import get_pdf_renderer
+from app.domain.defaults import basic_wardrobe
+from app.dossier.render import build, html_to_pdf, render_html
+from app.i18n import LANGUAGES, language, long_date, tr
+from app.i18n_catalog import CATALOG
+from app.main import app
+
+from tests.production.samples import CATALOG as DESIGN_CATALOG
+from tests.production.samples import DESIGNS, hinged, make
+
+# More variants: every handle style, a heavy mirror door, painted MDF, veneer, 18 mm, site checks, inserts.
+VARIANTS = {
+    **DESIGNS,
+    **{f"handles-{style}": (lambda s=style: make(hinged(2), {"op": "set_handles", "target": "all", "style": s, "finish": "brass"},
+                                                 {"op": "add_drawer", "compartmentId": "cmp_a", "y": 0, "height": 200, "id": "drw_x"}))
+       for style in ("bar", "knob", "edge", "cup", "groove", "none")},
+    "mirror-heavy": lambda: make(hinged(2), {"op": "modify_door", "id": "dr_a", "mirror": True}, height=2600, width=1300),
+    "mdf": lambda: make(hinged(2), {"op": "set_material", "target": "doors", "material": {"catalogId": "lacquered_mdf"}}),
+    "veneer-18": lambda: make(hinged(2), {"op": "set_material", "target": "carcass", "material": {"catalogId": "oak_veneer"}}, panel=18),
+    "low-ceiling": lambda: make(hinged(2), {"op": "set_site", "ceiling": 2420, "niche": 1810}),
+    "too-tall": lambda: make(hinged(2), {"op": "set_site", "ceiling": 2300, "niche": 1700}),
+    "pulldown-wide": lambda: make({"op": "add_insert", "compartmentId": "cmp_a", "type": "pulldown", "id": "ins_pw"}, count=1, width=1400),
+    "led-many": lambda: make({"op": "add_insert", "compartmentId": "cmp_a", "type": "led", "id": "ins_l1"},
+                             {"op": "add_insert", "compartmentId": "cmp_b", "type": "led", "id": "ins_l2"}),
+}
+
+HEBREW = re.compile("[֐-׿]")
+PLACEHOLDER = re.compile(r"\{(\w+)\}")
+FOREIGN = ("en", "ru", "ar")
+
+
+def test_every_entry_has_all_three_languages_with_the_same_placeholders():
+    assert len(CATALOG) > 200
+    for source, entry in CATALOG.items():
+        assert HEBREW.search(source), source
+        for lang in FOREIGN:
+            text = entry.get(lang)
+            assert text and text.strip(), (source, lang)
+            assert not HEBREW.search(text), (source, lang, text)
+            assert sorted(PLACEHOLDER.findall(text)) == sorted(PLACEHOLDER.findall(source)), (source, lang, text)
+            assert text[: len(text) - len(text.lstrip())] == source[: len(source) - len(source.lstrip())], (source, lang)
+
+
+@pytest.mark.parametrize("lang", FOREIGN)
+@pytest.mark.parametrize("name", sorted(VARIANTS))
+def test_a_foreign_dossier_has_no_hebrew_left(name, lang):
+    i18n.MISSING.clear()
+    context = build(VARIANTS[name](), DESIGN_CATALOG, None, date(2026, 10, 17), lang)
+    html = render_html(context)
+    assert i18n.MISSING == set(), sorted(i18n.MISSING)[:5]
+    leftovers = sorted({m.group() for m in HEBREW.finditer(html)})
+    assert leftovers == [], (name, lang, html[max(0, html.find(leftovers[0]) - 80): html.find(leftovers[0]) + 80])
+    rtl = lang == "ar"
+    assert f'<html lang="{lang}" dir="{"rtl" if rtl else "ltr"}">' in html
+
+
+def test_the_hebrew_dossier_is_unchanged_and_right_to_left():
+    html = render_html(build(DESIGNS["rich"](), DESIGN_CATALOG, None, date(2026, 10, 17)))
+    assert '<html lang="he" dir="rtl">' in html
+    assert "תיק נגר" in html and "רשימת חיתוך" in html and "17 באוקטובר 2026" in html
+
+
+def test_dates_and_titles_read_naturally():
+    day = date(2026, 10, 17)
+    assert [long_date(day, lang) for lang in LANGUAGES] == ["17 באוקטובר 2026", "October 17, 2026", "17 октября 2026",
+                                                             "17 أكتوبر 2026"]
+    with language("en"):
+        assert tr("רשימת חיתוך") == CATALOG["רשימת חיתוך"]["en"]
+        assert tr("HDF") == "HDF"  # no Hebrew: nothing to translate
+    assert tr("רשימת חיתוך") == "רשימת חיתוך"  # outside a dossier everything stays Hebrew
+
+
+def test_the_workspace_advisories_stay_hebrew():
+    items = advisories(basic_wardrobe(), DESIGN_CATALOG)
+    assert items and all(HEBREW.search(a["title"]) for a in items)
+    with language("ru"):
+        russian = advisories(basic_wardrobe(), DESIGN_CATALOG)
+    assert [a["id"] for a in russian] == [a["id"] for a in items]
+    assert not any(HEBREW.search(a["title"] + a["body"] + a["grade"]) for a in russian)
+
+
+def test_an_unknown_language_is_refused():
+    with pytest.raises(ValueError), language("fr"):
+        pass
+
+
+def test_the_api_takes_the_language_and_names_the_file_after_it():
+    calls = []
+    app.dependency_overrides[get_pdf_renderer] = lambda: lambda *args, **kwargs: calls.append(kwargs) or b"%PDF-1.7 fake"
+    try:
+        client = TestClient(app)
+        hebrew = client.post("/api/dossier", json={"design": basic_wardrobe()})
+        arabic = client.post("/api/dossier", json={"design": basic_wardrobe(), "language": "ar"})
+        refused = client.post("/api/dossier", json={"design": basic_wardrobe(), "language": "fr"})
+    finally:
+        app.dependency_overrides.clear()
+    assert hebrew.headers["content-disposition"] == 'attachment; filename="banai-dossier.pdf"'
+    assert arabic.headers["content-disposition"] == 'attachment; filename="banai-dossier-ar.pdf"'
+    assert calls == [{}, {"lang": "ar"}]
+    assert refused.status_code == 422 and refused.json()["error"]["code"] == "INVALID_REQUEST"
+
+
+def test_an_arabic_pdf_renders_in_chromium():
+    pdf = html_to_pdf(render_html(build(DESIGNS["rich"](), DESIGN_CATALOG, None, date(2026, 10, 17), "ar")))
+    assert pdf.startswith(b"%PDF-") and len(pdf) > 50_000
+
+
+def test_placeholders_are_plain_names_in_every_translation():
+    """Security review (ADR-029): no attribute access, conversion or format spec can hide in a translation."""
+    for source, entry in CATALOG.items():
+        for text in (source, *entry.values()):
+            for _, field, spec, conversion in Formatter().parse(text):
+                if field is not None:
+                    assert field.isidentifier() and not spec and conversion is None, (source, text)
+
+
+def test_a_template_with_params_is_always_a_literal():
+    """Customer text may be a param, never the template: tr()/t() with keyword args take a string literal."""
+    app_dir = Path(__file__).resolve().parents[2] / "app"
+    offenders = []
+    for path in app_dir.rglob("*.py"):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.Call) and getattr(node.func, "id", None) in ("tr", "_t") and node.keywords:
+                if not (node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str)):
+                    offenders.append(f"{path.name}:{node.lineno}")
+    assert offenders == []
+    for path in (app_dir / "dossier" / "templates").rglob("*.j2"):
+        for m in re.finditer(r"\bt\(\s*([^\"'\s)])", path.read_text(encoding="utf-8")):  # a call, not "t()" in a comment
+            offenders.append(f"{path.name}: t({m.group(1)}...")
+    assert offenders == []
+
+
+def test_a_broken_translation_fails_as_a_render_error(monkeypatch):
+    from app.dossier import render
+    from app.dossier.render import RenderError, render_pdf
+
+    monkeypatch.setattr(render, "html_to_pdf", lambda html: pytest.fail("never reaches Chromium"))
+    monkeypatch.setitem(CATALOG, "עמוד {no} מתוך {total}", {"en": "Page {no} of {missing}", "ru": "x", "ar": "x"})
+    with pytest.raises(RenderError):
+        render_pdf(basic_wardrobe(), DESIGN_CATALOG, None, date(2026, 10, 17), "en")

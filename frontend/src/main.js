@@ -18,6 +18,9 @@ import { createChatModel } from './chat/chatModel.js';
 import { mountChat } from './chat/chatPanel.js';
 import { bindPushToTalk } from './chat/voice.js';
 import { createSpeaker, createSpeechPrefs, speechErrorMessage } from './chat/speech.js';
+import {
+  ct, getChatLanguage, loadChatLanguage, onChatLanguage, saveChatLanguage, setChatLanguage,
+} from './chat/chatI18n.js';
 import { mountStartScreen } from './entry/startScreen.js';
 import { createSaveDialog } from './share/saveDialog.js';
 import { coverPng, createRenderHud } from './render/renderHud.js';
@@ -216,8 +219,17 @@ function bindRenderAndDossier(store, viewer) {
     hud.stop(); // a render of an older design must not stay on screen
   });
 
+  // The dossier menu: the carpenter's language (ADR-029). Each option downloads the PDF in it.
+  const menu = document.querySelector('.dossier-menu');
   const button = byId('open-dossier');
-  button.addEventListener('click', async () => {
+  document.addEventListener('pointerdown', (event) => {
+    if (menu.open && !menu.contains(event.target)) menu.open = false;
+  });
+  menu.querySelectorAll('[data-lang]').forEach((option) => option.addEventListener('click', () => {
+    menu.open = false;
+    download(option.dataset.lang);
+  }));
+  async function download(language) {
     if (button.getAttribute('aria-busy') === 'true') return;
     button.setAttribute('aria-busy', 'true');
     button.textContent = 'מכין תיק…';
@@ -227,17 +239,17 @@ function bindRenderAndDossier(store, viewer) {
     try {
       let pdf;
       try {
-        pdf = await getDossier(design, { renderPng: image ? await coverPng(image) : null });
+        pdf = await getDossier(design, { renderPng: image ? await coverPng(image) : null, language });
       } catch (error) {
         // A cover the server refuses (too large, unreadable) must not cost the dossier itself.
         if (!withCover || !['PAYLOAD_TOO_LARGE', 'INVALID_IMAGE'].includes(error?.code)) throw error;
         withCover = false;
-        pdf = await getDossier(design);
+        pdf = await getDossier(design, { language });
       }
       const url = URL.createObjectURL(pdf);
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'banai-dossier.pdf';
+      link.download = language === 'he' ? 'banai-dossier.pdf' : `banai-dossier-${language}.pdf`;
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 10_000);
       if (withCover) toast('תיק הנגר מוכן, עם הרינדור בשער');
@@ -248,7 +260,7 @@ function bindRenderAndDossier(store, viewer) {
       button.removeAttribute('aria-busy');
       button.textContent = 'תיק נגר';
     }
-  });
+  }
   return hud;
 }
 
@@ -274,9 +286,9 @@ async function previewProposal(signed, design, catalog) {
   try {
     const [before, after] = await Promise.all([getAdvisories(design), getAdvisories(preview)]);
     const delta = warnings(after) - warnings(before);
-    if (delta > 0) impact = `+${delta} ${delta === 1 ? 'אזהרה' : 'אזהרות'} בייעוץ`;
-    else if (delta < 0) impact = `${-delta} ${delta === -1 ? 'אזהרה' : 'אזהרות'} פחות בייעוץ`;
-    else impact = 'בלי שינוי באזהרות';
+    if (delta > 0) impact = ct(delta === 1 ? '+{n} אזהרה בייעוץ' : '+{n} אזהרות בייעוץ', { n: delta });
+    else if (delta < 0) impact = ct(delta === -1 ? '{n} אזהרה פחות בייעוץ' : '{n} אזהרות פחות בייעוץ', { n: -delta });
+    else impact = ct('בלי שינוי באזהרות');
   } catch { /* the card works without the impact line */ }
   return {
     id: signed.signature.slice(0, 16), baseRevision: signed.baseRevision, summary: signed.summary,
@@ -354,6 +366,18 @@ async function boot() {
   // The OpenAI key stays in this browser; the backend only checks it. load() re-checks a stored key.
   const keyStorage = createKeyStorage();
   const aiSettings = createAiSettingsModel({ storage: keyStorage, verify: (apiKey) => verifyAiKey(apiKey) });
+  // The session language (ADR-029): remembered in this browser; the chat column, the agent, transcription
+  // and the spoken voice follow it, and the dossier menu marks it as the default.
+  setChatLanguage(loadChatLanguage());
+  const markDossierLanguage = (lang) => document.querySelectorAll('.dossier-menu [data-lang]').forEach((option) => {
+    option.setAttribute('aria-current', String(option.dataset.lang === lang));
+  });
+  markDossierLanguage(getChatLanguage());
+  onChatLanguage((lang) => {
+    saveChatLanguage(lang);
+    markDossierLanguage(lang);
+  });
+
   // Spoken replies (ADR-028): made on the server with the customer's key, played here.
   const speechPrefs = createSpeechPrefs();
   const speaker = createSpeaker({
@@ -376,7 +400,7 @@ async function boot() {
     reply: async (history, { spoken = false } = {}) => {
       speaker.stop(); // a new question ends the previous answer
       const { design, revision } = store.getState();
-      const data = await sendChatMessage(keyStorage.get(), history, { design, revision, spoken });
+      const data = await sendChatMessage(keyStorage.get(), history, { design, revision, spoken, language: getChatLanguage() });
       if (spoken && speechPrefs.isEnabled()) speaker.speak(data.reply, speechPrefs.getVoice());
       const proposal = data.proposal ? await previewProposal(data.proposal, design, catalog) : null;
       return proposal ? { reply: data.reply, proposal } : { reply: data.reply };
@@ -393,12 +417,12 @@ async function boot() {
         if (!proposal.signed) throw Object.assign(new Error('unsigned'), { code: 'BAD_SIGNATURE' });
         const data = await applyProposal(design, revision, proposal.signed);
         store.adopt(data.design, data.revision);
-        chatModel.resolveProposal('אושר והוחל. אפשר לבטל עם Ctrl+Z.');
+        chatModel.resolveProposal(ct('אושר והוחל. אפשר לבטל עם Ctrl+Z.'));
       } catch (error) {
         let message = 'לא הצלחנו להחיל את ההצעה. התכנון לא השתנה.';
         if (error?.code === 'STALE') message = 'התכנון השתנה מאז ההצעה, ולכן היא לא הוחלה. בקשו הצעה חדשה.';
         else if (error?.code === 'BUSY') message = 'השרת עסוק ולא החיל את ההצעה. התכנון לא השתנה; בקשו אותה שוב בעוד רגע.';
-        chatModel.resolveProposal(message);
+        chatModel.resolveProposal(ct(message));
       }
     },
     aiSettings,
@@ -419,7 +443,7 @@ async function boot() {
         transcribe: (audio) => {
           const apiKey = keyStorage.get();
           if (!apiKey) return Promise.reject(Object.assign(new Error('no key'), { code: 'INVALID_FORMAT' }));
-          return transcribeAudio(apiKey, audio);
+          return transcribeAudio(apiKey, audio, { language: getChatLanguage() });
         },
       });
     },

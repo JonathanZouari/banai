@@ -1,5 +1,5 @@
     <div>
-      <h3>שיטת בנייה מוצהרת</h3>
+      <h3>{{ t("שיטת בנייה מוצהרת") }}</h3>
       <ol class="lead method">
 {% for step in p.method %}
         <li>{{ step }}</li>
@@ -7,9 +7,9 @@
       </ol>
     </div>
     <div>
-      <h3>לוחות</h3>
+      <h3>{{ t("לוחות") }}</h3>
       <table>
-        <thead><tr><th>לוח</th><th>חומר</th><th>גימור</th><th class="n">עובי</th><th>שימוש</th><th class="n">לוחות</th><th class="n">קנט (מ׳)</th></tr></thead>
+        <thead><tr><th>{{ t("לוח") }}</th><th>{{ t("חומר") }}</th><th>{{ t("גימור") }}</th><th class="n">{{ t("עובי") }}</th><th>{{ t("שימוש") }}</th><th class="n">{{ t("לוחות") }}</th><th class="n">{{ t("קנט (מ׳)") }}</th></tr></thead>
         <tbody>
 {% for row in p.boards %}
           <tr>
@@ -19,16 +19,16 @@
             <td class="n">{{ row.board.thickness }}</td>
             <td>{{ row.uses }}</td>
             <td class="n">{{ row.sheets }}</td>
-            <td class="n">{% if row.edge %}{{ row.edge }}{% elif row.board.edging is none and row.board.kind == "mdf" %}צבע{% else %}—{% endif %}</td>
+            <td class="n">{% if row.edge %}{{ row.edge }}{% elif row.board.edging is none and row.board.kind == "mdf" %}{{ t("צבע") }}{% else %}—{% endif %}</td>
           </tr>
 {% endfor %}
         </tbody>
       </table>
     </div>
     <div>
-      <h3>פרזול</h3>
+      <h3>{{ t("פרזול") }}</h3>
       <table>
-        <thead><tr><th>פריט</th><th class="n">כמות</th><th>מפרט</th><th>מקור</th></tr></thead>
+        <thead><tr><th>{{ t("פריט") }}</th><th class="n">{{ t("כמות") }}</th><th>{{ t("מפרט") }}</th><th>{{ t("מקור") }}</th></tr></thead>
         <tbody>
 {% for h in p.hardware %}
           <tr><td>{{ h.name | ltr }}</td><td class="n">{{ h.qty }}</td><td>{{ h.spec | ltr }}</td><td class="muted">{{ num(h.src) }}</td></tr>

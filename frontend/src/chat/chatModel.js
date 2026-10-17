@@ -5,6 +5,8 @@
 // A proposal is { id, baseRevision, summary, changes: [{ title, detail }] }. It is kept apart from
 // the committed design and is only ever "pending" or "stale" (the design changed after it was made).
 
+import { ct } from './chatI18n.js';
+
 export const NOT_CONNECTED_MESSAGE =
   'הסוכן עוד לא מחובר. הוסיפו מפתח OpenAI בהגדרות AI, או המשיכו לתכנן ידנית בפאנל התכנון.';
 export const AGENT_ERROR_MESSAGE = 'בוב הבנאי לא הצליח לענות. נסו שוב.';
@@ -64,7 +66,7 @@ export function createChatModel({ getRevision, agent = null }) {
       if (thinking) return { ok: false, reason: 'busy' };
       push('user', text);
       if (!agent?.isReady()) {
-        push('system', NOT_CONNECTED_MESSAGE);
+        push('system', ct(NOT_CONNECTED_MESSAGE));
         notify();
         return { ok: true };
       }
@@ -80,7 +82,7 @@ export function createChatModel({ getRevision, agent = null }) {
           push('assistant', typeof answer === 'string' ? answer : answer.reply);
           if (answer?.proposal) proposal = answer.proposal;
         })
-        .catch((error) => push('system', CHAT_ERRORS[error?.code] ?? AGENT_ERROR_MESSAGE))
+        .catch((error) => push('system', ct(Object.hasOwn(CHAT_ERRORS, error?.code ?? '') ? CHAT_ERRORS[error.code] : AGENT_ERROR_MESSAGE)))
         .finally(() => {
           thinking = false;
           notify();
@@ -98,7 +100,7 @@ export function createChatModel({ getRevision, agent = null }) {
     cancelProposal() {
       if (!proposal) return false;
       proposal = null;
-      push('system', 'ההצעה בוטלה. התכנון לא השתנה.');
+      push('system', ct('ההצעה בוטלה. התכנון לא השתנה.'));
       notify();
       return true;
     },

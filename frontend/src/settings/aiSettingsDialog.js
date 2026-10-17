@@ -4,6 +4,7 @@ import { el, button } from '../editor/fields.js';
 import { createDialog } from '../ui/dialog.js';
 import { STATUS_DETAILS, STATUS_LABELS } from './aiSettingsModel.js';
 import { AI_VOICE_DISCLOSURE, RECOMMENDED_VOICES, SAMPLE_TEXT, VOICES } from '../chat/speech.js';
+import { ct } from '../chat/chatI18n.js';
 
 const formatTime = (iso) => (iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '');
 
@@ -56,7 +57,7 @@ export function createAiSettingsDialog(model, { speech = null } = {}) {
     }));
     voiceSelect.dataset.testid = 'ai-voice-select';
     voiceSelect.addEventListener('change', () => speech.prefs.setVoice(voiceSelect.value));
-    preview = button('השמע דוגמה', () => speech.speaker.speak(SAMPLE_TEXT, voiceSelect.value), { variant: 'secondary', testId: 'ai-voice-preview' });
+    preview = button('השמע דוגמה', () => speech.speaker.speak(ct(SAMPLE_TEXT), voiceSelect.value) /* in the session language */, { variant: 'secondary', testId: 'ai-voice-preview' });
     voiceSection = [
       el('div', { className: 'field' }, [
         el('label', { className: 'field__label', text: 'קול התשובות', attrs: { for: 'reply-voice' } }),

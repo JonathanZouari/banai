@@ -18,6 +18,8 @@ export const SAMPLE_TEXT = 'היי, אני בוב הבנאי. בואו נתכנ�
 export const AI_VOICE_DISCLOSURE = 'קול שנוצר ב-AI';
 export const MAX_SPEAK_CHARS = 4000; // the server's input cap; it speaks at most ~1200 of them
 
+import { ct } from './chatI18n.js';
+
 const ENABLED_KEY = 'banai.speech.enabled';
 const VOICE_KEY = 'banai.speech.voice';
 
@@ -30,7 +32,7 @@ const SPEECH_ERRORS = Object.freeze({
   BUSY: 'הקול עמוס כרגע. התשובה מופיעה בכתב.',
   PLAYBACK: 'הדפדפן לא השמיע את הקול. התשובה מופיעה בכתב.',
 });
-export const speechErrorMessage = (code) => (Object.hasOwn(SPEECH_ERRORS, code ?? '') ? SPEECH_ERRORS[code] : 'לא הצלחנו להקריא את התשובה. היא מופיעה בכתב.');
+export const speechErrorMessage = (code) => ct(Object.hasOwn(SPEECH_ERRORS, code ?? '') ? SPEECH_ERRORS[code] : 'לא הצלחנו להקריא את התשובה. היא מופיעה בכתב.');
 
 /** Whether replies are spoken (default on) and which voice, kept in this browser. Storage may be blocked. */
 export function createSpeechPrefs(storage = globalThis.localStorage) {

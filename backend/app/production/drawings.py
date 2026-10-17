@@ -18,6 +18,7 @@ from markupsafe import Markup, escape
 
 from app.domain.defaults import SHOE_TIER
 from app.domain.layout import DOOR_GAP, SLIDE_TOP_TRACK, DoorLayout, Layout
+from app.i18n import tr
 from app.production.boards import Board, board_for, handle_of, resolve
 from app.production.nesting import SHEET, Sheet
 from app.production.parts import DRAWER_GAP, INNER_Z, LRI, PDI, PLINTH_FLOOR_GAP, SHOE_RISE, Part, Production, half_up
@@ -357,7 +358,7 @@ def front_elevation(design: dict, lay: Layout, catalog: dict, uid: str = "fe") -
     if ceiling:
         if ceiling > H:
             cv.dim(t, W, -H, W, -ceiling, ceiling - H, fs * 0.75, offset=fs * 2.2)
-        t.add(text(-gap + fs * 3.2, -ceiling - fs * 0.45, f"תקרה {ceiling}", font_size=fs * 0.8, class_="note"))
+        t.add(text(-gap + fs * 3.2, -ceiling - fs * 0.45, tr("תקרה {c}", c=ceiling), font_size=fs * 0.8, class_="note"))
     if gap > 0 and _walls(niche, lay):
         cv.dim(t, -gap, -ceil * 0.42, 0, -ceil * 0.42, half_up(gap), fs * 0.7, ext=False)
     return cv.markup()
@@ -453,7 +454,7 @@ def plan_view(design: dict, lay: Layout, catalog: dict, partition_depth: int, ui
         swing = half_up(max_door)
         svg.add(line(-gap, D + P + max_door, W + gap, D + P + max_door, "ln-dash"))
         cv.dim(svg, -gap, D, -gap, D + max_door, swing, fs * 0.8, offset=-fs * 1.6)
-        svg.add(text(W / 2, D + max_door + fs * 1.6, f"מרחב פתיחה נדרש מול הארון: {swing} מ״מ", font_size=fs * 0.8, class_="note"))
+        svg.add(text(W / 2, D + max_door + fs * 1.6, tr("מרחב פתיחה נדרש מול הארון: {mm} מ״מ", mm=swing), font_size=fs * 0.8, class_="note"))
     return cv.markup()
 
 
@@ -544,9 +545,9 @@ def sheet_drawing(sheet: Sheet, parts_by_no: dict[int, Part], uid: str = "sh") -
             a, b = (part.width, part.length) if p.rotated else (part.length, part.width)
             svg.add(text(cx, cy + fs * 1.05, f"{a}×{b}", font_size=fs * 0.7, class_="part-dim" + on, direction="ltr"))
     # RTL page: `start` is the right edge, `end` the left one.
-    svg.add(text(L, -fs * 0.8, f"{board.name} · {board.thickness} מ״מ · {LRI}{L}×{Wd}{PDI}", font_size=fs * 0.9,
+    svg.add(text(L, -fs * 0.8, tr("{board} · {t} מ״מ · {size}", board=board.name, t=board.thickness, size=f"{LRI}{L}×{Wd}{PDI}"), font_size=fs * 0.9,
                  class_="sheet-title", text_anchor="start"),
-            text(0, -fs * 0.8, f"ניצולת {half_up(sheet.used * 100)}%", font_size=fs * 0.9, class_="sheet-title", text_anchor="end"))
+            text(0, -fs * 0.8, tr("ניצולת {p}%", p=half_up(sheet.used * 100)), font_size=fs * 0.9, class_="sheet-title", text_anchor="end"))
     return cv.markup()
 
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from app.i18n import tr
 from app.production.boards import Board
 from app.production.nesting import Nesting
 from app.production.parts import Production, half_up
@@ -58,7 +59,7 @@ def sheet_price(board: Board) -> tuple[str | None, str]:
         return "sheetBack", ""
     if board.thickness not in PRICED_THICKNESS:
         return None, ""
-    note = "" if board.thickness == 17 else "לפי מחיר לוח 17 מ״מ"
+    note = "" if board.thickness == 17 else tr("לפי מחיר לוח 17 מ״מ")
     if board.kind == "melamine":
         return ("sheetWhite" if board.white else "sheetColour"), note
     if board.kind == "mdf":
@@ -77,23 +78,23 @@ def estimate(prod: Production, nesting: Nesting) -> Estimate:
     for key, count in nesting.by_board.items():
         board = prod.boards[key]
         price, note = sheet_price(board)
-        name = f"{board.name}, {board.thickness} מ״מ"
+        name = tr("{board}, {t} מ״מ", board=board.name, t=board.thickness)
         if price:
-            priced(name, count, "לוח", price, note)
+            priced(name, count, tr("לוח"), price, note)
         else:
             unpriced.append(name)
         if board.kind == "mdf":
-            unpriced.append(f"צביעה בתנור: {board.name}")
+            unpriced.append(tr("צביעה בתנור: {board}", board=board.name))
     for key, metres in prod.edge_m.items():
         board = prod.boards[key]
-        name = f"קנט {board.name}, {board.thickness} מ״מ"
+        name = tr("קנט {board}, {t} מ״מ", board=board.name, t=board.thickness)
         if board.edging == "pvc" and board.thickness in PRICED_THICKNESS:
-            priced(name, metres, "מ׳", "edgeM")
+            priced(name, metres, tr("מ׳"), "edgeM")
         else:
             unpriced.append(name)
     for h in prod.hardware:
         if h.price:
-            priced(h.name, h.qty, "יח׳", h.price)
+            priced(h.name, h.qty, tr("יח׳"), h.price)
         elif h.buy:
             unpriced.append(h.name)
     lo, hi = sum(x.lo for x in lines), sum(x.hi for x in lines)

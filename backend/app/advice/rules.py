@@ -5,7 +5,8 @@ docs/research/carpentry-wardrobes-research.md, so the app explains why instead o
 is "approved". A quick fix is a list of ops that was dry-run against the design: a fix the engine
 would reject is never offered. ADR-018: this is the only implementation (no JS mirror).
 
-Texts are Hebrew, for the RTL workspace. Ids are stable per rule (and per compartment where a rule
+Texts are Hebrew, for the RTL workspace, and go through tr(): inside `with language(...)` (the dossier)
+they come out in that language (app/i18n.py). Ids are stable per rule (and per compartment where a rule
 fires per compartment), so the client can keep a dismissed advisory dismissed.
 """
 
@@ -17,6 +18,7 @@ from app.domain.apply import apply_ops
 from app.domain.defaults import SHOE_TIER
 from app.domain.errors import DomainError
 from app.domain.layout import SLIDE_OVERLAP, SLIDE_TRACK_DEPTH, Layout, layout
+from app.i18n import tr
 
 LEVEL_ORDER = {"critical": 0, "warn": 1, "info": 2}
 HANG_DEPTH = 580  # minimum depth for hangers [39]
@@ -71,7 +73,7 @@ class _Collector:
 
     def add(self, id_: str, level: str, title: str, body: str, grade: str, src: str, targets: list[str],
             fix: dict | None = None) -> None:
-        item = {"id": id_, "level": level, "title": title, "body": body, "grade": grade, "src": src, "targets": targets}
+        item = {"id": id_, "level": level, "title": title, "body": body, "grade": tr(grade), "src": tr(src), "targets": targets}
         if fix:
             item["fix"] = fix
         self.items.append(item)
@@ -93,33 +95,33 @@ def _site(design: dict, lay: Layout, out: _Collector) -> None:
     if ceiling:
         diagonal = math.hypot(lay.height, lay.depth)
         max_height = int(math.sqrt(max(0, (ceiling - 10) ** 2 - lay.depth ** 2)) // 10 * 10)
-        lower = out.fix(f"הנמך ל-{cm(max_height)} ס״מ", [{"op": "update_dimensions", "height": max_height}])
+        lower = out.fix(tr("הנמך ל-{h} ס״מ", h=cm(max_height)), [{"op": "update_dimensions", "height": max_height}])
         if lay.height > ceiling:
-            out.add("r1-over", "critical", "הארון גבוה מהתקרה",
-                    f"גובה {cm(lay.height)} ס״מ מול תקרה של {cm(ceiling)} ס״מ.", "מדידה", "סעיף 5.1", ["carcass"], lower)
+            out.add("r1-over", "critical", tr("הארון גבוה מהתקרה"),
+                    tr("גובה {h} ס״מ מול תקרה של {c} ס״מ.", h=cm(lay.height), c=cm(ceiling)), "מדידה", "סעיף 5.1", ["carcass"], lower)
         elif diagonal + 10 > ceiling:
-            out.add("r1-lift", "warn", "הגוף לא יתרומם לעמידה",
-                    f"גוף שהורכב בשכיבה מסתובב סביב הפינה האחורית: האלכסון {cm(diagonal)} ס״מ, והתקרה {cm(ceiling)} ס״מ. "
-                    f"הגובה המרבי הוא {cm(max_height)} ס״מ, ואת ההפרש סוגרים בפילר עליון.", "הערכה", "[97]",
+            out.add("r1-lift", "warn", tr("הגוף לא יתרומם לעמידה"),
+                    tr("גוף שהורכב בשכיבה מסתובב סביב הפינה האחורית: האלכסון {d} ס״מ, והתקרה {c} ס״מ. "
+                       "הגובה המרבי הוא {m} ס״מ, ואת ההפרש סוגרים בפילר עליון.", d=cm(diagonal), c=cm(ceiling), m=cm(max_height)), "הערכה", "[97]",
                     ["carcass"], lower)
         elif ceiling - lay.height > 60:
-            out.add("r1-gap", "info", f"{cm(ceiling - lay.height)} ס״מ עד התקרה",
-                    "מקובל לסגור את המרווח בפילר עליון או בכרכוב, אחרי שהגוף הורם למקום.", "כלל אצבע", "[97]", ["carcass"])
+            out.add("r1-gap", "info", tr("{g} ס״מ עד התקרה", g=cm(ceiling - lay.height)),
+                    tr("מקובל לסגור את המרווח בפילר עליון או בכרכוב, אחרי שהגוף הורם למקום."), "כלל אצבע", "[97]", ["carcass"])
     # R12: niche fit and fillers [38][96].
     if niche:
         gap = niche - lay.width
-        narrower = out.fix(f"התאם ל-{cm(niche - 50)} ס״מ", [{"op": "update_dimensions", "width": niche - 50}])
+        narrower = out.fix(tr("התאם ל-{w} ס״מ", w=cm(niche - 50)), [{"op": "update_dimensions", "width": niche - 50}])
         if gap < 0:
-            out.add("niche-over", "critical", "הארון רחב מהנישה",
-                    f"{cm(lay.width)} ס״מ מול נישה של {cm(niche)} ס״מ (הרוחב הקטן מבין שלוש המדידות).", "מדידה",
+            out.add("niche-over", "critical", tr("הארון רחב מהנישה"),
+                    tr("{w} ס״מ מול נישה של {n} ס״מ (הרוחב הקטן מבין שלוש המדידות).", w=cm(lay.width), n=cm(niche)), "מדידה",
                     "סעיף 5.1", ["carcass"], narrower)
         elif design["doors"]["type"] == "hinged" and gap < 40:
-            out.add("r12-filler", "warn", "דלת ציר צמודה לקיר",
-                    "דלת ציר ליד קיר צריכה פילר, כדי להיפתח מעבר ל-90° בלי לשפשף את הקיר. מומלץ לפחות 2 ס״מ בכל צד.",
+            out.add("r12-filler", "warn", tr("דלת ציר צמודה לקיר"),
+                    tr("דלת ציר ליד קיר צריכה פילר, כדי להיפתח מעבר ל-90° בלי לשפשף את הקיר. מומלץ לפחות 2 ס״מ בכל צד."),
                     "כלל אצבע", "[38][96]", ["carcass"], narrower)
         elif 40 <= gap <= 300:
-            out.add("r12-gap", "info", f"פילר {cm(gap / 2)} ס״מ בכל צד",
-                    "הפילרים סוגרים את הנישה ומשמשים מרווח לפתיחת הדלתות. הנגר מכייל אותם במדידה באתר.",
+            out.add("r12-gap", "info", tr("פילר {f} ס״מ בכל צד", f=cm(gap / 2)),
+                    tr("הפילרים סוגרים את הנישה ומשמשים מרווח לפתיחת הדלתות. הנגר מכייל אותם במדידה באתר."),
                     "כלל אצבע", "[96]", ["carcass"])
 
 
@@ -134,39 +136,39 @@ def _hinged_doors(design: dict, lay: Layout, out: _Collector) -> None:
             lone = [d for d in wide if d.compartment is not None
                     and sum(1 for x in lay.doors if (x.compartment, x.anchors) == (d.compartment, d.anchors)) == 1]
             taken = _ids(design)
-            split = out.fix("פצל לשתי דלתות", [{"op": "split_door", "id": d.id, "newId": _free(f"dr_{_tag(d.id, 30)}_2", taken)}
+            split = out.fix(tr("פצל לשתי דלתות"), [{"op": "split_door", "id": d.id, "newId": _free(f"dr_{_tag(d.id, 30)}_2", taken)}
                                                 for d in lone]) if lone else None
-            count = "דלת אחת" if len(wide) == 1 else f"{len(wide)} דלתות"
-            out.add("r3-wide", "warn" if worst > MAX_HINGED_WIDTH_EXTRA else "info", "דלת רחבה מדי לציר סמוי",
-                    f"{count} ברוחב עד {cm(worst)} ס״מ. צירים סמויים מוגדרים עד 60 ס״מ, ו-65 עם ציר נוסף.", "יצרן", "[3]",
+            count = tr("דלת אחת") if len(wide) == 1 else tr("{n} דלתות", n=len(wide))
+            out.add("r3-wide", "warn" if worst > MAX_HINGED_WIDTH_EXTRA else "info", tr("דלת רחבה מדי לציר סמוי"),
+                    tr("{count} ברוחב עד {w} ס״מ. צירים סמויים מוגדרים עד 60 ס״מ, ו-65 עם ציר נוסף.", count=count, w=cm(worst)), "יצרן", "[3]",
                     [f"door:{d.id}" for d in wide], split)
         mirror = next((d for d in lay.doors if d.mirror), None)
         plain = next((d for d in lay.doors if not d.mirror), lay.doors[0])
         if mirror and mirror.kg > HEAVY_DOOR_KG:
             count = 2 if lay.width <= 2000 else 3
-            to_sliding = out.fix("עבור לדלתות הזזה", [{"op": "configure_doors", "type": "sliding",
+            to_sliding = out.fix(tr("עבור לדלתות הזזה"), [{"op": "configure_doors", "type": "sliding",
                                                        "ids": [f"dr_s{i + 1}" for i in range(count)]}])
-            out.add("r6-mirror", "warn", "דלת מראה כבדה לציר",
-                    f"מראה של 4 מ״מ על לוח מוסיפה כ-10 ק״ג למ״ר. הדלת שוקלת כ-{round(mirror.kg)} ק״ג, מעבר לטבלאות "
-                    "הצירים. בדלת כזו עדיפה הזזה במסילה של 50–100 ק״ג.", "הערכה", "[17][13]", [f"door:{mirror.id}"],
+            out.add("r6-mirror", "warn", tr("דלת מראה כבדה לציר"),
+                    tr("מראה של 4 מ״מ על לוח מוסיפה כ-10 ק״ג למ״ר. הדלת שוקלת כ-{kg} ק״ג, מעבר לטבלאות "
+                       "הצירים. בדלת כזו עדיפה הזזה במסילה של 50–100 ק״ג.", kg=round(mirror.kg)), "הערכה", "[17][13]", [f"door:{mirror.id}"],
                     to_sliding)
         plains = [d for d in lay.doors if not d.mirror] or lay.doors
         if len({d.height for d in plains}) == 1:
-            title = f"{plain.hinges} צירים לכל דלת"
-            body = f"דלת {cm(plain.height)} ס״מ, כ-{round(plain.kg)} ק״ג. המספר נקבע לפי הגובה ולפי המשקל, הגבוה מביניהם."
+            title = tr("{n} צירים לכל דלת", n=plain.hinges)
+            body = tr("דלת {h} ס״מ, כ-{kg} ק״ג. המספר נקבע לפי הגובה ולפי המשקל, הגבוה מביניהם.", h=cm(plain.height), kg=round(plain.kg))
         else:  # zone doors: each door by its own height and weight
             counts = sorted({d.hinges for d in plains})
-            title = (f"{counts[0]} צירים לכל דלת" if len(counts) == 1
-                     else f"{counts[0]}–{counts[-1]} צירים לדלת, לפי הגובה")
+            title = (tr("{n} צירים לכל דלת", n=counts[0]) if len(counts) == 1
+                     else tr("{a}–{b} צירים לדלת, לפי הגובה", a=counts[0], b=counts[-1]))
             heights = sorted({(d.height, d.hinges) for d in plains}, reverse=True)
-            body = ("המספר נקבע לכל דלת לפי הגובה שלה ולפי המשקל, הגבוה מביניהם: "
-                    + ", ".join(f"{cm(h)} ס״מ – {n}" for h, n in heights) + ".")
+            body = tr("המספר נקבע לכל דלת לפי הגובה שלה ולפי המשקל, הגבוה מביניהם: {list}.",
+                      list=", ".join(tr("{h} ס״מ – {n}", h=cm(h), n=n) for h, n in heights))
         out.add("r4-hinges", "info", title,
-                body + (f" לדלת המראה: {mirror.hinges}." if mirror and mirror is not plain else ""), "יצרן", "[3][5]",
+                body + (tr(" לדלת המראה: {n}.", n=mirror.hinges) if mirror and mirror is not plain else ""), "יצרן", "[3][5]",
                 [f"door:{d.id}" for d in lay.doors])
     if any(d.mirror for d in lay.doors):
-        out.add("r6-safety", "info", "מראה עם גיבוי בטיחות",
-                "מראה בדלת ארון מגובה ביריעת בטיחות (סיווג EN 12600), כדי שלא תתנפץ לרסיסים.", "תקן", "[21]",
+        out.add("r6-safety", "info", tr("מראה עם גיבוי בטיחות"),
+                tr("מראה בדלת ארון מגובה ביריעת בטיחות (סיווג EN 12600), כדי שלא תתנפץ לרסיסים."), "תקן", "[21]",
                 [f"door:{d.id}" for d in lay.doors if d.mirror])
 
 
@@ -178,15 +180,15 @@ def _sliding_doors(design: dict, lay: Layout, out: _Collector) -> None:
         hanging = [i for i, c in enumerate(comps) if c["rails"] or any(x["type"] == "pulldown" for x in c["inserts"])]
         if hanging and usable < HANG_DEPTH:
             depth = HANG_DEPTH + SLIDE_TRACK_DEPTH + lay.panel + 3
-            out.add("r5-depth", "warn", "אין מספיק עומק לתלייה",
-                    f"המסילות תופסות 8–10 ס״מ מהעומק. נשארים כ-{cm(usable)} ס״מ, ותלייה צריכה {cm(HANG_DEPTH)} לפחות.",
+            out.add("r5-depth", "warn", tr("אין מספיק עומק לתלייה"),
+                    tr("המסילות תופסות 8–10 ס״מ מהעומק. נשארים כ-{u} ס״מ, ותלייה צריכה {need} לפחות.", u=cm(usable), need=cm(HANG_DEPTH)),
                     "יצרן", "[11][15][39]", [f"comp:{i}" for i in hanging],
-                    out.fix(f"הגדל עומק ל-{cm(depth)} ס״מ", [{"op": "update_dimensions", "depth": depth}]))
+                    out.fix(tr("הגדל עומק ל-{d} ס״מ", d=cm(depth)), [{"op": "update_dimensions", "depth": depth}]))
         count = len(lay.doors)
         if count > 1:
-            share = "שליש" if count == 3 else "חצי" if count == 2 else f"1/{count}"
-            out.add("r5-open", "info", f"{count} דלתות הזזה בחפיפה של 2 ס״מ",
-                    f"בכל רגע פתוח לכל היותר {share} מרוחב הארון.", "חישוב", "[13][14]", [f"door:{d.id}" for d in lay.doors])
+            share = tr("שליש") if count == 3 else tr("חצי") if count == 2 else f"1/{count}"
+            out.add("r5-open", "info", tr("{n} דלתות הזזה בחפיפה של 2 ס״מ", n=count),
+                    tr("בכל רגע פתוח לכל היותר {share} מרוחב הארון.", share=share), "חישוב", "[13][14]", [f"door:{d.id}" for d in lay.doors])
         overlaps = [(d.x0, d.x0 + SLIDE_OVERLAP) for d in lay.doors[1:]]
         def box_hits(i: int) -> bool:  # the drawer box, not the compartment: the overlap sits over a partition
             x0, x1 = lay.ranges[i][0] + DRAWER_SIDE_CLEARANCE, lay.ranges[i][1] - DRAWER_SIDE_CLEARANCE
@@ -194,16 +196,16 @@ def _sliding_doors(design: dict, lay: Layout, out: _Collector) -> None:
 
         blocked = [i for i, c in enumerate(comps) if c["drawers"] and box_hits(i)]
         if blocked:
-            out.add("r10-slide", "warn", "מגירות בתחום החפיפה",
-                    "מאחורי דלתות הזזה, מגירה חייבת לשבת בתוך הפתח של דלת אחת ומחוץ לחפיפה. אחרת הדלת חוסמת אותה.",
+            out.add("r10-slide", "warn", tr("מגירות בתחום החפיפה"),
+                    tr("מאחורי דלתות הזזה, מגירה חייבת לשבת בתוך הפתח של דלת אחת ומחוץ לחפיפה. אחרת הדלת חוסמת אותה."),
                     "יצרן", "[38][15]", [f"comp:{i}" for i in blocked])
     elif design["doors"]["type"] == "hinged":
         # Only drawers behind a door: an open compartment or an open zone has no hinge to hit.
         behind = [i for i, c in enumerate(comps)
                   if any(lay.behind(d, dr["y"], dr["height"]) for d in lay.doors if i in d.compartments for dr in c["drawers"])]
         if behind:
-            out.add("r10-hinge", "info", "מגירות מאחורי דלת ציר",
-                    "כדי שהמגירה לא תתנגש בציר, מוסיפים ספייסר של עד 25 מ״מ בכל צד, או ציר 155° ללא בליטה.",
+            out.add("r10-hinge", "info", tr("מגירות מאחורי דלת ציר"),
+                    tr("כדי שהמגירה לא תתנגש בציר, מוסיפים ספייסר של עד 25 מ״מ בכל צד, או ציר 155° ללא בליטה."),
                     "יצרן", "[36][37]", [f"comp:{i}" for i in behind])
 
 
@@ -211,9 +213,9 @@ def _drawers(design: dict, lay: Layout, out: _Collector) -> None:
     """R11: concealed runners need 11-16 mm drawer sides [28][32]."""
     with_drawers = [i for i, c in enumerate(design["compartments"]) if c["drawers"]]
     if with_drawers:
-        out.add("r11-runner", "info", "תיבות מגירה מלוח 16 מ״מ",
-                "מסילות סמויות דורשות דפנות מגירה של 11–16 מ״מ, ולכן לוח 17 לא מתאים. מתכננים תיבה מלוח 16, "
-                "או מערכת עם דפנות מתכת. רוחב פנימי = רוחב התא פחות 42 מ״מ.", "יצרן", "[28][32]",
+        out.add("r11-runner", "info", tr("תיבות מגירה מלוח 16 מ״מ"),
+                tr("מסילות סמויות דורשות דפנות מגירה של 11–16 מ״מ, ולכן לוח 17 לא מתאים. מתכננים תיבה מלוח 16, "
+                   "או מערכת עם דפנות מתכת. רוחב פנימי = רוחב התא פחות 42 מ״מ."), "יצרן", "[28][32]",
                 [f"comp:{i}" for i in with_drawers])
 
 
@@ -224,7 +226,7 @@ def _spans(design: dict, lay: Layout, out: _Collector) -> None:
     def split(i: int) -> dict | None:
         c = comps[i]
         tag = _tag(c["id"], 30)
-        return out.fix("חלק את התא", [{"op": "add_partition", "compartmentId": c["id"], "offset": (c["width"] - lay.panel) // 2,
+        return out.fix(tr("חלק את התא"), [{"op": "add_partition", "compartmentId": c["id"], "offset": (c["width"] - lay.panel) // 2,
                                        "id": f"prt_{tag}_s", "newCompartmentId": f"cmp_{tag}_s"}])
 
     # A divider is fixed at both ends, which halves the sag [26]. The research's work rule (§2.1) takes fixing as
@@ -232,16 +234,16 @@ def _spans(design: dict, lay: Layout, out: _Collector) -> None:
     long_shelves = [i for i, c in enumerate(comps)
                     if any(c["width"] > (MAX_FIXED_SHELF_SPAN if s["fixed"] else MAX_SHELF_SPAN) for s in c["shelves"])]
     if long_shelves:
-        out.add("r7-sag", "warn", "מדף ארוך עלול לשקוע",
-                f"מדף של {cm(max(comps[i]['width'] for i in long_shelves))} ס״מ במלמין 17 מ״מ: עד כ-80 ס״מ לבגדים "
-                "מקופלים, וכ-60 לספרים. זחילה לאורך זמן מקצרת עוד.", "הערכה", "[22][25]",
+        out.add("r7-sag", "warn", tr("מדף ארוך עלול לשקוע"),
+                tr("מדף של {w} ס״מ במלמין 17 מ״מ: עד כ-80 ס״מ לבגדים "
+                   "מקופלים, וכ-60 לספרים. זחילה לאורך זמן מקצרת עוד.", w=cm(max(comps[i]['width'] for i in long_shelves))), "הערכה", "[22][25]",
                 [f"comp:{i}" for i in long_shelves], split(long_shelves[0]))
     long_rails = [i for i, c in enumerate(comps) if c["rails"] and c["width"] > RAIL_SUPPORT_SPAN]
     if long_rails:
         worst = max(comps[i]["width"] for i in long_rails)
         too_long = worst > MAX_RAIL_SPAN
-        out.add("r8-rail", "warn" if too_long else "info", "מוט תלייה ארוך מדי" if too_long else "למוט נדרשת תמיכה אמצעית",
-                f"מוט עגול 25 מ״מ: מ-80 ס״מ צריך תמיכה באמצע, ולא יותר מ-100 ס״מ בסך הכול. כאן {cm(worst)} ס״מ.",
+        out.add("r8-rail", "warn" if too_long else "info", tr("מוט תלייה ארוך מדי") if too_long else tr("למוט נדרשת תמיכה אמצעית"),
+                tr("מוט עגול 25 מ״מ: מ-80 ס״מ צריך תמיכה באמצע, ולא יותר מ-100 ס״מ בסך הכול. כאן {w} ס״מ.", w=cm(worst)),
                 "יצרן", "[41]", [f"comp:{i}" for i in long_rails],
                 split(next(i for i in long_rails if comps[i]["width"] == worst)) if too_long else None)
 
@@ -253,10 +255,10 @@ def _zones(design: dict, lay: Layout, out: _Collector) -> None:
     zoned = [i for i, c in enumerate(comps) if any(s["fixed"] for s in c["shelves"])]
     if zoned:
         count = sum(s["fixed"] for i in zoned for s in comps[i]["shelves"])
-        out.add("r20-dividers", "info", "מדף קבוע בין אזורים" if count == 1 else f"{count} מדפים קבועים בין אזורים",
-                "מדף שמחלק תא לאזורים מחובר בקונפירמט לדפנות ולמחיצות, בעומק המחיצות, ולא יושב על פינים. הוא מקשיח "
-                "את הגוף, וקיבוע הקצוות מקטין את השקיעה בכחצי. את הגובה שלו קובעים לפני הייצור: אחר כך הוא לא זז "
-                "כמו מדף על פינים.", "כלל אצבע", "[26][29]", [f"comp:{i}" for i in zoned])
+        out.add("r20-dividers", "info", tr("מדף קבוע בין אזורים") if count == 1 else tr("{n} מדפים קבועים בין אזורים", n=count),
+                tr("מדף שמחלק תא לאזורים מחובר בקונפירמט לדפנות ולמחיצות, בעומק המחיצות, ולא יושב על פינים. הוא מקשיח "
+                   "את הגוף, וקיבוע הקצוות מקטין את השקיעה בכחצי. את הגובה שלו קובעים לפני הייצור: אחר כך הוא לא זז "
+                   "כמו מדף על פינים."), "כלל אצבע", "[26][29]", [f"comp:{i}" for i in zoned])
 
 
 def _inserts(design: dict, lay: Layout, out: _Collector) -> None:
@@ -268,35 +270,35 @@ def _inserts(design: dict, lay: Layout, out: _Collector) -> None:
         high = next((r for r in sorted(c["rails"], key=lambda r: -r["y"]) if lay.floor_y(r["y"]) > 1900), None)
         fits = PULLDOWN_WIDTH[0] <= c["width"] <= PULLDOWN_WIDTH[1]
         if high and not pulldown:
-            swap = out.fix("החלף במתקן נשלף", [
+            swap = out.fix(tr("החלף במתקן נשלף"), [
                 {"op": "remove_component", "id": high["id"]},
                 {"op": "add_insert", "compartmentId": c["id"], "type": "pulldown", "y": high["y"],
                  "id": f"ins_{_tag(c['id'], 30)}_p"},
             ]) if fits else None
-            out.add(f"r16-high-{i}", "info", f"מוט גבוה בתא {n}",
-                    f"המוט בגובה {cm(lay.floor_y(high['y']))} ס״מ מהרצפה. מעל כ-190 ס״מ נוח יותר מתקן תלייה נשלף."
-                    + ("" if fits else f" המתקנים בשוק ברוחב 83–115 ס״מ, והתא ברוחב {cm(c['width'])}."),
+            out.add(f"r16-high-{i}", "info", tr("מוט גבוה בתא {n}", n=n),
+                    tr("המוט בגובה {h} ס״מ מהרצפה. מעל כ-190 ס״מ נוח יותר מתקן תלייה נשלף.", h=cm(lay.floor_y(high['y'])))
+                    + ("" if fits else tr(" המתקנים בשוק ברוחב 83–115 ס״מ, והתא ברוחב {w}.", w=cm(c['width']))),
                     "הערכה", "[43][44]", [f"comp:{i}"], swap)
         if pulldown and not fits:
-            out.add(f"r16-width-{i}", "warn", f"מתקן נשלף לא בגודל התא {n}",
-                    f"מתקני תלייה נשלפים מיוצרים ברוחב 83–115 ס״מ, והתא ברוחב {cm(c['width'])}. "
-                    "משנים את רוחב התא או מוותרים על המתקן.", "יצרן", "[43]", [f"comp:{i}"],
-                    out.fix("הסר את המתקן", [{"op": "remove_component", "id": pulldown["id"]}]))
+            out.add(f"r16-width-{i}", "warn", tr("מתקן נשלף לא בגודל התא {n}", n=n),
+                    tr("מתקני תלייה נשלפים מיוצרים ברוחב 83–115 ס״מ, והתא ברוחב {w}. "
+                       "משנים את רוחב התא או מוותרים על המתקן.", w=cm(c['width'])), "יצרן", "[43]", [f"comp:{i}"],
+                    out.fix(tr("הסר את המתקן"), [{"op": "remove_component", "id": pulldown["id"]}]))
         for x in c["inserts"]:
             if x["type"] == "shoes":
                 pairs = x["tiers"] * (c["width"] // 220)
-                out.add(f"r17-shoes-{i}", "warn" if lay.shelf_depth < 350 else "info", f"{pairs} זוגות נעליים בתא {n}",
-                        f"{x['tiers']} קומות משופעות בגובה {cm(SHOE_TIER)} ס״מ, בעומק {cm(lay.shelf_depth)}. "
-                        "מקובל: 22–26 ס״מ לקומה ו-35 ס״מ עומק לפחות.", "כלל אצבע", "[35]", [f"comp:{i}"])
+                out.add(f"r17-shoes-{i}", "warn" if lay.shelf_depth < 350 else "info", tr("{pairs} זוגות נעליים בתא {n}", pairs=pairs, n=n),
+                        tr("{tiers} קומות משופעות בגובה {h} ס״מ, בעומק {d}. "
+                           "מקובל: 22–26 ס״מ לקומה ו-35 ס״מ עומק לפחות.", tiers=x['tiers'], h=cm(SHOE_TIER), d=cm(lay.shelf_depth)), "כלל אצבע", "[35]", [f"comp:{i}"])
             elif x["type"] == "trousers":
                 narrow = c["width"] < 450
-                out.add(f"r18-trousers-{i}", "warn" if narrow else "info", f"מתקן מכנסיים בתא {n}",
-                        f"נשלף עד גובה {cm(lay.floor_y(x['y'] + x['height']))} ס״מ. מכנסיים מקופלים על מוט צריכים 60–70 ס״מ."
-                        + (" התא צר מדי למתקן סטנדרטי." if narrow else ""), "יצרן", "[39]", [f"comp:{i}"])
+                out.add(f"r18-trousers-{i}", "warn" if narrow else "info", tr("מתקן מכנסיים בתא {n}", n=n),
+                        tr("נשלף עד גובה {h} ס״מ. מכנסיים מקופלים על מוט צריכים 60–70 ס״מ.", h=cm(lay.floor_y(x['y'] + x['height'])))
+                        + (tr(" התא צר מדי למתקן סטנדרטי.") if narrow else ""), "יצרן", "[39]", [f"comp:{i}"])
     lit = [i for i, c in enumerate(comps) if any(x["type"] == "led" for x in c["inserts"])]
     if lit:
-        out.add("r19-led", "info", "תאורת LED " + ("בתא אחד" if len(lit) == 1 else f"ב-{len(lit)} תאים"),
-                "נדלקת בפתיחת הדלת (חיישן). צריך נקודת חשמל בנישה או ספק 12V מוסתר. מתאמים עם חשמלאי לפני הייצור.",
+        out.add("r19-led", "info", tr("תאורת LED בתא אחד") if len(lit) == 1 else tr("תאורת LED ב-{n} תאים", n=len(lit)),
+                tr("נדלקת בפתיחת הדלת (חיישן). צריך נקודת חשמל בנישה או ספק 12V מוסתר. מתאמים עם חשמלאי לפני הייצור."),
                 "צ׳קליסט", "§6", [f"comp:{i}" for i in lit])
 
 
@@ -311,22 +313,22 @@ def _hanging(design: dict, lay: Layout, out: _Collector) -> None:
             continue
         shortest = min(zones)
         if shortest < 900:
-            out.add(f"r9-short-{i}", "warn", f"אזור תלייה קצר בתא {i + 1}",
-                    f"באזור הקצר יש {cm(shortest)} ס״מ. חולצה תלויה צריכה כ-80 ס״מ ועוד קולב, כלומר כ-90.",
+            out.add(f"r9-short-{i}", "warn", tr("אזור תלייה קצר בתא {n}", n=i + 1),
+                    tr("באזור הקצר יש {h} ס״מ. חולצה תלויה צריכה כ-80 ס״מ ועוד קולב, כלומר כ-90.", h=cm(shortest)),
                     "כלל אצבע", "[35][39][40]", [f"comp:{i}"])
         elif len(zones) == 1 and shortest < 1400:
-            out.add(f"r9-long-{i}", "info", f"תלייה לחולצות בתא {i + 1}",
-                    f"יש {cm(shortest)} ס״מ מתחת למוט: מספיק לחולצות, לא למעילים (כ-100 ס״מ) ולשמלות ארוכות (עד 190).",
+            out.add(f"r9-long-{i}", "info", tr("תלייה לחולצות בתא {n}", n=i + 1),
+                    tr("יש {h} ס״מ מתחת למוט: מספיק לחולצות, לא למעילים (כ-100 ס״מ) ולשמלות ארוכות (עד 190).", h=cm(shortest)),
                     "כלל אצבע", "[35][39]", [f"comp:{i}"])
 
 
 def _board(design: dict, lay: Layout, out: _Collector) -> None:
     """R2: board thickness against the Israeli market [59]-[62]."""
     if lay.panel == 17:
-        out.add("r2-board", "info", "לוח 17 מ״מ",
-                "המלמין הסטנדרטי בישראל הוא 17 מ״מ, בלוחות של 244×122 ס״מ. כל המידות בתכנון מחושבות לפי 17.",
+        out.add("r2-board", "info", tr("לוח 17 מ״מ"),
+                tr("המלמין הסטנדרטי בישראל הוא 17 מ״מ, בלוחות של 244×122 ס״מ. כל המידות בתכנון מחושבות לפי 17."),
                 "ספק", "[59]–[62]", ["carcass"])
     else:
-        out.add("r2-board", "info", f"לוח {lay.panel} מ״מ",
-                f"בישראל המלמין הסטנדרטי הוא 17 מ״מ (ו-28 כעבה). לוח {lay.panel} מ״מ לא תמיד במלאי. "
-                "בודקים מול הספק לפני הייצור.", "ספק", "[59]–[62]", ["carcass"])
+        out.add("r2-board", "info", tr("לוח {t} מ״מ", t=lay.panel),
+                tr("בישראל המלמין הסטנדרטי הוא 17 מ״מ (ו-28 כעבה). לוח {t} מ״מ לא תמיד במלאי. "
+                   "בודקים מול הספק לפני הייצור.", t=lay.panel), "ספק", "[59]–[62]", ["carcass"])

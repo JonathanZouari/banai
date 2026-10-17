@@ -79,6 +79,7 @@ def _error(status_code: int, code: str, message: str) -> JSONResponse:
 def transcribe_audio(
     api_key: str = Form("", alias="apiKey"),
     audio: UploadFile | None = File(None),
+    language: str = Form("", max_length=8),
     transcriber=Depends(get_transcriber),
 ):
     api_key = api_key.strip()
@@ -96,7 +97,9 @@ def transcribe_audio(
     if not _slots.acquire(blocking=False):
         return _error(429, "BUSY", "Transcription is busy. Try again in a moment.")
     try:
-        text = transcriber(api_key, data, f"voice.{extension}", declared, get_settings().openai_transcribe_model or None)
+        # The session language (ADR-029) is a hint for the model; anything else is ignored, never echoed.
+        hint = {"language": language} if language in ("he", "en", "ru", "ar") else {}
+        text = transcriber(api_key, data, f"voice.{extension}", declared, get_settings().openai_transcribe_model or None, **hint)
     except AgentError as error:
         return _error(error.status_code, error.code, error.message)
     finally:

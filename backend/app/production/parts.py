@@ -15,7 +15,8 @@ from itertools import pairwise
 
 from app.domain.defaults import SHOE_TIER
 from app.domain.layout import SLIDE_OVERLAP, SLIDE_TRACK_DEPTH, Layout, layout
-from app.production.boards import BACK_BOARD, DRAWER_BOARD, Board, board_for, handle_of, resolve
+from app.i18n import tr
+from app.production.boards import BACK_BOARD, DRAWER_BOARD, Board, board_for, handle_of, localized, resolve
 from app.production.nesting import SHEET
 
 LRI, PDI = "\u2066", "\u2069"  # keep a run of numbers in order inside Hebrew text
@@ -122,7 +123,8 @@ def nums(values: Iterable) -> str:
 
 def comps_note(indices: Iterable[int]) -> str:
     ordered = sorted(set(indices))
-    return f"{'תא' if len(ordered) == 1 else 'תאים'} {nums(i + 1 for i in ordered)}"
+    listed = nums(i + 1 for i in ordered)
+    return tr("תא {list}", list=listed) if len(ordered) == 1 else tr("תאים {list}", list=listed)
 
 
 def partition_depth(lay: Layout) -> int:
@@ -145,25 +147,26 @@ def anchors_for(width: int) -> int:
 
 
 def method(design: dict, lay: Layout) -> list[str]:
-    plinth = (f"צוקל {lay.plinth} מ״מ בנסיגה של {PLINTH_SETBACK} מ״מ." if lay.plinth > PLINTH_FLOOR_GAP
-              else "ללא צוקל: הדפנות והרצפה של הארון יושבות על רצפת החדר.")
-    where = "מאחורי תחום המסילות" if lay.sliding else "עד קו החזית, כדי לשאת את הצירים"
-    shelves = "מדפים מתכווננים על פינים בשיטת System 32."
+    plinth = (tr("צוקל {h} מ״מ בנסיגה של {s} מ״מ.", h=lay.plinth, s=PLINTH_SETBACK) if lay.plinth > PLINTH_FLOOR_GAP
+              else tr("ללא צוקל: הדפנות והרצפה של הארון יושבות על רצפת החדר."))
+    where = tr("מאחורי תחום המסילות") if lay.sliding else tr("עד קו החזית, כדי לשאת את הצירים")
+    shelves = tr("מדפים מתכווננים על פינים בשיטת System 32.")
     if any(c["rails"] for c in design["compartments"]):
-        shelves += " מדף שמעל מוט תלייה קבוע."
+        shelves += " " + tr("מדף שמעל מוט תלייה קבוע.")
     steps = [
-        "דפנות לכל הגובה. תקרה ורצפה בין הדפנות.",
-        f"גב {BACK_T} מ״מ בחריץ של {BACK_GROOVE} מ״מ, מפוצל מאחורי מחיצות.",
+        tr("דפנות לכל הגובה. תקרה ורצפה בין הדפנות."),
+        tr("גב {t} מ״מ בחריץ של {g} מ״מ, מפוצל מאחורי מחיצות.", t=BACK_T, g=BACK_GROOVE),
         plinth,
-        f"מחיצות בין הרצפה לתקרה, {where}. חיבור בקונפירמט.",
+        tr("מחיצות בין הרצפה לתקרה, {where}. חיבור בקונפירמט.", where=where),
         shelves,
-        f"לוח {lay.panel} מ״מ ({LRI}{SHEET.length}×{SHEET.width}{PDI}). תיבות מגירה מלוח {DRAWER_SIDE} מ״מ.",
+        tr("לוח {t} מ״מ ({size}). תיבות מגירה מלוח {d} מ״מ.", t=lay.panel, size=f"{LRI}{SHEET.length}×{SHEET.width}{PDI}",
+           d=DRAWER_SIDE),
     ]
     if any(dividers(c) for c in design["compartments"]):
-        front = "מאחורי תחום המסילות" if lay.sliding else "עד קו החזית"
-        step = f"מדפים קבועים בין אזורים: בעומק המחיצות, {front}. חיבור בקונפירמט לדפנות ולמחיצות, בלי פינים."
+        front = tr("מאחורי תחום המסילות") if lay.sliding else tr("עד קו החזית")
+        step = tr("מדפים קבועים בין אזורים: בעומק המחיצות, {front}. חיבור בקונפירמט לדפנות ולמחיצות, בלי פינים.", front=front)
         if facing_dividers(design):
-            step += " מדפים קבועים באותו גובה משני צידי מחיצה: מסיטים את הברגים של צד אחד מאלה של הצד השני."
+            step += " " + tr("מדפים קבועים באותו גובה משני צידי מחיצה: מסיטים את הברגים של צד אחד מאלה של הצד השני.")
         steps.insert(5, step)
     return steps
 
@@ -265,7 +268,8 @@ def production(design: dict, catalog: dict) -> Production:
     for width, gs in by_width.items():
         spans = [f"{g['comps'][0] + 1}" + (f"–{g['comps'][-1] + 1}" if len(g["comps"]) > 1 else "") for g in gs]
         many = len(gs) > 1 or len(gs[0]["comps"]) > 1
-        rows.add(Part("גב", "גב", len(gs), back_h, width, BACK_BOARD, note=f"מאחורי {'תאים' if many else 'תא'} {nums(spans)}",
+        rows.add(Part("גב", "גב", len(gs), back_h, width, localized(BACK_BOARD),
+                      note=tr("מאחורי תאים {list}", list=nums(spans)) if many else tr("מאחורי תא {list}", list=nums(spans)),
                       boxes=[box(g["xa"], floor - BACK_INSERT, BACK_Z, g["xb"], floor - BACK_INSERT + back_h, BACK_Z + BACK_T,
                                  (0, 0, -1.3)) for g in gs]))
 
@@ -282,14 +286,16 @@ def production(design: dict, catalog: dict) -> Production:
     items, door_app = design["doors"]["items"], design["doors"]["appearance"]
     for door, d in zip(items, lay.doors, strict=True):
         b, w, h = board_for(resolve(door["appearance"], door_app), P, catalog), half_up(d.width), half_up(d.height)
-        mirror_note = "מראה 4 מ״מ מודבקת, עם גיבוי בטיחות"
+        mirror_note = tr("מראה 4 מ״מ מודבקת, עם גיבוי בטיחות")
         zone = zone_of(comps[d.compartment], d.anchors) if d.compartment is not None and any(d.anchors) else None
         if d.hinge:
             name, z0 = ("דלת מראה" if d.mirror else "דלת"), D + 1
-            note = " · ".join(([f"אזור {zone}"] if zone else []) + [f"{d.hinges} צירים"] + ([mirror_note] if d.mirror else []))
+            note = " · ".join(([tr("אזור {n}", n=zone)] if zone else []) + [tr("{n} צירים", n=d.hinges)]
+                               + ([mirror_note] if d.mirror else []))
         else:
             name, z0 = ("כנף הזזה עם מראה" if d.mirror else "כנף הזזה"), D - (30 if d.track == "front" else 60)
-            note = ", ".join(([f"חפיפה {SLIDE_OVERLAP} מ״מ"] if len(items) > 1 else []) + ([mirror_note] if d.mirror else []))
+            note = ", ".join(([tr("חפיפה {mm} מ״מ", mm=SLIDE_OVERLAP)] if len(items) > 1 else [])
+                               + ([mirror_note] if d.mirror else []))
         rows.merge(("front", name, w, h, b.key, note),
                    lambda name=name, w=w, h=h, b=b: Part(name, "חזיתות", 0, h, w, b, ALL_EDGES),
                    comp=d.compartment if zone else None,
@@ -309,7 +315,7 @@ def production(design: dict, catalog: dict) -> Production:
             rows.merge(("drawer-front", x1 - x0 - 4, fh, b.key, ok),
                        lambda w=x1 - x0 - 4, fh=fh, b=b: Part("חזית מגירה", "מגירות", 0, w, fh, b, ALL_EDGES), comp=i,
                        boxes=[box(x0 + 2, y, lay.shelf_depth - box_d - P, x1 - 2, y + fh, lay.shelf_depth, (0, 0, 2.0))],
-                       suffix="" if ok else "בלי תיבה: קטנה מדי לתיבה על מסילה סמויה, לתכנון ידני")
+                       suffix="" if ok else tr("בלי תיבה: קטנה מדי לתיבה על מסילה סמויה, לתכנון ידני"))
             if not ok:
                 continue
             boxed.append(dr)
@@ -319,7 +325,7 @@ def production(design: dict, catalog: dict) -> Production:
                 ("תחתית מגירה", 1, inner, box_d - 2 * DRAWER_SIDE, NO_EDGES),
             ):
                 rows.merge((name, length, width),
-                           lambda n=name, ln=length, wd=width, e=edges: Part(n, "מגירות", 0, ln, wd, DRAWER_BOARD, e),
+                           lambda n=name, ln=length, wd=width, e=edges: Part(n, "מגירות", 0, ln, wd, localized(DRAWER_BOARD), e),
                            comp=i, qty=qty)
 
     # Interior inserts that are board parts: sloped shoe shelves. The others are hardware.
@@ -330,7 +336,7 @@ def production(design: dict, catalog: dict) -> Production:
             z0 = INNER_Z + 25
             rows.merge(("shoes", x1 - x0 - 2),
                        lambda w=x1 - x0 - 2: Part("מדף נעליים משופע", "פנים", 0, w, shelf_d - SHOE_INSET, body, FRONT_EDGE),
-                       comp=i, qty=ins["tiers"], suffix=f"שיפוע {SHOE_SLOPE}°",
+                       comp=i, qty=ins["tiers"], suffix=tr("שיפוע {deg}°", deg=SHOE_SLOPE),
                        boxes=[box(x0 + 1, y, z0, x1 - 1, y + P, z0 + shelf_d - SHOE_INSET, (0, 0, 0.9)) for y in ys])
 
     parts = rows.parts
@@ -362,8 +368,9 @@ def _hardware(design: dict, lay: Layout, parts: list[Part], runner: int | None, 
     hw: list[Hardware] = []
 
     def add(name: str, qty: int, spec: str, price: str | None = None, src: str = "", buy: bool = True) -> None:
+        # Static Hebrew texts are translated here; dynamic ones arrive already translated (tr skips them).
         if qty > 0:
-            hw.append(Hardware(name, qty, spec, price, src, buy))
+            hw.append(Hardware(tr(name), qty, tr(spec), price, src, buy))
 
     comps, items = design["compartments"], design["doors"]["items"]
     if design["doors"]["type"] == "hinged":
@@ -382,14 +389,14 @@ def _hardware(design: dict, lay: Layout, parts: list[Part], runner: int | None, 
         add("ציר סמוי 110° ללא קפיץ", hinges[(110, True)], "לפתיחה בלחיצה, כוס Ø35, עם פלטה", None, "[2][16]")
         add("ציר סמוי 155° ללא בליטה וללא קפיץ", hinges[(155, True)], "לדלתות מול מגירות, לפתיחה בלחיצה", None, "[16][37]")
         # TIP-ON comes short and long [16]; with zone doors one wardrobe can need both.
-        long_note = ("" if not long_push else f", גרסה ארוכה לדלת מעל {TIP_ON_LONG} מ״מ" if long_push == push_doors
-                     else f", {long_push} בגרסה ארוכה (דלת מעל {TIP_ON_LONG} מ״מ) והשאר בקצרה")
-        add("מנגנון פתיחה בלחיצה לדלת", push_doors, "עם ציר ללא קפיץ" + long_note, None, "[16]")
+        long_note = ("" if not long_push else tr(", גרסה ארוכה לדלת מעל {mm} מ״מ", mm=TIP_ON_LONG) if long_push == push_doors
+                     else tr(", {n} בגרסה ארוכה (דלת מעל {mm} מ״מ) והשאר בקצרה", n=long_push, mm=TIP_ON_LONG))
+        add("מנגנון פתיחה בלחיצה לדלת", push_doors, tr("עם ציר ללא קפיץ") + long_note, None, "[16]")
     if lay.sliding and lay.doors:
-        add("ערכת מסילות הזזה עליונה ותחתונה", 1, f"{len(lay.doors)} כנפיים, עד 50 ק״ג לכנף", "slideKit", "[10][78]")
+        add("ערכת מסילות הזזה עליונה ותחתונה", 1, tr("{n} כנפיים, עד 50 ק״ג לכנף", n=len(lay.doors)), "slideKit", "[10][78]")
     if runner:
         push = sum(handle_of(dr, design)["style"] == "none" for dr in boxed)
-        spec = f"זוג באורך {runner} מ״מ, דפנות 11–16 מ״מ"
+        spec = tr("זוג באורך {mm} מ״מ, דפנות 11–16 מ״מ", mm=runner)
         add("מסילות מגירה סמויות, טריקה שקטה", len(boxed) - push, spec, None, "[28][32]")
         add("מסילות מגירה סמויות, פתיחה בלחיצה", push, spec, None, "[32][33]")
     rails = [lay.ranges[i][1] - lay.ranges[i][0] for i, c in enumerate(comps) for _ in c["rails"]]
@@ -402,7 +409,7 @@ def _hardware(design: dict, lay: Layout, parts: list[Part], runner: int | None, 
         handles[(h["style"], h["finish"])] = handles.get((h["style"], h["finish"]), 0) + 1
     for (style, finish), qty in handles.items():
         if style in HANDLES:
-            add(f"{HANDLES[style][0]} · {HANDLE_FINISHES[finish]}", qty, HANDLES[style][1])
+            add(tr("{name} · {finish}", name=tr(HANDLES[style][0]), finish=tr(HANDLE_FINISHES[finish])), qty, HANDLES[style][1])
         elif style == "groove":
             add("חריץ אחיזה", qty, "כרסום בחזית, בלי פריט לרכישה", buy=False)
     add("פין מדף", 4 * sum(p.qty for p in parts if p.name == "מדף"), "Ø5, System 32", None, "[27]")
@@ -412,13 +419,16 @@ def _hardware(design: dict, lay: Layout, parts: list[Part], runner: int | None, 
     add("מתקן מכנסיים נשלף", sum(x["type"] == "trousers" for _, x in inserts), "מסילות שליפה מתחת למדף, 10–14 מוטות")
     add("מוט חזית למדף נעליים", sum(x["tiers"] for _, x in inserts if x["type"] == "shoes"), "Ø10, חיתוך לפי רוחב התא")
     lit = [lay.ranges[i][1] - lay.ranges[i][0] for i, x in inserts if x["type"] == "led"]
-    add("פס LED עם חיישן דלת", len(lit), f"{sum(w - 40 for w in lit) / 1000:.1f} מ׳ בסך הכול, ספק 12V מוסתר", None, "§6")
+    add("פס LED עם חיישן דלת", len(lit), tr("{m} מ׳ בסך הכול, ספק 12V מוסתר", m=f"{sum(w - 40 for w in lit) / 1000:.1f}"),
+        None, "§6")
     add("זווית עיגון מגולוונת", anchors_for(lay.width), "לשלד הקיר, לא לגב. בורג 8 מ״מ ודיבל לפי סוג הקיר", "anchor",
         "[103]")
     # Joints: four carcass corners, both ends of every partition, the plinth, and both ends of every divider.
     fixed = sum(len(dividers(c)) for c in comps)
     joints = 4 + 2 * len(design["partitions"]) + (2 if has_plinth else 0) + 2 * fixed
-    add("בורג קונפירמט (אומדן)", joints * CONFIRMAT_PER_JOINT, f"{CONFIRMAT_PER_JOINT} לכל חיבור"
-        + (f", מהם {2 * fixed * CONFIRMAT_PER_JOINT} ל{'מדף קבוע' if fixed == 1 else f'-{fixed} מדפים קבועים'}"
-           if fixed else ""))
+    of_dividers = ""
+    if fixed:
+        k = 2 * fixed * CONFIRMAT_PER_JOINT
+        of_dividers = tr(", מהם {k} למדף קבוע", k=k) if fixed == 1 else tr(", מהם {k} ל-{n} מדפים קבועים", k=k, n=fixed)
+    add("בורג קונפירמט (אומדן)", joints * CONFIRMAT_PER_JOINT, tr("{n} לכל חיבור", n=CONFIRMAT_PER_JOINT) + of_dividers)
     return hw

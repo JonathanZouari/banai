@@ -5,5 +5,5 @@
     </figure>
     <figure class="fig" style="flex: 1">
       <div class="fig-art">{{ p.plan }}</div>
-      <figcaption>תוכנית (חתך אופקי){% if lay.doors and not lay.sliding %} · קשתות הפתיחה ומרחב הפתיחה הנדרש מול הארון{% endif %}</figcaption>
+      <figcaption>{{ t("תוכנית (חתך אופקי)") }}{% if lay.doors and not lay.sliding %} · {{ t("קשתות הפתיחה ומרחב הפתיחה הנדרש מול הארון") }}{% endif %}</figcaption>
     </figure>

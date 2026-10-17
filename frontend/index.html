@@ -46,7 +46,15 @@
         </details>
         <span class="topbar__units">יחידות: ס״מ</span>
         <button type="button" class="btn btn--sm" id="open-ai-settings" data-testid="open-ai-settings">הגדרות AI</button>
-        <button type="button" class="btn btn--sm" id="open-dossier" data-testid="open-dossier">תיק נגר</button>
+        <details class="help video-menu dossier-menu" data-testid="dossier-menu">
+          <summary id="open-dossier" data-testid="open-dossier" title="תיק ייצור מפורט לנגר, בשפה שהנגר בוחר">תיק נגר</summary>
+          <div class="help__popover video-menu__popover" role="group" aria-label="שפת תיק הנגר">
+            <button type="button" class="menu-option" data-lang="he" data-testid="dossier-he"><b lang="he" dir="rtl">עברית</b><span>תיק הנגר בעברית</span></button>
+            <button type="button" class="menu-option" data-lang="en" data-testid="dossier-en"><b lang="en" dir="ltr">English</b><span>תיק הנגר באנגלית</span></button>
+            <button type="button" class="menu-option" data-lang="ru" data-testid="dossier-ru"><b lang="ru" dir="ltr">Русский</b><span>תיק הנגר ברוסית</span></button>
+            <button type="button" class="menu-option" data-lang="ar" data-testid="dossier-ar"><b lang="ar" dir="rtl">العربية</b><span>תיק הנגר בערבית</span></button>
+          </div>
+        </details>
         <button type="button" class="btn btn--sm" id="open-render" data-testid="open-render">רינדור</button>
         <details class="help video-menu" data-testid="video-menu">
           <summary data-testid="open-video" title="סרטון המחשה: הדלתות נפתחות, המגירות נשלפות, והמצלמה מסתובבת">סרטון</summary>

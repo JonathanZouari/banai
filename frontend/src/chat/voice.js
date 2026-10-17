@@ -8,6 +8,8 @@
 // for unit tests. createPushToTalk() runs recordings against an injected environment, and
 // bindPushToTalk() wires it to the real button, microphone and DOM.
 
+import { ct } from './chatI18n.js';
+
 export const CANCEL_DISTANCE_PX = 60;
 export const TAP_MS = 220; // a shorter press is a tap: it starts hands-free recording
 export const MIN_RECORDING_MS = 600;
@@ -76,7 +78,7 @@ export function voiceErrorCode(error, stage = 'transcribe') {
 }
 
 /** The Hebrew text for an error. Never the error's own message. */
-export const voiceErrorMessage = (error, stage = 'transcribe') => VOICE_MESSAGES[voiceErrorCode(error, stage)];
+export const voiceErrorMessage = (error, stage = 'transcribe') => ct(VOICE_MESSAGES[voiceErrorCode(error, stage)]);
 
 /** RMS level of 8-bit time-domain samples (128 is silence), scaled to 0..1 for the meter. */
 export function levelFromSamples(samples) {
@@ -147,9 +149,9 @@ export function step(state, event) {
 
 /** The hint under the meter for a state. */
 export function hintFor(state) {
-  if (state.phase === 'hold') return state.armed ? 'שחררו כדי לבטל' : 'שחררו לשליחה · גררו לביטול';
-  if (state.phase === 'free') return 'מקליט. לחצו שוב כדי לשלוח';
-  if (state.phase === 'busy') return 'מתמלל…';
+  if (state.phase === 'hold') return ct(state.armed ? 'שחררו כדי לבטל' : 'שחררו לשליחה · גררו לביטול');
+  if (state.phase === 'free') return ct('מקליט. לחצו שוב כדי לשלוח');
+  if (state.phase === 'busy') return ct('מתמלל…');
   return '';
 }
 
@@ -169,7 +171,7 @@ export function deliverTranscript(text, { send, input, toast }) {
   input.value = input.value.trim() ? `${input.value.trimEnd()} ${text}` : text;
   input.dispatchEvent?.(new Event('input', { bubbles: true }));
   input.focus?.();
-  toast(result.reason === 'busy' ? 'בוב עוד עונה. ההודעה הקולית מחכה בתיבה.' : 'ההודעה הקולית מחכה בתיבה. ערכו אותה ושלחו.');
+  toast(ct(result.reason === 'busy' ? 'בוב עוד עונה. ההודעה הקולית מחכה בתיבה.' : 'ההודעה הקולית מחכה בתיבה. ערכו אותה ושלחו.'));
   return false;
 }
 
@@ -187,7 +189,8 @@ const quietly = (action) => {
  * ({ render(state), level(value), elapsed(ms) }, all optional). `transcribe(blob, mimeType)` returns
  * the text; `deliver(text)` passes it on. Returns { dispatch(event), getState(), dispose() }.
  */
-export function createPushToTalk({ env, transcribe, deliver, toast, view = {} }) {
+export function createPushToTalk({ env, transcribe, deliver, toast: show, view = {} }) {
+  const toast = (message) => show(ct(message)); // the session language (ADR-029)
   let state = IDLE;
   let session = null;
   let disposed = false;

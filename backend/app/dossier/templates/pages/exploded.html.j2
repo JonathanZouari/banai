@@ -1,17 +1,17 @@
 {% if p.first %}
-    <p class="lead">כל חלק מוזז מהמקום שלו בכיוון ההרכבה. המספרים תואמים לרשימת החיתוך. תיבות המגירה מוצגות כיחידה אחת.</p>
+    <p class="lead">{{ t("כל חלק מוזז מהמקום שלו בכיוון ההרכבה. המספרים תואמים לרשימת החיתוך. תיבות המגירה מוצגות כיחידה אחת.") }}</p>
     <figure class="fig" style="flex: 1">
       <div class="fig-art">{{ p.svg }}</div>
     </figure>
 {% endif %}
 {% if p.chunk %}
     <table>
-      <thead><tr><th>#</th><th>חלק</th><th class="n">כמות</th><th>#</th><th>חלק</th><th class="n">כמות</th></tr></thead>
+      <thead><tr><th>#</th><th>{{ t("חלק") }}</th><th class="n">{{ t("כמות") }}</th><th>#</th><th>{{ t("חלק") }}</th><th class="n">{{ t("כמות") }}</th></tr></thead>
       <tbody>
 {% for pair in p.chunk %}
         <tr>
 {% for part in pair %}
-          <td>{{ badge(part.no) }}</td><td>{{ part.name }}</td><td class="n">{{ part.qty }}</td>
+          <td>{{ badge(part.no) }}</td><td>{{ tr(part.name) }}</td><td class="n">{{ part.qty }}</td>
 {% endfor %}
 {% if pair | length == 1 %}
           <td></td><td></td><td class="n"></td>

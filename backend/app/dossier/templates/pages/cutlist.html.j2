@@ -1,16 +1,16 @@
 {% if p.first %}
-    <p class="lead">מידות גמר במ״מ, אחרי קנט. אורך = כיוון הסיב בלוחות עם סיב עץ. ניסור {{ num(sheet.kerf) }} מ״מ, שוליים {{ sheet.trim }} מ״מ. סה״כ {{ p.count }} חלקים.</p>
+    <p class="lead">{{ t("מידות גמר במ״מ, אחרי קנט. אורך = כיוון הסיב בלוחות עם סיב עץ. ניסור {kerf} מ״מ, שוליים {trim} מ״מ. סה״כ {count} חלקים.", kerf=num(sheet.kerf), trim=sheet.trim, count=p.count) }}</p>
 {% endif %}
     <table>
-      <thead><tr><th>#</th><th>חלק</th><th class="n">כמות</th><th class="n">אורך</th><th class="n">רוחב</th><th class="n">עובי</th><th>לוח</th><th class="c">סיב</th><th class="c">קנט</th><th>הערה</th></tr></thead>
+      <thead><tr><th>#</th><th>{{ t("חלק") }}</th><th class="n">{{ t("כמות") }}</th><th class="n">{{ t("אורך") }}</th><th class="n">{{ t("רוחב") }}</th><th class="n">{{ t("עובי") }}</th><th>{{ t("לוח") }}</th><th class="c">{{ t("סיב") }}</th><th class="c">{{ t("קנט") }}</th><th>{{ t("הערה") }}</th></tr></thead>
       <tbody>
 {% for row in p.chunk %}
 {% if row.group is defined %}
-        <tr class="group-row"><td colspan="10">{{ row.group }}</td></tr>
+        <tr class="group-row"><td colspan="10">{{ tr(row.group) }}</td></tr>
 {% else %}
 {% set part = row.part %}
         <tr>
-          <td>{{ badge(part.no) }}</td><td>{{ part.name }}</td><td class="n">{{ part.qty }}</td>
+          <td>{{ badge(part.no) }}</td><td>{{ tr(part.name) }}</td><td class="n">{{ part.qty }}</td>
           <td class="n">{{ part.length }}</td><td class="n">{{ part.width }}</td><td class="n">{{ part.thickness }}</td>
           <td>{{ part.board | swatch }}{{ part.board.name }}</td>
           <td class="c grain-yes">{{ "↕" if part.grain else "—" }}</td>

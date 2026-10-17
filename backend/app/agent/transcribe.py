@@ -23,6 +23,16 @@ _DATED = re.compile(r"-\d{4}-\d{2}-\d{2}$")
 # Biases recognition toward wardrobe vocabulary. It is Hebrew because the prompt should match the
 # audio's language and most customers speak Hebrew; no language is forced, so other languages still work.
 PROMPT = "תכנון ארון בגדים: ארון, תא, מדף, מגירה, מוט תלייה, מחיצה, דלת, דלתות הזזה, ציר, ידית, מראה, רוחב, גובה, עומק, סנטימטר."
+# With a session language (ADR-029) the model is told the language, and the vocabulary is in it.
+PROMPTS = {
+    "he": PROMPT,
+    "en": "Designing a clothes wardrobe: wardrobe, compartment, shelf, drawer, hanging rail, partition, door, sliding doors, "
+          "hinge, handle, mirror, width, height, depth, centimetres.",
+    "ru": "Проектирование шкафа для одежды: шкаф, секция, полка, ящик, штанга, перегородка, дверь, раздвижные двери, "
+          "петля, ручка, зеркало, ширина, высота, глубина, сантиметры.",
+    "ar": "تصميم خزانة ملابس: خزانة، قسم، رف، درج، قضيب تعليق، فاصل، باب، أبواب منزلقة، مفصلة، مقبض، مرآة، "
+          "عرض، ارتفاع، عمق، سنتيمتر.",
+}
 
 logger = logging.getLogger("banai.voice")
 
@@ -58,7 +68,7 @@ def transcribe_model_for(client, api_key: str, configured: str | None) -> str | 
 
 
 def transcribe(api_key: str, audio: bytes, filename: str, content_type: str, configured_model: str | None,
-               client_factory=openai.OpenAI) -> str:
+               client_factory=openai.OpenAI, language: str | None = None) -> str:
     """Returns the transcript (possibly empty). Raises AgentError with our code, never OpenAI's message."""
     client = client_factory(api_key=api_key, timeout=30.0, max_retries=1)
     model = None
@@ -66,7 +76,8 @@ def transcribe(api_key: str, audio: bytes, filename: str, content_type: str, con
         model = transcribe_model_for(client, api_key, configured_model)
         if not model:
             raise AgentError(400, "MODEL_UNAVAILABLE", "Your OpenAI key has no transcription model available.")
-        result = client.audio.transcriptions.create(model=model, file=(filename, audio, content_type), prompt=PROMPT)
+        hint = {"language": language, "prompt": PROMPTS[language]} if language in PROMPTS else {"prompt": PROMPT}
+        result = client.audio.transcriptions.create(model=model, file=(filename, audio, content_type), **hint)
     except openai.OpenAIError as error:
         logger.warning("Transcription failed: %s", describe_error(error, model))
         mapped = to_agent_error(error)

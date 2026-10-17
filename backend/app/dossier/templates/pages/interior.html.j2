@@ -1,7 +1,7 @@
 {% if p.first %}
     <figure class="fig" style="flex: 1">
       <div class="fig-art">{{ p.interior }}</div>
-      <figcaption>פנים ללא דלתות. המסגרות המקווקוות מסמנות אזורי תלייה.</figcaption>
+      <figcaption>{{ t("פנים ללא דלתות. המסגרות המקווקוות מסמנות אזורי תלייה.") }}</figcaption>
     </figure>
 {% endif %}
 {% for row in p.chunk | batch(4) %}
@@ -9,7 +9,7 @@
 {% for c in row %}
       <figure class="fig">
         <div class="fig-art">{{ c.svg }}</div>
-        <figcaption dir="rtl">{{ c.caption }}</figcaption>
+        <figcaption dir="{{ dir }}">{{ c.caption }}</figcaption>
       </figure>
 {% endfor %}
     </div>

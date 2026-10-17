@@ -1,5 +1,9 @@
 """The carpenter's dossier: design -> page data -> HTML (Jinja2, autoescaped) -> PDF (Chromium, ADR-019).
 
+In Hebrew, English, Russian or Arabic (ADR-029): `build` and `render_html` run inside `language(lang)`, so every
+text from here, the part notes, the hardware and the advisories comes out in that language (app/i18n.py), and
+the page direction follows it. Part names and groups stay Hebrew in the data and are translated on display.
+
 Port of dossier.js in the P2 prototype. `build` and `render_html` are pure. `html_to_pdf` is the only
 I/O: a headless Chromium with JavaScript off, offline, and a route that aborts every request that isn't
 `data:` or `about:`, so nothing in the page can reach the network (no SSRF, no tracking). Fonts come
@@ -27,6 +31,7 @@ from playwright.async_api import Route, async_playwright
 
 from app.advice.rules import advisories
 from app.domain.layout import Layout, layout
+from app.i18n import LANGUAGES, is_rtl, language, long_date, template, tr
 from app.production import drawings
 from app.production.boards import Board, board_for
 from app.production.estimate import VAT, Estimate, estimate, shekel
@@ -41,9 +46,10 @@ CUT_ROWS_PER_PAGE = 30
 COMPS_FIRST_PAGE, COMPS_PER_PAGE = 4, 8
 LEGEND_FIRST_PAGE, LEGEND_PER_PAGE = 14, 36  # lines of two parts
 ADVICE_PER_PAGE = 12
-MONTHS = ("ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר")
 DOOR_LABELS = {"hinged": "ציר", "sliding": "הזזה", "none": "ללא (ארון פתוח)"}
-HANDLE_LABELS = {"bar": "מוט", "knob": "כפתור", "edge": "פרופיל", "cup": "שקועה", "groove": "חריץ", "none": "לחיצה"}
+# Full names, not the bare words: "מוט" alone is also a hanging rail, and one Hebrew source has one translation.
+HANDLE_LABELS = {"bar": "ידית מוט", "knob": "כפתור", "edge": "פרופיל ידית", "cup": "ידית שקועה", "groove": "חריץ אחיזה",
+                 "none": "לחיצה"}
 HANDLE_FINISHES = {"steel": "נירוסטה", "black": "שחור", "brass": "פליז"}
 INSERT_NAMES = {"pulldown": "מתקן נשלף", "shoes": "נעליים", "trousers": "מכנסיים", "led": "LED"}
 
@@ -55,10 +61,6 @@ class RenderError(Exception):
 def cm(mm: float) -> str:
     value = half_up(mm) / 10
     return str(int(value)) if value == int(value) else f"{value:.1f}"
-
-
-def hebrew_date(day: date) -> str:
-    return f"{day.day} ב{MONTHS[day.month - 1]} {day.year}"
 
 
 def _pages(title: str, chunks: list, kind: str, **first) -> list[dict]:
@@ -80,17 +82,28 @@ def row_pages(rows: list[dict], size: int) -> list[list[dict]]:
 
 def _contents(c: dict) -> str:
     fixed = sum(s["fixed"] for s in c["shelves"])
-    out = [f"{fixed + 1} אזורים"] if fixed else []
-    for key, one, many in (("shelves", "מדף", "מדפים"), ("rails", "מוט", "מוטות"), ("drawers", "מגירה", "מגירות")):
+    out = [tr("{n} אזורים", n=fixed + 1)] if fixed else []
+    # Literal templates only (a test enforces it): one label for one item, a counted one for more.
+    labels = {"shelves": lambda n: tr("מדף") if n == 1 else tr("{n} מדפים", n=n),
+              "rails": lambda n: tr("מוט") if n == 1 else tr("{n} מוטות", n=n),
+              "drawers": lambda n: tr("מגירה") if n == 1 else tr("{n} מגירות", n=n)}
+    for key, label in labels.items():
         n = len(c[key]) - (fixed if key == "shelves" else 0)  # dividers are counted as zones
         if n:
-            out.append(one if n == 1 else f"{n} {many}")
-    out += [INSERT_NAMES[x["type"]] for x in c["inserts"]]
-    return ", ".join(out) or "ריק"
+            out.append(label(n))
+    out += [tr(INSERT_NAMES[x["type"]]) for x in c["inserts"]]
+    return ", ".join(out) or tr("ריק")
 
 
-def build(design: dict, catalog: dict, render_png: bytes | None = None, today: date | None = None) -> dict:
-    """Everything the template needs, for a canonical, already validated design. Pure."""
+def build(design: dict, catalog: dict, render_png: bytes | None = None, today: date | None = None,
+          lang: str = "he") -> dict:
+    """Everything the template needs, for a canonical, already validated design, in `lang`. Pure."""
+    with language(lang):
+        context = _build(design, catalog, render_png, today)
+    return {**context, "lang": lang, "dir": "rtl" if is_rtl(lang) else "ltr"}
+
+
+def _build(design: dict, catalog: dict, render_png: bytes | None, today: date | None) -> dict:
     lay = layout(design)
     prod = production(design, catalog)
     nesting = nest(prod.parts)
@@ -100,43 +113,44 @@ def build(design: dict, catalog: dict, render_png: bytes | None = None, today: d
     site = design["site"] or {}
     ceiling, niche = site.get("ceiling"), site.get("niche")
     digest = hashlib.sha256(json.dumps(design, sort_keys=True).encode()).hexdigest()
-    meta = {"project": "ארון בהתאמה", "id": f"BN-{digest[:8].upper()}", "rev": "טיוטה",
-            "date": hebrew_date(today or date.today())}
+    meta = {"project": tr("ארון בהתאמה"), "id": f"BN-{digest[:8].upper()}", "rev": tr("טיוטה"),
+            "date": long_date(today or date.today())}
     doors_type = design["doors"]["type"]
     count = sum(p.qty for p in prod.parts)
     pages = [_cover(design, catalog, lay, nesting, est, adv, render_png, count)]
 
     # Front and plan.
     front_svg = drawings.front_elevation(design, lay, catalog)
-    site_note = " · ".join(([f"נישה {niche}"] if niche else []) + ([f"תקרה {ceiling}"] if ceiling else []))
-    lead = "כל המידות במילימטרים."
+    site_note = " · ".join(([tr("נישה {v}", v=niche)] if niche else []) + ([tr("תקרה {v}", v=ceiling)] if ceiling else []))
+    lead = [tr("כל המידות במילימטרים.")]
     if doors_type == "hinged":
-        lead += " החזית מוצגת עם דלתות סגורות. קווי הפתיחה מצביעים לצד הציר, והעיגולים המקווקווים הם כוסות הצירים."
+        lead.append(tr("החזית מוצגת עם דלתות סגורות. קווי הפתיחה מצביעים לצד הציר, והעיגולים המקווקווים הם כוסות הצירים."))
     if doors_type != "sliding" and any(s["fixed"] for c in design["compartments"] for s in c["shelves"]):
-        lead += " בתא שמחולק לאזורים, המידות האנכיות בתוכו נמדדות בין קווי האמצע של המדפים הקבועים."
-    pages.append({"kind": "front", "title": "חזית ותוכנית", "toc": True, "front": front_svg,
+        lead.append(tr("בתא שמחולק לאזורים, המידות האנכיות בתוכו נמדדות בין קווי האמצע של המדפים הקבועים."))
+    pages.append({"kind": "front", "title": tr("חזית ותוכנית"), "toc": True, "front": front_svg,
                   "plan": drawings.plan_view(design, lay, catalog, prod.partition_depth),
-                  "caption": f"חזית · {site_note} (מידות משוערות של הלקוח)" if site_note else "חזית · לא נמסרו מידות אתר",
-                  "lead": lead})
+                  "caption": (tr("חזית · {note} (מידות משוערות של הלקוח)", note=site_note) if site_note
+                              else tr("חזית · לא נמסרו מידות אתר")),
+                  "lead": " ".join(lead)})
 
     # Interior. Shop drawings follow the physical left-to-right order, even on an RTL page.
     comps = [{"svg": drawings.compartment_elevation(design, lay, i),
-              "caption": f"תא {i + 1} · {_contents(c)} · גבהים מהרצפה"} for i, c in enumerate(design["compartments"])]
+              "caption": tr("תא {n} · {contents} · גבהים מהרצפה", n=i + 1, contents=_contents(c))} for i, c in enumerate(design["compartments"])]
     chunks = [comps[:COMPS_FIRST_PAGE]] + list(batched(comps[COMPS_FIRST_PAGE:], COMPS_PER_PAGE))
-    pages += _pages("פנים", chunks, "interior", interior=drawings.interior_elevation(design, lay))
+    pages += _pages(tr("פנים"), chunks, "interior", interior=drawings.interior_elevation(design, lay))
 
     # Exploded view; its legend continues on extra pages when the parts don't fit.
     legend = list(batched([p for p in prod.parts if p.boxes], 2))
     chunks = [legend[:LEGEND_FIRST_PAGE]] + list(batched(legend[LEGEND_FIRST_PAGE:], LEGEND_PER_PAGE))
-    pages += _pages("מבט מפוצץ", chunks, "exploded", svg=drawings.exploded_view(prod))
+    pages += _pages(tr("מבט מפוצץ"), chunks, "exploded", svg=drawings.exploded_view(prod))
 
     # Materials, hardware and the estimate.
     boards = [{"board": prod.boards[key], "sheets": n, "edge": prod.edge_m.get(key),
-               "uses": ", ".join(dict.fromkeys(p.group for p in prod.parts if p.board.key == key))}
+               "uses": ", ".join(dict.fromkeys(tr(p.group) for p in prod.parts if p.board.key == key))}
               for key, n in nesting.by_board.items()]
-    pages.append({"kind": "materials", "title": "חומרים ופרזול", "toc": True, "method": prod.method, "boards": boards,
+    pages.append({"kind": "materials", "title": tr("חומרים ופרזול"), "toc": True, "method": prod.method, "boards": boards,
                   "hardware": prod.hardware})
-    pages.append({"kind": "estimate", "title": "אומדן עלות חומרים", "toc": True, "est": est, "vat": round(VAT * 100)})
+    pages.append({"kind": "estimate", "title": tr("אומדן עלות חומרים"), "toc": True, "est": est, "vat": round(VAT * 100)})
 
     # Cut list by group, then the sheets two to a page.
     rows: list[dict] = []
@@ -145,15 +159,15 @@ def build(design: dict, catalog: dict, render_png: bytes | None = None, today: d
         if members:
             rows.append({"group": group})
             rows += [{"part": p, "glyph": drawings.edge_glyph(p)} for p in members]
-    pages += _pages("רשימת חיתוך", row_pages(rows, CUT_ROWS_PER_PAGE), "cutlist", count=count)
+    pages += _pages(tr("רשימת חיתוך"), row_pages(rows, CUT_ROWS_PER_PAGE), "cutlist", count=count)
 
     sheets = [drawings.sheet_drawing(s, parts_by_no, uid=f"sh{k}") for k, s in enumerate(nesting.sheets)]
-    pages += _pages("שיבוץ לוחות", list(batched(sheets, 2)) or [()], "nesting", nesting=nesting,
+    pages += _pages(tr("שיבוץ לוחות"), list(batched(sheets, 2)) or [()], "nesting", nesting=nesting,
                     oversize=", ".join(f"#{no}" for no, _ in nesting.oversize))
 
     # Site checks, then the advisories with the closing declaration.
     pages.append(_site(design, lay, prod))
-    pages += _pages("הערות הייעוץ", list(batched(adv, ADVICE_PER_PAGE)) or [()], "advice")
+    pages += _pages(tr("הערות הייעוץ"), list(batched(adv, ADVICE_PER_PAGE)) or [()], "advice")
     pages[-1]["last"] = True
 
     for no, page in enumerate(pages, 1):
@@ -168,19 +182,19 @@ def _cover(design: dict, catalog: dict, lay: Layout, nesting: Nesting, est: Esti
     carcass = board_for(design["carcass"]["appearance"], lay.panel, catalog)
     fronts = board_for(design["doors"]["appearance"], lay.panel, catalog)
     warn = sum(a["level"] != "info" for a in adv)
-    return {"kind": "cover", "title": "שער", "toc": False, "cls": "cover",
+    return {"kind": "cover", "title": tr("שער"), "toc": False, "cls": "cover",
             # The render when the customer made one; otherwise the front elevation.
             "image": f"data:image/png;base64,{base64.b64encode(render_png).decode()}" if render_png else None,
             "drawing": None if render_png else drawings.front_elevation(design, lay, catalog, uid="cv"),
-            "spec": [("רוחב", f"{cm(lay.width)} ס״מ"), ("גובה", f"{cm(lay.height)} ס״מ"), ("עומק", f"{cm(lay.depth)} ס״מ"),
-                     ("תאים", str(len(lay.ranges))),
-                     ("דלתות", DOOR_LABELS[doors_type] + (f" · {len(lay.doors)}" if lay.doors else "")),
-                     ("ידיות", f"{HANDLE_LABELS[handles['style']]} · {HANDLE_FINISHES[handles['finish']]}"),
-                     ("גוף", carcass.name), ("חזיתות", fronts.name if doors_type != "none" else "—")],
+            "spec": [(tr("רוחב"), tr("{v} ס״מ", v=cm(lay.width))), (tr("גובה"), tr("{v} ס״מ", v=cm(lay.height))),
+                     (tr("עומק"), tr("{v} ס״מ", v=cm(lay.depth))), (tr("תאים"), str(len(lay.ranges))),
+                     (tr("דלתות"), tr(DOOR_LABELS[doors_type]) + (f" · {len(lay.doors)}" if lay.doors else "")),
+                     (tr("ידיות"), f"{tr(HANDLE_LABELS[handles['style']])} · {tr(HANDLE_FINISHES[handles['finish']])}"),
+                     (tr("גוף"), carcass.name), (tr("חזיתות"), fronts.name if doors_type != "none" else "—")],
             "range": f"{shekel(est.lo_vat)}–{shekel(est.hi_vat)}",
-            "summary": f"כולל מע״מ · {len(nesting.sheets)} לוחות · {count} חלקים",
-            "warnings": (("אזהרה פתוחה אחת" if warn == 1 else f"{warn} אזהרות פתוחות") + ", פירוט בעמודי הייעוץ"
-                         if warn else "אין אזהרות פתוחות. הערות מידע בעמודי הייעוץ.")}
+            "summary": tr("כולל מע״מ · {sheets} לוחות · {parts} חלקים", sheets=len(nesting.sheets), parts=count),
+            "warnings": ((tr("אזהרה פתוחה אחת") if warn == 1 else tr("{n} אזהרות פתוחות", n=warn)) + tr(", פירוט בעמודי הייעוץ")
+                         if warn else tr("אין אזהרות פתוחות. הערות מידע בעמודי הייעוץ."))}
 
 
 def _site(design: dict, lay: Layout, prod: Production) -> dict:
@@ -188,21 +202,22 @@ def _site(design: dict, lay: Layout, prod: Production) -> dict:
     ceiling, niche = site.get("ceiling"), site.get("niche")
     diagonal = math.hypot(lay.height, lay.depth)  # a carcass raised from lying down pivots on this [97]
     hinged_widths = [d.width for d in lay.doors] if doors_type == "hinged" else []
-    return {"kind": "site", "title": "אתר ובדיקות", "toc": True, "ceiling": ceiling, "niche": niche,
+    return {"kind": "site", "title": tr("אתר ובדיקות"), "toc": True, "ceiling": ceiling, "niche": niche,
             "filler": max(0, (niche - lay.width) / 2) if niche else None, "diagonal": diagonal,
             "lift_ok": diagonal + 10 <= ceiling if ceiling else None, "anchors": prod.anchors,
             "reach": max(hinged_widths) if hinged_widths else None,
-            "reach_label": {"sliding": "הזזה, ללא", "none": "ללא דלתות"}.get(doors_type, ""),
+            "reach_label": {"sliding": tr("הזזה, ללא"), "none": tr("ללא דלתות")}.get(doors_type, ""),
             "checks": _checks(lay, diagonal)}
 
 
 def _checks(lay: Layout, diagonal: float) -> list[str]:
     return [
-        "רוחב בשלושה גבהים. הקטן קובע.", "גובה בשלוש נקודות, ופילוס רצפה ותקרה.", "אנך הקירות ואלכסוני הנישה.",
-        "פנלים, שקעים, מזגן, צנרת ותאורה בתחום הארון.", "סוג הקיר לעיגון, וסריקת כבלים.", "מסלול הכנסה מול החלק הגדול ביותר.",
-        f"אלכסון הרמה {half_up(diagonal)} מ״מ מול התקרה וגופי התאורה.", "לחות: קיר חיצוני או סמוך לחדר רחצה.",
-        f"מלאי הלוח אצל הספק: {lay.panel} מ״מ בכל הגוונים.", "זמינות לוח 16 מ״מ לתיבות המגירה.",
-        "מרווח 2 ס״מ לפחות לדלת ציר ליד קיר.", "עיגון לשלד ולא לגב. מספר העוגנים לפי הרוחב.",
+        tr("רוחב בשלושה גבהים. הקטן קובע."), tr("גובה בשלוש נקודות, ופילוס רצפה ותקרה."), tr("אנך הקירות ואלכסוני הנישה."),
+        tr("פנלים, שקעים, מזגן, צנרת ותאורה בתחום הארון."), tr("סוג הקיר לעיגון, וסריקת כבלים."),
+        tr("מסלול הכנסה מול החלק הגדול ביותר."),
+        tr("אלכסון הרמה {mm} מ״מ מול התקרה וגופי התאורה.", mm=half_up(diagonal)), tr("לחות: קיר חיצוני או סמוך לחדר רחצה."),
+        tr("מלאי הלוח אצל הספק: {t} מ״מ בכל הגוונים.", t=lay.panel), tr("זמינות לוח 16 מ״מ לתיבות המגירה."),
+        tr("מרווח 2 ס״מ לפחות לדלת ציר ליד קיר."), tr("עיגון לשלד ולא לגב. מספר העוגנים לפי הרוחב."),
     ]
 
 
@@ -224,10 +239,17 @@ def _swatch(board: Board) -> Markup:
     return Markup('<span class="swatch{}" style="background-color: {}"></span>').format(grain, board.tint)
 
 
+def _t(source: str, **params) -> Markup:
+    """Template helper: `source` in the current language, escaped; Markup params (like num()) stay markup."""
+    text = Markup(escape(template(source)))
+    return text.format(**params) if params else text
+
+
 def _environment() -> Environment:
     env = Environment(loader=FileSystemLoader(TEMPLATES), autoescape=True, undefined=StrictUndefined,
                       trim_blocks=True, lstrip_blocks=True)
     env.filters.update(mm=half_up, cm=cm, shekel=shekel, swatch=_swatch, ltr=ltr_runs)
+    env.globals.update(t=_t, tr=tr)
     env.globals["css"] = Markup((TEMPLATES / "dossier.css").read_text(encoding="utf-8"))  # our own static file
     return env
 
@@ -236,7 +258,8 @@ _env = _environment()
 
 
 def render_html(context: dict) -> str:
-    return _env.get_template("dossier.html.j2").render(**context)
+    with language(context.get("lang", "he")):  # the templates translate their own texts
+        return _env.get_template("dossier.html.j2").render(**context)
 
 
 async def _pdf(html: str, seen: list[tuple[str, bool]] | None, timeout: float) -> bytes:
@@ -270,5 +293,12 @@ def html_to_pdf(html: str, seen: list[tuple[str, bool]] | None = None, timeout: 
         raise RenderError("the dossier could not be rendered") from error
 
 
-def render_pdf(design: dict, catalog: dict, render_png: bytes | None = None, today: date | None = None) -> bytes:
-    return html_to_pdf(render_html(build(design, catalog, render_png, today)))
+def render_pdf(design: dict, catalog: dict, render_png: bytes | None = None, today: date | None = None,
+               lang: str = "he") -> bytes:
+    if lang not in LANGUAGES:
+        raise ValueError(f"unsupported language: {lang!r}")
+    try:
+        html = render_html(build(design, catalog, render_png, today, lang))
+    except (KeyError, IndexError, ValueError) as error:  # e.g. a translation with a wrong placeholder
+        raise RenderError("the dossier could not be rendered") from error
+    return html_to_pdf(html)

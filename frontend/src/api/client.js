@@ -34,6 +34,7 @@ export const verifyAiKey = (apiKey, fetchImpl = fetch) => postJson('/api/setting
 export const sendChatMessage = (apiKey, messages, context = null, fetchImpl = fetch) => {
   const body = context?.design ? { apiKey, messages, design: context.design, revision: context.revision } : { apiKey, messages };
   if (context?.spoken) body.spoken = true;
+  if (context?.language) body.language = context.language; // the session language (ADR-029)
   return postJson('/api/chat', body, fetchImpl);
 };
 
@@ -49,11 +50,12 @@ export const applyProposal = (design, revision, proposal, fetchImpl = fetch) =>
  * the backend hands both to OpenAI and keeps neither. Returns the transcript, which may be empty.
  * Errors carry the envelope's `code` (400 INVALID_FORMAT/EMPTY_AUDIO, 413, 415, 429 BUSY, OpenAI's codes).
  */
-export async function transcribeAudio(apiKey, blob, { fetchImpl = fetch } = {}) {
+export async function transcribeAudio(apiKey, blob, { fetchImpl = fetch, language = null } = {}) {
   if (!API_BASE_URL) throw new Error('The API base URL is not configured');
   const form = new FormData();
   form.append('apiKey', apiKey);
   form.append('audio', blob, 'voice');
+  if (language) form.append('language', language); // a hint for the model (ADR-029)
   const response = await fetchImpl(`${API_BASE_URL}/api/voice/transcribe`, { method: 'POST', body: form });
   const body = await response.json().catch(() => null);
   if (!response.ok || !body || body.success !== true) {
@@ -94,15 +96,16 @@ export const getAdvisories = (design, { signal, fetchImpl = fetch } = {}) =>
 
 /**
  * The carpenter dossier PDF (ADR-019) as a Blob. `renderPng` (optional) is the path-traced cover,
- * a PNG data URL or bare base64. Errors carry the envelope's `code` (422 invalid design, 413, 429).
+ * a PNG data URL or bare base64. `language` is the carpenter's: he | en | ru | ar (ADR-029).
+ * Errors carry the envelope's `code` (422 invalid design, 413, 429).
  */
-export async function getDossier(design, { renderPng = null, fetchImpl = fetch } = {}) {
+export async function getDossier(design, { renderPng = null, language = 'he', fetchImpl = fetch } = {}) {
   if (!API_BASE_URL) throw new Error('The API base URL is not configured');
   const png = renderPng ? renderPng.replace(/^data:image\/png;base64,/, '') : null;
   const response = await fetchImpl(`${API_BASE_URL}/api/dossier`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(png ? { design, renderPng: png } : { design }),
+    body: JSON.stringify({ design, ...(png ? { renderPng: png } : {}), ...(language !== 'he' ? { language } : {}) }),
   });
   if (!response.ok) {
     const body = await response.json().catch(() => null);

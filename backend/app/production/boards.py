@@ -9,7 +9,9 @@ and backs are fixed boards that are not part of the design, as in P2.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+
+from app.i18n import tr
 
 # Catalog material -> (kind, edging). Production knowledge, not labels: what the board is priced as,
 # and how its edges are finished (None: painted, no banding).
@@ -47,7 +49,14 @@ def _entry(catalog: dict, section: str, ref: dict) -> dict:
 
 
 def _label(ref: dict, entry: dict) -> str:
-    return ref["name"] if ref.get("custom") else entry.get("name") or ref["catalogId"]
+    """A custom name as the customer typed it; a catalog name in the dossier's language."""
+    return ref["name"] if ref.get("custom") else tr(entry.get("name") or ref["catalogId"])
+
+
+def localized(board: Board) -> Board:
+    """A fixed board (drawer box, back) with its labels in the current language; the key is unchanged."""
+    labels = (tr(board.material), tr(board.color), board.finish if board.finish == "—" else tr(board.finish))
+    return replace(board, name=" · ".join(x for x in labels if x != "—"), material=labels[0], color=labels[1], finish=labels[2])
 
 
 def board_for(appearance: dict, thickness: int, catalog: dict) -> Board:

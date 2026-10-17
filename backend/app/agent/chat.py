@@ -11,7 +11,7 @@ import openai
 
 from app.advice.rules import advisories
 from app.agent.models import chat_model_for
-from app.agent.prompts import SPOKEN_NOTE, SYSTEM_PROMPT, design_context
+from app.agent.prompts import LANGUAGE_NAMES, SPOKEN_NOTE, SYSTEM_PROMPT, design_context, language_note
 from app.agent.proposals import MAX_SUMMARY, sign
 from app.agent.weather import get_jerusalem_weather
 from app.domain.apply import apply_ops
@@ -168,17 +168,20 @@ def describe_error(error: openai.OpenAIError, model: str | None, with_message: b
 
 
 def answer(api_key: str, messages: list[dict], configured_model: str | None, client_factory=openai.OpenAI,
-           design: dict | None = None, revision: int | None = None, spoken: bool = False) -> ChatResult:
+           design: dict | None = None, revision: int | None = None, spoken: bool = False,
+           language: str | None = None) -> ChatResult:
     """One turn. With a canonical `design` (and its `revision`) the agent sees it and may propose signed ops.
-    `spoken`: the customer spoke and will hear the reply, so it is written for the ear (ADR-028)."""
+    `spoken`: the customer spoke and will hear the reply, so it is written for the ear (ADR-028).
+    `language`: the session language the customer picked (ADR-029); None keeps "reply in their language"."""
     holder: dict = {"proposal": None}
     context = propose = None
     if design is not None:
         catalog = load_catalog()
         context = design_context(design, revision, advisories(design, catalog), catalog)
         propose = make_proposer(design, revision, catalog, holder)
-    if spoken:
-        context = f"{context}\n\n{SPOKEN_NOTE}" if context else SPOKEN_NOTE
+    notes = ([SPOKEN_NOTE] if spoken else []) + ([language_note(language)] if language in LANGUAGE_NAMES else [])
+    if notes:
+        context = "\n\n".join(([context] if context else []) + notes)
     client = client_factory(api_key=api_key, timeout=45.0, max_retries=1)
     model = None
     try:

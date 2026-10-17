@@ -22,6 +22,7 @@ customer's latest message (usually Hebrew).
 - Ask only for information you truly need, as one open question, and only when a reasonable default \
 does not exist. Otherwise propose, and say what you assumed.
 - Keep answers short: a few sentences. Use centimetres with the customer; the design uses millimetres.
+- Write plain text. The chat shows your words as they are, so no Markdown: no asterisks, no #, no bullet symbols.
 - Do not restart or re-introduce yourself; use the conversation so far.
 
 PROPOSING CHANGES
@@ -85,6 +86,17 @@ SPOKEN REPLY: the customer said their latest message out loud and will HEAR your
 Write for the ear: at most three short sentences, plain words, no lists, no symbols, no parentheses, no \
 abbreviations like ס"מ (say סנטימטר). Round numbers the way people say them. If you made a proposal, say \
 in one sentence what it changes and that it waits for their confirmation on the screen."""
+
+
+LANGUAGE_NAMES = {"he": "Hebrew", "en": "English", "ru": "Russian", "ar": "Arabic"}
+
+
+def language_note(language: str) -> str:
+    """The session language the customer picked (ADR-029): it wins over the language they happen to type in."""
+    name = LANGUAGE_NAMES[language]
+    return (f"SESSION LANGUAGE: the customer chose {name} for this conversation. Write every reply, every question "
+            f"and every proposal summary in {name}, even if a message arrives in another language. Use your name "
+            f"in {name} as given under IDENTITY.")
 
 
 def design_context(design: dict, revision: int, advisories: list[dict], catalog: dict) -> str:

@@ -16,6 +16,11 @@ BanAI started as an MVP AI wardrobe designer for standard straight wardrobes. Th
 - **Undo/redo** and hold-to-compare against a saved version.
 - **Design-aware chat** (ADR-020/025): the agent sees the design and proposes ops; the server signs them, and nothing changes until the customer confirms. Conversational: no chips or multiple choice. Jerusalem weather is the one deliberate off-topic answer (ADR-015).
 - **Push-to-talk voice** (ADR-021): record, transcribe on the server, send as a chat message. A change still needs a tap.
+- **Bob the Builder (בוב הבנאי):** the agent's name and character in every language (the app itself stays בנאי). A registered character: fine for this study project, a real product needs its own name.
+- **Languages** (ADR-029): Hebrew, English, Russian and Arabic.
+  - The **carpenter's dossier** comes in the language the carpenter picks from the dossier menu; the page direction follows it.
+  - The **conversation** has a session language, picked on the start screen or in the chat header and kept in the browser: the chat column's texts and direction, the agent's replies, the transcription hint and the spoken voice follow it.
+  - The rest of the workspace stays Hebrew, and so do the proposal card's change lines (they come from the Hebrew diff).
 - **Spoken replies** (ADR-028): a reply to a spoken message is also read aloud by an AI voice (OpenAI `gpt-4o-mini-tts`; persona: young, warm, smiling, never salesy). Typed messages get silent replies. A speaker toggle mutes it; the voice is picked by ear in AI settings; the UI discloses that the voice is AI-generated (an OpenAI usage-policy requirement).
 
 Docs:
@@ -120,6 +125,11 @@ python .claude/hooks/install_git_hooks.py      # (repo root) the Obsidian post-c
   - `backend/app/agent/`: the chat turn, the prompt, signed proposals, transcription and speech. `backend/app/api/voice.py` takes multipart audio up to 1 MiB (declared type checked against the magic bytes, two transcriptions at a time) and, on `/api/voice/speak`, returns MP3 for a reply (text cleaned and cut at a sentence end, two at a time, `Cache-Control: no-store`). A chat request with `spoken: true` asks the agent to answer for the ear.
   - `frontend/src/viewer/`: builders, motion (one spring per moving part), `pathtrace.js`. `frontend/src/render/`: the render HUD and the video recorder (Mediabunny, explicit timestamps).
   - `frontend/src/chat/`: the chat model, panel, proposal card, `voice.js` (a pure gesture state machine plus the MediaRecorder wiring) and `speech.js` (reply playback: a newer answer or a press on the mic cancels an older one).
+- **Translation (ADR-029).** Hebrew is the source language on both sides; nothing is keyed by an English id.
+  - Backend: `app/i18n.py` holds a per-request language (`with language("ru"): ...`, a ContextVar). `tr("תא {n}", n=2)` translates through `app/i18n_catalog.py`; templates use `t(...)`, which escapes the text and keeps Markup params. Outside a `language()` block everything stays Hebrew (the workspace advisories). Write new dossier text as `tr("...", name=value)`, never an f-string. Part names and groups stay Hebrew in the data (the code compares them) and are translated on display.
+  - A new dossier string needs an entry in the catalog: `tests/dossier/test_i18n.py` builds foreign dossiers for ~24 designs and fails on any untranslated string or any Hebrew letter left. One Hebrew word with two meanings (מוט: a rail or a bar handle) needs two distinct sources.
+  - Frontend: `src/chat/chatI18n.js`, `ct(hebrew, params)` for the chat column; `tests/unit/chat/chatI18n.test.js` checks every `ct('…')` literal has all three translations.
+  - The Russian and Arabic texts were written by AI and reviewed for placeholders and meaning only: carpentry terms need a native-speaking carpenter.
 - **DoS guards on the unauthenticated API:** a body cap per route (`backend/app/body_limit.py`: 1 MiB, 4 MiB for the dossier, 1 MiB + 8 KiB for voice), a JSON node count before Pydantic (`api/limits.py`), and non-blocking concurrency slots on every endpoint that calls OpenAI or Chromium (a busy server answers 429 BUSY at once instead of holding a worker thread).
 
 ## Infrastructure
@@ -155,4 +165,6 @@ python .claude/hooks/install_git_hooks.py      # (repo root) the Obsidian post-c
 - **A hidden Browser pane pauses** `requestAnimationFrame` and CSS transitions. Drive motion and samples through the test hooks, and turn transitions off for screenshots.
 - **Voice in E2E** uses Chromium's fake microphone (`--use-fake-device-for-media-stream --use-fake-ui-for-media-stream`, set per spec with `test.use`). Hold the button for about 2 s: a recording under 0.6 s, or one whose level meter never rises, is not uploaded.
 - **E2E console errors fail the test** (`tests/e2e/fixtures.js`). A test that expects a refused request (409, 400) declares it with `allowConsoleErrors(/pattern/)`.
+- **Hebrew in shell heredocs:** Python reads a script from stdin in the Windows codepage, so Hebrew in a `python - <<EOF` script arrives garbled and string matches silently fail. Put Hebrew in a UTF-8 script file and run that.
+- **No literal invisible characters in source:** write bidi controls and zero-width characters as `\u` escapes (a review found literal U+202E in source; that is a Trojan-Source risk).
 - **Signed proposals in E2E:** `playwright.config.js` gives the API `PROPOSAL_SECRET=e2e-proposal-secret`, and `chatProposals.spec.js` signs proposals with the backend's own code, so the real `/api/proposals/apply` is exercised.

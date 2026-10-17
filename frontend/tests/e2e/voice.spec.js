@@ -83,6 +83,7 @@ test.describe('push-to-talk voice', () => {
     const text = upload.body.toString('latin1');
     expect(text).toContain('name="apiKey"');
     expect(text).toContain(KEY);
+    expect(text).toMatch(/name="language"\r\n\r\nhe\r\n/); // the session language, a hint for transcription (ADR-029)
     expect(text).toMatch(/name="audio"; filename="voice"\r\nContent-Type: audio\/webm/);
     expect(upload.body.includes(EBML)).toBe(true);
     expect(upload.body.length).toBeGreaterThan(1000);

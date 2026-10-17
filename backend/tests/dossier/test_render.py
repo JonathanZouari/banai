@@ -8,7 +8,8 @@ import pytest
 from pypdf import PdfReader
 
 from app.domain.defaults import basic_wardrobe
-from app.dossier.render import RenderError, build, hebrew_date, html_to_pdf, render_html, render_pdf, row_pages
+from app.dossier.render import RenderError, build, html_to_pdf, render_html, render_pdf, row_pages
+from app.i18n import long_date
 from tests.production.samples import CATALOG, DESIGNS, make, png
 
 KINDS = ["cover", "front", "interior", "exploded", "materials", "estimate", "cutlist", "nesting", "site", "advice"]
@@ -21,7 +22,7 @@ def test_pages_follow_the_prototype_order_and_number_themselves():
     assert [p["no"] for p in ctx["pages"]] == list(range(1, len(kinds) + 1))
     assert [title for title, _ in ctx["toc"]] == ["חזית ותוכנית", "פנים", "מבט מפוצץ", "חומרים ופרזול", "אומדן עלות חומרים",
                                                   "רשימת חיתוך", "שיבוץ לוחות", "אתר ובדיקות", "הערות הייעוץ"]
-    assert ctx["meta"]["date"] == "17 באוקטובר 2026" == hebrew_date(date(2026, 10, 17))
+    assert ctx["meta"]["date"] == "17 באוקטובר 2026" == long_date(date(2026, 10, 17), "he")
     assert ctx["meta"]["id"].startswith("BN-") and ctx["meta"]["id"] == build(basic_wardrobe(), CATALOG)["meta"]["id"]
 
 

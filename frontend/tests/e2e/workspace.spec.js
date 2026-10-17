@@ -25,8 +25,8 @@ test.describe('workspace (RTL, schema v2)', () => {
     // Hidden labels once escaped the panel and made <body> ~340 px taller (Chrome walkthrough, 2026-10-17).
     await page.getByTestId('select-cmp_left').click();
     const input = page.locator('.compartment-row .field__input').first();
-    await input.scrollIntoViewIfNeeded();
-    await input.focus();
+    // What the panel does on its own: scroll the field into view and focus it (no wait for the animation).
+    await input.evaluate((el) => { el.scrollIntoView({ block: 'center' }); el.focus(); });
     const metrics = await page.evaluate(() => ({ height: document.scrollingElement.scrollHeight, top: document.scrollingElement.scrollTop, inner: innerHeight }));
     expect(metrics.height).toBeLessThanOrEqual(metrics.inner);
     expect(metrics.top).toBe(0);
@@ -144,12 +144,29 @@ test.describe('workspace (RTL, schema v2)', () => {
 
   test('the carpenter dossier downloads as a PDF built by the server (ADR-019)', async ({ page }) => {
     test.setTimeout(60_000); // Chromium renders the PDF on the server
-    const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('open-dossier').click()]);
+    await page.getByTestId('open-dossier').click(); // a menu of the carpenter's language (ADR-029)
+    await expect(page.getByTestId('dossier-ar')).toBeVisible();
+    const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('dossier-he').click()]);
     expect(download.suggestedFilename()).toBe('banai-dossier.pdf');
     const pdf = await readFile(await download.path());
     expect(pdf.subarray(0, 5).toString('latin1')).toBe('%PDF-');
     expect(pdf.length).toBeGreaterThan(50_000);
     await expect(page.getByTestId('open-dossier')).toHaveText('תיק נגר');
+  });
+
+  test('the dossier comes in the carpenter\'s language: Russian, left to right (ADR-029)', async ({ page }) => {
+    test.setTimeout(60_000);
+    const sent = [];
+    page.on('request', (request) => {
+      if (request.url().endsWith('/api/dossier') && request.method() === 'POST') sent.push(request.postDataJSON());
+    });
+    await page.getByTestId('open-dossier').click();
+    const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('dossier-ru').click()]);
+    expect(download.suggestedFilename()).toBe('banai-dossier-ru.pdf');
+    expect(sent.at(-1).language).toBe('ru');
+    const pdf = await readFile(await download.path());
+    expect(pdf.subarray(0, 5).toString('latin1')).toBe('%PDF-');
+    await expect(page.getByTestId('dossier-menu')).not.toHaveAttribute('open', '');
   });
 
   test('opening the doors runs the sequence: drawers slide out and the pull-down comes down', async ({ page }) => {
