@@ -22,6 +22,7 @@ import {
   ct, getChatLanguage, loadChatLanguage, onChatLanguage, saveChatLanguage, setChatLanguage,
 } from './chat/chatI18n.js';
 import { mountStartScreen } from './entry/startScreen.js';
+import { openAboutDialog } from './entry/about.js';
 import { createSaveDialog } from './share/saveDialog.js';
 import { coverPng, createRenderHud } from './render/renderHud.js';
 import { bindVideoMenu } from './render/video.js';
@@ -455,7 +456,11 @@ async function boot() {
     window.__banai = Object.freeze({ store, viewer, chat: chatModel, aiSettings, feed, hud });
   }
 
+  byId('open-about')?.addEventListener('click', () => openAboutDialog({ reducedMotion: reducedMotion() }));
   mountStartScreen({
+    reducedMotion: reducedMotion(),
+    // A software renderer draws the start screen's wardrobe once instead of animating it.
+    still: softwareRenderer(),
     onChoose: (entry) => {
       // All three entry points open the same editor; the chat ones also open the chat tab.
       if (entry.id === 'basic') return;

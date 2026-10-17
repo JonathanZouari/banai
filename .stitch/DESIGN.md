@@ -49,6 +49,43 @@
 - The help popover scales 0.96 to 1 and fades in (180ms) from its trigger.
 - `prefers-reduced-motion`: no transforms; the popover fades only.
 
+## Atelier: the start screen and About (2026-10-17, user decision)
+"A carpenter's studio, drawn in pencil": an artistic layer for the first screen and the About page only. The workspace keeps the system above. Code: `src/entry/startScreen.js`, `src/entry/about.js`, `src/entry/atelier/`, `src/styles/atelier.css`. The P3 prototype in `prototypes/p3-atelier/` was the approved design.
+- **Palette** (scoped to `.start` and `.about-dialog`):
+  - paper `#f7f3ec`
+  - graphite `#8a7f73` for lines (decoration only, 3.6:1)
+  - graphite ink `#5c544b` for pencil labels (6.9:1 on white)
+  - wood `#c9a27e`
+  - the system's ink and Apple-blue accent for text and actions
+- **The signature: a pencil dimension line.** A thin line with end ticks and a label in a pill, drawn with `stroke-dashoffset` over `pathLength=1`. Use it sparingly: the heading ("עד המילימטר"), the hero wardrobe's real size, and the About figures. Never use it as decoration on everything.
+- **Hero:** a 3D wardrobe assembles from a pencil sketch.
+  - Each part rides a critically damped spring and is staggered in assembly order. Its outline fades as the wood fills in.
+  - The middle door then opens partway, and the 240 and 250 cm dimensions draw themselves.
+  - Light and shadow: RoomEnvironment light and a radial contact shadow, not a cast shadow on a floor.
+  - Placement: on a wide screen the wardrobe sits left of the copy (`setViewOffset`). On a narrow one it gets its own row, centred.
+  - The entry cards are glass over the scene.
+- **Bob** is our own flat drawing of a fictional master carpenter in his fifties: greying hair, a short beard, thin glasses, a pencil behind the ear.
+  - States: idle, thinking, speaking and happy.
+  - The greeting is text at speaking pace, with the mouth moving; it has no audio.
+  - Every instance gets its own SVG ids. The drawing is decorative (`aria-hidden`).
+- **About:**
+  - the fictional story: in the workshop since 1995, 31 years, 1,284 wardrobes, 20 advisory rules, 1 mm tolerance
+  - a quote
+  - figures that count up over a dimension line
+  - a line saying that Bob and the figures are fictional and that an AI answers in the chat
+
+  It sits under the start screen ("הכירו את בוב") and opens as a dialog from the top bar ("אודות בוב").
+- **Performance:**
+  - One extra WebGL context lives only while the start screen is open. Choosing a card disposes it and forces a context loss.
+  - On a software renderer (SwiftShader, llvmpipe) the wardrobe is drawn once, not animated.
+  - Bob's animation loop runs only while he speaks.
+- **Comfort:**
+  - Reduced motion shows everything finished and still: the greeting at once, no count-ups.
+  - Reduced transparency makes the glass solid; more contrast darkens the graphite.
+  - The heading takes the first focus.
+  - Esc does not dismiss the start screen, because a choice is required.
+  - On a phone the page is held to the screen width while the start screen is up, because the workspace behind it is wider.
+
 ## Deliberately not implemented
 - Cutlist and cost estimation, project breadcrumb and Save, clearance verification, JSON export: outside the agreed MVP scope. The AI column shows an empty state and tips until the agent is built (Phase 5).
 

@@ -298,7 +298,6 @@ body.is-rendering .compare-bar { opacity: 0; pointer-events: none; }
 [dir='rtl'] .icon--arrow, [dir='rtl'] .icon--send { transform: scaleX(-1); }
 
 /* Start screen: the same brand as the top bar. */
-.start__bar .brand__mark { width: 32px; height: 32px; }
 
 /* ---------- zones ---------- */
 .zone-list { display: flex; flex-direction: column; gap: 6px; margin: 0 0 var(--space-3); padding: 0; list-style: none; }
