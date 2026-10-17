@@ -17,6 +17,7 @@ import { mountStartScreen } from './entry/startScreen.js';
 import { GUIDED_GREETING } from './entry/entryPoints.js';
 import { createSaveDialog } from './share/saveDialog.js';
 import { createRenderDialog } from './render/renderDialog.js';
+import { bindPdfExport } from './export/exportButton.js';
 import { createLogo } from './ui/logo.js';
 import { installRipple } from './ui/ripple.js';
 
@@ -94,6 +95,7 @@ async function boot() {
   bindInteriorToggle(store);
   mountPanel(document.getElementById('properties-content'), store);
   bindDialogs();
+  bindPdfExport({ button: document.getElementById('export-pdf'), store, onError: showError });
 
   // The agent only ever sees the committed design and revision as they are when the message is sent.
   let chatMode = 'free'; // 'guided' only when the customer chose the guided start

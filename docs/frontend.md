@@ -73,3 +73,8 @@ In dev builds `window.__banai.chat` exposes the chat model, so a proposal can be
 - The basic wardrobe is a visible starting point. When the customer describes a whole wardrobe the agent proposes `create_wardrobe` plus its parts, which replaces the starter once confirmed; the orchestrator gives the model one follow-up round when it sends `create_wardrobe` alone.
 - Manual edits never call the AI. The next chat request carries the current design and revision, so the agent always builds on them; a pending proposal turns stale (409) as before.
 - Acceptance scenario steps 1-16 run in `frontend/tests/e2e/codesign.spec.js` with the scripted LLM in `backend/tests/e2e_app.py`.
+
+## Carpenter PDF
+- Button "Carpenter PDF" (`export-pdf`) in the top bar. Client-side only: `src/export/cutList.js` computes the parts from the committed design, `captureViews.js` renders pictures with its own offscreen renderer (the live viewer is untouched), `carpenterPdf.js` builds the document with jsPDF (English, standard fonts), `exportButton.js` downloads it. jsPDF is loaded on first click.
+- Sizes come from the design (mm). Back panel thickness, door and drawer gaps and the sliding overlap are the viewer's prototype values and are printed as assumptions. Joints, fixings and drawer boxes are not specified.
+- Every page says the design is illustrative and not verified for manufacturing.
