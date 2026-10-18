@@ -12,6 +12,9 @@ import { interiorHeight, interiorWidth } from './geometry.js';
 import { parseDesign } from './schema.js';
 import { ITEM_KINDS, sum } from './util.js';
 
+// The raw readings and the governing value each one sets (the smallest known reading).
+const SITE_READINGS = Object.freeze({ widths: 'niche', heights: 'ceiling' });
+
 /** Validate a design. `catalog = null` skips the catalog-reference check. */
 export function validateDesign(data, catalog) {
   let design;
@@ -89,10 +92,25 @@ function checkRanges(design) {
     });
   });
   const site = design.site ?? {};
-  for (const field of ['ceiling', 'niche']) {
+  for (const field of ['ceiling', 'niche', 'clearance']) {
     if (site[field] !== null && site[field] !== undefined) checks.push([site[field], field, `site.${field}`]);
   }
-  return checks.map(([value, limit, path]) => rangeIssue(value, limit, path)).filter(Boolean);
+  for (const [readings, limit] of Object.entries(SITE_READINGS)) {
+    (site[readings] ?? []).forEach((value, i) => {
+      if (value !== null) checks.push([value, limit, `site.${readings}[${i}]`]);
+    });
+  }
+  const issues = checks.map(([value, limit, path]) => rangeIssue(value, limit, path)).filter(Boolean);
+  for (const [readings, single] of Object.entries(SITE_READINGS)) {
+    const values = site[readings];
+    if (values === null || values === undefined) continue;
+    const known = values.filter((v) => v !== null);
+    if (!known.length) issues.push(new DomainError(E.SCHEMA_INVALID, `site.${readings}`, 'give at least one reading or null'));
+    else if (site[single] !== Math.min(...known)) {
+      issues.push(new DomainError(E.SCHEMA_INVALID, `site.${single}`, `${single} must be the smallest of ${readings}`));
+    }
+  }
+  return issues;
 }
 
 function checkWidthSum(design) {

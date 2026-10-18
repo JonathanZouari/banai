@@ -18,6 +18,9 @@ from app.domain.errors import DomainError
 from app.domain.geometry import interior_height, interior_width
 from app.domain.schema import parse_design
 
+# The raw readings and the governing value each one sets (the smallest known reading).
+SITE_READINGS = {"widths": "niche", "heights": "ceiling"}
+
 
 def validate_design(data: object, catalog: dict | None) -> list[DomainError]:
     """Validate a design. `catalog=None` skips the catalog-reference check."""
@@ -104,10 +107,24 @@ def _check_ranges(design: dict) -> list[DomainError]:
             if item["height"] is not None:
                 checks.append((item["height"], "insertHeight", f"compartments[{ci}].inserts[{ii}].height"))
     site = design["site"] or {}
-    for field in ("ceiling", "niche"):
+    for field in ("ceiling", "niche", "clearance"):
         if site.get(field) is not None:
             checks.append((site[field], field, f"site.{field}"))
-    return [issue for v, limit, path in checks if (issue := range_issue(v, limit, path))]
+    for readings, limit in SITE_READINGS.items():
+        for i, value in enumerate(site.get(readings) or []):
+            if value is not None:
+                checks.append((value, limit, f"site.{readings}[{i}]"))
+    issues = [issue for v, limit, path in checks if (issue := range_issue(v, limit, path))]
+    for readings, single in SITE_READINGS.items():
+        values = site.get(readings)
+        if values is None:
+            continue
+        known = [v for v in values if v is not None]
+        if not known:
+            issues.append(DomainError(codes.SCHEMA_INVALID, f"site.{readings}", "give at least one reading or null"))
+        elif site.get(single) != min(known):
+            issues.append(DomainError(codes.SCHEMA_INVALID, f"site.{single}", f"{single} must be the smallest of {readings}"))
+    return issues
 
 
 def _check_width_sum(design: dict) -> list[DomainError]:

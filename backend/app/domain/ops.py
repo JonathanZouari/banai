@@ -175,10 +175,21 @@ class RemoveComponent(StrictModel):
 
 
 # ---- schema v2 ----
+SiteField = Literal["ceiling", "niche", "heights", "widths", "clearance"]
+
+
 class SetSite(StrictModel):
+    """Merge site measurements. `heights`/`widths` are three readings (null = unknown) and set
+    `ceiling`/`niche` to the smallest; a single `ceiling`/`niche` replaces the readings. `unset` drops
+    fields (unsetting niche or ceiling drops their readings too); `clear` drops the whole site."""
+
     op: Literal["set_site"]
     ceiling: Int | None = None
     niche: Int | None = None
+    heights: Annotated[list[Int | None], Field(min_length=3, max_length=3)] | None = None
+    widths: Annotated[list[Int | None], Field(min_length=3, max_length=3)] | None = None
+    clearance: Int | None = None
+    unset: list[SiteField] = Field(default_factory=list, max_length=5)
     clear: bool = False
 
 

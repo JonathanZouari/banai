@@ -1178,5 +1178,336 @@
         "path": "doors.items[2].compartmentIds"
       }
     }
+  },
+  {
+    "name": "set_site widths keep the three readings and the niche is the smallest",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "widths": [
+          1210,
+          1195,
+          1205
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "site": {
+          "widths": [
+            1210,
+            1195,
+            1205
+          ],
+          "niche": 1195
+        }
+      }
+    }
+  },
+  {
+    "name": "set_site takes partial readings: an unknown reading is null",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "widths": [
+          1200,
+          null,
+          1190
+        ],
+        "heights": [
+          2600,
+          2585,
+          null
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "site": {
+          "widths": [
+            1200,
+            null,
+            1190
+          ],
+          "niche": 1190,
+          "heights": [
+            2600,
+            2585,
+            null
+          ],
+          "ceiling": 2585
+        }
+      }
+    }
+  },
+  {
+    "name": "a single niche replaces the three width readings",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "widths": [
+          1210,
+          1195,
+          1205
+        ]
+      },
+      {
+        "op": "set_site",
+        "niche": 1100
+      }
+    ],
+    "expect": {
+      "match": {
+        "site": {
+          "widths": null,
+          "niche": 1100
+        }
+      }
+    }
+  },
+  {
+    "name": "widths and niche together are refused",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "widths": [
+          1210,
+          1195,
+          1205
+        ],
+        "niche": 1195
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[0]"
+      }
+    }
+  },
+  {
+    "name": "set_site stores the clearance in front of the wardrobe",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "ceiling": 2600
+      },
+      {
+        "op": "set_site",
+        "clearance": 900
+      }
+    ],
+    "expect": {
+      "match": {
+        "site": {
+          "ceiling": 2600,
+          "clearance": 900
+        }
+      }
+    }
+  },
+  {
+    "name": "unset drops one field and keeps the others",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "ceiling": 2600,
+        "clearance": 900
+      },
+      {
+        "op": "set_site",
+        "unset": [
+          "clearance"
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "site": {
+          "ceiling": 2600,
+          "clearance": null
+        }
+      }
+    }
+  },
+  {
+    "name": "unsetting the niche drops its readings, and an empty site is null",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "widths": [
+          1210,
+          1195,
+          1205
+        ]
+      },
+      {
+        "op": "set_site",
+        "unset": [
+          "niche"
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "site": null
+      }
+    }
+  },
+  {
+    "name": "three unknown readings clear the governing value",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "niche": 1100
+      },
+      {
+        "op": "set_site",
+        "widths": [
+          null,
+          null,
+          null
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "site": null
+      }
+    }
+  },
+  {
+    "name": "a reading out of range names its index",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "widths": [
+          1200,
+          100,
+          1200
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_RANGE",
+        "path": "ops[0].widths[1]"
+      }
+    }
+  },
+  {
+    "name": "a clearance under 100 mm is out of range",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "clearance": 50
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_RANGE",
+        "path": "ops[0].clearance"
+      }
+    }
+  },
+  {
+    "name": "a field cannot be set and unset in one op",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "clearance": 900,
+        "unset": [
+          "clearance"
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[0]"
+      }
+    }
+  },
+  {
+    "name": "clear cannot carry unset",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "clear": true,
+        "unset": [
+          "clearance"
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[0]"
+      }
+    }
+  },
+  {
+    "name": "readings must be exactly three",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "widths": [
+          1200,
+          1190
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "SCHEMA_INVALID"
+      }
+    }
+  },
+  {
+    "name": "a stored niche that is not the smallest reading is invalid",
+    "base": "two",
+    "mutate": [
+      {
+        "path": [
+          "site"
+        ],
+        "value": {
+          "ceiling": null,
+          "niche": 1300,
+          "heights": null,
+          "widths": [
+            1200,
+            1250,
+            1300
+          ],
+          "clearance": null
+        }
+      }
+    ],
+    "ops": [
+      {
+        "op": "set_site",
+        "clearance": 900
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "SCHEMA_INVALID",
+        "path": "site.niche"
+      }
+    }
   }
 ]

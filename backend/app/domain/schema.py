@@ -179,11 +179,23 @@ class Insert(StrictModel):
     height: Int | None = None
 
 
+Reading3 = Annotated[list[Int | None], Field(min_length=3, max_length=3)]
+
+
 class Site(StrictModel):
-    """Customer's estimated site measurements (mm). The carpenter verifies them on site."""
+    """Customer's estimated site measurements (mm). The carpenter verifies them on site.
+
+    `ceiling` and `niche` are the governing values. When the customer gave the raw readings,
+    `heights` (left, middle, right) and `widths` (top, middle, bottom) keep them, any of them unknown,
+    and the governing value is the smallest known reading [research 96][11]. `clearance` is the free
+    floor in front of the wardrobe (docs/schema.md "Site").
+    """
 
     ceiling: Int | None = None
     niche: Int | None = None
+    heights: Reading3 | None = None
+    widths: Reading3 | None = None
+    clearance: Int | None = None
 
 
 class Compartment(StrictModel):

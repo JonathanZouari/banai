@@ -1,4 +1,4 @@
-"""Advisory layer: research-backed, non-blocking guidance on a canonical design (R1-R20).
+"""Advisory layer: research-backed, non-blocking guidance on a canonical design (R1-R22).
 
 Pure: (design, catalog) -> advisories. Every item carries its evidence grade and its source in
 docs/research/carpentry-wardrobes-research.md, so the app explains why instead of claiming a design
@@ -29,6 +29,12 @@ RAIL_SUPPORT_SPAN, MAX_RAIL_SPAN = 800, 1000  # 25 mm round rail [41]
 MAX_HINGED_WIDTH, MAX_HINGED_WIDTH_EXTRA = 600, 650  # concealed hinges [3]
 HEAVY_DOOR_KG = 27.2  # top of the hinge weight tables [3][5]
 DRAWER_SIDE_CLEARANCE = 5  # box = compartment - 10: inner width - 42 with 16 mm sides [28][32]
+# R21: free floor in front of the wardrobe. Retail guides, no standard [99]: at least 60 cm to pass, 100-120 cm
+# in front of hinged doors, and under about 50 cm sliding doors.
+MIN_PASSAGE, HINGED_ROOM, SLIDING_BELOW = 600, 1000, 500
+# R22: readings that differ by more than this are an out-of-square niche (rule of thumb [96][93]); along a
+# sliding track the ceiling may differ by 15 mm at most before it needs a levelling frame [11][13].
+OUT_OF_SQUARE, TRACK_LEVEL = 10, 15
 
 
 def cm(mm: float) -> str:
@@ -83,7 +89,7 @@ def advisories(design: dict, catalog: dict | None) -> list[dict]:
     """All advisories for a canonical, already validated design, most severe first (stable within a level)."""
     out = _Collector(design, catalog)
     lay = layout(design)
-    for rule in (_site, _hinged_doors, _sliding_doors, _drawers, _spans, _zones, _inserts, _hanging, _board):
+    for rule in (_site, _clearance, _hinged_doors, _sliding_doors, _drawers, _spans, _zones, _inserts, _hanging, _board):
         rule(design, lay, out)
     return sorted(out.items, key=lambda a: LEVEL_ORDER[a["level"]])
 
@@ -123,6 +129,79 @@ def _site(design: dict, lay: Layout, out: _Collector) -> None:
             out.add("r12-gap", "info", tr("פילר {f} ס״מ בכל צד", f=cm(gap / 2)),
                     tr("הפילרים סוגרים את הנישה ומשמשים מרווח לפתיחת הדלתות. הנגר מכייל אותם במדידה באתר."),
                     "כלל אצבע", "[96]", ["carcass"])
+    # R22: an out-of-square niche, from the raw readings [96][93][11][13].
+    widths = [w for w in site.get("widths") or [] if w is not None]
+    if len(widths) > 1 and max(widths) - min(widths) > OUT_OF_SQUARE:
+        out.add("r22-walls", "info", tr("הנישה לא ישרה: הפרש של {d} מ״מ", d=max(widths) - min(widths)),
+                tr("הרוחב נע בין {a} ל-{b} ס״מ. הארון נבנה לפי הרוחב הקטן, ואת ההפרש סוגרים בפילר שחותכים לפי הקיר. "
+                   "קירות עקומים מוסיפים זמן עבודה.", a=cm(min(widths)), b=cm(max(widths))),
+                "כלל אצבע", "[96][93]", ["carcass"])
+    heights = [h for h in site.get("heights") or [] if h is not None]
+    spread = max(heights) - min(heights) if len(heights) > 1 else 0
+    if lay.sliding and lay.doors and spread > TRACK_LEVEL:
+        out.add("r22-track", "warn", tr("התקרה לא ישרה לאורך המסילה"),
+                tr("הגובה נע בין {a} ל-{b} ס״מ, הפרש של {d} מ״מ. מעל 15 מ״מ מסילת ההזזה צריכה מסגרת פילוס.",
+                   a=cm(min(heights)), b=cm(max(heights)), d=spread),
+                "יצרן", "[11][13]", ["carcass"])
+    elif spread > OUT_OF_SQUARE:
+        out.add("r22-ceiling", "info", tr("התקרה לא ישרה: הפרש של {d} מ״מ", d=spread),
+                tr("הגוף מתוכנן לפי הנקודה הנמוכה, {a} ס״מ. את הפילר העליון חותכים לפי התקרה, ורגליות מתכווננות "
+                   "מיישרות את הגוף.", a=cm(min(heights))),
+                "כלל אצבע", "[96][11]", ["carcass"])
+
+
+def _to_sliding(lay: Layout, out: _Collector) -> dict | None:
+    count = 2 if lay.width <= 2000 else 3
+    return out.fix(tr("עבור לדלתות הזזה"), [{"op": "configure_doors", "type": "sliding",
+                                             "ids": [f"dr_s{i + 1}" for i in range(count)]}])
+
+
+def _clearance(design: dict, lay: Layout, out: _Collector) -> None:
+    """R21: room to open the doors and drawers, and to pass, in front of the wardrobe [99]."""
+    room = (design["site"] or {}).get("clearance")
+    if not room:
+        return
+    fired = False
+    if design["doors"]["type"] == "hinged" and lay.doors:
+        # A hinged leaf sweeps a quarter circle as wide as the leaf.
+        blocked = [d for d in lay.doors if d.width > room]
+        if blocked:
+            worst = max(d.width for d in blocked)
+            lone = [d for d in blocked if d.compartment is not None
+                    and sum(1 for x in lay.doors if (x.compartment, x.anchors) == (d.compartment, d.anchors)) == 1]
+            fix = None
+            if room >= SLIDING_BELOW and len(lone) == len(blocked) and worst / 2 <= room:
+                taken = _ids(design)
+                fix = out.fix(tr("פצל לשתי דלתות"), [{"op": "split_door", "id": d.id, "newId": _free(f"dr_{_tag(d.id, 30)}_2", taken)}
+                                                    for d in lone])
+            fix = fix or _to_sliding(lay, out)
+            out.add("r21-swing", "warn", tr("אין מקום לפתוח את הדלת"),
+                    tr("דלת ציר ברוחב {w} ס״מ צריכה {w} ס״מ פנויים מול הארון כדי להיפתח, ויש {c} ס״מ. "
+                       "מתחת לכ-50 ס״מ מקובל לעבור לדלתות הזזה.", w=cm(worst), c=cm(room)),
+                    "חישוב", "[99]", [f"door:{d.id}" for d in blocked], fix)
+            fired = True
+        elif room < HINGED_ROOM:
+            out.add("r21-hinged", "info", tr("מעבר צפוף מול דלת ציר"),
+                    tr("{c} ס״מ מול הארון. מדריכים ממליצים על 100–120 ס״מ מול דלת ציר, כדי לעמוד מול דלת פתוחה.", c=cm(room)),
+                    "כלל אצבע", "[99]", [f"door:{d.id}" for d in lay.doors])
+            fired = True
+    # A drawer on full-extension runners comes out about its own depth, from the shelf line.
+    reach = max(0, lay.shelf_depth - (lay.depth - lay.shelf_depth))  # a very shallow shelf line reaches nothing
+    drawers = [i for i, c in enumerate(design["compartments"]) if c["drawers"]]
+    if drawers and reach > room:
+        out.add("r21-drawer", "warn", tr("המגירות לא ייפתחו עד הסוף"),
+                tr("מגירה נשלפת כ-{r} ס״מ מחזית הארון, ויש {c} ס״מ פנויים.", r=cm(reach), c=cm(room)),
+                "הערכה", "[99]", [f"comp:{i}" for i in drawers])
+        fired = True
+    elif drawers and room - reach < MIN_PASSAGE:
+        out.add("r21-drawer-pass", "info", tr("מעבר צר מול מגירה פתוחה"),
+                tr("כשמגירה פתוחה נשארים {p} ס״מ למעבר, ומדריכים ממליצים על 60 ס״מ לפחות.", p=cm(room - reach)),
+                "כלל אצבע", "[99]", [f"comp:{i}" for i in drawers])
+        fired = True
+    if not fired and room < MIN_PASSAGE:
+        out.add("r21-pass", "info", tr("מעבר צר מול הארון"),
+                tr("{c} ס״מ פנויים. מדריכים ממליצים על 60 ס״מ לפחות למעבר.", c=cm(room)),
+                "כלל אצבע", "[99]", ["carcass"])
 
 
 def _hinged_doors(design: dict, lay: Layout, out: _Collector) -> None:

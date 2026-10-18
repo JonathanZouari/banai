@@ -20,7 +20,7 @@ from app.i18n_catalog import CATALOG
 from app.main import app
 
 from tests.production.samples import CATALOG as DESIGN_CATALOG
-from tests.production.samples import DESIGNS, hinged, make
+from tests.production.samples import DESIGNS, hinged, make, sliding
 
 # More variants: every handle style, a heavy mirror door, painted MDF, veneer, 18 mm, site checks, inserts.
 VARIANTS = {
@@ -33,6 +33,12 @@ VARIANTS = {
     "veneer-18": lambda: make(hinged(2), {"op": "set_material", "target": "carcass", "material": {"catalogId": "oak_veneer"}}, panel=18),
     "low-ceiling": lambda: make(hinged(2), {"op": "set_site", "ceiling": 2420, "niche": 1810}),
     "too-tall": lambda: make(hinged(2), {"op": "set_site", "ceiling": 2300, "niche": 1700}),
+    # Room elements: readings, clearance, and every R21/R22 advisory between them.
+    "room-tight": lambda: make(hinged(2), {"op": "add_drawer", "compartmentId": "cmp_b", "y": 0, "height": 200, "id": "drw_b"},
+                               {"op": "set_site", "clearance": 400, "widths": [1900, 1870, None], "heights": [2600, 2570, 2590]}),
+    "room-pass": lambda: make(hinged(2), {"op": "add_drawer", "compartmentId": "cmp_b", "y": 0, "height": 200, "id": "drw_b"}, {"op": "set_site", "clearance": 950}),
+    "room-slide": lambda: make(sliding(2), {"op": "set_site", "clearance": 550, "heights": [2600, 2580, None]}),
+    "room-tight-hinged": lambda: make(hinged(2), {"op": "set_site", "clearance": 700}),
     "pulldown-wide": lambda: make({"op": "add_insert", "compartmentId": "cmp_a", "type": "pulldown", "id": "ins_pw"}, count=1, width=1400),
     "led-many": lambda: make({"op": "add_insert", "compartmentId": "cmp_a", "type": "led", "id": "ins_l1"},
                              {"op": "add_insert", "compartmentId": "cmp_b", "type": "led", "id": "ins_l2"}),

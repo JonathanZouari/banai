@@ -55,7 +55,13 @@ export const opSchema = z.discriminatedUnion('op', [
   }),
   op('remove_component', { id: z.string().regex(ids.ANY_ID_PATTERN) }),
   // ---- schema v2 ----
-  op('set_site', { ceiling: opt(int()), niche: opt(int()), clear: z.boolean().default(false) }),
+  op('set_site', {
+    ceiling: opt(int()), niche: opt(int()),
+    heights: opt(z.array(int().nullable()).length(3)), widths: opt(z.array(int().nullable()).length(3)),
+    clearance: opt(int()),
+    unset: z.array(z.enum(['ceiling', 'niche', 'heights', 'widths', 'clearance'])).max(5).default([]),
+    clear: z.boolean().default(false),
+  }),
   op('apply_preset', { compartmentId: cmpId(), preset: z.enum(['long', 'double', 'shelves', 'drawers']), zone: opt(int()) }),
   op('set_zones', { compartmentId: cmpId(), count: int() }),
   op('set_zone_door', {

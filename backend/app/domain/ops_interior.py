@@ -123,18 +123,49 @@ def modify_insert(draft: dict, op: op_types.ModifyInsert, path: str) -> dict:
     return draft
 
 
+# The raw readings and the governing value each one sets: the smallest known reading [research 96][11].
+SITE_READINGS = {"widths": "niche", "heights": "ceiling"}
+SITE_FIELDS = ("ceiling", "niche", "heights", "widths", "clearance")
+
+
 def set_site(draft: dict, op: op_types.SetSite, path: str) -> dict:
-    given = {f: getattr(op, f) for f in ("ceiling", "niche") if getattr(op, f) is not None}
+    given = {f: getattr(op, f) for f in SITE_FIELDS if getattr(op, f) is not None}
+    unset = list(dict.fromkeys(op.unset))
     if op.clear:
-        if given:
+        if given or unset:
             raise DomainError(INVALID_OP, path, "clear cannot be combined with new values")
         draft["site"] = None
         return draft
-    if not given:
-        raise DomainError(INVALID_OP, path, "give ceiling, niche or clear")
+    if not given and not unset:
+        raise DomainError(INVALID_OP, path, "give a measurement, unset or clear")
+    for readings, single in SITE_READINGS.items():
+        if readings in given and single in given:
+            raise DomainError(INVALID_OP, path, f"{single} is the smallest of {readings}: give one of them")
+    if set(given) & set(unset):
+        raise DomainError(INVALID_OP, path, "a field cannot be set and unset together")
     for field, value in given.items():
-        require_range(value, field, f"{path}.{field}")
-    draft["site"] = {"ceiling": None, "niche": None, **(draft["site"] or {}), **given}
+        if field in SITE_READINGS:
+            for i, reading in enumerate(value):
+                if reading is not None:
+                    require_range(reading, SITE_READINGS[field], f"{path}.{field}[{i}]")
+        else:
+            require_range(value, field, f"{path}.{field}")
+    site = {f: None for f in SITE_FIELDS} | (draft["site"] or {})
+    singles = {single: readings for readings, single in SITE_READINGS.items()}
+    for field in unset:
+        site[field] = None
+        if field in singles:  # no niche means no niche readings either
+            site[singles[field]] = None
+    for field, value in given.items():
+        if field in SITE_READINGS:
+            known = [v for v in value if v is not None]
+            site[field] = list(value) if known else None
+            site[SITE_READINGS[field]] = min(known) if known else None
+        else:
+            site[field] = value
+            if field in singles:  # one measurement replaces the three readings
+                site[singles[field]] = None
+    draft["site"] = site if any(v is not None for v in site.values()) else None
     return draft
 
 

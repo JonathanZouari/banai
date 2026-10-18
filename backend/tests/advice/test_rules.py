@@ -55,6 +55,9 @@ SAMPLES = {
     # 725 mm compartments: cmp_a in three zones, a pair in zone 2; every single door is about 75 cm wide.
     "zones": make(hinged(), {"op": "set_zones", "compartmentId": "cmp_a", "count": 3},
                    {"op": "set_zone_door", "compartmentId": "cmp_a", "zone": 2, "leaves": 2}, width=1500),
+    # R21: 40 cm in front of two ~90 cm hinged doors and a drawer (sliding is the fix), and 70 cm (splitting is).
+    "cramped": make(hinged(), {"op": "add_drawer", "compartmentId": "cmp_b", "y": 0, "height": 200, "id": "drw_b"}, {"op": "set_site", "clearance": 400}),
+    "tight": make(hinged(), {"op": "set_site", "clearance": 700}),
 }
 
 
@@ -83,7 +86,7 @@ def test_the_samples_cover_every_fix():
     fixed = {a["id"].rsplit("-", 1)[0] if a["id"][-1].isdigit() else a["id"]
              for d in SAMPLES.values() for a in advisories(d, CATALOG) if "fix" in a}
     assert fixed == {"r1-over", "r1-lift", "niche-over", "r12-filler", "r3-wide", "r6-mirror", "r5-depth", "r7-sag",
-                     "r8-rail", "r16-high", "r16-width"}
+                     "r8-rail", "r16-high", "r16-width", "r21-swing"}
 
 
 def test_advisories_do_not_touch_the_design():
@@ -95,7 +98,41 @@ def test_advisories_do_not_touch_the_design():
 
 def test_site_rules_need_a_site():
     ids = by_id(make(hinged()))
-    assert not {i for i in ids if i.startswith(("r1-", "r12-", "niche-"))}
+    assert not {i for i in ids if i.startswith(("r1-", "r12-", "niche-", "r21-", "r22-"))}
+
+
+def test_room_to_open_hinged_doors_and_drawers():
+    cramped = by_id(SAMPLES["cramped"])
+    assert cramped["r21-swing"]["level"] == "warn" and cramped["r21-drawer"]["level"] == "warn"
+    assert cramped["r21-swing"]["fix"]["ops"][0]["type"] == "sliding"  # under ~50 cm: sliding [99]
+    assert cramped["r21-swing"]["targets"] == ["door:dr_a", "door:dr_b"]
+    assert "ויש 40 ס״מ" in cramped["r21-swing"]["body"]
+    tight = by_id(SAMPLES["tight"])
+    assert [op["op"] for op in tight["r21-swing"]["fix"]["ops"]] == ["split_door", "split_door"]  # leaves of ~45 cm fit
+    roomy = by_id(make(hinged(), {"op": "add_drawer", "compartmentId": "cmp_b", "y": 0, "height": 200, "id": "drw_b"},
+                       {"op": "set_site", "clearance": 950}))
+    assert roomy["r21-hinged"]["level"] == "info" and "r21-swing" not in roomy
+    assert roomy["r21-drawer-pass"]["level"] == "info"  # 95 - 55 = 40 cm behind an open drawer
+    assert not {i for i in by_id(make(hinged(), {"op": "set_site", "clearance": 1500})) if i.startswith("r21-")}
+
+
+def test_room_to_pass_without_doors_or_drawers():
+    narrow = by_id(make({"op": "set_site", "clearance": 500}))
+    assert narrow["r21-pass"]["level"] == "info" and "50 ס״מ" in narrow["r21-pass"]["title"] + narrow["r21-pass"]["body"]
+    assert "r21-pass" not in by_id(make({"op": "set_site", "clearance": 700}))
+
+
+def test_an_out_of_square_niche():
+    crooked = by_id(make(hinged(), {"op": "set_site", "widths": [1900, 1870, 1895], "heights": [2600, 2570, 2590]}))
+    assert crooked["r22-walls"]["title"] == "הנישה לא ישרה: הפרש של 30 מ״מ"
+    assert "בין 187 ל-190 ס״מ" in crooked["r22-walls"]["body"]
+    assert crooked["r22-ceiling"]["level"] == "info" and "257 ס״מ" in crooked["r22-ceiling"]["body"]
+    track = by_id(make(sliding(), {"op": "set_site", "heights": [2600, 2580, None]}))
+    assert track["r22-track"]["level"] == "warn" and "r22-ceiling" not in track  # 20 mm along a sliding track [11]
+    square = by_id(make(sliding(), {"op": "set_site", "widths": [1900, 1890, None], "heights": [2600, 2590, 2595]}))
+    assert not {i for i in square if i.startswith("r22-")}  # 10 mm is within the rule of thumb
+    single = by_id(make(hinged(), {"op": "set_site", "widths": [1900, None, None]}))
+    assert "r22-walls" not in single  # one reading cannot be out of square
 
 
 def test_ceiling_and_niche():

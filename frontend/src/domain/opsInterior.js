@@ -85,16 +85,47 @@ function modifyInsert(draft, op, path) {
   return draft;
 }
 
+// The raw readings and the governing value each one sets: the smallest known reading [research 96][11].
+export const SITE_READINGS = Object.freeze({ widths: 'niche', heights: 'ceiling' });
+const SITE_FIELDS = ['ceiling', 'niche', 'heights', 'widths', 'clearance'];
+const SINGLES = Object.freeze({ niche: 'widths', ceiling: 'heights' });
+
 function setSite(draft, op, path) {
-  const given = Object.fromEntries(['ceiling', 'niche'].filter((f) => isSet(op[f])).map((f) => [f, op[f]]));
+  const given = Object.fromEntries(SITE_FIELDS.filter((f) => isSet(op[f])).map((f) => [f, op[f]]));
+  const unset = [...new Set(op.unset ?? [])];
   if (op.clear) {
-    if (Object.keys(given).length) throw new DomainError(INVALID_OP, path, 'clear cannot be combined with new values');
+    if (Object.keys(given).length || unset.length) throw new DomainError(INVALID_OP, path, 'clear cannot be combined with new values');
     draft.site = null;
     return draft;
   }
-  if (!Object.keys(given).length) throw new DomainError(INVALID_OP, path, 'give ceiling, niche or clear');
-  for (const [field, value] of Object.entries(given)) requireRange(value, field, `${path}.${field}`);
-  draft.site = { ceiling: null, niche: null, ...(draft.site ?? {}), ...given };
+  if (!Object.keys(given).length && !unset.length) throw new DomainError(INVALID_OP, path, 'give a measurement, unset or clear');
+  for (const [readings, single] of Object.entries(SITE_READINGS)) {
+    if (readings in given && single in given) throw new DomainError(INVALID_OP, path, `${single} is the smallest of ${readings}: give one of them`);
+  }
+  if (unset.some((f) => f in given)) throw new DomainError(INVALID_OP, path, 'a field cannot be set and unset together');
+  for (const [field, value] of Object.entries(given)) {
+    if (field in SITE_READINGS) {
+      value.forEach((reading, i) => {
+        if (reading !== null) requireRange(reading, SITE_READINGS[field], `${path}.${field}[${i}]`);
+      });
+    } else requireRange(value, field, `${path}.${field}`);
+  }
+  const site = { ...Object.fromEntries(SITE_FIELDS.map((f) => [f, null])), ...(draft.site ?? {}) };
+  for (const field of unset) {
+    site[field] = null;
+    if (field in SINGLES) site[SINGLES[field]] = null; // no niche means no niche readings either
+  }
+  for (const [field, value] of Object.entries(given)) {
+    if (field in SITE_READINGS) {
+      const known = value.filter((v) => v !== null);
+      site[field] = known.length ? [...value] : null;
+      site[SITE_READINGS[field]] = known.length ? Math.min(...known) : null;
+    } else {
+      site[field] = value;
+      if (field in SINGLES) site[SINGLES[field]] = null; // one measurement replaces the three readings
+    }
+  }
+  draft.site = Object.values(site).some((v) => v !== null) ? site : null;
   return draft;
 }
 

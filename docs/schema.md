@@ -148,7 +148,7 @@ v2 is additive. A v1 design parses unchanged and comes out with `schemaVersion: 
 
 | Field | Default | Meaning |
 |---|---|---|
-| `site: { ceiling, niche } \| null` | `null` | Customer's estimated site measurements in mm (each may be `null`). The carpenter verifies them on site. |
+| `site: { ceiling, niche, heights, widths, clearance } \| null` | `null` | Customer's estimated site measurements in mm (each may be `null`). The carpenter verifies them on site. See "Site" below. |
 | `carcass.plinthHeight` | `0` | Plinth under the bottom panel. **Interior height** = `height − 2·panelThickness − plinthHeight`. |
 | `compartments[].inserts[]` | `[]` | Interior inserts, at most one of each type (≤ 4). |
 
@@ -164,7 +164,8 @@ v2 is additive. A v1 design parses unchanged and comes out with `schemaVersion: 
 **New validation:**
 - Insert fields must match the type, and a type may appear only once per compartment (`INSERT_INVALID`).
 - Zones lie within the interior (`OUT_OF_BOUNDS`) and don't overlap shelves, drawers or each other. A rail or pull-down may not sit strictly inside a zone (`OVERLAP`).
-- Ranges: `plinthHeight` 0–300, `site.ceiling` 1500–5000, `site.niche` 300–10000.
+- Ranges: `plinthHeight` 0–300, `site.ceiling` and each `site.heights[i]` 1500–5000, `site.niche` and each `site.widths[i]` 300–10000, `site.clearance` 100–10000.
+- `site.niche` must equal the smallest known `site.widths` reading, and `site.ceiling` the smallest known `site.heights` reading (`SCHEMA_INVALID` at `site.niche` / `site.ceiling`). A readings list with no known value must be `null`.
 - **Split doors:** a compartment may carry two hinged leaves when both doors cover only that compartment. A third leaf, or a split leaf that spans more, is still `DOOR_INVALID`.
 
 **New ops:**
@@ -172,7 +173,7 @@ v2 is additive. A v1 design parses unchanged and comes out with `schemaVersion: 
 | Op | Fields | Semantics |
 |---|---|---|
 | `create_wardrobe`, `update_dimensions` | + `plinthHeight?` | Range-checked. A plinth that pushes items out of the interior is rejected. |
-| `set_site` | `ceiling?`, `niche?`, `clear?` | Partial update, merged into the existing site. `clear` removes it. |
+| `set_site` | `ceiling?`, `niche?`, `heights?`, `widths?`, `clearance?`, `unset?`, `clear?` | Partial update, merged into the existing site. Readings set `ceiling`/`niche` to the smallest one, so readings and the single value are not given together. A single value drops the readings. `unset` clears fields (`niche`/`ceiling` take their readings with them). An empty site becomes `null`; `clear` removes it. |
 | `apply_preset` | `compartmentId`, `preset` (`long`/`double`/`shelves`/`drawers`) | Replaces the compartment's shelves, rails and drawers with the preset. Ids are deterministic (`shf_<tag>_1`…, where `<tag>` is the compartment id without `cmp_`). Shelves take the panel thickness. Zone inserts are dropped and the LED stays. Rounding is half-up in integers in both engines (`_half_up` / `halfUp`), never Python's banker's `round()`. |
 | `add_insert` | `compartmentId`, `type`, `y?`, `tiers?`, `height?`, `id?` | Defaults: shoes `y 0, tiers 3`; trousers `y 0, height 700`; pull-down `y = interior − 400`. A field the type doesn't take → `INVALID_OP` at that field. |
 | `modify_insert` | `id`, `y?`, `tiers?`, `height?` | Same field rules. |
@@ -180,6 +181,19 @@ v2 is additive. A v1 design parses unchanged and comes out with `schemaVersion: 
 | `remove_component` | `ins_…` ids | Removes an insert. Merging at a partition keeps both compartments' inserts. |
 
 Op-level schema errors keep reporting at `ops[i]`, as in v1.
+
+## Site (bobHabanai, 2026-10-18)
+
+The room around the wardrobe, as the customer measured it. A carpenter takes the width at three heights and the ceiling at three points, and the smallest reading governs [research 96][11].
+
+| Field | Meaning |
+|---|---|
+| `heights: [left, middle, right] \| null` | Ceiling height at three points along the wall, each `null` when not measured. |
+| `widths: [top, middle, bottom] \| null` | Niche width at three heights, each `null` when not measured. |
+| `ceiling`, `niche` | The governing values: the smallest known reading, or a single measurement when no readings were given (older designs). |
+| `clearance` | Free floor in front of the wardrobe, from its front to the wall or furniture opposite. |
+
+Adding the readings changed no existing field, so older designs stay valid without a migration. They switch on advisories R21 (room to open hinged doors and drawers, and to pass; retail guides [99]) and R22 (an out-of-square niche or ceiling, and a sliding track that needs a levelling frame [11][13][93][96]). The viewer draws them in pencil (`frontend/src/viewer/room.js`), and the dossier's site page lists them.
 
 ## Zones (bobHabanai, 2026-10-17)
 

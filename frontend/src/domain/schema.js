@@ -77,7 +77,17 @@ const insert = z.strictObject({
 });
 
 // Customer's estimated site measurements (mm). The carpenter verifies them on site.
-const site = z.strictObject({ ceiling: int().nullable().default(null), niche: int().nullable().default(null) });
+// ceiling/niche are the governing values; heights (left, middle, right) and widths (top, middle, bottom)
+// keep the raw readings when given, and the governing value is the smallest known one. clearance: the free
+// floor in front of the wardrobe. Mirrors backend/app/domain/schema.py Site.
+const reading3 = () => z.array(int().nullable()).length(3);
+const site = z.strictObject({
+  ceiling: int().nullable().default(null),
+  niche: int().nullable().default(null),
+  heights: reading3().nullable().default(null),
+  widths: reading3().nullable().default(null),
+  clearance: int().nullable().default(null),
+});
 
 const compartment = z.strictObject({
   id: typedId(ids.COMPARTMENT),

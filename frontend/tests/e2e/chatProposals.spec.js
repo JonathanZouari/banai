@@ -155,6 +155,7 @@ test.describe('chat proposals (signed by the server, confirmed by the customer)'
     await page.getByTestId('proposal-confirm').click();
     await expect(systemBubbles(page).last()).toContainText('לא הצלחנו להחיל את ההצעה. התכנון לא השתנה.');
     expect(await state(page)).toEqual(before);
-    expect(applies).toEqual([409, 400]);
+    // Response events reach the test asynchronously, possibly after the bubble: wait for both (flaked under load).
+    await expect.poll(() => applies).toEqual([409, 400]);
   });
 });

@@ -97,7 +97,9 @@ export function mountPanel(root, store) {
   let rendered = { design: null, selection: undefined, selectionKey: null };
 
   const buildTree = (state) => {
-    const context = { design: state.design, catalog: state.catalog, selection: state.selection, run, select };
+    // The panel morphs fresh DOM into the existing fields, so their handlers outlive this render: a handler
+    // that needs the design at commit time reads current(), not the `design` it was built with.
+    const context = { design: state.design, catalog: state.catalog, selection: state.selection, run, select, current: () => store.getState().design };
     const [wardrobe, materials] = wardrobeSection(context);
     return [
       ...(state.selection ? [componentSection(context)] : []),

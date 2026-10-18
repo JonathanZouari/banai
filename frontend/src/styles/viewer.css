@@ -8,3 +8,15 @@
 
 /* Labels are hidden while the path tracer renders: they are UI, not part of the picture. */
 .viewer-labels--hidden { visibility: hidden; }
+
+/* The room's label on the floor (the free space in front of the wardrobe): a pencil note, not a control. */
+.room-label {
+  padding: 2px 8px;
+  border: 1px solid rgba(92, 84, 75, 0.3);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+  color: #5c544b;
+  font: 600 12px/1.4 var(--font-ui);
+  white-space: nowrap;
+  pointer-events: none;
+}

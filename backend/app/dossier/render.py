@@ -207,7 +207,20 @@ def _site(design: dict, lay: Layout, prod: Production) -> dict:
             "lift_ok": diagonal + 10 <= ceiling if ceiling else None, "anchors": prod.anchors,
             "reach": max(hinged_widths) if hinged_widths else None,
             "reach_label": {"sliding": tr("הזזה, ללא"), "none": tr("ללא דלתות")}.get(doors_type, ""),
+            "heights": _readings(site.get("heights"), "heights"),
+            "widths": _readings(site.get("widths"), "widths"),
+            "clearance": site.get("clearance"),
             "checks": _checks(lay, diagonal)}
+
+
+def _readings(values: list | None, kind: str) -> str | None:
+    """The customer's three readings, each named by where it was taken (— for an unknown one)."""
+    if not values or len(values) != 3:  # the schema guarantees three; never fail a dossier over it
+        return None
+    a, b, c = (str(v) if v is not None else "—" for v in values)
+    if kind == "heights":
+        return tr("שמאל {a} · אמצע {b} · ימין {c}", a=a, b=b, c=c)
+    return tr("למעלה {a} · באמצע {b} · למטה {c}", a=a, b=b, c=c)
 
 
 def _checks(lay: Layout, diagonal: float) -> list[str]:

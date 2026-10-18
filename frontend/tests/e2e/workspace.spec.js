@@ -99,7 +99,7 @@ test.describe('workspace (RTL, schema v2)', () => {
   });
 
   test('site measurements switch on the ceiling advisory; clearing the field switches it off', async ({ page }) => {
-    const ceiling = page.getByTestId('site-ceiling');
+    const ceiling = page.getByTestId('site-height-0');
     await ceiling.fill('242');
     await ceiling.press('Enter');
     await expect(advice(page, 'r1-lift')).toBeVisible();

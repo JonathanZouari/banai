@@ -13,6 +13,7 @@ import { ledLevel, ledLightsOf, setLedLevel } from './builders/inserts.js';
 import { VIEWS, blendPose, easeInOut, poseAlong, poseFor } from './camera.js';
 import { frameOf } from './builders/frame.js';
 import { createDimensions } from './dimensions.js';
+import { createRoomOverlay } from './room.js';
 import { attachEdges, detachEdges } from './edges.js';
 import { createEnvironment } from './environment.js';
 import { createFlasher, resolveFlashTargets } from './flash.js';
@@ -132,6 +133,7 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
   const highlighter = createHighlighter(scene);
   const flasher = createFlasher(scene);
   const dimensions = createDimensions(scene, { onStep: (step) => onDimensionStep?.(step) });
+  const room = createRoomOverlay(scene); // the customer's site: door swings, pull-outs, the niche
   const edgeMaterial = new THREE.LineBasicMaterial({ color: '#8a857c', transparent: true, opacity: 0.35, toneMapped: false });
   let group = null;
   let props = null;
@@ -291,6 +293,7 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
     // draw call, where the conversion's own passes would run out of texture units.
     if (on) renderer.compileAsync(scene, camera).catch(() => {});
     dimensions.setVisible(!on);
+    room.setVisible(!on);
     labels.domElement.classList.toggle('viewer-labels--hidden', on);
     renderer.domElement.style.cursor = '';
     if (on) highlighter.setVisible(false);
@@ -315,6 +318,7 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
         disposeWardrobe(group);
       }
       group = buildWardrobe(design, materials, { doorsVisible: ui.doorsVisible, hardware });
+      room.update(design);
       scene.add(group);
       attachEdges(group, edgeMaterial);
       ledLights = ledLightsOf(group);
@@ -485,6 +489,7 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
       highlighter.setHover(group, shown().design, null);
       highlighter.setVisible(false);
       dimensions.setVisible(false);
+      room.setVisible(false);
       labels.domElement.classList.add('viewer-labels--hidden');
       renderer.setPixelRatio(1);
       renderer.setSize(width, height, false); // the drawing buffer only; the page layout stays
@@ -568,6 +573,7 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
       controls.update();
       driver.release();
       dimensions.setVisible(true);
+      room.setVisible(true);
       labels.domElement.classList.remove('viewer-labels--hidden');
       refreshOverlays();
     },
@@ -641,6 +647,7 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
       floor.material.dispose();
       key.shadow.dispose();
       highlighter.dispose();
+      room.dispose();
       flasher.dispose();
       dimensions.dispose();
       materials.dispose();

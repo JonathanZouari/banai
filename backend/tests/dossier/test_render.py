@@ -118,3 +118,16 @@ def test_a_zoned_dossier():
     assert 8 <= len(reader.pages) <= 40
     text = "\n".join(page.extract_text() for page in reader.pages)
     assert "מדף קבוע" in text and "אזור" in text and "תיק נגר" in text
+
+
+def test_the_site_page_lists_the_readings_and_the_clearance():
+    design = make({"op": "set_site", "heights": [2600, 2570, None], "widths": [1900, 1870, 1880], "clearance": 650})
+    html = render_html(build(design, CATALOG, None, date(2026, 10, 18)))
+    assert "שמאל 2600 · אמצע 2570 · ימין —" in html
+    assert "למעלה 1900 · באמצע 1870 · למטה 1880" in html
+    assert "מרחב פנוי מול הארון" in html
+    english = render_html(build(design, CATALOG, None, date(2026, 10, 18), "en"))
+    assert "left 2600 · middle 2570 · right —" in english
+    assert "Free space in front of the wardrobe" in english
+    plain = render_html(build(make(), CATALOG, None, date(2026, 10, 18)))
+    assert "<dt>גובה בשלוש נקודות</dt>" not in plain and "<dt>רוחב בשלושה גבהים</dt>" not in plain  # no readings, no rows

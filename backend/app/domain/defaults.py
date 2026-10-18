@@ -21,6 +21,7 @@ LIMITS: dict[str, tuple[int, int]] = {
     "plinthHeight": (0, 300),
     "ceiling": (1500, 5000),
     "niche": (300, 10000),
+    "clearance": (100, 10000),  # free floor in front of the wardrobe
     "shoeTiers": (1, 6),
     "insertHeight": (200, 1500),
     "zones": (1, 4),

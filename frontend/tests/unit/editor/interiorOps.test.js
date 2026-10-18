@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { applyOps } from '../../../src/domain/apply.js';
 import {
-  addInsertCandidates, coalesceKey, compartmentLeaves, presetOps, runFirst, siteOps, spannedBy, splitOps,
+  addInsertCandidates, coalesceKey, compartmentLeaves, presetOps, runFirst, siteOps, siteReadingOps, spannedBy, splitOps,
   zoneDoorOps, zonePresetOps, zonesOf, zonesOps,
 } from '../../../src/editor/interiorOps.js';
 import { describeSelection } from '../../../src/editor/selectionContext.js';
@@ -70,12 +70,31 @@ describe('split doors', () => {
 });
 
 describe('site', () => {
-  it('sets one field and clears one without losing the other', () => {
-    expect(siteOps(null, 'ceiling', 2600)).toEqual([{ op: 'set_site', ceiling: 2600 }]);
-    const design = apply(basic(), [{ op: 'set_site', ceiling: 2600, niche: 2100 }]);
-    const cleared = apply(design, siteOps(design.site, 'ceiling', null));
-    expect(cleared.site).toEqual({ ceiling: null, niche: 2100 });
-    expect(siteOps({ ceiling: 2600, niche: null }, 'ceiling', null)).toEqual([{ op: 'set_site', clear: true }]);
+  it('sets one field and clears one without losing the others', () => {
+    expect(siteOps(null, 'clearance', 900)).toEqual([{ op: 'set_site', clearance: 900 }]);
+    const design = apply(basic(), [{ op: 'set_site', ceiling: 2600, niche: 2100, clearance: 900 }]);
+    const cleared = apply(design, siteOps(design.site, 'clearance', null));
+    expect(cleared.site).toMatchObject({ ceiling: 2600, niche: 2100, clearance: null });
+    expect(siteOps({ clearance: null }, 'clearance', null)).toBeNull(); // nothing to clear
+  });
+
+  it('keeps three readings; the smallest known one governs, and clearing the last one clears it', () => {
+    const one = apply(basic(), siteReadingOps(null, 'heights', 1, 2580));
+    expect(one.site).toMatchObject({ heights: [null, 2580, null], ceiling: 2580 });
+    const two = apply(one, siteReadingOps(one.site, 'heights', 0, 2560));
+    expect(two.site).toMatchObject({ heights: [2560, 2580, null], ceiling: 2560 });
+    const back = apply(two, siteReadingOps(two.site, 'heights', 0, null));
+    expect(back.site.ceiling).toBe(2580);
+    expect(siteReadingOps(back.site, 'heights', 1, null)).toEqual([{ op: 'set_site', unset: ['ceiling'] }]);
+    expect(apply(back, siteReadingOps(back.site, 'heights', 1, null)).site).toBeNull();
+    expect(siteReadingOps(null, 'widths', 2, null)).toBeNull();
+  });
+
+  it('a single older niche is replaced by the first width reading', () => {
+    const legacy = apply(basic(), [{ op: 'set_site', niche: 2100 }]);
+    const ops = siteReadingOps(legacy.site, 'widths', 0, 2120);
+    expect(ops).toEqual([{ op: 'set_site', widths: [2120, null, null] }]);
+    expect(apply(legacy, ops).site).toMatchObject({ niche: 2120, widths: [2120, null, null] });
   });
 });
 

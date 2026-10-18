@@ -52,6 +52,7 @@ export function diffDesigns(a, b) {
   dim('צוקל', a.carcass.plinthHeight, b.carcass.plinthHeight);
   dim('תקרה', a.site?.ceiling ?? null, b.site?.ceiling ?? null);
   dim('נישה', a.site?.niche ?? null, b.site?.niche ?? null);
+  dim('מרחב מול הארון', a.site?.clearance ?? null, b.site?.clearance ?? null);
   if (a.carcass.panelThickness !== b.carcass.panelThickness) {
     out.push(`לוח: ${a.carcass.panelThickness} ← ${b.carcass.panelThickness} מ״מ`);
   }

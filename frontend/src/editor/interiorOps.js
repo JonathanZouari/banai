@@ -63,14 +63,24 @@ export function splitOps(design, compartmentId, on) {
 }
 
 /**
- * Set or clear one site measurement. `set_site` merges, so clearing one field clears the site
- * and puts the other one back.
+ * Set or clear one site field (ceiling, niche or clearance). `set_site` merges, and `unset` clears one
+ * field without touching the others. Null when there is nothing to clear.
  */
 export function siteOps(site, field, mm) {
   if (mm !== null) return [{ op: 'set_site', [field]: mm }];
-  const other = field === 'ceiling' ? 'niche' : 'ceiling';
-  const keep = site?.[other] ?? null;
-  return [{ op: 'set_site', clear: true }, ...(keep !== null ? [{ op: 'set_site', [other]: keep }] : [])];
+  return (site?.[field] ?? null) !== null ? [{ op: 'set_site', unset: [field] }] : null;
+}
+
+/**
+ * Set or clear one of the three readings: heights (left, middle, right) or widths (top, middle, bottom).
+ * The engine makes the smallest known reading the ceiling or the niche; with no reading left, it is
+ * unset. A single legacy value (no readings) is replaced by the first reading. Null when nothing changes.
+ */
+export function siteReadingOps(site, kind, index, mm) {
+  const next = (site?.[kind] ?? [null, null, null]).map((value, i) => (i === index ? mm : value));
+  if (next.some((value) => value !== null)) return [{ op: 'set_site', [kind]: next }];
+  const single = kind === 'widths' ? 'niche' : 'ceiling';
+  return (site?.[single] ?? null) !== null ? [{ op: 'set_site', unset: [single] }] : null;
 }
 
 // ---- zones (docs/schema.md "Zones") ----
