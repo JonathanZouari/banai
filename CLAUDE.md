@@ -35,7 +35,8 @@ BanAI is an MVP AI wardrobe designer for standard straight wardrobes only. Three
   **Do not move to the next phase until the security review passes:** every CRITICAL and HIGH finding fixed and re-verified. Summarize the review result in the phase report.
 - **Phased delivery.** Work proceeds Phase 1 → 10 (`docs/architecture.md` §10a). After each phase, stop, report (what was implemented, files changed, real test output, known issues, next step), and wait for the user's approval. Never roll into the next phase on your own.
 - **Branches.** All work lands on `dev`, which Railway auto-deploys to the `dev` environment. Pushing or merging to `main` deploys **production** and needs explicit user approval.
-- **Excluded features (do not build):** pricing, quotes, orders, accounts or registration, dashboards, manufacturing/CNC export, feasibility rules, room design, image uploads, voice, mobile-first layout, drag-and-drop geometry, and any AI change applied without approval. The app must never claim a design is manufacturable.
+- **Excluded features (do not build):** pricing, quotes, payments, stored orders, accounts or registration, dashboards, CNC/machine export, room design, image uploads, mobile-first layout, drag-and-drop geometry, and any AI change applied without approval. The app must never claim a design is manufacturable or compliant with a standard.
+- **Finish order + cabinetmaker sheet (owner-approved exception).** "סיום הזמנה" is a local confirm step only (nothing stored or sent). After it, `frontend/src/maker/` builds a Hebrew PDF for the cabinetmaker: drawings, cut list, hardware and checks against common Israeli practice (`maker/standards.js`, rules of thumb, not the text of ת"י 1142). The sheet must always carry `DISCLAIMER` (guidance only, not an approved production drawing, no standard compliance claimed). Keep checks advisory: never block the customer.
 - **Mandatory stack.**
   - Frontend: vanilla JS ES modules + Three.js, bundled with Vite. **No React, Vue, or R3F.**
   - Backend: FastAPI + Pydantic.
@@ -89,6 +90,7 @@ npm run build                                  # vite build -> dist/
   - Share link: `/#d=<uuid>.<token>`. The token is 256-bit, stored only as a SHA-256 hash, and compared in constant time.
   - Saves use optimistic concurrency (`UPDATE ... WHERE revision = n`).
 - **API responses** use the envelope `{success, data, error}`.
+- **Voice (ElevenLabs).** `/api/voice/speak` (text → MP3) and `/api/voice/transcribe` (raw audio body → text) proxy ElevenLabs, so `ELEVENLABS_API_KEY` stays in `backend/.env`. Inputs are bounded (600 chars, 2 MB audio). The browser falls back to its own `speechSynthesis` voice when the server voice is missing or fails. Dictated text goes into the composer and is never sent automatically.
 
 ## Infrastructure
 

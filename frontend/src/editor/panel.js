@@ -3,6 +3,7 @@
 // and shows an inline message. No LLM is involved in manual editing.
 import { compartmentsSection } from './compartmentsSection.js';
 import { componentSection } from './componentSection.js';
+import { layoutSection } from './layoutSection.js';
 import { wardrobeSection } from './wardrobeSection.js';
 
 export function mountPanel(root, store) {
@@ -23,6 +24,7 @@ export function mountPanel(root, store) {
     root.replaceChildren(
       ...(state.selection ? [componentSection(context)] : []),
       ...wardrobeSection(context),
+      layoutSection(context),
       compartmentsSection(context),
     );
   };

@@ -1,0 +1,49 @@
+/* Cabinetmaker sheet: A4 pages (794 × 1123 px at 96 dpi), rendered off-screen for the PDF.
+   Plain print styling: black on white, no app chrome, Hebrew system fonts. */
+.maker-sheet { position: fixed; top: 0; left: -10000px; z-index: -1; pointer-events: none; }
+.maker-page {
+  box-sizing: border-box;
+  width: 794px;
+  min-height: 1123px;
+  margin-bottom: 16px;
+  padding: 40px 44px 56px;
+  position: relative;
+  background: #fff;
+  color: #111;
+  font: 13px/1.45 Arial, 'Segoe UI', 'Noto Sans Hebrew', sans-serif;
+  text-align: right;
+}
+.maker-page h1 { margin: 0 0 4px; font-size: 24px; }
+.maker-page h2 { margin: 16px 0 8px; font-size: 16px; border-bottom: 2px solid #b4532a; padding-bottom: 3px; }
+.maker-header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 3px solid #b4532a; padding-bottom: 8px; margin-bottom: 12px; }
+.maker-header p { margin: 0; color: #555; }
+.maker-summary { margin: 0 0 12px; }
+/* Bullets drawn by hand: html2canvas places native RTL list markers at the far left. */
+.maker-summary, .maker-notes, .maker-sources { list-style: none; padding: 0; }
+.maker-summary li::before, .maker-notes li::before, .maker-sources li::before { content: '•'; margin-inline-end: 6px; color: #b4532a; }
+/* Page 1: the elevation and the 3D view side by side, with fixed heights so the page fits A4. */
+.maker-figures { display: grid; grid-template-columns: 3fr 2fr; gap: 12px; align-items: start; }
+.maker-figures:has(> :only-child) { grid-template-columns: 1fr; }
+.maker-figure { margin: 0; text-align: center; }
+.maker-figure svg { width: 100%; height: 560px; }
+.maker-figure img { width: 100%; height: 420px; object-fit: contain; border: 1px solid #ddd; }
+/* Page 2: the tall side section beside its notes. */
+.maker-section { display: grid; grid-template-columns: 170px 1fr; gap: 16px; align-items: start; }
+.maker-section .maker-figure svg { height: 250px; }
+.maker-page h2 + .maker-section { margin-bottom: 4px; }
+.maker-figure figcaption { margin-top: 4px; color: #555; font-size: 11px; }
+.maker-table { width: 100%; border-collapse: collapse; font-size: 10.5px; line-height: 1.3; }
+.maker-table th, .maker-table td { border: 1px solid #bbb; padding: 2px 5px; text-align: right; vertical-align: top; }
+.maker-table th { background: #f3ece4; }
+.maker-table td:nth-child(n+2):nth-child(-n+5) { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.maker-note { color: #444; font-size: 11px; }
+.maker-checks, .maker-notes, .maker-sources { margin: 0; }
+.maker-checks { list-style: none; padding: 0; }
+.maker-check { display: flex; gap: 6px; padding: 3px 0; border-bottom: 1px solid #eee; }
+.maker-check small { color: #777; }
+.maker-check__icon { flex: none; width: 16px; font-weight: 700; }
+.maker-check--warn .maker-check__icon { color: #b45309; }
+.maker-check--info .maker-check__icon { color: #2563eb; }
+.maker-check--ok .maker-check__icon { color: #15803d; }
+.maker-disclaimer { margin-top: 14px; padding: 8px 10px; border: 1px solid #b4532a; background: #fff6f2; font-size: 11px; }
+.maker-page__footer { position: absolute; bottom: 20px; inset-inline: 44px; color: #888; font-size: 10px; text-align: center; }

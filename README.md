@@ -35,6 +35,17 @@ npm run dev
 npm test
 ```
 
+### Finish order and cabinetmaker sheet
+
+"סיום הזמנה" in the top bar shows a summary and common-practice checks; after the customer confirms, "הוראות לנגר (PDF)" downloads a Hebrew sheet for the cabinetmaker (drawings, cut list, hardware, System 32 notes). It is guidance only and says so on the sheet. Generated in the browser; nothing is sent.
+
+### Optional keys (`backend/.env`)
+
+- `OPENAI_API_KEY`: turns on the AI designer chat.
+- `ELEVENLABS_API_KEY`: gives the designer a Hebrew/English voice and a microphone (ElevenLabs free plan works, non-commercial). Without it, replies can still be read aloud by the browser's own voice.
+
+Restart the backend after changing `.env`.
+
 ## Environments
 
 | Railway environment | Git branch | Services (root dir) |
