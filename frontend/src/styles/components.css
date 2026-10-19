@@ -144,11 +144,14 @@
   padding: var(--space-5);
   border: 0;
   border-radius: var(--md-sys-shape-extra-large);
-  background: var(--md-sys-color-surface-container-high);
+  /* A solid sheet: surface-container-high is the 12% fill of a segmented track, which let the 3D show
+     through and washed the text out (the AI settings dialog, 2026-10-19). */
+  background: var(--color-surface);
   color: var(--md-sys-color-on-surface);
-  box-shadow: var(--md-sys-elevation-3);
+  box-shadow: 0 0 0 1px var(--material-edge), var(--md-sys-elevation-3);
 }
-.dialog::backdrop { background: var(--md-sys-color-scrim); }
+.dialog::backdrop { background: rgba(0, 0, 0, 0.4); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+@media (prefers-reduced-transparency: reduce) { .dialog::backdrop { -webkit-backdrop-filter: none; backdrop-filter: none; } }
 .dialog__title { margin: 0 0 var(--space-3); font: var(--md-sys-typescale-headline-small); }
 .dialog__body { display: flex; flex-direction: column; gap: var(--space-3); }
 .dialog__text { margin: 0; color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-medium); }
