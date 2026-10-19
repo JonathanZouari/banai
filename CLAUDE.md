@@ -29,6 +29,12 @@ BanAI started as an MVP AI wardrobe designer for standard straight wardrobes. Th
   - The rest of the workspace stays Hebrew, and so do the proposal card's change lines (they come from the Hebrew diff).
 - **Wall obstacles and a scale figure** (2026-10-19, ADR-031): up to 8 obstacles on the wall behind (socket, switch, AC, pipes, window, skirting) in the site. Advisory R23 covers them, the viewer builds each one at its real size on the wall (`viewer/obstacles3d.js`: a wall plate, an AC unit, a pipe, a window with a sill, skirting), shows one hidden behind the carcass as a tinted patch over the doors, labels each with its name and size in cm, and the dossier lists them. A "דמות" switch shows a 170 cm scale figure beside the wardrobe (`viewer/figure.js`, hidden in renders and video).
 - **Top bar and workspace** (2026-10-19): "פתיחה" (Ctrl+O) opens the saved projects. The workspace is warm paper with a faint drafting grid (`--color-bg #f3eee6`), and the 3D studio matches (`#efe8dc`). The video menu is bound by `details[data-testid="video-menu"]`: the dossier menu shares the `.video-menu` class.
+- **Customer details** (ADR-038, 2026-10-20):
+  - **Fields:** name, phone, email, installation address, city, floor and lift, contact times, desired installation date, and notes. Every field is optional.
+  - **Where they live:** with the project in this browser, outside the design. They are not in undo, not in a signed proposal, and Bob never sees them.
+  - **Code:** `share/customer.js` checks them, mirrored by `app/dossier/customer.py`. The "לקוח" dialog is in the top bar.
+  - **Project lifecycle:** they are saved and opened with the project. A new project clears them. An exported file includes them, with a warning.
+  - **Dossier:** they go with the dossier request only, and appear on its site page under "פרטי לקוח" in 4 languages. If they are missing, the dossier menu says so.
 - **Room editor** (ADR-037, stages 1–2; 2026-10-19):
   - **Data:** `room: {shape, wall, offset}` from a template: rectangle, L, or a room with a recess (a niche). `set_room` on both engines. The geometry is in `domain/room.py` and `room.js`, with shared cases in `shared/fixtures/room_geometry.json`.
   - **3D:** `viewer/walls3d.js` builds the floor and mitred 10 cm walls in the wardrobe's frame. A wall between the camera and the room fades (the cut-away, done per wall in `onBeforeRender`).

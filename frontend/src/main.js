@@ -24,6 +24,7 @@ import {
 import { mountStartScreen } from './entry/startScreen.js';
 import { openAboutDialog } from './entry/about.js';
 import { createProjectsDialog } from './share/projectsDialog.js';
+import { createCustomerDialog } from './share/customerDialog.js';
 import { mountAlertSheet } from './advice/alertSheet.js';
 import { coverPng, createRenderHud } from './render/renderHud.js';
 import { bindVideoMenu } from './render/video.js';
@@ -211,7 +212,7 @@ function bindAdvice(store, viewer) {
 }
 
 /** Render HUD + dossier download (the finished render becomes the dossier cover). */
-function bindRenderAndDossier(store, viewer) {
+function bindRenderAndDossier(store, viewer, getCustomer = () => null) {
   const hud = createRenderHud({ hud: byId('render-hud'), viewer, toast });
   byId('open-render').addEventListener('click', () => {
     store.select(null);
@@ -231,6 +232,11 @@ function bindRenderAndDossier(store, viewer) {
   document.addEventListener('pointerdown', (event) => {
     if (menu.open && !menu.contains(event.target)) menu.open = false;
   });
+  // Without the customer's details the dossier still works; the menu says where to add them.
+  const customerNote = menu.querySelector('[data-testid="dossier-customer-note"]');
+  menu.addEventListener('toggle', () => {
+    if (menu.open && customerNote) customerNote.hidden = Boolean(getCustomer());
+  });
   menu.querySelectorAll('[data-lang]').forEach((option) => option.addEventListener('click', () => {
     menu.open = false;
     download(option.dataset.lang);
@@ -245,12 +251,12 @@ function bindRenderAndDossier(store, viewer) {
     try {
       let pdf;
       try {
-        pdf = await getDossier(design, { renderPng: image ? await coverPng(image) : null, language });
+        pdf = await getDossier(design, { renderPng: image ? await coverPng(image) : null, language, customer: getCustomer() });
       } catch (error) {
         // A cover the server refuses (too large, unreadable) must not cost the dossier itself.
         if (!withCover || !['PAYLOAD_TOO_LARGE', 'INVALID_IMAGE'].includes(error?.code)) throw error;
         withCover = false;
-        pdf = await getDossier(design, { language });
+        pdf = await getDossier(design, { language, customer: getCustomer() });
       }
       const url = URL.createObjectURL(pdf);
       const link = document.createElement('a');
@@ -365,7 +371,8 @@ async function boot() {
     if (count > peopleCount && !state.ui.showFigure) store.setShowFigure(true); // a new person is seen at once
     peopleCount = count;
   });
-  const hud = bindRenderAndDossier(store, viewer);
+  let projectCustomer = () => null; // the projects dialog, created below, owns the details
+  const hud = bindRenderAndDossier(store, viewer, () => projectCustomer());
   bindVideoMenu(document.querySelector('details[data-testid="video-menu"]'), { viewer, getDesign: () => store.getState().design, toast, isBusy: () => hud.isActive() });
   // Projects in this browser. "חדש" (Alt+N) is "ניקוי מסך": start over, asking first about unsaved changes.
   // Not Alt+Shift: on Windows that switches the keyboard layout (Hebrew/English).
@@ -375,6 +382,10 @@ async function boot() {
   byId('open-save').addEventListener('click', () => projects.open());
   byId('new-project').addEventListener('click', () => projects.startNew());
   byId('open-project').addEventListener('click', () => projects.open({ list: true }));
+  // The customer's details (ADR-038): with the project, in the dossier, never sent to the agent.
+  projectCustomer = projects.getCustomer;
+  const customerDialog = createCustomerDialog({ getCustomer: projects.getCustomer, setCustomer: projects.setCustomer, toast });
+  byId('open-customer').addEventListener('click', () => customerDialog.open());
   document.addEventListener('keydown', (event) => {
     const saveKey = (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.code === 'KeyS';
     if (saveKey) event.preventDefault(); // never the browser's "Save page as", even over a dialog

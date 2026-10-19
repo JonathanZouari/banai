@@ -50,6 +50,7 @@
         <details class="help video-menu dossier-menu" data-testid="dossier-menu">
           <summary id="open-dossier" data-testid="open-dossier" title="תיק ייצור מפורט לנגר, בשפה שהנגר בוחר">תיק נגר</summary>
           <div class="help__popover video-menu__popover" role="group" aria-label="שפת תיק הנגר">
+            <p class="menu-note" data-testid="dossier-customer-note" hidden>אין פרטי לקוח בתיק. אפשר להוסיף בכפתור "לקוח".</p>
             <button type="button" class="menu-option" data-lang="he" data-testid="dossier-he"><b lang="he" dir="rtl">עברית</b><span>תיק הנגר בעברית</span></button>
             <button type="button" class="menu-option" data-lang="en" data-testid="dossier-en"><b lang="en" dir="ltr">English</b><span>תיק הנגר באנגלית</span></button>
             <button type="button" class="menu-option" data-lang="ru" data-testid="dossier-ru"><b lang="ru" dir="ltr">Русский</b><span>תיק הנגר ברוסית</span></button>
@@ -66,6 +67,7 @@
         </details>
         <button type="button" class="btn btn--sm" id="new-project" data-testid="new-project" title="התחלה מחדש · Alt+N">חדש</button>
         <button type="button" class="btn btn--sm" id="open-project" data-testid="open-project" title="פתיחת פרויקט שמור · Ctrl+O">פתיחה</button>
+        <button type="button" class="btn btn--sm" id="open-customer" data-testid="open-customer" title="פרטי הלקוח לתיק הנגר">לקוח</button>
         <button type="button" class="btn btn--sm btn--primary" id="open-save" data-testid="open-save" title="שמירה ופתיחה של פרויקטים · Ctrl+S">שמירה</button>
       </div>
     </header>

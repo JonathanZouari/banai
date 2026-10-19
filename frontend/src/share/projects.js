@@ -1,8 +1,10 @@
 // Projects kept in this browser: save the current design under a name, open a saved one, start a new one,
 // and move a project between browsers as a file. No account and no server: the list lives in localStorage
-// and never leaves the browser. Storage can be blocked, full or edited by hand, so every read is checked
+// and never leaves the browser. A project may carry the customer's details (ADR-038, share/customer.js). Storage can be blocked, full or edited by hand, so every read is checked
 // and a design is validated by the engine before it is opened (the store does that). Pure: storage, the
 // clock and ids are injected, so it is unit-tested.
+
+import { storedCustomer } from './customer.js';
 
 export const PROJECTS_KEY = 'banai.projects.v1';
 export const MAX_PROJECTS = 30;
@@ -52,10 +54,17 @@ export function createProjectStore({
     get(id) {
       return read().find((p) => p.id === id)?.design ?? null;
     },
+    /** A saved project's design and customer details (null when none, or not valid any more), or null. */
+    entry(id) {
+      const found = read().find((p) => p.id === id);
+      return found ? { design: found.design, customer: storedCustomer(found.customer) } : null;
+    },
     /** Save a design: a new project, or over `id`. Returns { ok, id } or { ok: false, reason: 'full' | 'storage' }. */
-    save({ id = null, name, design }) {
+    save({ id = null, name, design, customer = null }) {
       const projects = read();
       const entry = { id: id && ID.test(id) ? id : newId(), name: cleanName(name), savedAt: now(), design };
+      const details = storedCustomer(customer);
+      if (details) entry.customer = details;
       const index = projects.findIndex((p) => p.id === entry.id);
       if (index >= 0) projects[index] = entry;
       else if (projects.length >= MAX_PROJECTS) return { ok: false, reason: 'full' };
@@ -70,12 +79,13 @@ export function createProjectStore({
 }
 
 /** A project as a file: JSON text with the app's tag, so an unrelated file is refused on import. */
-export function projectFile({ name, design }) {
-  return JSON.stringify({ app: FILE_APP, version: 1, name: cleanName(name), design }, null, 2);
+export function projectFile({ name, design, customer = null }) {
+  const details = storedCustomer(customer);
+  return JSON.stringify({ app: FILE_APP, version: 1, name: cleanName(name), design, ...(details ? { customer: details } : {}) }, null, 2);
 }
 
 /**
- * Read a project file. Returns { ok: true, name, design } (the design still has to pass the engine) or
+ * Read a project file. Returns { ok: true, name, design, customer } (the design still has to pass the engine) or
  * { ok: false, reason: 'size' | 'format' }.
  */
 export function readProjectFile(text) {
@@ -89,7 +99,7 @@ export function readProjectFile(text) {
   if (!data || data.app !== FILE_APP || data.version !== 1 || !data.design || typeof data.design !== 'object') {
     return { ok: false, reason: 'format' };
   }
-  return { ok: true, name: cleanName(data.name), design: data.design };
+  return { ok: true, name: cleanName(data.name), design: data.design, customer: storedCustomer(data.customer) };
 }
 
 /** A safe file name for a project ("ארון חדר שינה.banai.json"). */

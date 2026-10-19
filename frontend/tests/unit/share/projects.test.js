@@ -64,7 +64,7 @@ describe('projects in this browser', () => {
 
   it('a project file round-trips; anything else is refused', () => {
     const text = projectFile({ name: 'חדר שינה', design: design(2000) });
-    expect(readProjectFile(text)).toEqual({ ok: true, name: 'חדר שינה', design: design(2000) });
+    expect(readProjectFile(text)).toEqual({ ok: true, name: 'חדר שינה', design: design(2000), customer: null });
     expect(readProjectFile('{"app":"other","version":1,"design":{}}')).toEqual({ ok: false, reason: 'format' });
     expect(readProjectFile('not json')).toEqual({ ok: false, reason: 'format' });
     expect(readProjectFile('x'.repeat(1024 * 1024 + 1))).toEqual({ ok: false, reason: 'size' });

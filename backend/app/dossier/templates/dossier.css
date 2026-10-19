@@ -132,10 +132,12 @@ tfoot td { font-weight: 700; border-top: 0.6pt solid var(--ink); border-bottom: 
 .checks { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 8mm; }
 .checks li { break-inside: avoid; display: flex; gap: 2mm; padding: 1mm 0; font-size: 8.3pt; }
 .checks li::before { content: ""; flex: none; width: 3.2mm; height: 3.2mm; margin-top: 0.5mm; border: 0.6pt solid var(--ink); border-radius: 0.8mm; }
-.kv { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2mm 6mm; margin: 0; }
+.kv { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2mm 6mm; margin: 0; }
+.kv--two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.customer-notes { margin: 0; font-size: 10pt; line-height: 1.6; overflow-wrap: anywhere; }
 .kv div { padding: 2mm 0; border-bottom: 0.4pt solid var(--rule); }
 .kv dt { font-size: 7.5pt; color: var(--ink-3); }
-.kv dd { margin: 0.5mm 0 0; font-weight: 600; }
+.kv dd { margin: 0.5mm 0 0; font-weight: 600; overflow-wrap: anywhere; }
 .ok { color: #1f7a35; }
 .bad { color: #c4001a; }
 .adv { display: flex; gap: 2.5mm; padding: 2mm 0; border-bottom: 0.4pt solid var(--rule-2); }

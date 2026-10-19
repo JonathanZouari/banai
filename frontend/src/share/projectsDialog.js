@@ -3,6 +3,7 @@
 // only (share/projects.js). Leaving a design with unsaved changes asks first, inside the page.
 import { button, el } from '../editor/fields.js';
 import { createDialog } from '../ui/dialog.js';
+import { sameCustomer } from './customer.js';
 import { DEFAULT_NAME, MAX_NAME, createProjectStore, fileName, projectFile, readProjectFile } from './projects.js';
 
 const SAVE_ERRORS = Object.freeze({
@@ -21,8 +22,9 @@ const when = (iso) => {
  * @param toast       (text) => void
  */
 export function createProjectsDialog({ store, newDesign, onOpened, toast, projects = createProjectStore() }) {
-  let current = { id: null, name: DEFAULT_NAME, saved: store.getState().design };
-  const dirty = () => store.getState().design !== current.saved;
+  // The customer's details (ADR-038) belong to the project: saved, opened and started over with it.
+  let current = { id: null, name: DEFAULT_NAME, saved: store.getState().design, customer: null, savedCustomer: null };
+  const dirty = () => store.getState().design !== current.saved || !sameCustomer(current.customer, current.savedCustomer);
 
   const nameInput = el('input', { className: 'field__input', attrs: { id: 'project-name', type: 'text', maxlength: String(MAX_NAME), autocomplete: 'off' } });
   nameInput.dataset.testid = 'project-name';
@@ -85,12 +87,12 @@ export function createProjectsDialog({ store, newDesign, onOpened, toast, projec
   };
 
   function save() {
-    const result = projects.save({ id: current.id, name: nameInput.value || current.name, design: store.getState().design });
+    const result = projects.save({ id: current.id, name: nameInput.value || current.name, design: store.getState().design, customer: current.customer });
     if (!result.ok) {
       status.textContent = SAVE_ERRORS[result.reason];
       return false;
     }
-    current = { id: result.id, name: result.name, saved: store.getState().design };
+    current = { ...current, id: result.id, name: result.name, saved: store.getState().design, savedCustomer: current.customer };
     nameInput.value = result.name;
     status.textContent = `נשמר: ${result.name}`;
     renderList();
@@ -98,14 +100,14 @@ export function createProjectsDialog({ store, newDesign, onOpened, toast, projec
     return true;
   }
 
-  function adopt(design, { id = null, name = DEFAULT_NAME }, kind) {
+  function adopt(design, { id = null, name = DEFAULT_NAME, customer = null }, kind) {
     try {
       store.open(design);
     } catch {
       status.textContent = 'הפרויקט פגום ולא נפתח. התכנון הנוכחי לא השתנה.';
       return false;
     }
-    current = { id, name, saved: store.getState().design };
+    current = { id, name, saved: store.getState().design, customer, savedCustomer: customer };
     nameInput.value = name === DEFAULT_NAME ? '' : name;
     status.textContent = kind === 'new' ? 'פרויקט חדש.' : `נפתח: ${name}`;
     renderList();
@@ -126,8 +128,8 @@ export function createProjectsDialog({ store, newDesign, onOpened, toast, projec
     }
     list.replaceChildren(...items.map((item) => {
       const open = button('פתיחה', () => guard(`לפני שפותחים את "${item.name}": לשמור את התכנון הנוכחי?`, () => {
-        const design = projects.get(item.id);
-        if (design && adopt(design, item, 'open')) dialog.close();
+        const saved = projects.entry(item.id);
+        if (saved && adopt(saved.design, { ...item, customer: saved.customer }, 'open')) dialog.close();
       }), { variant: 'secondary', testId: `project-open-${item.id}` });
       const remove = button('מחיקה', () => {
         deleting = item;
@@ -148,12 +150,12 @@ export function createProjectsDialog({ store, newDesign, onOpened, toast, projec
 
   const exportFile = () => {
     const name = nameInput.value || current.name;
-    const blob = new Blob([projectFile({ name, design: store.getState().design })], { type: 'application/json' });
+    const blob = new Blob([projectFile({ name, design: store.getState().design, customer: current.customer })], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = el('a', { attrs: { href: url, download: fileName(name) } });
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    status.textContent = 'הקובץ נוצר.';
+    status.textContent = current.customer ? 'הקובץ נוצר. הוא כולל את פרטי הלקוח: שתפו אותו רק עם מי שצריך.' : 'הקובץ נוצר.';
   };
   fileInput.addEventListener('change', async () => {
     const file = fileInput.files?.[0];
@@ -165,7 +167,7 @@ export function createProjectsDialog({ store, newDesign, onOpened, toast, projec
       return;
     }
     guard(`לפני שפותחים את "${read.name}": לשמור את התכנון הנוכחי?`, () => {
-      if (adopt(read.design, { name: read.name }, 'open')) dialog.close();
+      if (adopt(read.design, { name: read.name, customer: read.customer }, 'open')) dialog.close();
     });
   });
 
@@ -214,5 +216,8 @@ export function createProjectsDialog({ store, newDesign, onOpened, toast, projec
     get dirty() {
       return dirty();
     },
+    /** The current project's customer details (ADR-038), or null. */
+    getCustomer: () => current.customer,
+    setCustomer: (customer) => { current = { ...current, customer: customer ?? null }; },
   };
 }

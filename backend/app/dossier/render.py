@@ -97,14 +97,15 @@ def _contents(c: dict) -> str:
 
 
 def build(design: dict, catalog: dict, render_png: bytes | None = None, today: date | None = None,
-          lang: str = "he") -> dict:
-    """Everything the template needs, for a canonical, already validated design, in `lang`. Pure."""
+          lang: str = "he", customer: dict | None = None) -> dict:
+    """Everything the template needs, for a canonical, already validated design, in `lang`. Pure.
+    `customer`: the customer's details (ADR-038, app/dossier/customer.py), shown on the site page."""
     with language(lang):
-        context = _build(design, catalog, render_png, today)
+        context = _build(design, catalog, render_png, today, customer)
     return {**context, "lang": lang, "dir": "rtl" if is_rtl(lang) else "ltr"}
 
 
-def _build(design: dict, catalog: dict, render_png: bytes | None, today: date | None) -> dict:
+def _build(design: dict, catalog: dict, render_png: bytes | None, today: date | None, customer: dict | None = None) -> dict:
     lay = layout(design)
     prod = production(design, catalog)
     nesting = nest(prod.parts)
@@ -119,6 +120,10 @@ def _build(design: dict, catalog: dict, render_png: bytes | None, today: date | 
     doors_type = design["doors"]["type"]
     count = sum(p.qty for p in prod.parts)
     pages = [_cover(design, catalog, lay, nesting, est, adv, render_png, count)]
+    # The customer's details (ADR-038) on a page of their own, right after the cover: room for long notes.
+    rows, notes = _customer_rows(customer), (customer or {}).get("notes")
+    if rows or notes:
+        pages.append({"kind": "customer", "title": tr("פרטי לקוח"), "toc": True, "rows": rows, "notes": notes})
 
     # Front and plan.
     front_svg = drawings.front_elevation(design, lay, catalog)
@@ -219,6 +224,27 @@ def _site(design: dict, lay: Layout, prod: Production) -> dict:
                              x=cm(o["x"]), y=cm(o["y"]), w=cm(o["width"]), h=cm(o["height"]))
                           for o in site.get("obstacles") or []],
             "checks": _checks(lay, diagonal)}
+
+
+def _customer_rows(customer: dict | None) -> list[tuple[str, str]]:
+    """The customer's details as (label, value) rows, without the notes (a paragraph of their own); the values
+    stay as the customer wrote them."""
+    if not customer:
+        return []
+    c = customer
+    place = ", ".join(v for v in (c.get("address"), c.get("city")) if v)
+    floor = None
+    if c.get("floor") is not None:
+        floor = tr("קומה {n}", n=c["floor"])
+        if c.get("elevator") is not None:
+            floor += tr(", יש מעלית") if c["elevator"] else tr(", אין מעלית")
+    elif c.get("elevator") is not None:
+        floor = tr("יש מעלית") if c["elevator"] else tr("אין מעלית")
+    when = long_date(c["install_date"]) if c.get("install_date") else None
+    rows = [(tr("שם"), c.get("name")), (tr("טלפון"), c.get("phone")), (tr("דוא״ל"), c.get("email")),
+            (tr("כתובת להתקנה"), place or None), (tr("קומה ומעלית"), floor), (tr("זמני התקשרות"), c.get("contact_times")),
+            (tr("מועד התקנה רצוי"), when)]
+    return [(label, value) for label, value in rows if value]
 
 
 def _room_lines(design: dict) -> list[str]:
@@ -338,11 +364,11 @@ def html_to_pdf(html: str, seen: list[tuple[str, bool]] | None = None, timeout: 
 
 
 def render_pdf(design: dict, catalog: dict, render_png: bytes | None = None, today: date | None = None,
-               lang: str = "he") -> bytes:
+               lang: str = "he", customer: dict | None = None) -> bytes:
     if lang not in LANGUAGES:
         raise ValueError(f"unsupported language: {lang!r}")
     try:
-        html = render_html(build(design, catalog, render_png, today, lang))
+        html = render_html(build(design, catalog, render_png, today, lang, customer))
     except (KeyError, IndexError, ValueError) as error:  # e.g. a translation with a wrong placeholder
         raise RenderError("the dossier could not be rendered") from error
     return html_to_pdf(html)

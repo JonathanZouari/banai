@@ -100,13 +100,14 @@ export const getAdvisories = (design, { signal, fetchImpl = fetch } = {}) =>
  * a PNG data URL or bare base64. `language` is the carpenter's: he | en | ru | ar (ADR-029).
  * Errors carry the envelope's `code` (422 invalid design, 413, 429).
  */
-export async function getDossier(design, { renderPng = null, language = 'he', fetchImpl = fetch } = {}) {
+export async function getDossier(design, { renderPng = null, language = 'he', customer = null, fetchImpl = fetch } = {}) {
   if (!API_BASE_URL) throw new Error('The API base URL is not configured');
   const png = renderPng ? renderPng.replace(/^data:image\/png;base64,/, '') : null;
   const response = await fetchImpl(`${API_BASE_URL}/api/dossier`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ design, ...(png ? { renderPng: png } : {}), ...(language !== 'he' ? { language } : {}) }),
+    // The customer's details (ADR-038) go with the dossier request only, for that PDF.
+    body: JSON.stringify({ design, ...(png ? { renderPng: png } : {}), ...(language !== 'he' ? { language } : {}), ...(customer ? { customer } : {}) }),
   });
   if (!response.ok) {
     const body = await response.json().catch(() => null);

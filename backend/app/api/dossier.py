@@ -25,6 +25,7 @@ from app.domain.catalog import load_catalog
 from app.domain.errors import DomainError
 from app.domain.schema import parse_design
 from app.domain.validation import validate_canonical
+from app.dossier.customer import Customer
 from app.dossier.render import RenderError, render_pdf
 
 router = APIRouter(prefix="/api")
@@ -45,6 +46,8 @@ class DossierRequest(BaseModel):
     renderPng: str | None = None
     # The carpenter's language (ADR-029); the dossier's direction follows it.
     language: Literal["he", "en", "ru", "ar"] = "he"
+    # The customer's details (ADR-038), for this PDF only: never stored, never logged.
+    customer: Customer | None = None
 
 
 class InvalidPng(ValueError):
@@ -139,7 +142,10 @@ def post_dossier(body: DossierRequest, renderer=Depends(get_pdf_renderer)):
         # Decoded inside a slot, so at most RENDER_SLOTS images are in memory at once.
         if png is not None:
             png = normalize_png(png)
-        pdf = renderer(design, catalog, png, **({"lang": body.language} if body.language != "he" else {}))
+        extra = {"lang": body.language} if body.language != "he" else {}
+        if body.customer is not None and not body.customer.is_empty():
+            extra["customer"] = body.customer.model_dump()
+        pdf = renderer(design, catalog, png, **extra)
     except InvalidPng:
         return _error(422, "INVALID_IMAGE", "renderPng must be a base64 PNG image.", "renderPng")
     except RenderError:
