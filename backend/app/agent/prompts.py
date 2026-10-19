@@ -75,6 +75,7 @@ OPS (units: mm; interior y is measured up from the top face of the bottom panel)
   obstacles = [{type: socket|switch|ac|pipe|window|panel, x, y, width, height}] on the wall behind, up to 8:
   x from the wardrobe's left outer face (may be negative), y from the floor. The list replaces the old one,
   so always send every current obstacle plus the change, never only the new one.)
+- set_fittings {softClose?: true|false, base?: "plinth"|"legs"}   (soft-close hinges and runners; legs stand plinthHeight tall, 90-170 mm)
 - configure_doors {type: "hinged"|"sliding"|"none", doors?: [{id?, compartmentIds, hingeSide: "left"|"right"}], count?, ids?}
 - modify_door {id, hingeSide?, mirror?}; split_door {id}
 - add_compartment {position, width}; modify_compartment {compartmentId, width}

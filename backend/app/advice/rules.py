@@ -1,4 +1,4 @@
-"""Advisory layer: research-backed, non-blocking guidance on a canonical design (R1-R23).
+"""Advisory layer: research-backed, non-blocking guidance on a canonical design (R1-R24).
 
 Pure: (design, catalog) -> advisories. Every item carries its evidence grade and its source in
 docs/research/carpentry-wardrobes-research.md, so the app explains why instead of claiming a design
@@ -91,7 +91,7 @@ def advisories(design: dict, catalog: dict | None) -> list[dict]:
     """All advisories for a canonical, already validated design, most severe first (stable within a level)."""
     out = _Collector(design, catalog)
     lay = layout(design)
-    for rule in (_site, _clearance, _obstacles, _hinged_doors, _sliding_doors, _drawers, _spans, _zones, _inserts, _hanging, _board):
+    for rule in (_site, _fittings, _clearance, _obstacles, _hinged_doors, _sliding_doors, _drawers, _spans, _zones, _inserts, _hanging, _board):
         rule(design, lay, out)
     return sorted(out.items, key=lambda a: LEVEL_ORDER[a["level"]])
 
@@ -150,6 +150,29 @@ def _site(design: dict, lay: Layout, out: _Collector) -> None:
                 tr("הגוף מתוכנן לפי הנקודה הנמוכה, {a} ס״מ. את הפילר העליון חותכים לפי התקרה, ורגליות מתכווננות "
                    "מיישרות את הגוף.", a=cm(min(heights))),
                 "כלל אצבע", "[96][11]", ["carcass"])
+
+
+def _fittings(design: dict, lay: Layout, out: _Collector) -> None:
+    """R24: adjustable legs (height range and count, Häfele AXILO 78 [117]) and soft close off [2][33]."""
+    if lay.legs:
+        legs = 2 * (len(design["partitions"]) + 2)
+        if not 90 <= lay.plinth <= 170:
+            out.add("r24-legs", "warn", tr("גובה לא מתאים לרגליות"),
+                    tr("רגליות מתכווננות מגיעות בגבהים של 9 עד 17 ס״מ, והבסיס בתכנון הוא {h} ס״מ.", h=cm(lay.plinth)),
+                    "יצרן", "[117]", ["carcass"],
+                    out.fix(tr("בסיס של 10 ס״מ"), [{"op": "update_dimensions", "plinthHeight": 100}]))
+        else:
+            out.add("r24-legs-count", "info", tr("{n} רגליות מתכווננות", n=legs),
+                    tr("רגלית ליד כל דופן ומחיצה, מלפנים ומאחור, עד 150 ק״ג לרגלית. מכוונים את הגובה אחרי ההצבה, "
+                       "כדי ליישר את הגוף על רצפה לא ישרה."),
+                    "יצרן", "[117]", ["carcass"])
+    has_hinges = design["doors"]["type"] == "hinged" and lay.doors
+    has_drawers = any(c["drawers"] for c in design["compartments"])
+    if not design["fittings"]["softClose"] and (has_hinges or has_drawers):
+        out.add("r24-soft", "info", tr("בלי טריקה שקטה"),
+                tr("צירים ומסילות רגילים זולים יותר, אבל דלתות ומגירות נטרקות. בטריקה שקטה הבולם משולב בציר ובמסילה."),
+                "יצרן", "[2][33]", ["carcass"],
+                out.fix(tr("החזר טריקה שקטה"), [{"op": "set_fittings", "softClose": True}]))
 
 
 def _to_sliding(lay: Layout, out: _Collector) -> dict | None:

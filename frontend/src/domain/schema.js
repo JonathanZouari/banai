@@ -123,7 +123,8 @@ export const designSchema = z.strictObject({
   schemaVersion: z.union([z.literal(1), z.literal(2)]).transform(() => 2),
   units: z.literal('mm'),
   dimensions: z.strictObject({ width: int(), height: int(), depth: int() }),
-  carcass: z.strictObject({ panelThickness: int(), appearance, plinthHeight: int().default(0) }),
+  // base: a plinth board, or visible adjustable legs as tall as plinthHeight.
+  carcass: z.strictObject({ panelThickness: int(), appearance, plinthHeight: int().default(0), base: z.enum(['plinth', 'legs']).default('plinth') }),
   compartments: z.array(compartment).min(1).max(MAX_COMPARTMENTS).refine(
     (all) => sum(all.map((c) => c.shelves.length + c.drawers.length + c.rails.length + c.inserts.length)) <= MAX_ITEMS_TOTAL,
     { message: 'too many interior items' },
@@ -136,6 +137,8 @@ export const designSchema = z.strictObject({
   }),
   handles: handle.default(defaultHandles),
   site: site.nullable().default(null),
+  // Hardware for the whole wardrobe: soft-close hinges and runners, on by default.
+  fittings: z.strictObject({ softClose: z.boolean().default(true) }).default({ softClose: true }),
 });
 
 export function formatPath(path) {

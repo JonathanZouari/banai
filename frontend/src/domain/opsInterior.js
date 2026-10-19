@@ -297,7 +297,15 @@ function applyZonePreset(draft, compartment, op, path) {
   return draft;
 }
 
+function setFittings(draft, op, path) {
+  if (!isSet(op.softClose) && !isSet(op.base)) throw new DomainError(INVALID_OP, path, 'give softClose or base');
+  if (isSet(op.softClose)) draft.fittings = { ...draft.fittings, softClose: op.softClose };
+  if (isSet(op.base)) draft.carcass.base = op.base;
+  return draft;
+}
+
 export const INTERIOR_HANDLERS = Object.freeze({
+  set_fittings: setFittings,
   apply_preset: applyPreset,
   add_insert: addInsert,
   modify_insert: modifyInsert,

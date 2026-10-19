@@ -1,7 +1,7 @@
 // Always-visible wardrobe settings: overall dimensions, doors and main materials.
 // Inputs report their own errors inline; buttons/selects report under their section.
 import { appearanceControls } from './appearanceControls.js';
-import { actionResult, cmField, cmFieldParts, collapsibleSection, countField, el, segmented } from './fields.js';
+import { actionResult, cmField, cmFieldParts, collapsibleSection, countField, el, segmented, switchField } from './fields.js';
 import { handleControls } from './handleControls.js';
 import { dimensionOps, doorTypeOps } from './opsFromForm.js';
 import { dimensionRange } from './sliderRanges.js';
@@ -35,11 +35,19 @@ export function wardrobeSection({ design, catalog, run }) {
   const wardrobe = collapsibleSection('wardrobe', 'ארון', [
     dimensionsRow(design, run),
     cmField({
-      label: 'צוקל (בסיס)', mm: design.carcass.plinthHeight, testId: 'plinth-height', range: { min: 0, max: 300 },
+      label: design.carcass.base === 'legs' ? 'גובה הרגליות' : 'צוקל (בסיס)', mm: design.carcass.plinthHeight,
+      testId: 'plinth-height', range: { min: 0, max: 300 },
       onCommit: (mm) => run(dimensionOps('plinthHeight', mm)),
     }),
   ]);
   const runDoors = (ops) => actionResult(wardrobe, run(ops));
+  wardrobe.append(segmented({
+    label: 'בסיס',
+    testId: 'base-type',
+    value: design.carcass.base ?? 'plinth',
+    options: [{ value: 'plinth', label: 'צוקל' }, { value: 'legs', label: 'רגליות' }],
+    onChange: (base) => runDoors([{ op: 'set_fittings', base }]),
+  }));
   wardrobe.append(segmented({
     label: 'דלתות',
     testId: 'door-type',
@@ -54,6 +62,10 @@ export function wardrobeSection({ design, catalog, run }) {
     }));
   }
 
+  wardrobe.append(switchField({
+    label: 'טריקה שקטה (צירים ומגירות)', checked: design.fittings?.softClose !== false, testId: 'soft-close',
+    onChange: (on) => runDoors([{ op: 'set_fittings', softClose: on }]),
+  }));
   wardrobe.append(handleControls({
     label: 'ידיות', testPrefix: 'handles', target: 'all', inherited: design.handles, run: runDoors,
   }));

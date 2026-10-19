@@ -1860,5 +1860,99 @@
         "path": "site.obstacles"
       }
     }
+  },
+  {
+    "name": "set_fittings turns soft close off and stands the carcass on legs",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_fittings",
+        "softClose": false,
+        "base": "legs"
+      }
+    ],
+    "expect": {
+      "match": {
+        "fittings": {
+          "softClose": false
+        },
+        "carcass": {
+          "base": "legs"
+        }
+      }
+    }
+  },
+  {
+    "name": "set_fittings changes only what it is given",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_fittings",
+        "base": "legs"
+      },
+      {
+        "op": "set_fittings",
+        "softClose": false
+      },
+      {
+        "op": "set_fittings",
+        "base": "plinth"
+      }
+    ],
+    "expect": {
+      "match": {
+        "fittings": {
+          "softClose": false
+        },
+        "carcass": {
+          "base": "plinth"
+        }
+      }
+    }
+  },
+  {
+    "name": "set_fittings needs a value",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_fittings"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[0]"
+      }
+    }
+  },
+  {
+    "name": "an unknown base is refused",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_fittings",
+        "base": "wheels"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "SCHEMA_INVALID"
+      }
+    }
+  },
+  {
+    "name": "soft close must be a boolean",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_fittings",
+        "softClose": "yes"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "SCHEMA_INVALID"
+      }
+    }
   }
 ]

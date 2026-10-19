@@ -73,12 +73,13 @@ def create_wardrobe(_draft: dict | None, op: op_types.CreateWardrobe, path: str)
         "schemaVersion": 2,
         "units": "mm",
         "dimensions": {"width": op.width, "height": op.height, "depth": op.depth},
-        "carcass": {"panelThickness": panel, "appearance": default_appearance(), "plinthHeight": plinth},
+        "carcass": {"panelThickness": panel, "appearance": default_appearance(), "plinthHeight": plinth, "base": "plinth"},
         "compartments": [_empty_compartment(cid, w) for cid, w in zip(compartment_ids, widths)],
         "partitions": [{"id": pid, "thickness": partition} for pid in partition_ids],
         "doors": {"type": "none", "appearance": default_appearance(), "items": []},
         "handles": default_handles(),
         "site": None,
+        "fittings": {"softClose": True},
     }
 
 

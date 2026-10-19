@@ -291,8 +291,13 @@ def front_elevation(design: dict, lay: Layout, catalog: dict, uid: str = "fe") -
     if doors_type == "none":
         g.add(_interior(design, lay))
     else:
-        g.add(rect(0, 0, W, H, "body"))
-        if lay.plinth > PLINTH_FLOOR_GAP:
+        if lay.legs:  # the body stands on legs: a leg under each side and partition
+            g.add(rect(0, lay.plinth, W, H - lay.plinth, "body"))
+            for x in [P / 2, *(r[1] + P / 2 for r in lay.ranges[:-1]), W - P / 2]:
+                g.add(rect(x - 15, 0, 30, lay.plinth, "body"))
+        else:
+            g.add(rect(0, 0, W, H, "body"))
+        if lay.plinth > PLINTH_FLOOR_GAP and not lay.legs:
             g.add(rect(P, 0, W - 2 * P, lay.plinth - PLINTH_FLOOR_GAP, "recess"))
         boards = _door_boards(design, catalog)
         if doors_type == "hinged":

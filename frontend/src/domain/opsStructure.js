@@ -52,12 +52,13 @@ function createWardrobe(_draft, op, path) {
     schemaVersion: 2,
     units: 'mm',
     dimensions: { width: op.width, height: op.height, depth: op.depth },
-    carcass: { panelThickness: panel, appearance: defaultAppearance(), plinthHeight: plinth },
+    carcass: { panelThickness: panel, appearance: defaultAppearance(), plinthHeight: plinth, base: 'plinth' },
     compartments: compartmentIds.map((id, i) => emptyCompartment(id, widths[i])),
     partitions: partitionIds.map((id) => ({ id, thickness: partition })),
     doors: { type: 'none', appearance: defaultAppearance(), items: [] },
     handles: defaultHandles(),
     site: null,
+    fittings: { softClose: true },
   };
 }
 

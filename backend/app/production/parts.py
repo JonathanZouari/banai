@@ -141,14 +141,33 @@ def runner_length(lay: Layout) -> int | None:
     return max((r for r in RUNNERS if r + RUNNER_CLEARANCE <= room), default=None)
 
 
+# Adjustable legs come in three height ranges (Häfele AXILO 78 [117]); each carries up to 150 kg.
+LEG_RANGES = ((90, 120), (115, 145), (140, 170))
+
+
+def leg_range(height: int) -> tuple[int, int]:
+    """The leg model whose range holds `height` (the nearest one when none does)."""
+    return next((r for r in LEG_RANGES if r[0] <= height <= r[1]), LEG_RANGES[0] if height < 90 else LEG_RANGES[-1])
+
+
+def legs_for(design: dict) -> int:
+    """A leg under each side and partition, front and back."""
+    return 2 * (len(design["partitions"]) + 2)
+
+
 def anchors_for(width: int) -> int:
     """At least 2 anchors up to 120 cm, and one more per 60 cm [103]."""
     return 2 + max(0, math.ceil((width - 1200) / 600))
 
 
 def method(design: dict, lay: Layout) -> list[str]:
-    plinth = (tr("צוקל {h} מ״מ בנסיגה של {s} מ״מ.", h=lay.plinth, s=PLINTH_SETBACK) if lay.plinth > PLINTH_FLOOR_GAP
-              else tr("ללא צוקל: הדפנות והרצפה של הארון יושבות על רצפת החדר."))
+    if lay.legs:
+        plinth = tr("רגליות מתכווננות בגובה {h} מ״מ, ליד כל דופן ומחיצה, מלפנים ומאחור. הדפנות מתחילות מעל הרגליות.",
+                    h=lay.plinth)
+    elif lay.plinth > PLINTH_FLOOR_GAP:
+        plinth = tr("צוקל {h} מ״מ בנסיגה של {s} מ״מ.", h=lay.plinth, s=PLINTH_SETBACK)
+    else:
+        plinth = tr("ללא צוקל: הדפנות והרצפה של הארון יושבות על רצפת החדר.")
     where = tr("מאחורי תחום המסילות") if lay.sliding else tr("עד קו החזית, כדי לשאת את הצירים")
     shelves = tr("מדפים מתכווננים על פינים בשיטת System 32.")
     if any(c["rails"] for c in design["compartments"]):
@@ -226,12 +245,14 @@ def production(design: dict, catalog: dict) -> Production:
     rows = _Rows()
 
     # Carcass.
-    rows.add(Part("דופן", "גוף", 2, H, D, body, FRONT_EDGE,
-                  boxes=[box(0, 0, 0, P, H, D, (-1, 0, 0)), box(W - P, 0, 0, W, H, D, (1, 0, 0))]))
+    # On legs the sides start above them; on a plinth they run to the floor.
+    side_y = lay.plinth if lay.legs else 0
+    rows.add(Part("דופן", "גוף", 2, H - side_y, D, body, FRONT_EDGE,
+                  boxes=[box(0, side_y, 0, P, H, D, (-1, 0, 0)), box(W - P, side_y, 0, W, H, D, (1, 0, 0))]))
     rows.add(Part("תקרה", "גוף", 1, W - 2 * P, D, body, FRONT_EDGE, boxes=[box(P, H - P, 0, W - P, H, D, (0, 1, 0))]))
     rows.add(Part("רצפה", "גוף", 1, W - 2 * P, D, body, FRONT_EDGE,
                   boxes=[box(P, lay.plinth, 0, W - P, lay.plinth + P, D, (0, -0.25, 0))]))
-    has_plinth = lay.plinth > PLINTH_FLOOR_GAP
+    has_plinth = lay.plinth > PLINTH_FLOOR_GAP and not lay.legs
     if has_plinth:
         z, h = D - PLINTH_SETBACK, lay.plinth - PLINTH_FLOOR_GAP
         rows.add(Part("צוקל", "גוף", 1, W - 2 * P, h, body, boxes=[box(P, 0, z - P, W - P, h, z, (0, -1.9, 1.0))]))
@@ -384,7 +405,10 @@ def _hardware(design: dict, lay: Layout, parts: list[Part], runner: int | None, 
             hinges[(155 if drawers else 110, push)] += d.hinges
             push_doors += push
             long_push += push and d.height > TIP_ON_LONG
-        add("ציר סמוי 110° עם טריקה שקטה", hinges[(110, False)], "כוס Ø35, עם פלטה", "hinge110", "[2][77]")
+        if design["fittings"]["softClose"]:
+            add("ציר סמוי 110° עם טריקה שקטה", hinges[(110, False)], "כוס Ø35, עם פלטה", "hinge110", "[2][77]")
+        else:
+            add("ציר סמוי 110° ללא טריקה שקטה", hinges[(110, False)], "כוס Ø35, עם פלטה", None, "[1][2]")
         add("ציר סמוי 155° ללא בליטה", hinges[(155, False)], "לדלתות מול מגירות (R10)", "hinge155", "[37][77]")
         add("ציר סמוי 110° ללא קפיץ", hinges[(110, True)], "לפתיחה בלחיצה, כוס Ø35, עם פלטה", None, "[2][16]")
         add("ציר סמוי 155° ללא בליטה וללא קפיץ", hinges[(155, True)], "לדלתות מול מגירות, לפתיחה בלחיצה", None, "[16][37]")
@@ -392,12 +416,16 @@ def _hardware(design: dict, lay: Layout, parts: list[Part], runner: int | None, 
         long_note = ("" if not long_push else tr(", גרסה ארוכה לדלת מעל {mm} מ״מ", mm=TIP_ON_LONG) if long_push == push_doors
                      else tr(", {n} בגרסה ארוכה (דלת מעל {mm} מ״מ) והשאר בקצרה", n=long_push, mm=TIP_ON_LONG))
         add("מנגנון פתיחה בלחיצה לדלת", push_doors, tr("עם ציר ללא קפיץ") + long_note, None, "[16]")
+    if lay.legs:
+        low, high = leg_range(lay.plinth)
+        add("רגלית מתכווננת", legs_for(design), tr("גובה {a}–{b} מ״מ, עד 150 ק״ג לרגלית", a=low, b=high), None, "[117]")
     if lay.sliding and lay.doors:
         add("ערכת מסילות הזזה עליונה ותחתונה", 1, tr("{n} כנפיים, עד 50 ק״ג לכנף", n=len(lay.doors)), "slideKit", "[10][78]")
     if runner:
         push = sum(handle_of(dr, design)["style"] == "none" for dr in boxed)
         spec = tr("זוג באורך {mm} מ״מ, דפנות 11–16 מ״מ", mm=runner)
-        add("מסילות מגירה סמויות, טריקה שקטה", len(boxed) - push, spec, None, "[28][32]")
+        add("מסילות מגירה סמויות, טריקה שקטה" if design["fittings"]["softClose"] else "מסילות מגירה סמויות, ללא טריקה שקטה",
+            len(boxed) - push, spec, None, "[28][32]")
         add("מסילות מגירה סמויות, פתיחה בלחיצה", push, spec, None, "[32][33]")
     rails = [lay.ranges[i][1] - lay.ranges[i][0] for i, c in enumerate(comps) for _ in c["rails"]]
     add("מוט תלייה Ø25", len(rails), "חיתוך לפי רוחב התא", "rail", "[41][79]")

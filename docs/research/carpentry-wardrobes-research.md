@@ -14,6 +14,8 @@
 - ציר סמוי (concealed cup hinge) (יצרן): כוס Ø35 מ"מ, פתיחה 110°, מרחק קידוח 3–7 מ"מ, עומק כוס 11.5–12.5 מ"מ, דלת 14–24 מ"מ; חפיפה מלאה, חצי חפיפה או שקוע (inset) [1][2].
 - מרווח: בדלת 18 מ"מ עם קידוח 3–4 מ"מ הציר דורש רק 0.7–1.5 מ"מ (יצרן) [1]; מרווח נראה של 2–3 מ"מ הוא כלל אצבע ללא מקור.
 - טריקה שקטה (soft-close) משולבת בציר ב-Blum CLIP top BLUMOTION, ויש גם גרסאות בלי קפיץ [2][1].
+- רגליות מתכווננות לבסיס (יצרן): Häfele AXILO 78 בשלושה דגמים, 90–120, 115–145 ו-140–170 מ"מ, עד 150 ק"ג לרגלית, עם קליפס לצוקל; כיוון של 10–20 מ"מ מלמעלה [117] (תקציר).
+- מסך בתוך ארון (יצרן): Sony ממליצה על כ-10 ס"מ אוורור בצדדים ו-5–15 ס"מ מאחור, ומזהירה מהתקנה בארון סגור בלי אוורור [118].
 - מספר צירים (יצרן): לפי Blum, 2 צירים ל-4–6 ק"ג ו-3 ל-6–12 ק"ג (כולל ידית), ובדלת גבוהה וצרה לפחות 3 [3]. בדלתות גבוהות המקורות חלוקים, ו-Salice שמרנית יותר [4][5][6]:
 
 | צירים | Blum (גרף ישן): גובה / משקל | Häfele 105° (18 מ"מ): גובה / משקל | Salice (תקציר): משקל |
@@ -338,3 +340,4 @@
 | 111 | [Pricing cabinets](https://woodweb.com/knowledge_base/Methods_for_Pricing_Cabinet_Work.html) – WOODWEB | 112 | [Wood dust](https://www.hse.gov.uk/coshh/industry/woodworking.htm) – HSE |
 | 113 | [בניית ארונות](https://www.pro.co.il/carpenters/services/building-cabinets-all-the-steps-to-the-solution) – pro.co.il | 114 | [Wickes](https://www.which.co.uk/reviews/fitted-bedroom-furniture/article/fitted-bedroom-furniture-brands-rated/wickes-fitted-wardrobes-aHLbh8A1XGqV) – Which?, 2022 (תקציר) |
 | 115 | [ביטול](https://www.chamber.org.il/serviceslobby/legal/1857/85665/) – לשכת המסחר, 2018 (תקציר) | 116 | [ביטול ברוכלות](https://www.kolzchut.org.il/he/ביטול_עסקה_ברוכלות) – כל זכות (תקציר) |
+| 117 | [AXILO 78 legs](https://www.cabinetparts.com/p/hafele-furniture-components-levelers-for-cabinets-and-furniture-HAF63776353-p81867) – Häfele via CabinetParts (תקציר) | 118 | [TV ventilation](https://www.sony.co.in/electronics/support/televisions-projectors-lcd-tvs-android-/k-43s25/articles/00029129) – Sony |

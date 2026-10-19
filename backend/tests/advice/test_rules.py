@@ -58,6 +58,9 @@ SAMPLES = {
     # R21: 40 cm in front of two ~90 cm hinged doors and a drawer (sliding is the fix), and 70 cm (splitting is).
     "cramped": make(hinged(), {"op": "add_drawer", "compartmentId": "cmp_b", "y": 0, "height": 200, "id": "drw_b"}, {"op": "set_site", "clearance": 400}),
     "tight": make(hinged(), {"op": "set_site", "clearance": 700}),
+    # R24: legs with no height (the fix gives them 10 cm), and soft close switched off (the fix restores it).
+    "legs-low": make({"op": "set_fittings", "base": "legs"}),
+    "no-soft": make(hinged(), {"op": "set_fittings", "softClose": False}),
     # R23: a socket, an AC unit low enough to lower under, pipes and skirting behind; a window past the side.
     "obstacles": make(hinged(), {"op": "set_site", "obstacles": [{"type": "socket", "x": 300, "y": 300, "width": 80, "height": 80}, {"type": "ac", "x": 200, "y": 2000, "width": 900, "height": 300}, {"type": "pipe", "x": 1200, "y": 200, "width": 60, "height": 400}, {"type": "panel", "x": -200, "y": 0, "width": 2400, "height": 80}, {"type": "window", "x": 3000, "y": 900, "width": 1200, "height": 1300}]}),
 }
@@ -88,7 +91,18 @@ def test_the_samples_cover_every_fix():
     fixed = {a["id"].rsplit("-", 1)[0] if a["id"][-1].isdigit() else a["id"]
              for d in SAMPLES.values() for a in advisories(d, CATALOG) if "fix" in a}
     assert fixed == {"r1-over", "r1-lift", "niche-over", "r12-filler", "r3-wide", "r6-mirror", "r5-depth", "r7-sag",
-                     "r8-rail", "r16-high", "r16-width", "r21-swing", "r23"}
+                     "r8-rail", "r16-high", "r16-width", "r21-swing", "r23", "r24-legs", "r24-soft"}
+
+
+def test_legs_and_soft_close():
+    low = by_id(SAMPLES["legs-low"])
+    assert low["r24-legs"]["level"] == "warn"
+    assert low["r24-legs"]["fix"]["ops"] == [{"op": "update_dimensions", "plinthHeight": 100}]
+    good = by_id(make({"op": "set_fittings", "base": "legs"}, {"op": "update_dimensions", "plinthHeight": 120}))
+    assert good["r24-legs-count"]["title"] == "6 רגליות מתכווננות" and "r24-legs" not in good  # 2 sides + 1 partition
+    assert "r24-soft" in by_id(SAMPLES["no-soft"])
+    assert "r24-soft" not in by_id(make({"op": "set_fittings", "softClose": False}))  # no hinges, no drawers: nothing slams
+    assert not {i for i in by_id(make(hinged())) if i.startswith("r24")}
 
 
 def test_advisories_do_not_touch_the_design():

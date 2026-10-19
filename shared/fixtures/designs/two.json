@@ -19,7 +19,8 @@
         "catalogId": "matte"
       }
     },
-    "plinthHeight": 0
+    "plinthHeight": 0,
+    "base": "plinth"
   },
   "compartments": [
     {
@@ -110,5 +111,8 @@
     "style": "bar",
     "finish": "steel"
   },
-  "site": null
+  "site": null,
+  "fittings": {
+    "softClose": true
+  }
 }

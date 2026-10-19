@@ -55,6 +55,7 @@ export const opSchema = z.discriminatedUnion('op', [
   }),
   op('remove_component', { id: z.string().regex(ids.ANY_ID_PATTERN) }),
   // ---- schema v2 ----
+  op('set_fittings', { softClose: opt(z.boolean()), base: opt(z.enum(['plinth', 'legs'])) }),
   op('set_site', {
     ceiling: opt(int()), niche: opt(int()),
     heights: opt(z.array(int().nullable()).length(3)), widths: opt(z.array(int().nullable()).length(3)),

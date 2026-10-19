@@ -133,6 +133,13 @@ def _default_handles() -> Handle:
     return Handle.model_validate(default_handles())
 
 
+class Fittings(StrictModel):
+    """Hardware choices for the whole wardrobe. softClose: hinges and drawer runners with a damper
+    (Blum BLUMOTION is built into the hinge [research 2]); on by default, as the dossier always assumed."""
+
+    soft_close: bool = True
+
+
 class Dimensions(StrictModel):
     width: Int
     height: Int
@@ -143,6 +150,8 @@ class Carcass(StrictModel):
     panel_thickness: Int
     appearance: Appearance
     plinth_height: Int = 0  # v1 designs have no plinth
+    # What the carcass stands on: a plinth board, or visible adjustable legs as tall as plinthHeight.
+    base: Literal["plinth", "legs"] = "plinth"
 
 
 class Shelf(StrictModel):
@@ -253,6 +262,7 @@ class Design(StrictModel):
     doors: Doors
     handles: Handle = Field(default_factory=_default_handles)
     site: Site | None = None
+    fittings: Fittings = Field(default_factory=Fittings)
 
     @field_validator("compartments")
     @classmethod

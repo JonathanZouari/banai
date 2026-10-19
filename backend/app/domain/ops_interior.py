@@ -320,7 +320,18 @@ def set_zone_door(draft: dict, op: op_types.SetZoneDoor, path: str) -> dict:
     return draft
 
 
+def set_fittings(draft: dict, op: op_types.SetFittings, path: str) -> dict:
+    if op.soft_close is None and op.base is None:
+        raise DomainError(INVALID_OP, path, "give softClose or base")
+    if op.soft_close is not None:
+        draft["fittings"] = {**draft["fittings"], "softClose": op.soft_close}
+    if op.base is not None:
+        draft["carcass"]["base"] = op.base
+    return draft
+
+
 INTERIOR_HANDLERS = {
+    op_types.SetFittings: set_fittings,
     op_types.ApplyPreset: apply_preset,
     op_types.AddInsert: add_insert,
     op_types.ModifyInsert: modify_insert,

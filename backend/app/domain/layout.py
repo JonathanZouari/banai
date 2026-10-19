@@ -61,6 +61,7 @@ class Layout:
     sliding: bool
     ranges: list[tuple[int, int]]  # body x of each compartment
     doors: list[DoorLayout] = field(default_factory=list)
+    legs: bool = False  # the carcass stands on adjustable legs (plinth = their height), not on a plinth board
 
     def floor_y(self, y: float) -> float:
         """Height above the floor of an interior y."""
@@ -80,6 +81,7 @@ def layout(design: dict) -> Layout:
     ranges = [(panel + a, panel + b) for a, b in compartment_x_ranges(design)]
     shelf_depth = depth - SLIDE_TRACK_DEPTH - 10 if sliding else depth - 25
     out = Layout(width, height, depth, panel, plinth, interior_height(design), shelf_depth, sliding, ranges)
+    out.legs = carcass.get("base") == "legs"
     if doors["type"] == "hinged":
         out.doors = _hinged(design, out)
     elif sliding:

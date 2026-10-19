@@ -235,6 +235,14 @@ class ModifyInsert(StrictModel):
     height: Int | None = None
 
 
+class SetFittings(StrictModel):
+    """Soft close on or off, and what the carcass stands on (a plinth or adjustable legs)."""
+
+    op: Literal["set_fittings"]
+    soft_close: bool | None = None
+    base: Literal["plinth", "legs"] | None = None
+
+
 class SplitDoor(StrictModel):
     op: Literal["split_door"]
     id: DoorId
@@ -245,7 +253,7 @@ Op = Annotated[
     CreateWardrobe | UpdateDimensions | ConfigureDoors | ModifyDoor | AddCompartment | ModifyCompartment
     | AddPartition | ModifyPartition | AddShelf | ModifyShelf | AddDrawer | ModifyDrawer
     | AddRail | ModifyRail | SetMaterial | SetHandles | RemoveComponent
-    | SetSite | ApplyPreset | AddInsert | ModifyInsert | SplitDoor | SetZones | SetZoneDoor,
+    | SetSite | SetFittings | ApplyPreset | AddInsert | ModifyInsert | SplitDoor | SetZones | SetZoneDoor,
     Field(discriminator="op"),
 ]
 
