@@ -1,5 +1,6 @@
-"""One chat turn: the system prompt, the conversation so far, the Jerusalem weather tool and, when the
-design is sent along, the design context and the propose_changes tool (signed proposals, ADR-020).
+"""One chat turn: the system prompt, the conversation so far, OpenAI's web search (carpentry facts, standards
+and ideas, with their sources) and, when the design is sent along, the design context and the propose_changes
+tool (signed proposals, ADR-020). Carpentry only: there is no off-topic tool (the weather exception is gone).
 """
 
 import json
@@ -13,20 +14,16 @@ from app.advice.rules import advisories
 from app.agent.models import chat_model_for
 from app.agent.prompts import LANGUAGE_NAMES, SPOKEN_NOTE, SYSTEM_PROMPT, design_context, language_note
 from app.agent.proposals import MAX_SUMMARY, sign
-from app.agent.weather import get_jerusalem_weather
 from app.domain.apply import apply_ops
 from app.domain.catalog import load_catalog
 from app.domain.errors import DomainError
 
-WEATHER_TOOL_NAME = "get_jerusalem_weather"
-WEATHER_TOOL = {
-    "type": "function",
-    "name": WEATHER_TOOL_NAME,
-    "description": "Current weather in Jerusalem, Israel. The only weather the assistant may report.",
-    "parameters": {"type": "object", "properties": {}, "required": [], "additionalProperties": False},
-    "strict": True,
-}
+# OpenAI runs the search itself, inside the call; the reply carries url_citation annotations. Low context keeps
+# each search cheap. Page text is third-party data: the prompt says never to follow it (WEB SEARCH).
+WEB_SEARCH_TOOL = {"type": "web_search", "search_context_size": "low"}
 MAX_TOOL_ROUNDS = 2
+MAX_SOURCES = 6
+MAX_BUILT_IN_CALLS = 3  # web searches per model call: each is billed to the customer's key
 
 PROPOSE_TOOL_NAME = "propose_changes"
 PROPOSE_TOOL = {
@@ -46,6 +43,39 @@ PROPOSE_TOOL = {
     "strict": False,  # ops are a large union; the engine validates them instead
 }
 _UNSAFE_TEXT = re.compile(r"[\x00-\x1f\x7f\u202a-\u202e\u2066-\u2069]")
+# A web page's title: also no invisible or bidi marks (as SAFE_TEXT_PATTERN) and no tag characters.
+_UNSAFE_TITLE = re.compile(
+    r"[\x00-\x1f\x7f-\x9f\u00ad\u061c\u200b-\u200f\u2028\u2029\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff\U000e0000-\U000e007f]")
+_URL = re.compile(r"https?://[^\s]{1,2000}")
+# Inline citations the model writes as Markdown: "([title](url))" or "[title](url)". The chat shows plain text, so
+# they are taken out of the reply and the sources are listed under it instead.
+_CITED = re.compile(r"\s*\(\[([^\]]{0,300})\]\((https?://[^)\s]{1,2000})\)\)")
+_LINK = re.compile(r"\[([^\]]{0,300})\]\((https?://[^)\s]{1,2000})\)")
+
+
+def clean_reply(text: str) -> str:
+    """The reply without Markdown citation links (the sources are listed separately)."""
+    text = _CITED.sub("", text or "")
+    text = _LINK.sub(lambda m: m.group(1), text)
+    return re.sub(r"[ \t]+([.,;:!?])", r"\1", text).strip()
+
+
+def sources_of(response) -> list[dict]:
+    """The web sources a reply cites: [{title, url}], https/http only, cleaned, unique, at most MAX_SOURCES."""
+    found: list[dict] = []
+    for item in getattr(response, "output", None) or []:
+        if getattr(item, "type", None) != "message":
+            continue
+        for part in getattr(item, "content", None) or []:
+            for note in getattr(part, "annotations", None) or []:
+                if getattr(note, "type", None) != "url_citation":
+                    continue
+                url = str(getattr(note, "url", "") or "")
+                if not _URL.fullmatch(url) or any(s["url"] == url for s in found):
+                    continue
+                title = " ".join(_UNSAFE_TITLE.sub(" ", str(getattr(note, "title", "") or "")).split())[:120]
+                found.append({"title": title or url, "url": url})
+    return found[:MAX_SOURCES]
 
 
 def normalise_ops(value):
@@ -64,6 +94,20 @@ def normalise_ops(value):
     return value
 
 
+def restore_names(ops: list, design: dict) -> list:
+    """The model never sees household names (prompts.private_view), so set_household from it keeps each existing
+    person's name at their position when it gives none."""
+    names = [p.get("name") for p in ((design.get("household") or {}).get("people") or [])]
+    out = []
+    for op in ops:
+        if isinstance(op, dict) and op.get("op") == "set_household" and isinstance(op.get("people"), list):
+            people = [{**p, "name": names[i]} if isinstance(p, dict) and p.get("name") is None and i < len(names) and names[i]
+                      else p for i, p in enumerate(op["people"])]
+            op = {**op, "people": people}
+        out.append(op)
+    return out
+
+
 def make_proposer(design: dict, revision: int, catalog: dict, holder: dict):
     """The propose_changes tool for one turn. Only ops the engine accepts on this design are signed;
     otherwise the model gets the engine error (code, path, message) and may try once more."""
@@ -79,6 +123,8 @@ def make_proposer(design: dict, revision: int, catalog: dict, holder: dict):
         try:
             ops = normalise_ops(ops)
             summary = normalise_ops(summary)
+            if isinstance(ops, list):
+                ops = restore_names(ops, design)
         except ValueError:
             return {"ok": False, "error": {"code": "SCHEMA_INVALID", "path": "arguments", "message": "text must be valid Unicode"}}
         try:
@@ -99,6 +145,7 @@ class ChatResult:
     reply: str
     model: str
     proposal: dict | None = None
+    sources: tuple = ()  # the web pages the reply cites: ({title, url}, ...)
 
 
 class AgentError(Exception):
@@ -109,9 +156,11 @@ class AgentError(Exception):
         self.message = message
 
 
-def run_chat(client, model: str, messages: list[dict], weather=get_jerusalem_weather, context: str | None = None,
-             propose=None) -> str:
-    """Calls the model (Responses API), runs at most MAX_TOOL_ROUNDS of weather lookups, returns the reply.
+def run_chat(client, model: str, messages: list[dict], context: str | None = None, propose=None,
+             web: bool = True) -> tuple[str, list[dict]]:
+    """Calls the model (Responses API) with web search and, when given, propose_changes; runs at most
+    MAX_TOOL_ROUNDS of proposals. Returns (reply, sources). A model or key without web search is asked again
+    without it (the reply then has no sources).
 
     store=False: OpenAI keeps no copy of the conversation. Function calls are echoed back without
     their item ids, so no stored reasoning items are needed between rounds.
@@ -119,28 +168,43 @@ def run_chat(client, model: str, messages: list[dict], weather=get_jerusalem_wea
     items = list(messages)
     if context:  # the current design, just before the customer's latest message
         items = items[:-1] + [{"role": "developer", "content": context}] + items[-1:]
-    tools = [WEATHER_TOOL] + ([PROPOSE_TOOL] if propose else [])
-    weather_result = None
-    for round_number in range(MAX_TOOL_ROUNDS + 1):
+    sources: list[dict] = []
+    round_number = 0
+    while round_number <= MAX_TOOL_ROUNDS:
         last_round = round_number == MAX_TOOL_ROUNDS
-        response = client.responses.create(
-            model=model, instructions=SYSTEM_PROMPT, input=items, tools=tools,
-            tool_choice="none" if last_round else "auto", store=False,
-        )
+        tools = ([WEB_SEARCH_TOOL] if web else []) + ([PROPOSE_TOOL] if propose else [])
+        request = {"model": model, "instructions": SYSTEM_PROMPT, "input": items, "store": False}
+        if tools:
+            request |= {"tools": tools, "tool_choice": "none" if last_round else "auto"}
+        if web:
+            request["max_tool_calls"] = MAX_BUILT_IN_CALLS
+        try:
+            response = client.responses.create(**request)
+        except openai.BadRequestError as error:
+            if not web or not _refused_tool(error):
+                raise
+            logger.info("Web search unavailable, answering without it: %s", describe_error(error, model))
+            web = False
+            continue  # the same round again, without web search
+        sources += [s for s in sources_of(response) if all(s["url"] != t["url"] for t in sources)]
         calls = [item for item in response.output if item.type == "function_call"]
         if not calls:
-            return (response.output_text or "").strip()
+            return clean_reply(response.output_text or ""), sources[:MAX_SOURCES]
         for call in calls:
-            if call.name == WEATHER_TOOL_NAME:
-                weather_result = weather_result or weather()
-                result = weather_result
-            elif call.name == PROPOSE_TOOL_NAME and propose:
-                result = propose(call.arguments)
-            else:
-                result = {"error": "Unknown tool."}
+            result = propose(call.arguments) if call.name == PROPOSE_TOOL_NAME and propose else {"error": "Unknown tool."}
             items.append({"type": "function_call", "call_id": call.call_id, "name": call.name, "arguments": call.arguments})
             items.append({"type": "function_call_output", "call_id": call.call_id, "output": json.dumps(result, ensure_ascii=False)})
-    return ""
+        round_number += 1
+    return "", sources[:MAX_SOURCES]
+
+
+def _refused_tool(error) -> bool:
+    """A 400 about the web search tool itself (a model or key without it), not about anything else."""
+    body = getattr(error, "body", None)
+    detail = body.get("error", body) if isinstance(body, dict) else {}
+    param = str((detail or {}).get("param") or "") if isinstance(detail, dict) else ""
+    text = f"{param} {error}".lower()
+    return param.startswith("tools") or "web_search" in text or "max_tool_calls" in text
 
 
 def to_agent_error(error: openai.OpenAIError) -> AgentError:
@@ -188,7 +252,7 @@ def answer(api_key: str, messages: list[dict], configured_model: str | None, cli
         model = chat_model_for(client, api_key, configured_model)
         if not model:
             raise AgentError(400, "MODEL_UNAVAILABLE", "Your OpenAI key has no chat model available.")
-        reply = run_chat(client, model, messages, context=context, propose=propose)
+        reply, sources = run_chat(client, model, messages, context=context, propose=propose)
     except openai.OpenAIError as error:
         logger.warning("Chat turn failed: %s", describe_error(error, model))
         raise to_agent_error(error) from None
@@ -196,4 +260,4 @@ def answer(api_key: str, messages: list[dict], configured_model: str | None, cli
         client.close()
     if not reply:
         raise AgentError(502, "EMPTY_REPLY", "The AI returned an empty answer. Please try again.")
-    return ChatResult(reply, model, holder["proposal"])
+    return ChatResult(reply, model, holder["proposal"], tuple(sources))

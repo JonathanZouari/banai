@@ -106,6 +106,11 @@ function checkRanges(design) {
     for (const [key, limit] of Object.entries(OBSTACLE_LIMITS)) checks.push([item[key], limit, `site.obstacles[${oi}].${key}`]);
   });
   const issues = checks.map(([value, limit, path]) => rangeIssue(value, limit, path)).filter(Boolean);
+  (site.obstacles ?? []).forEach((item, oi) => {
+    if (item.type === 'other' && !item.name) {
+      issues.push(new DomainError(E.SCHEMA_INVALID, `site.obstacles[${oi}].name`, 'an "other" obstacle needs a name'));
+    }
+  });
   if (design.fittings.childLock && design.fittings.releaseHeight === null) {
     issues.push(new DomainError(E.SCHEMA_INVALID, 'fittings.releaseHeight', 'child locks need a release height'));
   }

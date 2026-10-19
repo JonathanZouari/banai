@@ -210,7 +210,7 @@ class Insert(StrictModel):
 
 
 Reading3 = Annotated[list[Int | None], Field(min_length=3, max_length=3)]
-ObstacleType = Literal["socket", "switch", "ac", "pipe", "window", "panel"]
+ObstacleType = Literal["socket", "switch", "ac", "pipe", "window", "panel", "other"]
 
 
 class Obstacle(StrictModel):
@@ -222,6 +222,15 @@ class Obstacle(StrictModel):
     y: Int
     width: Int
     height: Int
+    # The customer's word for it: required for "other" (a radiator, a column), optional otherwise.
+    name: str | None = Field(default=None, min_length=1, max_length=30, pattern=SAFE_TEXT_PATTERN)
+
+    @field_validator("name")
+    @classmethod
+    def _visible_name(cls, value: str | None) -> str | None:
+        if value is not None and (not value.strip() or any(0xE0000 <= ord(ch) <= 0xE007F for ch in value)):
+            raise ValueError("name must be visible text")
+        return value
 
 
 class Site(StrictModel):

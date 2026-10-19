@@ -309,7 +309,7 @@ def test_a_spoken_turn_tells_the_model_to_answer_for_the_ear(monkeypatch):
 
     def fake_run(client, model, messages, context=None, propose=None, **kwargs):
         seen["context"] = context
-        return "שלום"
+        return "שלום", []
 
     class Client:
         models = NS(list=lambda: [NS(id="gpt-5.4-mini")])

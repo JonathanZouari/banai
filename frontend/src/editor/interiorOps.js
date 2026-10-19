@@ -101,7 +101,9 @@ export const OBSTACLE_OPTIONS = Object.freeze([
   { value: 'pipe', label: 'צנרת' },
   { value: 'window', label: 'חלון' },
   { value: 'panel', label: 'פנל' },
+  { value: 'other', label: 'אחר' },
 ]);
+export const OTHER_OBSTACLE_NAME = 'מכשול'; // until the customer names it
 
 /** A new obstacle: an 8 x 8 cm socket 30 cm up, in the middle of the wardrobe. */
 export const newObstacle = (design) => ({ type: 'socket', x: Math.round(design.dimensions.width / 2) - 40, y: 300, width: 80, height: 80 });

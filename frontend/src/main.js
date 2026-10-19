@@ -437,7 +437,8 @@ async function boot() {
       const data = await sendChatMessage(keyStorage.get(), history, { design, revision, spoken, language: getChatLanguage() });
       if (spoken && speechPrefs.isEnabled()) speaker.speak(data.reply, speechPrefs.getVoice());
       const proposal = data.proposal ? await previewProposal(data.proposal, design, catalog) : null;
-      return proposal ? { reply: data.reply, proposal } : { reply: data.reply };
+      const sources = data.sources ?? []; // the web pages the reply cites (shown under it, never spoken)
+      return proposal ? { reply: data.reply, proposal, sources } : { reply: data.reply, sources };
     },
   };
   const chatModel = createChatModel({ getRevision: () => store.getState().revision, agent });

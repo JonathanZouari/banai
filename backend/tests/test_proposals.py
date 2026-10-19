@@ -94,13 +94,13 @@ def test_a_rejected_proposal_goes_back_to_the_model_which_can_fix_it():
         reply(calls=[propose_call({"summary": "רוחב 240", "ops": WIDER}, "p2")]),
         reply("הצעתי להרחיב ל-240 ס״מ."),
     )
-    text = run_chat(fake, "m", [{"role": "user", "content": "תרחיב"}], context="CTX", propose=propose)
+    text, _ = run_chat(fake, "m", [{"role": "user", "content": "תרחיב"}], context="CTX", propose=propose)
     assert text == "הצעתי להרחיב ל-240 ס״מ."
     first_output = json.loads(fake.calls[1]["input"][-1]["output"])
     assert first_output == {"ok": False, "error": {"code": "OUT_OF_RANGE", "path": "ops[0].width",
                                                    "message": first_output["error"]["message"]}}
     assert holder["proposal"]["ops"] == WIDER
-    assert [t["name"] for t in fake.calls[0]["tools"]] == ["get_jerusalem_weather", PROPOSE_TOOL_NAME]
+    assert [t.get("name", t["type"]) for t in fake.calls[0]["tools"]] == ["web_search", PROPOSE_TOOL_NAME]
     # The design context sits just before the customer's latest message.
     assert fake.calls[0]["input"][-2] == {"role": "developer", "content": "CTX"}
 
@@ -121,7 +121,7 @@ def test_answer_without_a_design_stays_text_only(monkeypatch):
     fake = FakeClient(reply("שלום"))
     result = agent_chat.answer(KEY, [{"role": "user", "content": "היי"}], None, client_factory=lambda **kw: fake)
     assert result.proposal is None
-    assert [t["name"] for t in fake.calls[0]["tools"]] == ["get_jerusalem_weather"]
+    assert [t["type"] for t in fake.calls[0]["tools"]] == ["web_search"]
 
 
 # ---- the chat API ----

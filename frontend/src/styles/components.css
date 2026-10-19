@@ -95,6 +95,15 @@
 .chat__bubble { max-width: 90%; padding: var(--space-3) var(--space-4); border-radius: 18px; font: var(--md-sys-typescale-body-medium); overflow-wrap: anywhere; white-space: pre-wrap; animation: pop-in 260ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
 .chat__bubble--user { align-self: flex-end; border-bottom-right-radius: 6px; background: linear-gradient(135deg, #c8602f 0%, #b4532a 100%); color: var(--md-sys-color-on-primary); box-shadow: 0 4px 12px rgba(180, 83, 42, 0.25); }
 .chat__bubble--assistant { align-self: flex-start; border-bottom-left-radius: 6px; background: var(--md-sys-color-surface-container-high); }
+/* The web pages a reply cites: small links under the text, each with its site. */
+.chat__sources { display: block; margin-top: var(--space-2); padding-top: var(--space-2); border-top: 1px solid rgba(92, 84, 75, 0.15); white-space: normal; font: var(--md-sys-typescale-body-small); }
+.chat__sources-title { display: block; margin-bottom: 2px; color: var(--md-sys-color-on-surface-variant); font-weight: 600; }
+.chat__sources-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+.chat__sources-list li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; min-width: 0; }
+.chat__sources-list a { color: #8a4a22; text-decoration: underline; text-underline-offset: 2px; overflow-wrap: anywhere; }
+.chat__sources-list a:hover { color: #b4532a; }
+.chat__sources-list a:focus-visible { outline: 2px solid var(--md-sys-color-primary); outline-offset: 2px; border-radius: 2px; }
+.chat__source-host { color: var(--md-sys-color-on-surface-variant); font-size: 0.85em; }
 .chat__typing { display: inline-flex; gap: 4px; padding: var(--space-3) var(--space-4); }
 .chat__typing[hidden] { display: none; }
 /* The hidden attribute always wins over component display rules (e.g. .btn { display: inline-flex }). */

@@ -29,7 +29,8 @@ export const verifyAiKey = (apiKey, fetchImpl = fetch) => postJson('/api/setting
 /**
  * One agent turn. `messages` is [{ role: 'user'|'assistant', content }]. With `context` ({ design, revision })
  * the agent sees the design and may return a signed proposal. `context.spoken`: the customer spoke and
- * will hear the reply, so the agent answers for the ear (ADR-028). Returns { reply, model, proposal? }.
+ * will hear the reply, so the agent answers for the ear (ADR-028). Returns { reply, model, proposal?, sources? }:
+ * `sources` are the web pages a reply cites, [{ title, url }] (ADR-036).
  */
 export const sendChatMessage = (apiKey, messages, context = null, fetchImpl = fetch) => {
   const body = context?.design ? { apiKey, messages, design: context.design, revision: context.revision } : { apiKey, messages };

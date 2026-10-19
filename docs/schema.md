@@ -148,7 +148,7 @@ v2 is additive. A v1 design parses unchanged and comes out with `schemaVersion: 
 
 | Field | Default | Meaning |
 |---|---|---|
-| `site: { ceiling, niche, heights, widths, clearance, obstacles } \| null` | `null` | Customer's estimated site measurements in mm (each may be `null`). The carpenter verifies them on site. See "Site" below. |
+| `site: { ceiling, niche, heights, widths, clearance, obstacles } \|| `obstacles: [{ type, name, x, y, width, height }] | null` | `null` | Customer's estimated site measurements in mm (each may be `null`). The carpenter verifies them on site. See "Site" below. |
 | `carcass.plinthHeight` | `0` | Plinth under the bottom panel. **Interior height** = `height − 2·panelThickness − plinthHeight`. |
 | `compartments[].inserts[]` | `[]` | Interior inserts, at most one of each type (`pulldown`, `shoes`, `trousers`, `led`, `tv`). `tv` is a sample flat screen on the compartment's back: `y` is its bottom edge and `height` the screen's height in mm (16:9, from the diagonal: inches × 25.4 × 9 / √337). It defaults to the largest size up to 43" that leaves 100 mm of air each side, at least 24", centred at 1100 mm above the floor. |
 | `carcass.base` | `"plinth"` | `"plinth"`, or `"legs"`: the body stands on adjustable legs `plinthHeight` tall (the sides start above them, no plinth board). |
@@ -200,11 +200,11 @@ The room around the wardrobe, as the customer measured it. A carpenter takes the
 
 | Field | Meaning |
 |---|---|
-| `heights: [left, middle, right] \| null` | Ceiling height at three points along the wall, each `null` when not measured. |
-| `widths: [top, middle, bottom] \| null` | Niche width at three heights, each `null` when not measured. |
+| `heights: [left, middle, right] \|| `obstacles: [{ type, name, x, y, width, height }] | null` | Ceiling height at three points along the wall, each `null` when not measured. |
+| `widths: [top, middle, bottom] \|| `obstacles: [{ type, name, x, y, width, height }] | null` | Niche width at three heights, each `null` when not measured. |
 | `ceiling`, `niche` | The governing values: the smallest known reading, or a single measurement when no readings were given (older designs). |
 | `clearance` | Free floor in front of the wardrobe, from its front to the wall or furniture opposite. |
-| `obstacles: [{ type, x, y, width, height }] \| null` | What is on the wall behind (2026-10-19, ADR-031): `socket`, `switch`, `ac`, `pipe`, `window` or `panel` (skirting). `x` from the wardrobe's left outer face (negative = left of it), `y` from the floor, mm. `set_site` replaces the whole list; an empty list clears it, and a stored empty list is invalid (it is `null`). |
+| `obstacles: [{ type, name, x, y, width, height }] | null` |\| null` | What is on the wall behind (2026-10-19, ADR-031): `socket`, `switch`, `ac`, `pipe`, `window`, `panel` (skirting) or `other` (anything else, ADR-036). `name` is the customer's word for it: required for `other`, optional otherwise, safe text of at most 30 code points, `null` when absent. `x` from the wardrobe's left outer face (negative = left of it), `y` from the floor, mm. `set_site` replaces the whole list; an empty list clears it, and a stored empty list is invalid (it is `null`). |
 
 Adding the readings changed no existing field, so older designs stay valid without a migration. An obstacle the carcass covers switches on advisory R23: an opening in the back for a socket or switch, no anchoring over pipes, and lowering the wardrobe under a window or an AC unit (a quick fix when it stays at least 120 cm tall) [research section 5.1][11]. The readings switch on advisories R21 (room to open hinged doors and drawers, and to pass; retail guides [99]) and R22 (an out-of-square niche or ceiling, and a sliding track that needs a levelling frame [11][13][93][96]). The viewer draws them in pencil (`frontend/src/viewer/room.js`), and the dossier's site page lists them.
 

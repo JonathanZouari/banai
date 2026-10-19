@@ -248,8 +248,10 @@ def _to_sliding(lay: Layout, out: _Collector) -> dict | None:
                                              "ids": [f"dr_s{i + 1}" for i in range(count)]}])
 
 
-def obstacle_name(kind: str) -> str:
-    """The obstacle type's name in the current language."""
+def obstacle_name(kind: str, name: str | None = None) -> str:
+    """The obstacle's name in the current language; for "other", the customer's own word (data, untranslated)."""
+    if kind == "other":
+        return name or tr("מכשול")
     return {"socket": tr("שקע"), "switch": tr("מתג"), "ac": tr("מזגן"), "pipe": tr("צנרת"), "window": tr("חלון"),
             "panel": tr("פנל")}[kind]
 
@@ -260,7 +262,7 @@ def _obstacles(design: dict, lay: Layout, out: _Collector) -> None:
     for i, o in enumerate((design["site"] or {}).get("obstacles") or []):
         if o["x"] >= lay.width or o["x"] + o["width"] <= 0 or o["y"] >= lay.height:
             continue
-        kind, name, id_ = o["type"], obstacle_name(o["type"]), f"r23-{i + 1}"
+        kind, name, id_ = o["type"], obstacle_name(o["type"], o.get("name")), f"r23-{i + 1}"
         if kind in ("socket", "switch"):
             out.add(id_, "info", tr("{name} מאחורי הארון", name=name),
                     tr("חותכים פתח בגב הארון מולו, או מעבירים אותו. לפני עיגון לקיר מאתרים כבלים בגלאי."),
@@ -277,6 +279,11 @@ def _obstacles(design: dict, lay: Layout, out: _Collector) -> None:
                     tr("החלק התחתון שלו בגובה {y} ס״מ, והארון עולה עד {h} ס״מ. אפשר להנמיך את הארון מתחתיו, "
                        "או להשאיר את הקטע הזה פתוח.", y=cm(o["y"]), h=cm(lay.height)),
                     "מדידה", "סעיף 5.1", ["carcass"], lower)
+        elif kind == "other":
+            out.add(id_, "info", tr("{name} מאחורי הארון", name=name),
+                    tr("בודקים באתר אם הוא דורש גישה, אוורור או מרחק, ומשאירים בגב פתח מולו או מזיזים את הארון. "
+                       "לפני עיגון לקיר מאתרים כבלים וצנרת."),
+                    "כלל אצבע", "סעיף 5.1", ["carcass"])
         else:  # panel: skirting along the wall
             out.add(id_, "info", tr("פנל לאורך הקיר"),
                     tr("ארון שנצמד לקיר עם פנל עומד רחוק ממנו בעובי הפנל. חורצים את הצד או את הצוקל סביב הפנל. "

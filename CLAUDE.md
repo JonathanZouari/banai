@@ -14,7 +14,13 @@ BanAI started as an MVP AI wardrobe designer for standard straight wardrobes. Th
 - **Carpenter dossier PDF** (`/api/dossier`): drawings, cut list, sheet nesting, hardware, estimate and advisories, rendered by headless Chromium.
 - **Render and video:** a WebGL path tracer for a near-photoreal still (the dossier cover), and an MP4 demo of the doors, drawers and pull-down opening, live or path-traced.
 - **Undo/redo** and hold-to-compare against a saved version.
-- **Design-aware chat** (ADR-020/025): the agent sees the design and proposes ops; the server signs them, and nothing changes until the customer confirms. Conversational: no chips or multiple choice. Jerusalem weather is the one deliberate off-topic answer (ADR-015).
+- **Design-aware chat** (ADR-020/025): the agent sees the design and proposes ops; the server signs them, and nothing changes until the customer confirms. Conversational: no chips or multiple choice. Carpentry only, with no exceptions: the Jerusalem weather tool (ADR-015) is gone (ADR-036).
+- **Web search** (ADR-036): Bob uses OpenAI's built-in `web_search` (low context, at most `MAX_BUILT_IN_CALLS` per call) for carpentry facts, standards, typical sizes and ideas.
+  - The pages a reply cites come back as `sources` [{title, url}]: http(s) only, cleaned titles, at most 6. They are listed under the bubble as links (`target=_blank`, `rel=noopener noreferrer`) and never spoken. Markdown links are taken out of the reply text.
+  - Web text is third-party data, never instructions (prompt WEB SEARCH). Searches use general carpentry words only.
+  - Household names never reach the model (`prompts.private_view`), so a page cannot get them out. `chat.restore_names` puts them back into an agent's `set_household`.
+  - A 400 about the tool itself (a model or key without web search) retries the turn without it.
+- **Obstacles of any kind** (ADR-036): obstacle type `other` with a required `name` (safe text, at most 30 code points), from the panel ("אחר", then "מה זה?") or from Bob, who may look up a typical size. R23 gives it a generic advisory, and the viewer draws a labelled 10 cm box.
 - **Push-to-talk voice** (ADR-021): record, transcribe on the server, send as a chat message. A change still needs a tap.
 - **Bob the Builder (בוב הבנאי):** the agent's name and character in every language (the app itself stays בנאי). The character is a fictional master carpenter (in the workshop since 1995, over a thousand wardrobes), the same story as the P3 About page; the agent admits it is an AI when asked. A registered character: fine for this study project, a real product needs its own name.
 - **Languages** (ADR-029): Hebrew, English, Russian and Arabic.

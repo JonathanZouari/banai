@@ -90,4 +90,6 @@ def chat(body: ChatRequest, runner=Depends(get_chat_runner)):
     data = {"reply": result.reply, "model": result.model}
     if result.proposal is not None:
         data["proposal"] = result.proposal
+    if result.sources:
+        data["sources"] = list(result.sources)
     return {"success": True, "data": data}

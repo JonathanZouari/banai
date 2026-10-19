@@ -33,7 +33,7 @@ export const LIMITS = deepFreeze({
 });
 
 export const MAX_OBSTACLES = 8; // wall obstacles in one site
-export const OBSTACLE_TYPES = Object.freeze(['socket', 'switch', 'ac', 'pipe', 'window', 'panel']);
+export const OBSTACLE_TYPES = Object.freeze(['socket', 'switch', 'ac', 'pipe', 'window', 'panel', 'other']);
 // Which limit each obstacle field takes.
 export const OBSTACLE_LIMITS = Object.freeze({ x: 'obstacleX', y: 'obstacleY', width: 'obstacleSize', height: 'obstacleSize' });
 

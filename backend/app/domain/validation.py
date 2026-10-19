@@ -122,6 +122,9 @@ def _check_ranges(design: dict) -> list[DomainError]:
         for key, limit in OBSTACLE_LIMITS.items():
             checks.append((item[key], limit, f"site.obstacles[{oi}].{key}"))
     issues = [issue for v, limit, path in checks if (issue := range_issue(v, limit, path))]
+    for oi, o in enumerate((design["site"] or {}).get("obstacles") or []):
+        if o["type"] == "other" and not o.get("name"):
+            issues.append(DomainError(codes.SCHEMA_INVALID, f"site.obstacles[{oi}].name", "an \"other\" obstacle needs a name"))
     if design["fittings"]["childLock"] and design["fittings"]["releaseHeight"] is None:
         issues.append(DomainError(codes.SCHEMA_INVALID, "fittings.releaseHeight", "child locks need a release height"))
     if site.get("obstacles") == []:

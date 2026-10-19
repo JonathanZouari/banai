@@ -84,8 +84,11 @@ const reading3 = () => z.array(int().nullable()).length(3);
 // Something on the wall behind the wardrobe (mm): x from its left outer face (negative = left of it), y from
 // the floor. Ranges are checked in validation. Mirrors backend Obstacle.
 export const obstacle = z.strictObject({
-  type: z.enum(['socket', 'switch', 'ac', 'pipe', 'window', 'panel']),
+  type: z.enum(['socket', 'switch', 'ac', 'pipe', 'window', 'panel', 'other']),
   x: int(), y: int(), width: int(), height: int(),
+  // The customer's word for it: required for "other" (validation), optional otherwise. Code points, as Python counts.
+  name: z.string().refine((s) => [...s].length >= 1 && [...s].length <= 30).regex(SAFE_TEXT_PATTERN).refine(isVisibleText)
+    .nullable().default(null),
 });
 export const MAX_SITE_OBSTACLES = MAX_OBSTACLES;
 const site = z.strictObject({

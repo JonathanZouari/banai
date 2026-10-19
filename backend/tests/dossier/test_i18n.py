@@ -52,6 +52,7 @@ VARIANTS = {
                             {"op": "add_insert", "compartmentId": "cmp_c", "type": "tv", "height": 374, "id": "ins_t3"}, count=3, width=2700),
     "room-obstacles": lambda: make(hinged(2), {"op": "set_site", "obstacles": [{"type": "socket", "x": 300, "y": 300, "width": 80, "height": 80}, {"type": "ac", "x": 200, "y": 2000, "width": 900, "height": 300}, {"type": "pipe", "x": 1200, "y": 200, "width": 60, "height": 400}, {"type": "panel", "x": -200, "y": 0, "width": 2400, "height": 80}, {"type": "window", "x": 3000, "y": 900, "width": 1200, "height": 1300}]}),
     "room-obstacles-slide": lambda: make(sliding(2), {"op": "set_site", "obstacles": [{"type": "switch", "x": 100, "y": 1000, "width": 80, "height": 80}, {"type": "window", "x": 0, "y": 2000, "width": 900, "height": 600}]}),
+    "room-obstacle-other": lambda: make(hinged(2), {"op": "set_site", "obstacles": [{"type": "other", "name": "Radiator", "x": 300, "y": 150, "width": 800, "height": 600}]}),
     "pulldown-wide": lambda: make({"op": "add_insert", "compartmentId": "cmp_a", "type": "pulldown", "id": "ins_pw"}, count=1, width=1400),
     "led-many": lambda: make({"op": "add_insert", "compartmentId": "cmp_a", "type": "led", "id": "ins_l1"},
                              {"op": "add_insert", "compartmentId": "cmp_b", "type": "led", "id": "ins_l2"}),

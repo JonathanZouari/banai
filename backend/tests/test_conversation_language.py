@@ -44,7 +44,7 @@ def test_the_agent_is_told_the_session_language(monkeypatch, kwargs, expected):
 
     def fake_run(client, model, messages, context=None, propose=None, **_):
         seen["context"] = context
-        return "ok"
+        return "ok", []
 
     class Client:
         def close(self):

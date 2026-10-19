@@ -2,9 +2,9 @@
 // again on site. The ceiling is read at three points and the niche at three heights, as a carpenter measures
 // [research 96][11]; the smallest known reading governs. The free floor in front of the wardrobe decides
 // whether the doors and drawers have room to open. Together they switch on R1, R12, R21 and R22.
-import { actionResult, button, cmField, collapsibleSection, el, selectField } from './fields.js';
+import { actionResult, button, cmField, collapsibleSection, el, selectField, textField } from './fields.js';
 import {
-  MAX_PANEL_OBSTACLES, OBSTACLE_OPTIONS, addObstacleOps, newObstacle, removeObstacleOps, siteOps, siteReadingOps, updateObstacleOps,
+  MAX_PANEL_OBSTACLES, OBSTACLE_OPTIONS, OTHER_OBSTACLE_NAME, addObstacleOps, newObstacle, removeObstacleOps, siteOps, siteReadingOps, updateObstacleOps,
 } from './interiorOps.js';
 import { toCmText } from './opsFromForm.js';
 
@@ -66,7 +66,7 @@ function obstaclesBox({ design, run, now }) {
   const list = design.site?.obstacles ?? [];
   const box = el('div', { className: 'site-obstacles', attrs: { role: 'group', 'aria-label': 'מכשולים בקיר' } }, [
     el('p', { className: 'site-readings__title', text: 'מכשולים בקיר' }),
-    el('p', { className: 'panel__note', text: 'שקעים, מתגים, מזגן, צנרת, חלון או פנל על הקיר שמאחורי הארון. המרחק נמדד מהקצה השמאלי של הארון (שלילי = משמאל לו).' }),
+    el('p', { className: 'panel__note', text: 'שקעים, מתגים, מזגן, צנרת, חלון, פנל או כל דבר אחר על הקיר שמאחורי הארון (רדיאטור, עמוד, דוד). המרחק נמדד מהקצה השמאלי של הארון (שלילי = משמאל לו). אפשר גם לספר לבוב, והוא יציע.' }),
   ]);
   box.dataset.testid = 'site-obstacles';
   list.forEach((item, index) => {
@@ -74,8 +74,17 @@ function obstaclesBox({ design, run, now }) {
     row.dataset.testid = `obstacle-${index}`;
     const kind = selectField({
       label: `מכשול ${index + 1}`, options: OBSTACLE_OPTIONS, value: item.type, testId: `obstacle-${index}-type`,
-      onChange: (type) => actionResult(row, commitOps(run, updateObstacleOps(now(), index, { type }))),
+      // "אחר" needs a name: it starts as "מכשול" and the field below renames it.
+      onChange: (type) => actionResult(row, commitOps(run, updateObstacleOps(now(), index,
+        type === 'other' ? { type, name: item.name ?? OTHER_OBSTACLE_NAME } : { type }))),
     });
+    const named = item.type === 'other' ? [textField({
+      label: 'מה זה?', value: item.name ?? '', testId: `obstacle-${index}-name`,
+      onCommit: (text) => {
+        const name = Array.from(text.trim()).slice(0, 30).join('');
+        return name ? commitOps(run, updateObstacleOps(now(), index, { name })) : { ok: false, message: 'כתבו מה יש על הקיר' };
+      },
+    })] : [];
     const fields = OBSTACLE_FIELDS.map(({ key, label }) => cmField({
       label, testId: `obstacle-${index}-${key}`, mm: item[key],
       onCommit: (mm) => (mm === null ? { ok: true } : commitOps(run, updateObstacleOps(now(), index, { [key]: mm }))),
@@ -83,7 +92,7 @@ function obstaclesBox({ design, run, now }) {
     const remove = button('הסרה', () => actionResult(row, commitOps(run, removeObstacleOps(now(), index))), {
       variant: 'link', testId: `obstacle-${index}-remove`,
     });
-    row.append(el('div', { className: 'site-obstacle__head' }, [kind, remove]), el('div', { className: 'site-obstacle__grid' }, fields));
+    row.append(el('div', { className: 'site-obstacle__head' }, [kind, remove]), ...named, el('div', { className: 'site-obstacle__grid' }, fields));
     box.append(row);
   });
   box.append(button('+ הוספת מכשול', () => actionResult(box, commitOps(run, addObstacleOps(now(), newObstacle(design)))), {

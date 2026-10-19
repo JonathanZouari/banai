@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-  AGENT_ERROR_MESSAGE, createChatModel, MAX_MESSAGE_LENGTH, NOT_CONNECTED_MESSAGE, proposalStatus,
+  AGENT_ERROR_MESSAGE, createChatModel, MAX_MESSAGE_LENGTH, MAX_SOURCES, NOT_CONNECTED_MESSAGE, proposalStatus, safeSources,
 } from '../../../src/chat/chatModel.js';
 
 const proposal = (baseRevision = 1) => ({
@@ -136,5 +136,38 @@ describe('chat model with the agent', () => {
     expect(model.send('hi')).toEqual({ ok: true });
     expect(model.getMessages().at(-1).text).toBe(NOT_CONNECTED_MESSAGE);
     expect(agent.reply).not.toHaveBeenCalled();
+  });
+});
+
+describe('safeSources', () => {
+  it('keeps http(s) pages only, cleans titles, drops duplicates and stops at six', () => {
+    const sources = safeSources([
+      { title: 'Blum \u202ehinges', url: 'https://www.blum.com/hinges' },
+      { title: 'again', url: 'https://www.blum.com/hinges' },
+      { title: '', url: 'http://example.org/a' },
+      { title: 'x', url: 'javascript:alert(1)' },
+      { title: 'x', url: 'data:text/html,hi' },
+      { title: 'x', url: 'not a url' },
+      { title: 'x'.repeat(300), url: 'https://long.example/' },
+      ...Array.from({ length: 8 }, (_, i) => ({ title: `t${i}`, url: `https://e${i}.example/` })),
+    ]);
+    expect(sources).toHaveLength(MAX_SOURCES);
+    expect(sources[0]).toEqual({ title: 'Blum hinges', url: 'https://www.blum.com/hinges', host: 'blum.com' });
+    expect(safeSources([{ title: 'a\u200bb\u{E0041}c\u00ad', url: 'https://z.example/' }])[0].title).toBe('a b c');
+    expect(sources[1]).toEqual({ title: 'example.org', url: 'http://example.org/a', host: 'example.org' });
+    expect(sources[2].title).toHaveLength(120);
+    expect(sources.every((s) => /^https?:/.test(s.url))).toBe(true);
+    expect(safeSources(null)).toEqual([]);
+    expect(safeSources('https://x.example')).toEqual([]);
+  });
+
+  it('a reply keeps its sources; a plain string reply has none', async () => {
+    const agent = { isReady: () => true, reply: vi.fn(async () => ({ reply: 'ok', sources: [{ title: 'T', url: 'https://t.example/' }] })) };
+    const model = createChatModel({ getRevision: () => 1, agent });
+    await model.send('שאלה').done;
+    expect(model.getMessages().at(-1)).toMatchObject({ role: 'assistant', text: 'ok', sources: [{ title: 'T', url: 'https://t.example/' }] });
+    const plain = createChatModel({ getRevision: () => 1, agent: { isReady: () => true, reply: async () => 'ok' } });
+    await plain.send('שאלה').done;
+    expect(plain.getMessages().at(-1).sources).toEqual([]);
   });
 });

@@ -2227,5 +2227,85 @@
         "path": "fittings.releaseHeight"
       }
     }
+  },
+  {
+    "name": "an obstacle of another kind keeps its name",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "obstacles": [
+          {
+            "type": "other",
+            "name": "רדיאטור",
+            "x": 300,
+            "y": 150,
+            "width": 800,
+            "height": 600
+          },
+          {
+            "type": "socket",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "site": {
+          "obstacles": [
+            {
+              "type": "other",
+              "name": "רדיאטור",
+              "x": 300,
+              "y": 150,
+              "width": 800,
+              "height": 600
+            },
+            {
+              "type": "socket",
+              "x": 400,
+              "y": 300,
+              "width": 80,
+              "height": 80
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "an obstacle of another kind needs a name",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "obstacles": [
+          {
+            "type": "socket",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          },
+          {
+            "type": "other",
+            "x": 300,
+            "y": 150,
+            "width": 800,
+            "height": 600
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "SCHEMA_INVALID",
+        "path": "site.obstacles[1].name"
+      }
+    }
   }
 ]

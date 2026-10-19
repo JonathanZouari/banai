@@ -212,7 +212,7 @@ def _site(design: dict, lay: Layout, prod: Production) -> dict:
             "clearance": site.get("clearance"),
             "household": " · ".join(tr("{name} {h} ס״מ", name=p["name"], h=cm(p["height"])) if p["name"]
                                     else tr("{h} ס״מ", h=cm(p["height"])) for p in design["household"]["people"]),
-            "obstacles": [tr("{name}: {x} ס״מ מקצה הארון השמאלי, {y} ס״מ מהרצפה, {w}×{h} ס״מ", name=obstacle_name(o["type"]),
+            "obstacles": [tr("{name}: {x} ס״מ מקצה הארון השמאלי, {y} ס״מ מהרצפה, {w}×{h} ס״מ", name=obstacle_name(o["type"], o.get("name")),
                              x=cm(o["x"]), y=cm(o["y"]), w=cm(o["width"]), h=cm(o["height"]))
                           for o in site.get("obstacles") or []],
             "checks": _checks(lay, diagonal)}

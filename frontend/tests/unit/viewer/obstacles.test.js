@@ -10,6 +10,8 @@ import { FIGURE_HEIGHT, FIGURE_PARTS, createFigure, figurePlacement } from '../.
 import { createRoomOverlay, obstacleOutlines } from '../../../src/viewer/room.js';
 import { diffDesigns } from '../../../src/state/diff.js';
 import { loadCatalog, loadDesign } from '../domain/helpers.js';
+import { validateDesign } from '../../../src/domain/validation.js';
+import { buildObstacles } from '../../../src/viewer/obstacles3d.js';
 
 const catalog = loadCatalog();
 const basic = loadDesign('basic'); // W 2000, H 2400
@@ -18,9 +20,9 @@ const apply = (design, ops) => applyOps(design, ops, catalog);
 describe('wall obstacle ops', () => {
   it('adds, changes and removes one obstacle at a time; the last removal clears the list', () => {
     const one = apply(basic, addObstacleOps(basic.site, newObstacle(basic)));
-    expect(one.site.obstacles).toEqual([{ type: 'socket', x: 960, y: 300, width: 80, height: 80 }]);
+    expect(one.site.obstacles).toEqual([{ type: 'socket', x: 960, y: 300, width: 80, height: 80, name: null }]);
     const ac = apply(one, updateObstacleOps(one.site, 0, { type: 'ac', y: 2100, width: 900 }));
-    expect(ac.site.obstacles[0]).toEqual({ type: 'ac', x: 960, y: 2100, width: 900, height: 80 });
+    expect(ac.site.obstacles[0]).toEqual({ type: 'ac', x: 960, y: 2100, width: 900, height: 80, name: null });
     const two = apply(ac, addObstacleOps(ac.site, newObstacle(ac)));
     expect(two.site.obstacles).toHaveLength(2);
     const back = apply(two, removeObstacleOps(two.site, 0));
@@ -94,5 +96,35 @@ describe('a proposal that touches the obstacles says so', () => {
     const moved = apply(one, updateObstacleOps(one.site, 0, { y: 500 }));
     expect(diffDesigns(one, moved).some((line) => line.startsWith('מכשולים בקיר'))).toBe(true);
     expect(diffDesigns(one, one)).toEqual([]);
+  });
+});
+
+describe('an obstacle of another kind', () => {
+  const radiator = { type: 'other', name: 'רדיאטור', x: 300, y: 150, width: 800, height: 600 };
+
+  it('keeps the customer\'s word, labels with it, and is a box at its size on the wall', () => {
+    const design = apply(basic, [{ op: 'set_site', obstacles: [radiator] }]);
+    expect(design.site.obstacles).toEqual([radiator]);
+    expect(obstacleOutlines(design).map((o) => [o.name, o.behind, o.blocking])).toEqual([['רדיאטור', true, false]]);
+    const group = buildObstacles(design, design.dimensions.depth);
+    const size = new THREE.Box3().setFromObject(group.getObjectByName('obstacle-other')).getSize(new THREE.Vector3());
+    expect([Math.round(size.x * 1000), Math.round(size.y * 1000), Math.round(size.z * 1000)]).toEqual([800, 600, 100]);
+    group.userData.dispose();
+  });
+
+  it('needs a visible name of at most 30 characters', () => {
+    expect(() => apply(basic, [{ op: 'set_site', obstacles: [{ ...radiator, name: null }] }])).toThrow(/obstacles\[0\]\.name/);
+    const named = (name) => ({ ...basic, site: { ...(basic.site ?? {}), obstacles: [{ ...radiator, name }] } });
+    expect(validateDesign(named('רדיאטור'), catalog)).toEqual([]);
+    expect(validateDesign(named(null), catalog).map((e) => e.path)).toEqual(['site.obstacles[0].name']);
+    expect(validateDesign(named(' '), catalog)).not.toEqual([]);
+    expect(validateDesign(named('x\u202e'), catalog)).not.toEqual([]);
+    expect(validateDesign(named('ע'.repeat(31)), catalog)).not.toEqual([]);
+  });
+
+  it('the panel option "אחר" names it "מכשול" until the customer renames it', () => {
+    const one = apply(basic, addObstacleOps(basic.site, newObstacle(basic)));
+    const other = apply(one, updateObstacleOps(one.site, 0, { type: 'other', name: 'מכשול' }));
+    expect(other.site.obstacles[0]).toMatchObject({ type: 'other', name: 'מכשול' });
   });
 });

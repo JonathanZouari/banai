@@ -364,3 +364,20 @@ def test_fixed_ends_let_a_divider_span_further(width, shelf, sag):
     ops = [{"op": "set_zones", "compartmentId": "cmp_a", "count": 2}]
     ops += [{"op": "add_shelf", "compartmentId": "cmp_a", "y": 400, "id": "shf_x"}] if shelf else []
     assert ("r7-sag" in by_id(make(hinged(1), *ops, width=width, count=1))) == sag
+
+
+def test_an_obstacle_of_another_kind_is_named_as_the_customer_named_it():
+    design = make({"op": "set_site", "obstacles": [{"type": "other", "name": "רדיאטור", "x": 300, "y": 150, "width": 800, "height": 600}]})
+    found = by_id(design)
+    assert found["r23-1"]["level"] == "info" and found["r23-1"]["title"] == "רדיאטור מאחורי הארון"
+    assert "אוורור" in found["r23-1"]["body"]
+
+
+def test_an_obstacle_of_another_kind_needs_a_visible_name():
+    from app.domain.validation import validate_design
+
+    base = make()
+    for name, ok in ((None, False), ("רדיאטור", True), (" ", False), ("x\u202e", False), ("x" * 31, False), ("ע" * 30, True)):
+        obstacle = {"type": "other", "x": 300, "y": 150, "width": 800, "height": 600} | ({"name": name} if name is not None else {})
+        issues = validate_design({**base, "site": {**(base["site"] or {}), "obstacles": [obstacle]}}, None)
+        assert (not issues) == ok, (name, issues)

@@ -6,6 +6,18 @@ import { el } from '../editor/fields.js';
 import { icon } from '../ui/icons.js';
 import { MAX_MESSAGE_LENGTH } from './chatModel.js';
 import { renderProposalCard } from './proposalCard.js';
+
+/** The web pages Bob's reply cites (already checked by safeSources): links that open in a new tab. */
+function sourcesList(sources) {
+  const list = el('ul', { className: 'chat__sources-list' });
+  sources.forEach(({ title, url, host }) => {
+    const link = el('a', { text: title, attrs: { href: url, target: '_blank', rel: 'noopener noreferrer', dir: 'auto', title: url } });
+    list.append(el('li', {}, [link, el('span', { className: 'chat__source-host', text: host, attrs: { dir: 'ltr' } })]));
+  });
+  const box = el('div', { className: 'chat__sources' }, [el('span', { className: 'chat__sources-title', text: ct('מקורות') }), list]);
+  box.dataset.testid = 'chat-sources';
+  return box;
+}
 import { STATUS_LABELS } from '../settings/aiSettingsModel.js';
 import { AGENT_NAME, AI_VOICE_DISCLOSURE } from './speech.js';
 import {
@@ -174,6 +186,7 @@ export function mountChat(container, { model, onConfirm, aiSettings, onOpenSetti
       const bubble = el('div', { className: `chat__bubble chat__bubble--${message.role}` });
       if (message.role === 'system') bubble.append(icon('info', { size: 16 }));
       bubble.append(el('span', { text: message.text, attrs: { dir: 'auto' } }));
+      if (message.sources?.length) bubble.append(sourcesList(message.sources));
       bubble.dataset.testid = `chat-bubble-${message.role}`;
       list.append(bubble);
     });

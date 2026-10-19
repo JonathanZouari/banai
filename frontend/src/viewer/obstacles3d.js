@@ -1,13 +1,14 @@
 // Wall obstacles in 3D, at their measured size (design.site.obstacles): the wall the wardrobe stands against,
 // and on it a model per type. A socket or a switch is a wall plate, an air conditioner a wall unit with its
-// vent, a pipe a pipe along its longer side, a window a frame with glass and a sill, a panel a skirting board.
+// vent, a pipe a pipe along its longer side, a window a frame with glass and a sill, a panel a skirting board,
+// and anything else ("other": a radiator, a column) a plain box at its size, named by its label in room.js.
 // x is measured from the wardrobe's left face and y from the floor (docs/schema.md "Site"); the wall's face
 // is the plane of the carcass back (z = -depth). An obstacle behind the carcass is hidden by it, so the overlay
 // (room.js) also shows it over the doors, x-ray style. Visual only: never picked, hidden in renders and video.
 import * as THREE from 'three';
 import { toM } from './units.js';
 
-export const OBSTACLE_DEPTH = Object.freeze({ socket: 10, switch: 10, ac: 220, pipe: null, window: 60, panel: 15 });
+export const OBSTACLE_DEPTH = Object.freeze({ socket: 10, switch: 10, ac: 220, pipe: null, window: 60, panel: 15, other: 100 });
 const WALL_MARGIN = 1200; // mm of wall beyond the wardrobe and the obstacles, each side
 
 const box = (w, h, d, material) => new THREE.Mesh(new THREE.BoxGeometry(toM(w), toM(h), toM(d)), material);
@@ -24,6 +25,8 @@ function materialsFor() {
     frame: new THREE.MeshStandardMaterial({ color: '#f2f0ec', roughness: 0.5 }),
     glass: new THREE.MeshStandardMaterial({ color: '#bcd6e8', roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.55 }),
     panel: new THREE.MeshStandardMaterial({ color: '#e6ddcf', roughness: 0.7 }),
+    other: new THREE.MeshStandardMaterial({ color: '#d9cdbd', roughness: 0.6 }),
+    edge: new THREE.LineBasicMaterial({ color: '#8a7a68' }),
   };
 }
 
@@ -66,11 +69,19 @@ export function obstacleParts({ type, width: w, height: h }, m) {
     add(box(w + 80, 25, 120, m.frame), 0, -h / 2 - 12, 60); // the sill
   } else if (type === 'panel') {
     add(box(w, h, OBSTACLE_DEPTH.panel, m.panel), 0, 0, OBSTACLE_DEPTH.panel / 2);
+  } else if (type === 'other') {
+    // Its depth is unknown: a 10 cm box (thinner than that when it is small), with its edges drawn.
+    const d = Math.min(OBSTACLE_DEPTH.other, Math.max(20, Math.min(w, h)));
+    const body = box(w, h, d, m.other);
+    body.add(new THREE.LineSegments(new THREE.EdgesGeometry(body.geometry), m.edge));
+    add(body, 0, 0, d / 2);
   }
   parts.forEach((part) => {
     part.castShadow = type !== 'window';
     part.receiveShadow = true;
-    part.raycast = () => {}; // never picked
+    part.traverse((node) => {
+      node.raycast = () => {}; // never picked
+    });
   });
   return parts;
 }

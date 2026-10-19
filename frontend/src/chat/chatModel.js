@@ -36,6 +36,31 @@ export function proposalStatus(proposal, currentRevision) {
  * `spoken` says the customer said it out loud (ADR-028). A proposal
  * replaces any pending one; it is never applied here (the host does that after Confirm).
  */
+export const MAX_SOURCES = 6;
+// Control, invisible and bidi characters and tag characters (as SAFE_TEXT_PATTERN, ADR-036 review).
+const UNSAFE_TITLE = /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u200b-\u200f\u2028\u2029\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]|\u{E0000}|[\u{E0001}-\u{E007F}]/gu;
+
+/**
+ * The web pages a reply cites, safe to show as links: http(s) only, a title of at most 120 characters (the
+ * address when it has none), no duplicates, at most MAX_SOURCES. Anything else from the server is dropped.
+ */
+export function safeSources(sources) {
+  const out = [];
+  for (const source of Array.isArray(sources) ? sources : []) {
+    let url;
+    try {
+      url = new URL(String(source?.url ?? ''));
+    } catch {
+      continue;
+    }
+    if (!['https:', 'http:'].includes(url.protocol) || out.some((s) => s.url === url.href)) continue;
+    const title = Array.from(String(source?.title ?? '').replace(UNSAFE_TITLE, ' ').split(/\s+/).filter(Boolean).join(' ')).slice(0, 120).join('');
+    out.push(Object.freeze({ title: title || url.hostname, url: url.href, host: url.hostname.replace(/^www\./, '') }));
+    if (out.length === MAX_SOURCES) break;
+  }
+  return out;
+}
+
 export function createChatModel({ getRevision, agent = null }) {
   let nextId = 1;
   let proposal = null;
@@ -44,8 +69,8 @@ export function createChatModel({ getRevision, agent = null }) {
   const messages = [];
   const listeners = new Set();
   const notify = () => listeners.forEach((listener) => listener());
-  const push = (role, text) => {
-    messages.push(Object.freeze({ id: nextId, role, text }));
+  const push = (role, text, sources = []) => {
+    messages.push(Object.freeze({ id: nextId, role, text, sources: Object.freeze(safeSources(sources)) }));
     nextId += 1;
   };
 
@@ -82,7 +107,7 @@ export function createChatModel({ getRevision, agent = null }) {
         .then(() => agent.reply(history, { spoken: Boolean(spoken) }))
         .then((answer) => {
           if (turn !== generation) return;
-          push('assistant', typeof answer === 'string' ? answer : answer.reply);
+          push('assistant', typeof answer === 'string' ? answer : answer.reply, answer?.sources);
           if (answer?.proposal) proposal = answer.proposal;
         })
         .catch((error) => {

@@ -107,7 +107,7 @@ const onFront = ([x, y]) => new THREE.Vector3(toM(x), toM(y), toM(FRONT_Z));
 // Obstacles are drawn over the doors (the leaves stand doorThickness proud of the carcass), like hidden lines.
 const overDoors = ([x, y]) => new THREE.Vector3(toM(x), toM(y), toM(VISUAL.doorThickness + 4));
 
-export const OBSTACLE_NAMES = Object.freeze({ socket: 'שקע', switch: 'מתג', ac: 'מזגן', pipe: 'צנרת', window: 'חלון', panel: 'פנל' });
+export const OBSTACLE_NAMES = Object.freeze({ socket: 'שקע', switch: 'מתג', ac: 'מזגן', pipe: 'צנרת', window: 'חלון', panel: 'פנל', other: 'מכשול' });
 const BLOCKING = new Set(['ac', 'pipe', 'window']);
 
 /**
@@ -115,10 +115,10 @@ const BLOCKING = new Set(['ac', 'pipe', 'window']);
  * blocking }. `behind` is R23's test: the obstacle overlaps the carcass [0, W] x [0, H].
  */
 export function obstacleOutlines(design, frame = frameOf(design)) {
-  return (design.site?.obstacles ?? []).filter(({ type }) => Object.hasOwn(OBSTACLE_NAMES, type)).map(({ type, x, y, width, height }) => {
+  return (design.site?.obstacles ?? []).filter(({ type }) => Object.hasOwn(OBSTACLE_NAMES, type)).map(({ type, name, x, y, width, height }) => {
     const behind = x < frame.width && x + width > 0 && y < frame.height;
     return {
-      type, name: OBSTACLE_NAMES[type],
+      type, name: (type === 'other' && name) || OBSTACLE_NAMES[type], // "other": the customer's word
       corners: [[x, y], [x + width, y], [x + width, y + height], [x, y + height], [x, y]],
       center: [x + width / 2, y + height / 2],
       behind, blocking: behind && BLOCKING.has(type),
