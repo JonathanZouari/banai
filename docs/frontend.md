@@ -63,6 +63,24 @@ Styles follow Material Design 3 (`styles/tokens.css` holds the `--md-sys-*` toke
 Door hardware (handles, sliding rails, outlines) is built in `viewer/builders/doors.js` as non-selectable `kind: 'hardware'` objects. Picking refreshes world matrices before raycasting, so a click is correct even if it lands before the next rendered frame.
 In dev builds `window.__banai.chat` exposes the chat model, so a proposal can be shown for visual checks (`chat.setProposal({...})`).
 
+## Carpenter PDF (`src/export/`): proposal, not in the approved scope
+This branch adds a proposal for Jonathan to review. Spec §22 excludes manufacturing export, so this stays off `dev` until it is approved.
+
+The "Carpenter PDF" button in the top bar downloads `banai-carpenter-instructions.pdf` for the committed design. The document follows the chat's language (he/en).
+
+It is generated entirely in the browser. It makes no network calls and never changes state.
+
+| Module | Role |
+|---|---|
+| `export/carpenterPlan.js` | **Pure** `(design, catalog, language) → plan`. The plan holds the overview, per-compartment lines, a cut list (identical parts merged), assembly steps and the front-elevation measurements. The assumed construction method is in `ASSUMED_CONSTRUCTION`: configurable prototype values, separate from the render-only `VISUAL`. |
+| `export/pageRenderer.js` | Draws A4 pages at 150 dpi on Canvas 2D, in the BanAI look: the site logo from `ui/logo.js` and the `tokens.css` palette. The pages are:<br>1. A designed **sketch & measurements** sheet: elevation with dimension lines, 3D thumbnail, measurement cards, and a title block with scale and sheet number.<br>2. Compartment details.<br>3. Cut list.<br>4. Steps.<br>Numbers and Latin names keep LTR order on RTL pages. The browser lays out Hebrew RTL, so no fonts are embedded. Text is drawn with `fillText`, never as markup. |
+| `export/pdfWriter.js` | **Pure** minimal PDF 1.4 writer: one JPEG (DCTDecode) per page, 1–60 pages. A design at the domain caps measured 37 pages (6.8 MB, about 1.3 s). |
+| `export/carpenterExport.js` | Orchestrates the steps above and triggers the Blob download. Uses `viewer.snapshot()` for the illustration. |
+
+Every page carries a disclaimer: the document is a helper only, is not checked for manufacturing or engineering feasibility, and the carpenter must verify everything before cutting. Hardware (drawer boxes and runners, hinges, fixings) is listed as "to be specified by the carpenter", never invented.
+
+**Known limitation:** the pages are images, so the PDF text is not selectable.
+
 ## Testing
 - **Unit:** `npm test` (vitest). This covers the domain engine and parity fixtures, the store, the API client, and the builders.
 - **E2E:** `npm run test:e2e` (Playwright, Chromium with SwiftShader WebGL). It starts uvicorn on :8010 and Vite on :5183. `window.__banai` exists only in dev builds (`import.meta.env.DEV`) and is stripped from production bundles.

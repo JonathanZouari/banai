@@ -15,6 +15,7 @@ import { mountChat } from './chat/chatPanel.js';
 import { mountStartScreen } from './entry/startScreen.js';
 import { createSaveDialog } from './share/saveDialog.js';
 import { createRenderDialog } from './render/renderDialog.js';
+import { exportCarpenterPdf } from './export/carpenterExport.js';
 import { createLogo } from './ui/logo.js';
 import { installRipple } from './ui/ripple.js';
 
@@ -35,6 +36,22 @@ function bindDialogs() {
   const render = createRenderDialog();
   document.getElementById('open-save').addEventListener('click', save.open);
   document.getElementById('open-render').addEventListener('click', render.open);
+}
+
+// PROPOSAL (outside the approved scope): a helper PDF for a carpenter, in the chat's language.
+function bindCarpenterExport({ store, viewer, language }) {
+  const exportButton = document.getElementById('export-carpenter-pdf');
+  exportButton.addEventListener('click', async () => {
+    if (exportButton.disabled) return;
+    exportButton.disabled = true;
+    try {
+      await exportCarpenterPdf({ store, viewer, language: language.get() });
+    } catch {
+      showError('The carpenter PDF could not be created. Please try again.');
+    } finally {
+      exportButton.disabled = false;
+    }
+  });
 }
 
 async function boot() {
@@ -90,6 +107,7 @@ async function boot() {
   const chat = mountChat(document.getElementById('chat-panel'), { model: chatModel, onConfirm: confirmProposal, language });
   // A manual edit changes the revision, which may turn a pending proposal stale.
   store.subscribe(() => chat.refresh());
+  bindCarpenterExport({ store, viewer, language });
 
   if (import.meta.env.DEV) {
     window.__banai = Object.freeze({ store, viewer, chat: chatModel });
