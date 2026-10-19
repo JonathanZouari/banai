@@ -126,6 +126,11 @@ export function createViewer(container, store) {
     camera,
     controls,
     canvas: renderer.domElement,
+    /** JPEG data URL of the current view (for the carpenter PDF). Renders a fresh frame first. */
+    snapshot() {
+      renderer.render(scene, camera);
+      return renderer.domElement.toDataURL('image/jpeg', 0.9);
+    },
     meshOf: (componentId) => group?.children.find((mesh) => mesh.userData.componentId === componentId) ?? null,
     /** Client (page) coordinates of a component's centre, for tests and tooling. */
     screenPointOf(componentId) {
