@@ -29,7 +29,7 @@ from markupsafe import Markup, escape
 from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import Route, async_playwright
 
-from app.advice.rules import advisories
+from app.advice.rules import advisories, obstacle_name
 from app.domain.layout import Layout, layout
 from app.i18n import LANGUAGES, is_rtl, language, long_date, template, tr
 from app.production import drawings
@@ -210,6 +210,9 @@ def _site(design: dict, lay: Layout, prod: Production) -> dict:
             "heights": _readings(site.get("heights"), "heights"),
             "widths": _readings(site.get("widths"), "widths"),
             "clearance": site.get("clearance"),
+            "obstacles": [tr("{name}: {x} ס״מ מקצה הארון השמאלי, {y} ס״מ מהרצפה, {w}×{h} ס״מ", name=obstacle_name(o["type"]),
+                             x=cm(o["x"]), y=cm(o["y"]), w=cm(o["width"]), h=cm(o["height"]))
+                          for o in site.get("obstacles") or []],
             "checks": _checks(lay, diagonal)}
 
 

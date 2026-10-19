@@ -13,7 +13,7 @@ from collections.abc import Iterator
 
 from app.domain import errors as codes
 from app.domain.catalog import catalog_ids
-from app.domain.defaults import LIMITS, SHOE_TIER
+from app.domain.defaults import LIMITS, OBSTACLE_LIMITS, SHOE_TIER
 from app.domain.errors import DomainError
 from app.domain.geometry import interior_height, interior_width
 from app.domain.schema import parse_design
@@ -114,7 +114,12 @@ def _check_ranges(design: dict) -> list[DomainError]:
         for i, value in enumerate(site.get(readings) or []):
             if value is not None:
                 checks.append((value, limit, f"site.{readings}[{i}]"))
+    for oi, item in enumerate(site.get("obstacles") or []):
+        for key, limit in OBSTACLE_LIMITS.items():
+            checks.append((item[key], limit, f"site.obstacles[{oi}].{key}"))
     issues = [issue for v, limit, path in checks if (issue := range_issue(v, limit, path))]
+    if site.get("obstacles") == []:
+        issues.append(DomainError(codes.SCHEMA_INVALID, "site.obstacles", "no obstacles is null, not an empty list"))
     for readings, single in SITE_READINGS.items():
         values = site.get(readings)
         if values is None:

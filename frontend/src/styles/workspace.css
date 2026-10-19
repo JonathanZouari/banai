@@ -347,3 +347,11 @@ body.is-capturing .viewer-toolbar { opacity: 0.45; pointer-events: none; transit
 .site-readings__row[data-kind="heights"] { direction: ltr; }
 .site-readings__row[data-kind="heights"] > * { direction: rtl; }
 .site-readings__note { margin-top: var(--space-1); }
+
+/* Wall obstacles: one small card each (type and remove on top, four measurements under them). */
+.site-obstacles { margin: var(--space-3) 0 0; }
+.site-obstacle { margin: 0 0 var(--space-2); padding: var(--space-2); border: 1px solid var(--color-separator, rgba(0, 0, 0, 0.08)); border-radius: var(--radius-md); }
+.site-obstacle__head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-2); }
+.site-obstacle__head > .field { flex: 1; min-width: 0; margin: 0; }
+.site-obstacle__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); margin-top: var(--space-2); }
+.site-obstacle__grid > * { min-width: 0; }

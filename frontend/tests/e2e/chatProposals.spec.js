@@ -130,6 +130,8 @@ test.describe('chat proposals (signed by the server, confirmed by the customer)'
   });
 
   test('the server refuses a proposal made for another design (409 STALE) and one changed in the browser', async ({ page, allowConsoleErrors }) => {
+    // Two agent turns and two refused applies: over 30 s when the whole suite loads the machine.
+    test.slow();
     // The browser logs the refused requests as resource errors; those two are expected here.
     allowConsoleErrors(/status of (409|400)/);
     await scriptChat(page, [

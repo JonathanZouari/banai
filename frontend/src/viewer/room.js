@@ -2,7 +2,10 @@
 // - on the floor: each hinged leaf's swing (a quarter circle as wide as the leaf), each drawer's pull-out
 //   zone, and the free floor in front of the wardrobe as a dashed line with its label;
 // - in the front plane: the niche walls and the ceiling through the readings the customer took (widths at
-//   three heights, the ceiling at three points), so an out-of-square niche shows as a slanted line.
+//   three heights, the ceiling at three points), so an out-of-square niche shows as a slanted line;
+// - also in the front plane, dashed like hidden lines on a drawing: what is on the wall behind (sockets,
+//   switches, an AC unit, pipes, a window, skirting), each with its name; one the carcass covers that it
+//   cannot simply cut around (AC, pipes, a window) in the warning colour (it is advisory R23).
 // A swing or a pull-out that crosses the room's line is drawn in the warning colour (it is advisory R21).
 // Visual only: never picked, hidden in the path-traced render and in video frames. The geometry comes from
 // pure functions (mm in, mm out) that are unit-tested; the reach estimate is the same as advice R21's.
@@ -100,13 +103,34 @@ function line(points, color, { dashed = false } = {}) {
 
 const onFloor = ([x, z]) => new THREE.Vector3(toM(x), toM(FLOOR_Y), toM(z));
 const onFront = ([x, y]) => new THREE.Vector3(toM(x), toM(y), toM(FRONT_Z));
+// Obstacles are drawn over the doors (the leaves stand doorThickness proud of the carcass), like hidden lines.
+const overDoors = ([x, y]) => new THREE.Vector3(toM(x), toM(y), toM(VISUAL.doorThickness + 4));
+
+export const OBSTACLE_NAMES = Object.freeze({ socket: 'שקע', switch: 'מתג', ac: 'מזגן', pipe: 'צנרת', window: 'חלון', panel: 'פנל' });
+const BLOCKING = new Set(['ac', 'pipe', 'window']);
+
+/**
+ * The wall obstacles in the front plane (mm): { type, name, corners (a closed outline), center, behind,
+ * blocking }. `behind` is R23's test: the obstacle overlaps the carcass [0, W] x [0, H].
+ */
+export function obstacleOutlines(design, frame = frameOf(design)) {
+  return (design.site?.obstacles ?? []).filter(({ type }) => Object.hasOwn(OBSTACLE_NAMES, type)).map(({ type, x, y, width, height }) => {
+    const behind = x < frame.width && x + width > 0 && y < frame.height;
+    return {
+      type, name: OBSTACLE_NAMES[type],
+      corners: [[x, y], [x + width, y], [x + width, y + height], [x, y + height], [x, y]],
+      center: [x + width / 2, y + height / 2],
+      behind, blocking: behind && BLOCKING.has(type),
+    };
+  });
+}
 
 /** The overlay: update(design) redraws it, setVisible(on) shows or hides it, dispose() frees it. */
 export function createRoomOverlay(scene) {
   const group = new THREE.Group();
   group.name = 'room';
   scene.add(group);
-  let label = null;
+  const labels = [];
   let visible = true;
 
   const clear = () => {
@@ -115,10 +139,18 @@ export function createRoomOverlay(scene) {
       child.geometry?.dispose();
       child.material?.dispose();
     });
-    if (label) {
-      label.element.remove();
-      label = null;
-    }
+    labels.splice(0).forEach((label) => label.element.remove());
+  };
+  const addLabel = (text, position, className = 'room-label') => {
+    const element = document.createElement('div');
+    element.className = className;
+    element.textContent = text; // text only, never HTML
+    element.dir = 'auto';
+    const label = new CSS2DObject(element);
+    label.position.copy(position);
+    label.visible = visible;
+    labels.push(label);
+    group.add(label);
   };
 
   return {
@@ -130,14 +162,7 @@ export function createRoomOverlay(scene) {
       const room = clearanceLine(design, frame);
       if (room) {
         group.add(line([[room.x0, room.z], [room.x1, room.z]].map(onFloor), ROOM_COLORS.room, { dashed: true }));
-        const element = document.createElement('div');
-        element.className = 'room-label';
-        element.textContent = room.label; // text only, never HTML
-        element.dir = 'auto';
-        label = new CSS2DObject(element);
-        label.position.copy(onFloor([room.x1 - 250, room.z + 60]));
-        label.visible = visible;
-        group.add(label);
+        addLabel(room.label, onFloor([room.x1 - 250, room.z + 60]));
         doorSwings(design, frame).forEach((swing) => {
           group.add(line(swing.points.map(onFloor), swing.blocked ? ROOM_COLORS.warn : ROOM_COLORS.pencil));
         });
@@ -150,11 +175,15 @@ export function createRoomOverlay(scene) {
       const { walls, ceiling } = nicheOutline(design, frame);
       walls.forEach((wall) => group.add(line(wall.map(onFront), ROOM_COLORS.room)));
       if (ceiling.length) group.add(line(ceiling.map(onFront), ROOM_COLORS.room));
+      obstacleOutlines(design, frame).forEach((o) => {
+        group.add(line(o.corners.map(overDoors), o.blocking ? ROOM_COLORS.warn : ROOM_COLORS.room, { dashed: true }));
+        addLabel(o.name, overDoors(o.center), 'room-label room-label--small');
+      });
     },
     setVisible(on) {
       visible = on;
       group.visible = on;
-      if (label) label.visible = on;
+      labels.forEach((label) => { label.visible = on; });
     },
     dispose() {
       clear();

@@ -22,10 +22,18 @@ LIMITS: dict[str, tuple[int, int]] = {
     "ceiling": (1500, 5000),
     "niche": (300, 10000),
     "clearance": (100, 10000),  # free floor in front of the wardrobe
+    # wall obstacles: x from the wardrobe's left outer face (may be left of it), y from the floor
+    "obstacleX": (-5000, 10000),
+    "obstacleY": (0, 5000),
+    "obstacleSize": (10, 5000),
     "shoeTiers": (1, 6),
     "insertHeight": (200, 1500),
     "zones": (1, 4),
 }
+
+MAX_OBSTACLES = 8  # wall obstacles in one site
+# Which limit each obstacle field takes.
+OBSTACLE_LIMITS = {"x": "obstacleX", "y": "obstacleY", "width": "obstacleSize", "height": "obstacleSize"}
 
 DEFAULT_PANEL_THICKNESS = 18
 DEFAULT_SHELF_THICKNESS = 18

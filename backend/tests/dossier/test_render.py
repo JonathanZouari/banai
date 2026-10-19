@@ -131,3 +131,16 @@ def test_the_site_page_lists_the_readings_and_the_clearance():
     assert "Free space in front of the wardrobe" in english
     plain = render_html(build(make(), CATALOG, None, date(2026, 10, 18)))
     assert "<dt>גובה בשלוש נקודות</dt>" not in plain and "<dt>רוחב בשלושה גבהים</dt>" not in plain  # no readings, no rows
+
+
+def test_the_site_page_lists_the_wall_obstacles():
+    design = make({"op": "set_site", "obstacles": [{"type": "socket", "x": -300, "y": 300, "width": 80, "height": 80},
+                                                    {"type": "ac", "x": 200, "y": 2100, "width": 900, "height": 300}]})
+    html = render_html(build(design, CATALOG, None, date(2026, 10, 19)))
+    assert "<dt>מכשולים בקיר</dt>" in html
+    assert "שקע: -30 ס״מ מקצה הארון השמאלי, 30 ס״מ מהרצפה, 8×8 ס״מ" in html
+    assert "מזגן: 20 ס״מ מקצה הארון השמאלי, 210 ס״מ מהרצפה, 90×30 ס״מ" in html
+    russian = render_html(build(design, CATALOG, None, date(2026, 10, 19), "ru"))
+    assert "Кондиционер: 20 см от левого края шкафа" in russian
+    assert "<dt>מכשולים בקיר</dt>" not in render_html(build(make(), CATALOG, None, date(2026, 10, 19)))
+

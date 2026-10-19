@@ -5,7 +5,7 @@
 
 import { z } from 'zod';
 import { DomainError, SCHEMA_INVALID } from './errors.js';
-import { defaultHandles, INSERT_TYPES } from './defaults.js';
+import { defaultHandles, INSERT_TYPES, MAX_OBSTACLES } from './defaults.js';
 import * as ids from './ids.js';
 import { isPlainObject, sum } from './util.js';
 
@@ -81,12 +81,20 @@ const insert = z.strictObject({
 // keep the raw readings when given, and the governing value is the smallest known one. clearance: the free
 // floor in front of the wardrobe. Mirrors backend/app/domain/schema.py Site.
 const reading3 = () => z.array(int().nullable()).length(3);
+// Something on the wall behind the wardrobe (mm): x from its left outer face (negative = left of it), y from
+// the floor. Ranges are checked in validation. Mirrors backend Obstacle.
+export const obstacle = z.strictObject({
+  type: z.enum(['socket', 'switch', 'ac', 'pipe', 'window', 'panel']),
+  x: int(), y: int(), width: int(), height: int(),
+});
+export const MAX_SITE_OBSTACLES = MAX_OBSTACLES;
 const site = z.strictObject({
   ceiling: int().nullable().default(null),
   niche: int().nullable().default(null),
   heights: reading3().nullable().default(null),
   widths: reading3().nullable().default(null),
   clearance: int().nullable().default(null),
+  obstacles: z.array(obstacle).max(MAX_SITE_OBSTACLES).nullable().default(null),
 });
 
 const compartment = z.strictObject({

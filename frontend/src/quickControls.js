@@ -36,6 +36,7 @@ export function bindQuickControls(store, viewer, container) {
   const report = (result) => { status.textContent = result.ok ? '' : 'לא ניתן להחיל את השינוי.'; };
 
   const open = switchControl('פתח דלתות', 'toggle-doors-open', store.getState().ui.doorsOpen, (on) => store.setDoorsOpen(on));
+  const person = switchControl('דמות', 'toggle-figure', store.getState().ui.showFigure === true, (on) => store.setShowFigure(on));
   const clothes = switchControl('בגדים', 'toggle-clothes', store.getState().ui.showClothes, (on) => store.setShowClothes(on));
   const mirror = switchControl('דלתות מראה', 'toggle-mirror', false, (on) => {
     const doors = store.getState().design.doors.items;
@@ -50,7 +51,7 @@ export function bindQuickControls(store, viewer, container) {
     (value) => report(store.dispatch([{ op: 'set_handles', target: 'all', finish: value }])));
 
   const bar = node('div', { className: 'viewer-toolbar viewer-toolbar--quick', attrs: { role: 'group', 'aria-label': 'אפשרויות תצוגה מהירות' } },
-    [open.element, clothes.element, mirror.element, backdrop, style, finish, status]);
+    [open.element, clothes.element, person.element, mirror.element, backdrop, style, finish, status]);
   Object.assign(bar.style, {
     top: 'auto', bottom: '12px', insetInlineEnd: '12px', display: 'flex', alignItems: 'center', gap: '8px',
     flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: 'calc(100% - 240px)', // the compare bar sits at the inline start
@@ -60,6 +61,7 @@ export function bindQuickControls(store, viewer, container) {
   store.subscribe((state) => {
     open.input.checked = state.ui.doorsOpen;
     clothes.input.checked = state.ui.showClothes;
+    person.input.checked = state.ui.showFigure === true;
     const doors = state.design.doors.items;
     mirror.input.disabled = doors.length === 0;
     mirror.input.checked = doors.length > 0 && doors.every((door) => door.mirror);

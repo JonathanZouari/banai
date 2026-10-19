@@ -1,4 +1,4 @@
-"""Advisory layer: research-backed, non-blocking guidance on a canonical design (R1-R22).
+"""Advisory layer: research-backed, non-blocking guidance on a canonical design (R1-R23).
 
 Pure: (design, catalog) -> advisories. Every item carries its evidence grade and its source in
 docs/research/carpentry-wardrobes-research.md, so the app explains why instead of claiming a design
@@ -35,6 +35,8 @@ MIN_PASSAGE, HINGED_ROOM, SLIDING_BELOW = 600, 1000, 500
 # R22: readings that differ by more than this are an out-of-square niche (rule of thumb [96][93]); along a
 # sliding track the ceiling may differ by 15 mm at most before it needs a levelling frame [11][13].
 OUT_OF_SQUARE, TRACK_LEVEL = 10, 15
+# R23: a wardrobe lowered under a window or an AC unit stays a wardrobe only above this height.
+MIN_LOWERED_HEIGHT = 1200
 
 
 def cm(mm: float) -> str:
@@ -89,7 +91,7 @@ def advisories(design: dict, catalog: dict | None) -> list[dict]:
     """All advisories for a canonical, already validated design, most severe first (stable within a level)."""
     out = _Collector(design, catalog)
     lay = layout(design)
-    for rule in (_site, _clearance, _hinged_doors, _sliding_doors, _drawers, _spans, _zones, _inserts, _hanging, _board):
+    for rule in (_site, _clearance, _obstacles, _hinged_doors, _sliding_doors, _drawers, _spans, _zones, _inserts, _hanging, _board):
         rule(design, lay, out)
     return sorted(out.items, key=lambda a: LEVEL_ORDER[a["level"]])
 
@@ -154,6 +156,42 @@ def _to_sliding(lay: Layout, out: _Collector) -> dict | None:
     count = 2 if lay.width <= 2000 else 3
     return out.fix(tr("עבור לדלתות הזזה"), [{"op": "configure_doors", "type": "sliding",
                                              "ids": [f"dr_s{i + 1}" for i in range(count)]}])
+
+
+def obstacle_name(kind: str) -> str:
+    """The obstacle type's name in the current language."""
+    return {"socket": tr("שקע"), "switch": tr("מתג"), "ac": tr("מזגן"), "pipe": tr("צנרת"), "window": tr("חלון"),
+            "panel": tr("פנל")}[kind]
+
+
+def _obstacles(design: dict, lay: Layout, out: _Collector) -> None:
+    """R23: what is on the wall behind the wardrobe (research section 5.1, [11]). Only obstacles the
+    carcass covers: x and y overlap [0, W] x [0, H]."""
+    for i, o in enumerate((design["site"] or {}).get("obstacles") or []):
+        if o["x"] >= lay.width or o["x"] + o["width"] <= 0 or o["y"] >= lay.height:
+            continue
+        kind, name, id_ = o["type"], obstacle_name(o["type"]), f"r23-{i + 1}"
+        if kind in ("socket", "switch"):
+            out.add(id_, "info", tr("{name} מאחורי הארון", name=name),
+                    tr("חותכים פתח בגב הארון מולו, או מעבירים אותו. לפני עיגון לקיר מאתרים כבלים בגלאי."),
+                    "כלל אצבע", "סעיף 5.1", ["carcass"])
+        elif kind == "pipe":
+            out.add(id_, "warn", tr("צנרת מאחורי הארון"),
+                    tr("לא מעגנים מעל הצנרת. משאירים בגב פתח שירות, או מזיזים את הארון."),
+                    "כלל אצבע", "סעיף 5.1", ["carcass"])
+        elif kind in ("ac", "window"):
+            target = (o["y"] - 10) // 10 * 10
+            lower = (out.fix(tr("הנמך ל-{h} ס״מ", h=cm(target)), [{"op": "update_dimensions", "height": target}])
+                     if target >= MIN_LOWERED_HEIGHT else None)
+            out.add(id_, "warn", tr("{name} בתחום הארון", name=name),
+                    tr("החלק התחתון שלו בגובה {y} ס״מ, והארון עולה עד {h} ס״מ. אפשר להנמיך את הארון מתחתיו, "
+                       "או להשאיר את הקטע הזה פתוח.", y=cm(o["y"]), h=cm(lay.height)),
+                    "מדידה", "סעיף 5.1", ["carcass"], lower)
+        else:  # panel: skirting along the wall
+            out.add(id_, "info", tr("פנל לאורך הקיר"),
+                    tr("ארון שנצמד לקיר עם פנל עומד רחוק ממנו בעובי הפנל. חורצים את הצד או את הצוקל סביב הפנל. "
+                       "בדלתות הזזה מקובל לחתוך כ-9 ס״מ בכל צד."),
+                    "כלל אצבע", "[11]", ["carcass"])
 
 
 def _clearance(design: dict, lay: Layout, out: _Collector) -> None:

@@ -1509,5 +1509,356 @@
         "path": "site.niche"
       }
     }
+  },
+  {
+    "name": "set_site stores wall obstacles",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "obstacles": [
+          {
+            "type": "socket",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          },
+          {
+            "type": "ac",
+            "x": 200,
+            "y": 2100,
+            "width": 900,
+            "height": 300
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "site": {
+          "obstacles": [
+            {
+              "type": "socket",
+              "x": 400,
+              "y": 300,
+              "width": 80,
+              "height": 80
+            },
+            {
+              "type": "ac",
+              "x": 200,
+              "y": 2100,
+              "width": 900,
+              "height": 300
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "obstacles replace the list, and an empty list clears it",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "ceiling": 2600,
+        "obstacles": [
+          {
+            "type": "socket",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          },
+          {
+            "type": "ac",
+            "x": 200,
+            "y": 2100,
+            "width": 900,
+            "height": 300
+          }
+        ]
+      },
+      {
+        "op": "set_site",
+        "obstacles": [
+          {
+            "type": "ac",
+            "x": 200,
+            "y": 2100,
+            "width": 900,
+            "height": 300
+          }
+        ]
+      },
+      {
+        "op": "set_site",
+        "obstacles": []
+      }
+    ],
+    "expect": {
+      "match": {
+        "site": {
+          "ceiling": 2600,
+          "obstacles": null
+        }
+      }
+    }
+  },
+  {
+    "name": "unset obstacles keeps the measurements",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "clearance": 900,
+        "obstacles": [
+          {
+            "type": "socket",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          }
+        ]
+      },
+      {
+        "op": "set_site",
+        "unset": [
+          "obstacles"
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "site": {
+          "clearance": 900,
+          "obstacles": null
+        }
+      }
+    }
+  },
+  {
+    "name": "an obstacle may sit left of the wardrobe",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "obstacles": [
+          {
+            "type": "socket",
+            "x": -300,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "site": {
+          "obstacles": [
+            {
+              "type": "socket",
+              "x": -300,
+              "y": 300,
+              "width": 80,
+              "height": 80
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "an obstacle size out of range names its field",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "obstacles": [
+          {
+            "type": "socket",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          },
+          {
+            "type": "ac",
+            "x": 200,
+            "y": 2100,
+            "width": 5,
+            "height": 300
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_RANGE",
+        "path": "ops[0].obstacles[1].width"
+      }
+    }
+  },
+  {
+    "name": "an obstacle under the floor is out of range",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "obstacles": [
+          {
+            "type": "socket",
+            "x": 400,
+            "y": -10,
+            "width": 80,
+            "height": 80
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_RANGE",
+        "path": "ops[0].obstacles[0].y"
+      }
+    }
+  },
+  {
+    "name": "an unknown obstacle type is refused",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "obstacles": [
+          {
+            "type": "fireplace",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "SCHEMA_INVALID"
+      }
+    }
+  },
+  {
+    "name": "at most eight obstacles",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "obstacles": [
+          {
+            "type": "socket",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          },
+          {
+            "type": "socket",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          },
+          {
+            "type": "socket",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          },
+          {
+            "type": "socket",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          },
+          {
+            "type": "socket",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          },
+          {
+            "type": "socket",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          },
+          {
+            "type": "socket",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          },
+          {
+            "type": "socket",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          },
+          {
+            "type": "socket",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "SCHEMA_INVALID"
+      }
+    }
+  },
+  {
+    "name": "a stored empty obstacle list is invalid",
+    "base": "two",
+    "mutate": [
+      {
+        "path": [
+          "site"
+        ],
+        "value": {
+          "ceiling": null,
+          "niche": null,
+          "heights": null,
+          "widths": null,
+          "clearance": 900,
+          "obstacles": []
+        }
+      }
+    ],
+    "ops": [
+      {
+        "op": "set_site",
+        "ceiling": 2600
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "SCHEMA_INVALID",
+        "path": "site.obstacles"
+      }
+    }
   }
 ]

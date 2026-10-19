@@ -3,7 +3,7 @@
 // Python engine's _half_up (and Math.round for non-negative values).
 
 import * as ids from './ids.js';
-import { DEFAULT_SHOE_TIERS, DEFAULT_TROUSER_HEIGHT, PULLDOWN_DROP } from './defaults.js';
+import { DEFAULT_SHOE_TIERS, DEFAULT_TROUSER_HEIGHT, OBSTACLE_LIMITS, PULLDOWN_DROP } from './defaults.js';
 import { DomainError, INVALID_OP } from './errors.js';
 import { interiorHeight } from './geometry.js';
 import { compartmentIndex, findDoor, findInsert, requireRange } from './lookup.js';
@@ -87,7 +87,7 @@ function modifyInsert(draft, op, path) {
 
 // The raw readings and the governing value each one sets: the smallest known reading [research 96][11].
 export const SITE_READINGS = Object.freeze({ widths: 'niche', heights: 'ceiling' });
-const SITE_FIELDS = ['ceiling', 'niche', 'heights', 'widths', 'clearance'];
+const SITE_FIELDS = ['ceiling', 'niche', 'heights', 'widths', 'clearance', 'obstacles'];
 const SINGLES = Object.freeze({ niche: 'widths', ceiling: 'heights' });
 
 function setSite(draft, op, path) {
@@ -108,6 +108,10 @@ function setSite(draft, op, path) {
       value.forEach((reading, i) => {
         if (reading !== null) requireRange(reading, SITE_READINGS[field], `${path}.${field}[${i}]`);
       });
+    } else if (field === 'obstacles') {
+      value.forEach((item, i) => {
+        for (const [key, limit] of Object.entries(OBSTACLE_LIMITS)) requireRange(item[key], limit, `${path}.obstacles[${i}].${key}`);
+      });
     } else requireRange(value, field, `${path}.${field}`);
   }
   const site = { ...Object.fromEntries(SITE_FIELDS.map((f) => [f, null])), ...(draft.site ?? {}) };
@@ -120,6 +124,8 @@ function setSite(draft, op, path) {
       const known = value.filter((v) => v !== null);
       site[field] = known.length ? [...value] : null;
       site[SITE_READINGS[field]] = known.length ? Math.min(...known) : null;
+    } else if (field === 'obstacles') {
+      site[field] = value.length ? value.map((item) => ({ ...item })) : null; // replaced; an empty list clears it
     } else {
       site[field] = value;
       if (field in SINGLES) site[SINGLES[field]] = null; // one measurement replaces the three readings

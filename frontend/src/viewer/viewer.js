@@ -14,6 +14,7 @@ import { VIEWS, blendPose, easeInOut, poseAlong, poseFor } from './camera.js';
 import { frameOf } from './builders/frame.js';
 import { createDimensions } from './dimensions.js';
 import { createRoomOverlay } from './room.js';
+import { createFigure } from './figure.js';
 import { attachEdges, detachEdges } from './edges.js';
 import { createEnvironment } from './environment.js';
 import { createFlasher, resolveFlashTargets } from './flash.js';
@@ -133,7 +134,13 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
   const highlighter = createHighlighter(scene);
   const flasher = createFlasher(scene);
   const dimensions = createDimensions(scene, { onStep: (step) => onDimensionStep?.(step) });
-  const room = createRoomOverlay(scene); // the customer's site: door swings, pull-outs, the niche
+  const room = createRoomOverlay(scene); // the customer's site: door swings, pull-outs, the niche, wall obstacles
+  const figure = createFigure(scene); // a 170 cm scale figure, on request (ui.showFigure)
+  let figureWanted = false;
+  const showFigure = (on) => {
+    figure.setVisible(on);
+    renderer.shadowMap.needsUpdate = true;
+  };
   const edgeMaterial = new THREE.LineBasicMaterial({ color: '#8a857c', transparent: true, opacity: 0.35, toneMapped: false });
   let group = null;
   let props = null;
@@ -294,6 +301,7 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
     if (on) renderer.compileAsync(scene, camera).catch(() => {});
     dimensions.setVisible(!on);
     room.setVisible(!on);
+    showFigure(!on && figureWanted);
     labels.domElement.classList.toggle('viewer-labels--hidden', on);
     renderer.domElement.style.cursor = '';
     if (on) highlighter.setVisible(false);
@@ -319,6 +327,7 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
       }
       group = buildWardrobe(design, materials, { doorsVisible: ui.doorsVisible, hardware });
       room.update(design);
+      figure.update(design);
       scene.add(group);
       attachEdges(group, edgeMaterial);
       ledLights = ledLightsOf(group);
@@ -358,6 +367,10 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
       rebuildProps(design, showClothes);
       rendered = { ...rendered, propsDesign: design, showClothes };
       sceneChanged = true;
+    }
+    if ((ui.showFigure === true) !== figureWanted) {
+      figureWanted = ui.showFigure === true;
+      if (!isRendering() && !capture) showFigure(figureWanted);
     }
     if (sceneChanged) poseParts();
     if (geometryChanged || selection !== rendered.selection) {
@@ -490,6 +503,7 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
       highlighter.setVisible(false);
       dimensions.setVisible(false);
       room.setVisible(false);
+      showFigure(false);
       labels.domElement.classList.add('viewer-labels--hidden');
       renderer.setPixelRatio(1);
       renderer.setSize(width, height, false); // the drawing buffer only; the page layout stays
@@ -574,6 +588,7 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
       driver.release();
       dimensions.setVisible(true);
       room.setVisible(true);
+      showFigure(figureWanted);
       labels.domElement.classList.remove('viewer-labels--hidden');
       refreshOverlays();
     },
@@ -588,6 +603,8 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
       return () => viewListeners.delete(fn);
     },
     meshOf: (componentId) => group?.children.find((mesh) => mesh.userData.componentId === componentId) ?? null,
+    /** Test hook: whether the scale figure is in the scene now. */
+    get figureShown() { return figure.group.visible; },
     /** Client (page) coordinates of a component's centre, for tests and tooling. */
     screenPointOf(componentId) {
       const mesh = this.meshOf(componentId);
@@ -648,6 +665,7 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
       key.shadow.dispose();
       highlighter.dispose();
       room.dispose();
+      figure.dispose();
       flasher.dispose();
       dimensions.dispose();
       materials.dispose();

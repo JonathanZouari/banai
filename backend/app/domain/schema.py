@@ -27,7 +27,7 @@ from pydantic import (
 from pydantic.alias_generators import to_camel
 
 from app.domain import ids
-from app.domain.defaults import default_handles
+from app.domain.defaults import MAX_OBSTACLES, default_handles
 from app.domain.errors import SCHEMA_INVALID, DomainError
 
 # Hard structural bounds (anti-abuse). Kept small: every op re-validates the whole
@@ -180,6 +180,18 @@ class Insert(StrictModel):
 
 
 Reading3 = Annotated[list[Int | None], Field(min_length=3, max_length=3)]
+ObstacleType = Literal["socket", "switch", "ac", "pipe", "window", "panel"]
+
+
+class Obstacle(StrictModel):
+    """Something on the wall behind the wardrobe, in mm: x from the wardrobe's left outer face (negative =
+    left of it), y from the floor, and its size. Ranges are checked in validation (obstacleX/Y/Size)."""
+
+    type: ObstacleType
+    x: Int
+    y: Int
+    width: Int
+    height: Int
 
 
 class Site(StrictModel):
@@ -196,6 +208,7 @@ class Site(StrictModel):
     heights: Reading3 | None = None
     widths: Reading3 | None = None
     clearance: Int | None = None
+    obstacles: Annotated[list[Obstacle], Field(max_length=MAX_OBSTACLES)] | None = None
 
 
 class Compartment(StrictModel):

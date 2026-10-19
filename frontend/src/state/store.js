@@ -53,7 +53,7 @@ export function createStore({ design, revision = 1, catalog, now = () => Date.no
   let state = deepFreeze({
     design: validDesign, revision, catalog: validCatalog, selection: null,
     history: historyInfo(), version: null,
-    ui: { doorsVisible: true, doorsOpen: false, showClothes: true, comparing: false },
+    ui: { doorsVisible: true, doorsOpen: false, showClothes: true, showFigure: false, comparing: false },
   });
   const listeners = new Set();
 
@@ -145,6 +145,9 @@ export function createStore({ design, revision = 1, catalog, now = () => Date.no
       commit({ ui: { ...state.ui, doorsOpen: Boolean(doorsOpen) } });
     },
 
+    setShowFigure(showFigure) {
+      commit({ ui: { ...state.ui, showFigure: Boolean(showFigure) } });
+    },
     setShowClothes(showClothes) {
       commit({ ui: { ...state.ui, showClothes: Boolean(showClothes) } });
     },

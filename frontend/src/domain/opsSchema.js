@@ -5,7 +5,7 @@
 import { z } from 'zod';
 import { DomainError, SCHEMA_INVALID } from './errors.js';
 import * as ids from './ids.js';
-import { handleFinish, handleStyle, insertType, int, list, ref, schemaError, typedId } from './schema.js';
+import { MAX_SITE_OBSTACLES, handleFinish, handleStyle, insertType, int, list, obstacle, ref, schemaError, typedId } from './schema.js';
 
 export const MAX_OPS = 100;
 
@@ -59,7 +59,8 @@ export const opSchema = z.discriminatedUnion('op', [
     ceiling: opt(int()), niche: opt(int()),
     heights: opt(z.array(int().nullable()).length(3)), widths: opt(z.array(int().nullable()).length(3)),
     clearance: opt(int()),
-    unset: z.array(z.enum(['ceiling', 'niche', 'heights', 'widths', 'clearance'])).max(5).default([]),
+    obstacles: opt(z.array(obstacle).max(MAX_SITE_OBSTACLES)), // replaces the list; [] clears it
+    unset: z.array(z.enum(['ceiling', 'niche', 'heights', 'widths', 'clearance', 'obstacles'])).max(6).default([]),
     clear: z.boolean().default(false),
   }),
   op('apply_preset', { compartmentId: cmpId(), preset: z.enum(['long', 'double', 'shelves', 'drawers']), zone: opt(int()) }),

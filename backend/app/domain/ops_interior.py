@@ -10,7 +10,7 @@ import copy
 
 from app.domain import ids
 from app.domain import ops as op_types
-from app.domain.defaults import DEFAULT_SHOE_TIERS, DEFAULT_TROUSER_HEIGHT, PULLDOWN_DROP
+from app.domain.defaults import DEFAULT_SHOE_TIERS, DEFAULT_TROUSER_HEIGHT, OBSTACLE_LIMITS, PULLDOWN_DROP
 from app.domain.errors import INVALID_OP, DomainError
 from app.domain.geometry import interior_height
 from app.domain.lookup import compartment_index, find_door, find_insert, require_range
@@ -125,7 +125,7 @@ def modify_insert(draft: dict, op: op_types.ModifyInsert, path: str) -> dict:
 
 # The raw readings and the governing value each one sets: the smallest known reading [research 96][11].
 SITE_READINGS = {"widths": "niche", "heights": "ceiling"}
-SITE_FIELDS = ("ceiling", "niche", "heights", "widths", "clearance")
+SITE_FIELDS = ("ceiling", "niche", "heights", "widths", "clearance", "obstacles")
 
 
 def set_site(draft: dict, op: op_types.SetSite, path: str) -> dict:
@@ -148,6 +148,10 @@ def set_site(draft: dict, op: op_types.SetSite, path: str) -> dict:
             for i, reading in enumerate(value):
                 if reading is not None:
                     require_range(reading, SITE_READINGS[field], f"{path}.{field}[{i}]")
+        elif field == "obstacles":
+            for i, item in enumerate(value):
+                for key, limit in OBSTACLE_LIMITS.items():
+                    require_range(getattr(item, key), limit, f"{path}.obstacles[{i}].{key}")
         else:
             require_range(value, field, f"{path}.{field}")
     site = {f: None for f in SITE_FIELDS} | (draft["site"] or {})
@@ -161,6 +165,8 @@ def set_site(draft: dict, op: op_types.SetSite, path: str) -> dict:
             known = [v for v in value if v is not None]
             site[field] = list(value) if known else None
             site[SITE_READINGS[field]] = min(known) if known else None
+        elif field == "obstacles":  # the list is replaced; an empty one clears it
+            site[field] = [item.model_dump() for item in value] or None
         else:
             site[field] = value
             if field in singles:  # one measurement replaces the three readings

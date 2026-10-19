@@ -58,6 +58,8 @@ SAMPLES = {
     # R21: 40 cm in front of two ~90 cm hinged doors and a drawer (sliding is the fix), and 70 cm (splitting is).
     "cramped": make(hinged(), {"op": "add_drawer", "compartmentId": "cmp_b", "y": 0, "height": 200, "id": "drw_b"}, {"op": "set_site", "clearance": 400}),
     "tight": make(hinged(), {"op": "set_site", "clearance": 700}),
+    # R23: a socket, an AC unit low enough to lower under, pipes and skirting behind; a window past the side.
+    "obstacles": make(hinged(), {"op": "set_site", "obstacles": [{"type": "socket", "x": 300, "y": 300, "width": 80, "height": 80}, {"type": "ac", "x": 200, "y": 2000, "width": 900, "height": 300}, {"type": "pipe", "x": 1200, "y": 200, "width": 60, "height": 400}, {"type": "panel", "x": -200, "y": 0, "width": 2400, "height": 80}, {"type": "window", "x": 3000, "y": 900, "width": 1200, "height": 1300}]}),
 }
 
 
@@ -86,7 +88,7 @@ def test_the_samples_cover_every_fix():
     fixed = {a["id"].rsplit("-", 1)[0] if a["id"][-1].isdigit() else a["id"]
              for d in SAMPLES.values() for a in advisories(d, CATALOG) if "fix" in a}
     assert fixed == {"r1-over", "r1-lift", "niche-over", "r12-filler", "r3-wide", "r6-mirror", "r5-depth", "r7-sag",
-                     "r8-rail", "r16-high", "r16-width", "r21-swing"}
+                     "r8-rail", "r16-high", "r16-width", "r21-swing", "r23"}
 
 
 def test_advisories_do_not_touch_the_design():
@@ -120,6 +122,19 @@ def test_room_to_pass_without_doors_or_drawers():
     narrow = by_id(make({"op": "set_site", "clearance": 500}))
     assert narrow["r21-pass"]["level"] == "info" and "50 ס״מ" in narrow["r21-pass"]["title"] + narrow["r21-pass"]["body"]
     assert "r21-pass" not in by_id(make({"op": "set_site", "clearance": 700}))
+
+
+def test_wall_obstacles_behind_the_wardrobe():
+    found = by_id(SAMPLES["obstacles"])
+    assert found["r23-1"]["level"] == "info" and found["r23-1"]["title"] == "שקע מאחורי הארון"
+    assert found["r23-2"]["level"] == "warn" and found["r23-2"]["title"] == "מזגן בתחום הארון"
+    assert found["r23-2"]["fix"]["ops"] == [{"op": "update_dimensions", "height": 1990}]  # 1 cm under the AC unit
+    assert found["r23-3"]["level"] == "warn" and "לא מעגנים מעל הצנרת" in found["r23-3"]["body"]
+    assert found["r23-4"]["title"] == "פנל לאורך הקיר"
+    assert "r23-5" not in found  # the window is beside the wardrobe, not behind it
+    low = by_id(make(hinged(), {"op": "set_site", "obstacles": [{"type": "window", "x": 0, "y": 900, "width": 600, "height": 1200}]}))
+    assert low["r23-1"]["level"] == "warn" and "fix" not in low["r23-1"]  # a 89 cm wardrobe is no wardrobe: no fix
+    assert not {i for i in by_id(make(hinged())) if i.startswith("r23")}
 
 
 def test_an_out_of_square_niche():

@@ -5,7 +5,7 @@
 // Rendering/data-safety checks only, never manufacturing rules.
 
 import { catalogIds } from './catalog.js';
-import { LIMITS, SHOE_TIER } from './defaults.js';
+import { LIMITS, OBSTACLE_LIMITS, SHOE_TIER } from './defaults.js';
 import * as E from './errors.js';
 import { DomainError } from './errors.js';
 import { interiorHeight, interiorWidth } from './geometry.js';
@@ -100,7 +100,13 @@ function checkRanges(design) {
       if (value !== null) checks.push([value, limit, `site.${readings}[${i}]`]);
     });
   }
+  (site.obstacles ?? []).forEach((item, oi) => {
+    for (const [key, limit] of Object.entries(OBSTACLE_LIMITS)) checks.push([item[key], limit, `site.obstacles[${oi}].${key}`]);
+  });
   const issues = checks.map(([value, limit, path]) => rangeIssue(value, limit, path)).filter(Boolean);
+  if (Array.isArray(site.obstacles) && !site.obstacles.length) {
+    issues.push(new DomainError(E.SCHEMA_INVALID, 'site.obstacles', 'no obstacles is null, not an empty list'));
+  }
   for (const [readings, single] of Object.entries(SITE_READINGS)) {
     const values = site[readings];
     if (values === null || values === undefined) continue;

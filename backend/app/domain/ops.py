@@ -13,6 +13,8 @@ from pydantic import Field, TypeAdapter, ValidationError
 from app.domain.errors import SCHEMA_INVALID, DomainError
 from app.domain.schema import (
     MAX_LIST,
+    MAX_OBSTACLES,
+    Obstacle,
     AnyId,
     CompartmentId,
     DoorId,
@@ -175,7 +177,7 @@ class RemoveComponent(StrictModel):
 
 
 # ---- schema v2 ----
-SiteField = Literal["ceiling", "niche", "heights", "widths", "clearance"]
+SiteField = Literal["ceiling", "niche", "heights", "widths", "clearance", "obstacles"]
 
 
 class SetSite(StrictModel):
@@ -189,7 +191,8 @@ class SetSite(StrictModel):
     heights: Annotated[list[Int | None], Field(min_length=3, max_length=3)] | None = None
     widths: Annotated[list[Int | None], Field(min_length=3, max_length=3)] | None = None
     clearance: Int | None = None
-    unset: list[SiteField] = Field(default_factory=list, max_length=5)
+    obstacles: Annotated[list[Obstacle], Field(max_length=MAX_OBSTACLES)] | None = None  # replaces the list; [] clears it
+    unset: list[SiteField] = Field(default_factory=list, max_length=6)
     clear: bool = False
 
 

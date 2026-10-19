@@ -10,7 +10,7 @@ BanAI started as an MVP AI wardrobe designer for standard straight wardrobes. Th
 
 - **Hebrew RTL workspace** (Apple-style): inspector on the right, 3D in the centre, advice and chat on the left. `<html lang="he" dir="rtl">`, Assistant font.
 - **Schema v2:** site (ceiling, niche), plinth, presets, inserts (pull-down rail, shoe shelves, trouser rack, LED), split doors, and **zones** (2–4 per column, each with its own door or none and its own preset; ADR-027).
-- **Advisories** R1–R22 (`/api/advisories`): research-backed, non-blocking, each with an evidence grade, a source and, where possible, a one-click fix dry-run through the engine. The customer decides; advice never restricts a choice ("capabilities, not taste").
+- **Advisories** R1–R23 (`/api/advisories`): research-backed, non-blocking, each with an evidence grade, a source and, where possible, a one-click fix dry-run through the engine. The customer decides; advice never restricts a choice ("capabilities, not taste").
 - **Carpenter dossier PDF** (`/api/dossier`): drawings, cut list, sheet nesting, hardware, estimate and advisories, rendered by headless Chromium.
 - **Render and video:** a WebGL path tracer for a near-photoreal still (the dossier cover), and an MP4 demo of the doors, drawers and pull-down opening, live or path-traced.
 - **Undo/redo** and hold-to-compare against a saved version.
@@ -21,6 +21,7 @@ BanAI started as an MVP AI wardrobe designer for standard straight wardrobes. Th
   - The **carpenter's dossier** comes in the language the carpenter picks from the dossier menu; the page direction follows it.
   - The **conversation** has a session language, picked on the start screen or in the chat header and kept in the browser: the chat column's texts and direction, the agent's replies, the transcription hint and the spoken voice follow it.
   - The rest of the workspace stays Hebrew, and so do the proposal card's change lines (they come from the Hebrew diff).
+- **Wall obstacles and a scale figure** (2026-10-19, ADR-031): up to 8 obstacles on the wall behind (socket, switch, AC, pipes, window, skirting) in the site. Advisory R23 covers them, the viewer draws them dashed over the doors with their names, and the dossier lists them. A "דמות" switch shows a 170 cm scale figure beside the wardrobe (`viewer/figure.js`, hidden in renders and video).
 - **Room elements** (2026-10-18): the site takes the ceiling at three points, the niche at three heights (the smallest governs) and the free floor in front of the wardrobe. Advisories R21 (room to open doors and drawers) and R22 (out of square) follow, and the viewer draws the room in pencil: door swings, drawer pull-outs, the room's line, the niche through the readings. See `docs/schema.md` "Site".
 - **Atelier start screen and About** (2026-10-17): "a carpenter's studio, drawn in pencil". A 3D wardrobe assembles with pencil dimension lines, Bob greets, and the three entry cards lead into the editor. Below it, and from the top bar, is the About page with the fictional master carpenter. See `.stitch/DESIGN.md`, "Atelier".
 - **Spoken replies** (ADR-028): a reply to a spoken message is also read aloud by an AI voice (OpenAI `gpt-4o-mini-tts`; persona: a seasoned master carpenter, calm, warm and confident, never salesy). Typed messages get silent replies. A speaker toggle mutes it; the voice is picked by ear in AI settings; the UI discloses that the voice is AI-generated (an OpenAI usage-policy requirement).
@@ -122,7 +123,7 @@ python .claude/hooks/install_git_hooks.py      # (repo root) the Obsidian post-c
 - **API responses** use the envelope `{success, data, error}`. Error messages are English and never echo input; the UI shows Hebrew text by `error.code`.
 - **bobHabanai modules.**
   - `backend/app/domain/layout.py`: manufacturing geometry (full-overlay and split doors, sliding panels, hinges by height and weight). The viewer, the advisories and the dossier all follow it, so the 3D, the advice and the PDF describe the same wardrobe.
-  - `backend/app/advice/rules.py`: R1–R22. A quick fix is an op list that must apply through `apply_ops` and clear its own advisory (a test checks every one).
+  - `backend/app/advice/rules.py`: R1–R23. A quick fix is an op list that must apply through `apply_ops` and clear its own advisory (a test checks every one).
   - `backend/app/production/` (parts, boards, nesting, estimate, drawings) and `backend/app/dossier/` (Jinja2 templates, Chromium with JavaScript off and every non-`data:` request aborted).
   - `backend/app/agent/`: the chat turn, the prompt, signed proposals, transcription and speech. `backend/app/api/voice.py` takes multipart audio up to 1 MiB (declared type checked against the magic bytes, two transcriptions at a time) and, on `/api/voice/speak`, returns MP3 for a reply (text cleaned and cut at a sentence end, two at a time, `Cache-Control: no-store`). A chat request with `spoken: true` asks the agent to answer for the ear.
   - `frontend/src/viewer/`: builders, motion (one spring per moving part), `pathtrace.js`. `frontend/src/render/`: the render HUD and the video recorder (Mediabunny, explicit timestamps).

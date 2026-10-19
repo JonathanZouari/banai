@@ -53,6 +53,10 @@ export function diffDesigns(a, b) {
   dim('תקרה', a.site?.ceiling ?? null, b.site?.ceiling ?? null);
   dim('נישה', a.site?.niche ?? null, b.site?.niche ?? null);
   dim('מרחב מול הארון', a.site?.clearance ?? null, b.site?.clearance ?? null);
+  // set_site replaces the whole obstacle list: a proposal that drops one must say so on its card.
+  const obstacles = (d) => d.site?.obstacles ?? [];
+  if (obstacles(a).length !== obstacles(b).length) out.push(`מכשולים בקיר: ${obstacles(a).length} ← ${obstacles(b).length}`);
+  else if (JSON.stringify(obstacles(a)) !== JSON.stringify(obstacles(b))) out.push('מכשולים בקיר: עודכנו');
   if (a.carcass.panelThickness !== b.carcass.panelThickness) {
     out.push(`לוח: ${a.carcass.panelThickness} ← ${b.carcass.panelThickness} מ״מ`);
   }

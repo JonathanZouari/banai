@@ -71,7 +71,10 @@ OPS (units: mm; interior y is measured up from the top face of the bottom panel)
 - update_dimensions {width?, height?, depth?, plinthHeight?}
 - set_site {ceiling?, niche?, heights?: [left, middle, right], widths?: [top, middle, bottom], clearance?, unset?: [field...]}
   or {clear: true}   (customer's room estimates, mm. A reading may be null. Readings make ceiling/niche the smallest
-  one, so give either readings or the single value. clearance = free floor in front of the wardrobe.)
+  one, so give either readings or the single value. clearance = free floor in front of the wardrobe.
+  obstacles = [{type: socket|switch|ac|pipe|window|panel, x, y, width, height}] on the wall behind, up to 8:
+  x from the wardrobe's left outer face (may be negative), y from the floor. The list replaces the old one,
+  so always send every current obstacle plus the change, never only the new one.)
 - configure_doors {type: "hinged"|"sliding"|"none", doors?: [{id?, compartmentIds, hingeSide: "left"|"right"}], count?, ids?}
 - modify_door {id, hingeSide?, mirror?}; split_door {id}
 - add_compartment {position, width}; modify_compartment {compartmentId, width}

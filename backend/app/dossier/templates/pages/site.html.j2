@@ -11,7 +11,8 @@
 {% else %}<span class="{{ 'ok' if p.lift_ok else 'bad' }}">{{ num(p.diagonal | mm) }} · {{ t("עובר") if p.lift_ok else t("לא עובר") }}</span>{% endif %}
         </dd></div>
         <div><dt>{{ t("עוגנים לשלד") }}</dt><dd>{{ t("{n} (לפי רוחב {w} ס״מ)", n=p.anchors, w=lay.width | cm) }}</dd></div>
-        <div><dt>{{ t("מרחב פנוי מול הארון") }}</dt><dd>{% if p.clearance %}{{ num(p.clearance) }}{% else %}{{ t("לא נמסר") }}{% endif %}</dd></div>
+{% if p.obstacles %}        <div><dt>{{ t("מכשולים בקיר") }}</dt><dd>{% for o in p.obstacles %}{{ o }}{% if not loop.last %}<br>{% endif %}{% endfor %}</dd></div>
+{% endif %}        <div><dt>{{ t("מרחב פנוי מול הארון") }}</dt><dd>{% if p.clearance %}{{ num(p.clearance) }}{% else %}{{ t("לא נמסר") }}{% endif %}</dd></div>
         <div><dt>{{ t("מרחב פתיחה מול הארון") }}</dt><dd>{% if p.reach %}{{ num(p.reach | mm) }}{% else %}{{ p.reach_label }}{% endif %}</dd></div>
       </dl>
     </div>

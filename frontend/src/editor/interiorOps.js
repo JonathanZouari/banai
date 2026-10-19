@@ -1,6 +1,7 @@
 // Pure mapping from the interior, zone, site and history controls to domain ops (schema v2).
 // No DOM, so every rule is unit-tested. The engine stays the single authority on validity:
 // callers try the candidates in order and keep the first batch the engine accepts.
+import { MAX_OBSTACLES } from '../domain/defaults.js';
 import { dividers, zoneUsable } from '../domain/opsInterior.js';
 
 export const PRESET_OPTIONS = Object.freeze([
@@ -81,6 +82,40 @@ export function siteReadingOps(site, kind, index, mm) {
   if (next.some((value) => value !== null)) return [{ op: 'set_site', [kind]: next }];
   const single = kind === 'widths' ? 'niche' : 'ceiling';
   return (site?.[single] ?? null) !== null ? [{ op: 'set_site', unset: [single] }] : null;
+}
+
+// ---- wall obstacles (docs/schema.md "Site") ----
+export const MAX_PANEL_OBSTACLES = MAX_OBSTACLES;
+export const OBSTACLE_OPTIONS = Object.freeze([
+  { value: 'socket', label: 'שקע' },
+  { value: 'switch', label: 'מתג' },
+  { value: 'ac', label: 'מזגן' },
+  { value: 'pipe', label: 'צנרת' },
+  { value: 'window', label: 'חלון' },
+  { value: 'panel', label: 'פנל' },
+]);
+
+/** A new obstacle: an 8 x 8 cm socket 30 cm up, in the middle of the wardrobe. */
+export const newObstacle = (design) => ({ type: 'socket', x: Math.round(design.dimensions.width / 2) - 40, y: 300, width: 80, height: 80 });
+
+/** Add one obstacle (null at the limit). `set_site` replaces the whole list. */
+export function addObstacleOps(site, item) {
+  const list = site?.obstacles ?? [];
+  return list.length >= MAX_PANEL_OBSTACLES ? null : [{ op: 'set_site', obstacles: [...list, item] }];
+}
+
+/** Change fields of obstacle `index`; null when it no longer exists. */
+export function updateObstacleOps(site, index, change) {
+  const list = site?.obstacles ?? [];
+  if (!list[index]) return null;
+  return [{ op: 'set_site', obstacles: list.map((item, i) => (i === index ? { ...item, ...change } : item)) }];
+}
+
+/** Remove obstacle `index`; the last one leaves an empty list, which clears it. */
+export function removeObstacleOps(site, index) {
+  const list = site?.obstacles ?? [];
+  if (!list[index]) return null;
+  return [{ op: 'set_site', obstacles: list.filter((_, i) => i !== index) }];
 }
 
 // ---- zones (docs/schema.md "Zones") ----
