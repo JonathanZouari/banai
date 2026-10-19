@@ -14,6 +14,7 @@ import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { doorRects } from './builders/doors.js';
 import { frameOf } from './builders/frame.js';
 import { cm } from './format.js';
+import { buildObstacles } from './obstacles3d.js';
 import { VISUAL, toM } from './units.js';
 
 const FLOOR_Y = 1.5; // mm above the floor, over the grid and the shadow
@@ -136,6 +137,7 @@ export function createRoomOverlay(scene) {
   const clear = () => {
     group.children.slice().forEach((child) => {
       group.remove(child);
+      if (child.userData.dispose) child.userData.dispose(); // the obstacles' group frees its own parts
       child.geometry?.dispose();
       child.material?.dispose();
     });
@@ -175,9 +177,27 @@ export function createRoomOverlay(scene) {
       const { walls, ceiling } = nicheOutline(design, frame);
       walls.forEach((wall) => group.add(line(wall.map(onFront), ROOM_COLORS.room)));
       if (ceiling.length) group.add(line(ceiling.map(onFront), ROOM_COLORS.room));
+      // The obstacles at their real size on the wall; one hidden behind the carcass also shows over the doors,
+      // x-ray style: a tinted patch and its outline, red when it blocks (R23).
+      const models = buildObstacles(design, frame.depth);
+      if (models) group.add(models);
       obstacleOutlines(design, frame).forEach((o) => {
-        group.add(line(o.corners.map(overDoors), o.blocking ? ROOM_COLORS.warn : ROOM_COLORS.room, { dashed: true }));
-        addLabel(o.name, overDoors(o.center), 'room-label room-label--small');
+        const color = o.blocking ? ROOM_COLORS.warn : ROOM_COLORS.room;
+        const [[x0, y0], , [x1, y1]] = o.corners;
+        if (o.behind) {
+          const patch = new THREE.Mesh(
+            new THREE.PlaneGeometry(toM(x1 - x0), toM(y1 - y0)),
+            new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.18, depthWrite: false }),
+          );
+          patch.position.copy(overDoors(o.center));
+          patch.raycast = () => {};
+          patch.renderOrder = 2;
+          group.add(patch);
+          group.add(line(o.corners.map(overDoors), color));
+        }
+        const size = `${Math.round((x1 - x0) / 10)}×${Math.round((y1 - y0) / 10)}`;
+        const onWall = new THREE.Vector3(toM(o.center[0]), toM(y1 + 60), toM(-frame.depth + 40));
+        addLabel(`${o.name} · ${size}`, o.behind ? overDoors(o.center) : onWall, 'room-label room-label--small');
       });
     },
     setVisible(on) {

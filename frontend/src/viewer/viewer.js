@@ -35,7 +35,7 @@ const { createHardware } = optional['./hardware.js'] ?? {};
 const { applyDoorMotion } = optional['./doorMotion.js'] ?? {};
 const { buildProps, disposeProps } = optional['./props.js'] ?? {};
 
-const BACKGROUND = '#eceeec';
+const BACKGROUND = '#efe8dc'; // as STUDIO_BACKGROUND: a warm studio
 const RENDER_EXPOSURE = 0.85;
 const VIEW_MS = 300;
 const MAX_DISTANCE = 14;
@@ -71,7 +71,7 @@ function createScene() {
   const fill = new THREE.DirectionalLight('#ffffff', 0.3);
   fill.position.set(-2, 2, 5);
   scene.add(fill);
-  const grid = new THREE.GridHelper(12, 24, '#c9ccc8', '#dcdfdb');
+  const grid = new THREE.GridHelper(12, 24, '#cdbfae', '#ddd2c3'); // pencil on warm paper
   grid.position.y = -0.0005;
   grid.name = 'grid';
   grid.material.toneMapped = false;

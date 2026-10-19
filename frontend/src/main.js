@@ -366,7 +366,7 @@ async function boot() {
     peopleCount = count;
   });
   const hud = bindRenderAndDossier(store, viewer);
-  bindVideoMenu(document.querySelector('.video-menu'), { viewer, getDesign: () => store.getState().design, toast, isBusy: () => hud.isActive() });
+  bindVideoMenu(document.querySelector('details[data-testid="video-menu"]'), { viewer, getDesign: () => store.getState().design, toast, isBusy: () => hud.isActive() });
   // Projects in this browser. "חדש" (Alt+N) is "ניקוי מסך": start over, asking first about unsaved changes.
   // Not Alt+Shift: on Windows that switches the keyboard layout (Hebrew/English).
   const projects = createProjectsDialog({
@@ -374,6 +374,7 @@ async function boot() {
   });
   byId('open-save').addEventListener('click', () => projects.open());
   byId('new-project').addEventListener('click', () => projects.startNew());
+  byId('open-project').addEventListener('click', () => projects.open({ list: true }));
   document.addEventListener('keydown', (event) => {
     const saveKey = (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.code === 'KeyS';
     if (saveKey) event.preventDefault(); // never the browser's "Save page as", even over a dialog
@@ -382,6 +383,9 @@ async function boot() {
     if (event.altKey && !event.shiftKey && !event.ctrlKey && !event.metaKey && event.code === 'KeyN' && !typing) {
       event.preventDefault();
       projects.startNew();
+    } else if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.code === 'KeyO' && !typing) {
+      event.preventDefault();
+      projects.open({ list: true });
     } else if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.code === 'KeyS') {
       event.preventDefault();
       projects.save();

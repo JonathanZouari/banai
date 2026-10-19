@@ -11,7 +11,15 @@ body {
   letter-spacing: var(--tracking-body);
   font-optical-sizing: auto;
   color: var(--color-ink);
-  background: var(--color-bg);
+  /* The workshop: warm window light from the top left, and a faint drafting grid on paper. */
+  background:
+    radial-gradient(120% 70% at 12% 0%, rgba(255, 238, 210, 0.7) 0%, rgba(255, 238, 210, 0) 55%),
+    radial-gradient(90% 60% at 100% 100%, rgba(201, 162, 126, 0.14) 0%, rgba(201, 162, 126, 0) 60%),
+    linear-gradient(rgba(92, 84, 75, 0.05) 1px, transparent 1px) 0 0 / 120px 120px,
+    linear-gradient(90deg, rgba(92, 84, 75, 0.05) 1px, transparent 1px) 0 0 / 120px 120px,
+    linear-gradient(rgba(92, 84, 75, 0.025) 1px, transparent 1px) 0 0 / 24px 24px,
+    linear-gradient(90deg, rgba(92, 84, 75, 0.025) 1px, transparent 1px) 0 0 / 24px 24px,
+    var(--color-bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;

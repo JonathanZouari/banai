@@ -26,7 +26,7 @@ test.describe('wall obstacles and the scale figure', () => {
     await fill(page, 'obstacle-0-y', '210');
     await fill(page, 'obstacle-0-width', '90');
     await expect(advice(page, 'r23-1')).toContainText('מזגן בתחום הארון');
-    await expect(page.locator('.room-label--small')).toHaveText('מזגן');
+    await expect(page.locator('.room-label--small')).toHaveText('מזגן · 90×8'); // name and size in cm
     expect((await store(page)).design.dimensions.height).toBe(2400); // advice changed nothing by itself
     await page.getByTestId('advice-fix-r23-1').click();
     await expect(advice(page, 'r23-1')).toHaveCount(0);

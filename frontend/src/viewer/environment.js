@@ -1,4 +1,4 @@
-// Backdrops: "studio" (flat #eceeec, RoomEnvironment light, grid + shadow floor) and "room"
+// Backdrops: "studio" (flat warm #efe8dc, RoomEnvironment light, grid + shadow floor) and "room"
 // (a self-hosted CC0 HDR for light/reflections plus a grounded-skybox photo as the visible
 // backdrop). The room is loaded lazily on first use and cached. Failures never throw or log:
 // the viewer stays in the studio and `lastError` says why.
@@ -12,7 +12,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { GroundedSkybox } from 'three/addons/objects/GroundedSkybox.js';
 
-export const STUDIO_BACKGROUND = '#eceeec';
+export const STUDIO_BACKGROUND = '#efe8dc'; // a warm studio, like the paper around it
 // Render set: a warm, slightly darker studio than the live view, so a white carcass separates from
 // the backdrop and its shadows read (measured: the old near-white set put 99% of pixels above 224).
 export const RENDER_BACKGROUND = '#d9d6d0';

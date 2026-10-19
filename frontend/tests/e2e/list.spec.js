@@ -110,3 +110,26 @@ test.describe('projects in the browser', () => {
     expect((await store(page)).design.dimensions.depth).toBe(550);
   });
 });
+
+test.describe('top bar', () => {
+  test('"פתיחה" opens the saved projects', async ({ page }) => {
+    await openDesigner(page);
+    await page.getByTestId('open-save').click();
+    await page.getByTestId('project-name').fill('ארון ילדים');
+    await page.getByTestId('save-confirm').click();
+    await page.getByTestId('save-close').click();
+    await page.getByTestId('open-project').click();
+    await expect(page.getByTestId('save-dialog')).toBeVisible();
+    await expect(page.getByTestId('project-item')).toContainText('ארון ילדים');
+    await expect(page.getByTestId('project-item').getByRole('button', { name: 'פתיחה' })).toBeFocused();
+  });
+
+  test('the video button records: clicking a video option starts it, and the button cancels it', async ({ page }) => {
+    await openDesigner(page);
+    await page.getByTestId('open-video').click();
+    await page.getByTestId('video-quick').click();
+    await expect(page.getByTestId('open-video')).toContainText(/מקליט/, { timeout: 15_000 });
+    await page.getByTestId('open-video').click();
+    await expect(page.getByTestId('open-video')).toHaveText('סרטון', { timeout: 15_000 });
+  });
+});

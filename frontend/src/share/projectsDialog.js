@@ -169,6 +169,7 @@ export function createProjectsDialog({ store, newDesign, onOpened, toast, projec
     });
   });
 
+  const listTitle = el('h3', { className: 'project-list__title', text: 'פרויקטים שמורים' });
   const dialog = createDialog({
     title: 'הפרויקטים שלי',
     labelId: 'projects-dialog-title',
@@ -181,7 +182,7 @@ export function createProjectsDialog({ store, newDesign, onOpened, toast, projec
         button('פרויקט חדש', startNew, { variant: 'secondary', testId: 'project-new' }),
       ]),
       status,
-      el('h3', { className: 'project-list__title', text: 'פרויקטים שמורים' }),
+      listTitle,
       list,
       el('div', { className: 'project-row' }, [
         button('ייצוא לקובץ', exportFile, { variant: 'ghost', testId: 'project-export' }),
@@ -193,12 +194,19 @@ export function createProjectsDialog({ store, newDesign, onOpened, toast, projec
   });
 
   return {
-    open() {
+    /** Open the dialog. `list`: the "פתיחה" button, so the saved projects come first in focus and view. */
+    open({ list: toList = false } = {}) {
       nameInput.value = current.name === DEFAULT_NAME ? '' : current.name;
       status.textContent = dirty() ? 'יש שינויים שלא נשמרו.' : '';
       renderList();
       dialog.open();
-      nameInput.focus();
+      if (!toList) {
+        nameInput.focus();
+        return;
+      }
+      listTitle.scrollIntoView({ block: 'start' });
+      (list.querySelector('button') ?? nameInput).focus();
+      if (!projects.list().length) status.textContent = 'עוד אין פרויקטים שמורים. שמרו את התכנון כדי לחזור אליו.';
     },
     /** "ניקוי מסך": start over, asking first when there are unsaved changes. */
     startNew: () => guard('לפני שמתחילים מחדש: לשמור את התכנון הנוכחי?', () => adopt(newDesign(), {}, 'new')),
