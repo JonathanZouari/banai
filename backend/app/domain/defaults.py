@@ -5,6 +5,9 @@ rendering safety and convenience, NOT an approved business or manufacturing
 rule. Mirrored in frontend/src/domain/defaults.js.
 """
 
+import math
+
+
 # (min, max) inclusive, in millimetres unless noted.
 LIMITS: dict[str, tuple[int, int]] = {
     "width": (300, 6000),
@@ -45,6 +48,36 @@ SHOE_TIER = 240
 DEFAULT_SHOE_TIERS = 3
 DEFAULT_TROUSER_HEIGHT = 700
 PULLDOWN_DROP = 400  # default pull-down rail height below the interior top
+# A flat screen insert: 16:9, sized by its diagonal in inches. Its centre defaults to a seated viewing height.
+TV_DEFAULT_INCHES = 43
+TV_CENTER_HEIGHT = 1100  # mm above the floor, a prototype default
+
+
+def screen_height(inches: float) -> int:
+    """The height (mm) of a 16:9 screen with this diagonal: d x 25.4 x 9 / sqrt(16^2 + 9^2)."""
+    return int(inches * 25.4 * 9 / 337 ** 0.5 + 0.5)
+
+
+def screen_width(height: float) -> int:
+    return int(height * 16 / 9 + 0.5)
+
+
+def screen_inches(height: float) -> int:
+    return int(height * 337 ** 0.5 / (25.4 * 9) + 0.5)
+
+
+def default_screen_inches(compartment_width: int) -> int:
+    """The largest screen up to TV_DEFAULT_INCHES that leaves 100 mm of air each side [research 118], at least 24."""
+    fits = largest_screen(compartment_width)
+    return max(24, min(TV_DEFAULT_INCHES, fits))
+
+
+def largest_screen(compartment_width: int) -> int:
+    """The largest whole-inch screen whose real width leaves 100 mm of air each side (0 when none does)."""
+    fits = max(0, math.floor((compartment_width - 200) * 337 ** 0.5 / (25.4 * 16)))
+    while fits > 0 and screen_width(screen_height(fits)) > compartment_width - 200:
+        fits -= 1
+    return fits
 
 
 def default_handles() -> dict:

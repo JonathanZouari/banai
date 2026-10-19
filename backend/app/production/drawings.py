@@ -151,7 +151,7 @@ def item_tops(c: dict) -> list[int]:
     """Interior tops of everything a rail can hang above."""
     tops = [s["y"] + s["thickness"] for s in c["shelves"]] + [d["y"] + d["height"] for d in c["drawers"]]
     return tops + [x["y"] + (x["tiers"] * SHOE_TIER if x["type"] == "shoes" else x["height"])
-                   for x in c["inserts"] if x["type"] in ("shoes", "trousers")]
+                   for x in c["inserts"] if x["type"] in ("shoes", "trousers", "tv")]
 
 
 def _compartment(g: El, design: dict, lay: Layout, i: int) -> None:
@@ -186,6 +186,9 @@ def _compartment(g: El, design: dict, lay: Layout, i: int) -> None:
         elif ins["type"] == "trousers":
             top = y + ins["height"]
             g.add(rect(x0 + 24, y + 40, w - 48, max(0, ins["height"] - 80), "zone"), line(x0 + 30, top - 60, x1 - 30, top - 60, "rail rail--thin"))
+        elif ins["type"] == "tv":  # the screen, 16:9, centred in the compartment
+            sw = ins["height"] * 16 / 9  # the real width: a screen too wide shows as one (R25)
+            g.add(rect(x0 + (w - sw) / 2, y, sw, ins["height"], "zone"))
         elif ins["type"] == "pulldown":
             g.add(line(x0 + 30, y, x1 - 30, y, "rail"), line(x0 + w / 2, y, x0 + w / 2, y - 420, "ln-thin"))
         elif ins["type"] == "led":

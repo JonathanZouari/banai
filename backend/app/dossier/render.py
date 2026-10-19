@@ -51,7 +51,7 @@ DOOR_LABELS = {"hinged": "ציר", "sliding": "הזזה", "none": "ללא (אר�
 HANDLE_LABELS = {"bar": "ידית מוט", "knob": "כפתור", "edge": "פרופיל ידית", "cup": "ידית שקועה", "groove": "חריץ אחיזה",
                  "none": "לחיצה"}
 HANDLE_FINISHES = {"steel": "נירוסטה", "black": "שחור", "brass": "פליז"}
-INSERT_NAMES = {"pulldown": "מתקן נשלף", "shoes": "נעליים", "trousers": "מכנסיים", "led": "LED"}
+INSERT_NAMES = {"pulldown": "מתקן נשלף", "shoes": "נעליים", "trousers": "מכנסיים", "led": "LED", "tv": "מסך"}
 
 
 class RenderError(Exception):

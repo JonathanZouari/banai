@@ -40,13 +40,14 @@ export function createAlertTracker() {
 
 /**
  * The pop-up's queue after an update: alerts that no longer apply leave, those that remain take their
- * current version (a fix is only valid for the design it was computed for), and new ones join at the end.
+ * current version (a fix is only valid for the design it was computed for). What the latest change brought
+ * comes first, critical before warnings, then what was still waiting.
  */
 export function mergeQueue(queue, items, fresh) {
   const current = new Map(items.map((item) => [item.id, item]));
-  const kept = queue.filter((item) => current.has(item.id)).map((item) => current.get(item.id));
-  const ids = new Set(kept.map((item) => item.id));
-  return [...kept, ...fresh.filter((item) => !ids.has(item.id))];
+  const freshIds = new Set(fresh.map((item) => item.id));
+  const kept = queue.filter((item) => current.has(item.id) && !freshIds.has(item.id)).map((item) => current.get(item.id));
+  return [...fresh.map((item) => current.get(item.id) ?? item), ...kept].sort((a, b) => RANK[a.level] - RANK[b.level]);
 }
 
 /** The text a customer sends Bob when they want other ways to fix an advisory. */

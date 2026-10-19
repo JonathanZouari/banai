@@ -16,12 +16,15 @@ export const INSERT_OPTIONS = Object.freeze([
   { value: 'shoes', label: 'מדפי נעליים' },
   { value: 'trousers', label: 'מתקן מכנסיים' },
   { value: 'led', label: 'תאורת LED' },
+  { value: 'tv', label: 'מסך' },
 ]);
 export const insertLabel = (type) => INSERT_OPTIONS.find((option) => option.value === type)?.label ?? type;
 
 export const presetOps = (compartmentId, preset) => [{ op: 'apply_preset', compartmentId, preset }];
 
 const ZONE_TYPES = new Set(['shoes', 'trousers']);
+// The screen takes the engine's default place first (centred at a seated viewing height), then any free spot.
+const SCREEN = 'tv';
 
 /**
  * Op batches that add an insert of `type`, best first. Zone inserts (shoes, trousers) try the
@@ -29,6 +32,11 @@ const ZONE_TYPES = new Set(['shoes', 'trousers']);
  * spot wins; the others take the engine defaults.
  */
 export function addInsertCandidates(compartment, type) {
+  if (type === SCREEN) {
+    const base = [{ op: 'add_insert', compartmentId: compartment.id, type }];
+    const spots = [0, ...compartment.shelves.map((s) => s.y + s.thickness), ...compartment.drawers.map((d) => d.y + d.height)];
+    return [base, ...[...new Set(spots)].sort((a, b) => a - b).map((y) => [{ ...base[0], y }])];
+  }
   if (!ZONE_TYPES.has(type)) return [[{ op: 'add_insert', compartmentId: compartment.id, type }]];
   const tops = [
     0,

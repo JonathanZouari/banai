@@ -61,6 +61,8 @@ SAMPLES = {
     # R24: legs with no height (the fix gives them 10 cm), and soft close switched off (the fix restores it).
     "legs-low": make({"op": "set_fittings", "base": "legs"}),
     "no-soft": make(hinged(), {"op": "set_fittings", "softClose": False}),
+    # R25: a 65-inch screen in a ~89 cm compartment (the fix: the largest screen with 10 cm of air each side).
+    "screen-wide": make(hinged(), {"op": "add_insert", "compartmentId": "cmp_a", "type": "tv", "height": 809, "id": "ins_tv"}),
     # R23: a socket, an AC unit low enough to lower under, pipes and skirting behind; a window past the side.
     "obstacles": make(hinged(), {"op": "set_site", "obstacles": [{"type": "socket", "x": 300, "y": 300, "width": 80, "height": 80}, {"type": "ac", "x": 200, "y": 2000, "width": 900, "height": 300}, {"type": "pipe", "x": 1200, "y": 200, "width": 60, "height": 400}, {"type": "panel", "x": -200, "y": 0, "width": 2400, "height": 80}, {"type": "window", "x": 3000, "y": 900, "width": 1200, "height": 1300}]}),
 }
@@ -91,7 +93,16 @@ def test_the_samples_cover_every_fix():
     fixed = {a["id"].rsplit("-", 1)[0] if a["id"][-1].isdigit() else a["id"]
              for d in SAMPLES.values() for a in advisories(d, CATALOG) if "fix" in a}
     assert fixed == {"r1-over", "r1-lift", "niche-over", "r12-filler", "r3-wide", "r6-mirror", "r5-depth", "r7-sag",
-                     "r8-rail", "r16-high", "r16-width", "r21-swing", "r23", "r24-legs", "r24-soft"}
+                     "r8-rail", "r16-high", "r16-width", "r21-swing", "r23", "r24-legs", "r24-soft", "r25-wide-tv"}
+
+
+def test_a_screen_in_a_compartment():
+    wide = by_id(SAMPLES["screen-wide"])["r25-wide-tv"]
+    assert wide["level"] == "critical" and wide["fix"]["label"] == "מסך 30 אינץ׳"
+    ok = by_id(make(hinged(), {"op": "add_insert", "compartmentId": "cmp_a", "type": "tv", "height": 374, "id": "ins_tv"}))
+    assert ok["r25-screen-tv"]["title"] == "מסך 30 אינץ׳ בתא 1" and "r25-air-tv" not in ok
+    tight = by_id(make(hinged(), {"op": "add_insert", "compartmentId": "cmp_a", "type": "tv", "height": 448, "id": "ins_tv"}))
+    assert tight["r25-air-tv"]["level"] == "warn"  # 36 inches: about 80 cm wide in an ~89 cm compartment
 
 
 def test_legs_and_soft_close():

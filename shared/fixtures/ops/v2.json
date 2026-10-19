@@ -1954,5 +1954,76 @@
         "code": "SCHEMA_INVALID"
       }
     }
+  },
+  {
+    "name": "a tv insert takes the largest screen up to 43 inches with air beside it, at least 24",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_a",
+        "type": "tv",
+        "id": "ins_tv"
+      }
+    ],
+    "expect": {
+      "match": {
+        "compartments": [
+          {
+            "inserts": [
+              {
+                "id": "ins_tv",
+                "type": "tv",
+                "height": 299,
+                "tiers": null
+              }
+            ]
+          },
+          {}
+        ]
+      }
+    }
+  },
+  {
+    "name": "a tv insert has no tiers",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_a",
+        "type": "tv",
+        "tiers": 2
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[0].tiers"
+      }
+    }
+  },
+  {
+    "name": "a tv screen cannot overlap a shelf",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_shelf",
+        "compartmentId": "cmp_a",
+        "y": 700,
+        "id": "shf_tv"
+      },
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_a",
+        "type": "tv",
+        "y": 500,
+        "height": 535
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OVERLAP"
+      }
+    }
   }
 ]

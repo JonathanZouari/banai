@@ -13,7 +13,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from itertools import pairwise
 
-from app.domain.defaults import SHOE_TIER
+from app.domain.defaults import SHOE_TIER, screen_inches
 from app.domain.layout import SLIDE_OVERLAP, SLIDE_TRACK_DEPTH, Layout, layout
 from app.i18n import tr
 from app.production.boards import BACK_BOARD, DRAWER_BOARD, Board, board_for, handle_of, localized, resolve
@@ -446,6 +446,10 @@ def _hardware(design: dict, lay: Layout, parts: list[Part], runner: int | None, 
         "pulldown", "[43]")
     add("מתקן מכנסיים נשלף", sum(x["type"] == "trousers" for _, x in inserts), "מסילות שליפה מתחת למדף, 10–14 מוטות")
     add("מוט חזית למדף נעליים", sum(x["tiers"] for _, x in inserts if x["type"] == "shoes"), "Ø10, חיתוך לפי רוחב התא")
+    for i, x in inserts:
+        if x["type"] == "tv":
+            add(tr("מתקן קיר למסך {n} אינץ׳", n=screen_inches(x["height"])), 1,
+                tr("תא {c}: VESA, לקיר או לגב מחוזק, עם פתח כבלים ונקודת חשמל", c=i + 1), None, "[118]")
     lit = [lay.ranges[i][1] - lay.ranges[i][0] for i, x in inserts if x["type"] == "led"]
     add("פס LED עם חיישן דלת", len(lit), tr("{m} מ׳ בסך הכול, ספק 12V מוסתר", m=f"{sum(w - 40 for w in lit) / 1000:.1f}"),
         None, "§6")

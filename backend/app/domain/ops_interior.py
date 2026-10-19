@@ -10,13 +10,14 @@ import copy
 
 from app.domain import ids
 from app.domain import ops as op_types
-from app.domain.defaults import DEFAULT_SHOE_TIERS, DEFAULT_TROUSER_HEIGHT, OBSTACLE_LIMITS, PULLDOWN_DROP
+from app.domain.defaults import (DEFAULT_SHOE_TIERS, DEFAULT_TROUSER_HEIGHT, OBSTACLE_LIMITS, PULLDOWN_DROP,
+                                 TV_CENTER_HEIGHT, default_screen_inches, screen_height)
 from app.domain.errors import INVALID_OP, DomainError
 from app.domain.geometry import interior_height
 from app.domain.lookup import compartment_index, find_door, find_insert, require_range
 
 # Which optional fields each insert type takes. Everything else must be absent.
-INSERT_FIELDS = {"shoes": ("y", "tiers"), "trousers": ("y", "height"), "pulldown": ("y",), "led": ()}
+INSERT_FIELDS = {"shoes": ("y", "tiers"), "trousers": ("y", "height"), "pulldown": ("y",), "led": (), "tv": ("y", "height")}
 
 
 def _half_up(numerator: int, denominator: int) -> int:
@@ -108,6 +109,12 @@ def add_insert(draft: dict, op: op_types.AddInsert, path: str) -> dict:
                     height=op.height if op.height is not None else DEFAULT_TROUSER_HEIGHT)
     elif op.type == "pulldown":
         item["y"] = op.y if op.y is not None else interior_height(draft) - PULLDOWN_DROP
+    elif op.type == "tv":
+        width = draft["compartments"][index]["width"]
+        height = op.height if op.height is not None else screen_height(default_screen_inches(width))
+        floor = draft["carcass"]["plinthHeight"] + draft["carcass"]["panelThickness"]
+        centred = TV_CENTER_HEIGHT - floor - height // 2  # the screen's centre at a seated viewing height
+        item.update(height=height, y=op.y if op.y is not None else max(0, min(centred, interior_height(draft) - height)))
     draft["compartments"][index]["inserts"].append(item)
     return draft
 

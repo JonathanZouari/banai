@@ -32,8 +32,11 @@ export function createMaterials(catalog, { anisotropy = 1 } = {}) {
   // whose emissive intensity the viewer drives with the door sensor (0 = off).
   const chrome = new THREE.MeshStandardMaterial({ color: '#e6e8ea', metalness: 1, roughness: 0.12 });
   const metal = new THREE.MeshStandardMaterial({ color: '#b9bcc0', metalness: 1, roughness: 0.38 });
+  // A sample flat screen: a matte black body and a dark glass face with a faint blue sheen.
+  const screenBody = new THREE.MeshStandardMaterial({ color: '#141416', metalness: 0.2, roughness: 0.6 });
+  const screenGlass = new THREE.MeshStandardMaterial({ color: '#0b0d12', metalness: 0.6, roughness: 0.08, emissive: '#0a1630', emissiveIntensity: 0.35 });
   const led = new THREE.MeshStandardMaterial({ color: '#fff7ec', emissive: '#ffd8a8', emissiveIntensity: 0, roughness: 0.4 });
-  const fixed = [rail, chrome, metal, led];
+  const fixed = [rail, chrome, metal, led, screenBody, screenGlass];
 
   const grainTexture = (grain) => {
     if (!grains.has(grain)) grains.set(grain, createWoodTexture(grain, { anisotropy }));
@@ -58,6 +61,8 @@ export function createMaterials(catalog, { anisotropy = 1 } = {}) {
     rail,
     chrome,
     metal,
+    screenBody,
+    screenGlass,
     led,
     /** Dispose cached materials the current scene no longer uses (keeps memory bounded). Grain textures stay shared until dispose(). */
     retainOnly(inUse) {

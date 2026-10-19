@@ -13,6 +13,7 @@ export const INSERT_ART = Object.freeze({
   shoes: '<svg viewBox="0 0 20 20"><path d="M3 8l14-2M3 13l14-2M3 18l14-2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
   trousers: '<svg viewBox="0 0 20 20"><path d="M3 5h14M5.5 5v11M8.5 5v11M11.5 5v11M14.5 5v11" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
   led: '<svg viewBox="0 0 20 20"><path d="M3 5h14M6 8l-1 2M10 8.5v2.5M14 8l1 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+  tv: '<svg viewBox="0 0 20 20"><rect x="2.5" y="4" width="15" height="9.5" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M7.5 16.5h5M10 13.5v3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
 });
 
 const SVG_NS = 'http://www.w3.org/2000/svg';

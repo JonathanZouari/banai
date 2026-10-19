@@ -173,7 +173,7 @@ def _check_compartment(design: dict, ci: int) -> list[DomainError]:
 
 
 # Which of y/tiers/height each insert type takes (the rest must be null).
-_INSERT_FIELDS = {"shoes": ("y", "tiers"), "trousers": ("y", "height"), "pulldown": ("y",), "led": ()}
+_INSERT_FIELDS = {"shoes": ("y", "tiers"), "trousers": ("y", "height"), "pulldown": ("y",), "led": (), "tv": ("y", "height")}
 
 
 def _check_inserts(compartment: dict, base: str, top: int, spans: list) -> list[DomainError]:
@@ -192,7 +192,7 @@ def _check_inserts(compartment: dict, base: str, top: int, spans: list) -> list[
             issues.append(DomainError(codes.INSERT_INVALID, f"{path}.type", "only one insert of each type per compartment"))
             continue
         seen.add(item["type"])
-        if item["type"] in ("shoes", "trousers"):
+        if item["type"] in ("shoes", "trousers", "tv"):
             start = item["y"]
             end = start + (item["tiers"] * SHOE_TIER if item["type"] == "shoes" else item["height"])
             if start < 0 or end > top:

@@ -23,12 +23,13 @@ describe('warning pop-ups', () => {
     expect(tracker.next(ready([item('x')]))).toEqual([]); // a new project starts fresh
   });
 
-  it('the queue drops what no longer applies, refreshes fixes, and appends the new', () => {
+  it('the queue drops what no longer applies, refreshes fixes, and puts the latest change first', () => {
     const queue = [item('a', 'warn', { label: 'old', ops: [1] }), item('b')];
-    const items = [item('a', 'warn', { label: 'new', ops: [2] }), item('c')];
-    const merged = mergeQueue(queue, items, [item('c'), item('a')]);
-    expect(merged.map((i) => i.id)).toEqual(['a', 'c']);
-    expect(merged[0].fix.label).toBe('new');
+    const items = [item('a', 'warn', { label: 'new', ops: [2] }), item('c'), item('d', 'critical')];
+    const merged = mergeQueue(queue, items, [item('c')]);
+    expect(merged.map((i) => i.id)).toEqual(['c', 'a']); // the new one first; b no longer applies
+    expect(merged[1].fix.label).toBe('new');
+    expect(mergeQueue(merged, items, [item('d', 'critical')]).map((i) => i.id)).toEqual(['d', 'c', 'a']);
   });
 
   it('asks Bob in words, quoting the warning', () => {

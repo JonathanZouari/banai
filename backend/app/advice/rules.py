@@ -1,4 +1,4 @@
-"""Advisory layer: research-backed, non-blocking guidance on a canonical design (R1-R24).
+"""Advisory layer: research-backed, non-blocking guidance on a canonical design (R1-R25).
 
 Pure: (design, catalog) -> advisories. Every item carries its evidence grade and its source in
 docs/research/carpentry-wardrobes-research.md, so the app explains why instead of claiming a design
@@ -15,7 +15,7 @@ from __future__ import annotations
 import math
 
 from app.domain.apply import apply_ops
-from app.domain.defaults import SHOE_TIER
+from app.domain.defaults import SHOE_TIER, largest_screen, screen_height, screen_inches, screen_width
 from app.domain.errors import DomainError
 from app.domain.layout import SLIDE_OVERLAP, SLIDE_TRACK_DEPTH, Layout, layout
 from app.i18n import tr
@@ -91,7 +91,7 @@ def advisories(design: dict, catalog: dict | None) -> list[dict]:
     """All advisories for a canonical, already validated design, most severe first (stable within a level)."""
     out = _Collector(design, catalog)
     lay = layout(design)
-    for rule in (_site, _fittings, _clearance, _obstacles, _hinged_doors, _sliding_doors, _drawers, _spans, _zones, _inserts, _hanging, _board):
+    for rule in (_site, _fittings, _clearance, _obstacles, _hinged_doors, _sliding_doors, _drawers, _spans, _zones, _inserts, _screens, _hanging, _board):
         rule(design, lay, out)
     return sorted(out.items, key=lambda a: LEVEL_ORDER[a["level"]])
 
@@ -173,6 +173,37 @@ def _fittings(design: dict, lay: Layout, out: _Collector) -> None:
                 tr("צירים ומסילות רגילים זולים יותר, אבל דלתות ומגירות נטרקות. בטריקה שקטה הבולם משולב בציר ובמסילה."),
                 "יצרן", "[2][33]", ["carcass"],
                 out.fix(tr("החזר טריקה שקטה"), [{"op": "set_fittings", "softClose": True}]))
+
+
+SCREEN_SIDE_AIR = 100  # mm each side: Sony's ~4 inches of side ventilation [118]
+
+
+def _screens(design: dict, lay: Layout, out: _Collector) -> None:
+    """R25: a flat screen in a compartment: its width, room to breathe around it [118], and power."""
+    for i, c in enumerate(design["compartments"]):
+        for item in c["inserts"]:
+            if item["type"] != "tv":
+                continue
+            inner = lay.ranges[i][1] - lay.ranges[i][0]
+            width, inches = screen_width(item["height"]), screen_inches(item["height"])
+            fits = largest_screen(inner)  # the largest screen with air beside it
+            smaller = (out.fix(tr("מסך {n} אינץ׳", n=fits), [{"op": "modify_insert", "id": item["id"], "height": screen_height(fits)}])
+                       if fits >= 24 and screen_height(fits) < item["height"] else None)
+            target = [f"comp:{i}"]
+            if width > inner:
+                out.add(f"r25-wide-{_tag(item['id'], 24)}", "critical", tr("המסך רחב מהתא"),
+                        tr("מסך {n} אינץ׳ רחב כ-{w} ס״מ, והתא {c} ס״מ.", n=inches, w=cm(width), c=cm(inner)),
+                        "חישוב", "[118]", target, smaller)
+            elif inner - width < 2 * SCREEN_SIDE_AIR:
+                out.add(f"r25-air-{_tag(item['id'], 24)}", "warn", tr("אין מקום לאוורור סביב המסך"),
+                        tr("נשארים {g} ס״מ בכל צד. יצרני מסכים ממליצים על כ-10 ס״מ אוורור בצדדים, ומזהירים מארון סגור בלי אוורור.",
+                           g=cm((inner - width) / 2)),
+                        "יצרן", "[118]", target, smaller)
+            else:
+                out.add(f"r25-screen-{_tag(item['id'], 24)}", "info", tr("מסך {n} אינץ׳ בתא {i}", n=inches, i=i + 1),
+                        tr("בזמן צפייה פותחים את הדלתות, או משאירים פתחי אוורור בגב ובתקרת התא. צריך נקודת חשמל ופתח לכבלים "
+                           "מאחורי המסך, ומתקן קיר שמתחבר לקיר או לגב מחוזק."),
+                        "יצרן", "[118]", target)
 
 
 def _to_sliding(lay: Layout, out: _Collector) -> dict | None:
@@ -447,7 +478,7 @@ def _hanging(design: dict, lay: Layout, out: _Collector) -> None:
     for i, c in enumerate(design["compartments"]):
         tops = [s["y"] + s["thickness"] for s in c["shelves"]] + [d["y"] + d["height"] for d in c["drawers"]]
         tops += [x["y"] + (x["tiers"] * SHOE_TIER if x["type"] == "shoes" else x["height"])
-                 for x in c["inserts"] if x["type"] in ("shoes", "trousers")]
+                 for x in c["inserts"] if x["type"] in ("shoes", "trousers", "tv")]
         zones = [r["y"] - max((t for t in tops if t <= r["y"]), default=0) for r in c["rails"]]
         if not zones:
             continue

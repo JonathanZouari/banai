@@ -150,7 +150,9 @@ v2 is additive. A v1 design parses unchanged and comes out with `schemaVersion: 
 |---|---|---|
 | `site: { ceiling, niche, heights, widths, clearance, obstacles } \| null` | `null` | Customer's estimated site measurements in mm (each may be `null`). The carpenter verifies them on site. See "Site" below. |
 | `carcass.plinthHeight` | `0` | Plinth under the bottom panel. **Interior height** = `height − 2·panelThickness − plinthHeight`. |
-| `compartments[].inserts[]` | `[]` | Interior inserts, at most one of each type (≤ 4). |
+| `compartments[].inserts[]` | `[]` | Interior inserts, at most one of each type (`pulldown`, `shoes`, `trousers`, `led`, `tv`). `tv` is a sample flat screen on the compartment's back: `y` is its bottom edge and `height` the screen's height in mm (16:9, from the diagonal: inches × 25.4 × 9 / √337). It defaults to the largest size up to 43" that leaves 100 mm of air each side, at least 24", centred at 1100 mm above the floor. |
+| `carcass.base` | `"plinth"` | `"plinth"`, or `"legs"`: the body stands on adjustable legs `plinthHeight` tall (the sides start above them, no plinth board). |
+| `fittings: { softClose }` | `{ softClose: true }` | Soft-close hinges and drawer runners. Off gives plain ones in the dossier. |
 
 **Insert** = `{ id: "ins_…", type, y, tiers, height }`. Which fields apply depends on the type, and the rest must be `null`:
 
@@ -181,6 +183,8 @@ v2 is additive. A v1 design parses unchanged and comes out with `schemaVersion: 
 | `remove_component` | `ins_…` ids | Removes an insert. Merging at a partition keeps both compartments' inserts. |
 
 Op-level schema errors keep reporting at `ops[i]`, as in v1.
+
+`set_fittings {softClose?, base?}` sets either or both (one of them is required). Advisory R24 covers leg height (90–170 mm, Häfele AXILO [117]) and soft close switched off.
 
 ## Site (bobHabanai, 2026-10-18)
 

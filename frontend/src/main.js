@@ -369,6 +369,8 @@ async function boot() {
   byId('open-save').addEventListener('click', () => projects.open());
   byId('new-project').addEventListener('click', () => projects.startNew());
   document.addEventListener('keydown', (event) => {
+    const saveKey = (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.code === 'KeyS';
+    if (saveKey) event.preventDefault(); // never the browser's "Save page as", even over a dialog
     if (event.isComposing || document.querySelector('dialog[open]')) return;
     const typing = event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable]');
     if (event.altKey && !event.shiftKey && !event.ctrlKey && !event.metaKey && event.code === 'KeyN' && !typing) {

@@ -61,7 +61,7 @@ function floorBelow(compartment, y) {
   const tops = [
     ...compartment.shelves.map((s) => s.y + s.thickness),
     ...compartment.drawers.map((d) => d.y + d.height),
-    ...(compartment.inserts ?? []).filter((insert) => insert.type === 'shoes' || insert.type === 'trousers').map((insert) => insertZone(insert)[1]),
+    ...(compartment.inserts ?? []).filter((insert) => ['shoes', 'trousers', 'tv'].includes(insert.type)).map((insert) => insertZone(insert)[1]),
   ];
   return Math.max(0, ...tops.filter((top) => top <= y));
 }
@@ -69,7 +69,7 @@ function floorBelow(compartment, y) {
 /** The interior y-range an insert occupies ([y, y] for a pull-down), or null (LED). Mirrors docs/schema.md v2. */
 export function insertZone(insert) {
   if (insert.type === 'shoes') return [insert.y, insert.y + insert.tiers * SHOE_TIER];
-  if (insert.type === 'trousers') return [insert.y, insert.y + insert.height];
+  if (insert.type === 'trousers' || insert.type === 'tv') return [insert.y, insert.y + insert.height];
   if (insert.type === 'pulldown') return [insert.y, insert.y];
   return null;
 }
@@ -203,7 +203,21 @@ function led(insert, { frame, x0, x1, materials }) {
   return [strip];
 }
 
-const BUILDERS = Object.freeze({ pulldown, shoes, trousers, led });
+/**
+ * A flat screen on the back of the compartment: a thin black panel with a glass face, centred in the width.
+ * 16:9 from its height; 45 mm deep with its wall bracket. A sample screen, not a model of any brand.
+ */
+function tv(insert, { frame, x0, x1, materials }) {
+  const height = insert.height;
+  const width = Math.round(height * 16 / 9); // the real width: a screen too wide shows as one (advice R25)
+  const y = frame.baseY + insert.y + height / 2;
+  const z = frame.innerBack + 25;
+  const body = box({ size: [width, height, 30], center: [(x0 + x1) / 2, y, z], material: materials.screenBody ?? materials.metal });
+  const glass = box({ size: [Math.max(1, width - 16), Math.max(1, height - 16), 2], center: [(x0 + x1) / 2, y, z + 16], material: materials.screenGlass ?? materials.chrome });
+  return [body, glass];
+}
+
+const BUILDERS = Object.freeze({ pulldown, shoes, trousers, led, tv });
 
 /** All insert meshes of the design. `materials` needs forAppearance, chrome, metal and led. */
 export function buildInserts(design, frame, materials) {

@@ -46,7 +46,7 @@ export function createProjectStore({
   return {
     /** Saved projects, newest first: { id, name, savedAt }. */
     list() {
-      return read().map(({ id, name, savedAt }) => ({ id, name, savedAt })).sort((a, b) => b.savedAt.localeCompare(a.savedAt));
+      return read().map(({ id, name, savedAt }) => ({ id, name: cleanName(name), savedAt })).sort((a, b) => b.savedAt.localeCompare(a.savedAt));
     },
     /** The saved design of a project, or null. */
     get(id) {

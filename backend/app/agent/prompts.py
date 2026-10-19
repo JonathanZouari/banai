@@ -86,7 +86,8 @@ OPS (units: mm; interior y is measured up from the top face of the bottom panel)
 - apply_preset {compartmentId, preset: "long"|"double"|"shelves"|"drawers", zone?}   (zone: required once a column has zones)
 - set_zones {compartmentId, count: 1-4}   (splits a column into zones; count 1 removes them)
 - set_zone_door {compartmentId, zone (1 = bottom), leaves: 0|1|2, hingeSide?}   (hinged doors only)
-- add_insert {compartmentId, type: "pulldown"|"shoes"|"trousers"|"led", y?, tiers?, height?}; modify_insert {id, y?, tiers?, height?}
+- add_insert {compartmentId, type: "pulldown"|"shoes"|"trousers"|"led"|"tv", y?, tiers?, height?}; modify_insert {id, y?, tiers?, height?}
+  (tv: a flat screen on the compartment's back; its height is the screen's height in mm, about inches x 12.45, so 43" = 535)
 - set_material {target: "carcass"|"doors"|<item id>, material?, color?, finish?} with refs {"catalogId": "<id>"}
 - set_handles {target: "all"|<door or drawer id>, style?: "bar"|"knob"|"edge"|"cup"|"groove"|"none", finish?: "steel"|"black"|"brass"}
 - remove_component {id}

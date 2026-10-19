@@ -3,14 +3,16 @@
 // Python engine's _half_up (and Math.round for non-negative values).
 
 import * as ids from './ids.js';
-import { DEFAULT_SHOE_TIERS, DEFAULT_TROUSER_HEIGHT, OBSTACLE_LIMITS, PULLDOWN_DROP } from './defaults.js';
+import {
+  DEFAULT_SHOE_TIERS, DEFAULT_TROUSER_HEIGHT, OBSTACLE_LIMITS, PULLDOWN_DROP, TV_CENTER_HEIGHT, defaultScreenInches, screenHeight,
+} from './defaults.js';
 import { DomainError, INVALID_OP } from './errors.js';
 import { interiorHeight } from './geometry.js';
 import { compartmentIndex, findDoor, findInsert, requireRange } from './lookup.js';
 import { isSet } from './util.js';
 
 // Which optional fields each insert type takes. Everything else must be absent.
-export const INSERT_FIELDS = Object.freeze({ shoes: ['y', 'tiers'], trousers: ['y', 'height'], pulldown: ['y'], led: [] });
+export const INSERT_FIELDS = Object.freeze({ shoes: ['y', 'tiers'], trousers: ['y', 'height'], pulldown: ['y'], led: [], tv: ['y', 'height'] });
 
 const halfUp = (numerator, denominator) => Math.floor((2 * numerator + denominator) / (2 * denominator));
 
@@ -72,6 +74,12 @@ function addInsert(draft, op, path) {
   const item = { id: op.id || ids.newId(ids.INSERT), type: op.type, y: null, tiers: null, height: null };
   if (op.type === 'shoes') Object.assign(item, { y: op.y ?? 0, tiers: op.tiers ?? DEFAULT_SHOE_TIERS });
   else if (op.type === 'trousers') Object.assign(item, { y: op.y ?? 0, height: op.height ?? DEFAULT_TROUSER_HEIGHT });
+  else if (op.type === 'tv') {
+    const height = op.height ?? screenHeight(defaultScreenInches(draft.compartments[index].width));
+    const floor = draft.carcass.plinthHeight + draft.carcass.panelThickness;
+    const centred = TV_CENTER_HEIGHT - floor - Math.floor(height / 2); // the screen's centre at a seated viewing height
+    Object.assign(item, { height, y: op.y ?? Math.max(0, Math.min(centred, interiorHeight(draft) - height)) });
+  }
   else if (op.type === 'pulldown') item.y = op.y ?? interiorHeight(draft) - PULLDOWN_DROP;
   draft.compartments[index].inserts.push(item);
   return draft;

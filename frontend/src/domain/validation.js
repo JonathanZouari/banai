@@ -161,7 +161,7 @@ function checkCompartment(design, ci) {
 }
 
 // Which of y/tiers/height each insert type takes (the rest must be null).
-const INSERT_FIELDS = { shoes: ['y', 'tiers'], trousers: ['y', 'height'], pulldown: ['y'], led: [] };
+const INSERT_FIELDS = { shoes: ['y', 'tiers'], trousers: ['y', 'height'], pulldown: ['y'], led: [], tv: ['y', 'height'] };
 
 function checkInserts(compartment, base, top, spans) {
   const issues = [];
@@ -181,7 +181,7 @@ function checkInserts(compartment, base, top, spans) {
       return;
     }
     seen.add(item.type);
-    if (item.type === 'shoes' || item.type === 'trousers') {
+    if (item.type === 'shoes' || item.type === 'trousers' || item.type === 'tv') {
       const start = item.y;
       const end = start + (item.type === 'shoes' ? item.tiers * SHOE_TIER : item.height);
       if (start < 0 || end > top) {

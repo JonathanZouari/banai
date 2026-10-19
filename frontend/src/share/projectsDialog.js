@@ -47,6 +47,29 @@ export function createProjectsDialog({ store, newDesign, onOpened, toast, projec
       button('ביטול', () => confirm.close(), { variant: 'ghost', testId: 'project-confirm-cancel' }),
     ],
   });
+  // Deleting a saved project cannot be undone, so it asks first.
+  const deleteText = el('p', { className: 'dialog__text' });
+  let deleting = null;
+  const deleteConfirm = createDialog({
+    title: 'למחוק את הפרויקט?',
+    labelId: 'project-delete-title',
+    testId: 'project-delete',
+    body: [deleteText],
+    actions: [
+      button('מחיקה', () => {
+        if (deleting) {
+          projects.remove(deleting.id);
+          if (current.id === deleting.id) current = { ...current, id: null };
+          status.textContent = `נמחק: ${deleting.name}`;
+        }
+        deleting = null;
+        deleteConfirm.close();
+        renderList();
+      }, { variant: 'primary', testId: 'project-delete-confirm' }),
+      button('ביטול', () => { deleting = null; deleteConfirm.close(); }, { variant: 'ghost', testId: 'project-delete-cancel' }),
+    ],
+  });
+
   const proceed = () => {
     confirm.close();
     const run = pending;
@@ -107,9 +130,9 @@ export function createProjectsDialog({ store, newDesign, onOpened, toast, projec
         if (design && adopt(design, item, 'open')) dialog.close();
       }), { variant: 'secondary', testId: `project-open-${item.id}` });
       const remove = button('מחיקה', () => {
-        projects.remove(item.id);
-        if (current.id === item.id) current = { ...current, id: null };
-        renderList();
+        deleting = item;
+        deleteText.textContent = `"${item.name}" יימחק מהדפדפן הזה, ואי אפשר לשחזר אותו.`;
+        deleteConfirm.open();
       }, { variant: 'ghost', testId: `project-remove-${item.id}` });
       const row = el('li', { className: `project-list__item${item.id === current.id ? ' is-current' : ''}` }, [
         el('div', { className: 'project-list__text' }, [

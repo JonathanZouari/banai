@@ -1,5 +1,6 @@
 // Interior of one compartment (schema v2): presets, inserts and the split door, plus the fields
 // of a selected insert. Every change is ops; the engine decides what fits.
+import { LIMITS, screenHeight, screenInches } from '../domain/defaults.js';
 import { artNode, INSERT_ART, PRESET_ART } from './art.js';
 import { cmField, countField, el, segmented, switchField } from './fields.js';
 import {
@@ -13,7 +14,10 @@ const INSERT_NOTES = Object.freeze({
   shoes: 'מדפים משופעים, 24 ס״מ לקומה.',
   trousers: 'מסגרת נשלפת עם מוטות למכנסיים מקופלים.',
   led: 'פס LED עם חיישן דלת. צריך נקודת חשמל.',
+  tv: 'מסך שטוח לדוגמה על גב התא, 16:9. צריך נקודת חשמל, פתח כבלים ואוורור.',
 });
+// Common screen sizes (inches); the screen's height in the design comes from its diagonal.
+export const SCREEN_SIZES = Object.freeze([32, 40, 43, 50, 55, 65, 75]);
 
 function tile({ className, art, label, testId, pressed = null, onClick }) {
   const node = el('button', { className, attrs: { type: 'button', 'data-testid': testId, 'data-key': testId } }, [artNode(art), el('span', { text: label })]);
@@ -105,5 +109,16 @@ export function insertFields({ insert, run }) {
   if (insert.y !== null) nodes.push(cmField({ label: 'גובה מהבסיס', mm: insert.y, testId: 'insert-y', onCommit: modify('y') }));
   if (insert.type === 'shoes') nodes.push(countField({ label: 'קומות', value: insert.tiers, testId: 'insert-tiers', onCommit: modify('tiers') }));
   if (insert.type === 'trousers') nodes.push(cmField({ label: 'גובה המתקן', mm: insert.height, testId: 'insert-height', onCommit: modify('height') }));
+  if (insert.type === 'tv') {
+    const current = screenInches(insert.height);
+    const [low, high] = LIMITS.insertHeight;
+    const sizes = [...new Set([...SCREEN_SIZES, current])].filter((n) => n === current || (screenHeight(n) >= low && screenHeight(n) <= high)).sort((a, b) => a - b);
+    const select = el('select', { className: 'field__input', attrs: { id: `screen-size-${id}`, 'data-key': 'screen-size' } },
+      sizes.map((n) => el('option', { text: `${n} אינץ׳`, attrs: { value: String(n) } })));
+    select.value = String(current);
+    select.dataset.testid = 'screen-size';
+    select.addEventListener('change', () => modify('height')(screenHeight(Number(select.value))));
+    nodes.push(el('div', { className: 'field' }, [el('label', { className: 'field__label', text: 'גודל המסך', attrs: { for: `screen-size-${id}` } }), select]));
+  }
   return nodes;
 }

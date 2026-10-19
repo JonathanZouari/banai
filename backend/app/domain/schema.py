@@ -175,7 +175,7 @@ class Rail(StrictModel):
     y: Int
 
 
-InsertType = Literal["pulldown", "shoes", "trousers", "led"]
+InsertType = Literal["pulldown", "shoes", "trousers", "led", "tv"]
 
 
 class Insert(StrictModel):
