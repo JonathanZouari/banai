@@ -58,7 +58,8 @@ function createWardrobe(_draft, op, path) {
     doors: { type: 'none', appearance: defaultAppearance(), items: [] },
     handles: defaultHandles(),
     site: null,
-    fittings: { softClose: true },
+    fittings: { softClose: true, childLock: false, releaseHeight: null },
+    household: { people: [] },
   };
 }
 

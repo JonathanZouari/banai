@@ -25,6 +25,8 @@ LIMITS: dict[str, tuple[int, int]] = {
     "ceiling": (1500, 5000),
     "niche": (300, 10000),
     "clearance": (100, 10000),  # free floor in front of the wardrobe
+    "personHeight": (450, 2300),  # a household member, for scale and child safety
+    "releaseHeight": (900, 2200),  # the child lock's release button, above the floor
     # wall obstacles: x from the wardrobe's left outer face (may be left of it), y from the floor
     "obstacleX": (-5000, 10000),
     "obstacleY": (0, 5000),
@@ -39,6 +41,19 @@ MAX_OBSTACLES = 8  # wall obstacles in one site
 OBSTACLE_LIMITS = {"x": "obstacleX", "y": "obstacleY", "width": "obstacleSize", "height": "obstacleSize"}
 
 DEFAULT_PANEL_THICKNESS = 18
+
+# Child safety (prototype defaults, not research values): a person under CHILD_HEIGHT counts as a child; the
+# lock's release goes at least RELEASE_MIN above the floor and above the tallest child's overhead reach,
+# estimated as 1.3 x height, rounded up to 50 mm.
+CHILD_HEIGHT = 1400
+RELEASE_MIN = 1500
+
+
+def release_height_for(people: list[dict]) -> int:
+    """Where a lock's release button goes so the household's children cannot reach it (mm above the floor)."""
+    children = [p["height"] for p in people if p["height"] < CHILD_HEIGHT]
+    reach = -(-(max(children) * 13) // 500) * 50 if children else 0  # ceil(1.3 x height / 50) x 50
+    return max(RELEASE_MIN, reach)
 DEFAULT_SHELF_THICKNESS = 18
 DEFAULT_SLIDING_DOOR_COUNT = 2
 DEFAULT_PLINTH_HEIGHT = 0  # no plinth unless asked for; new designs from the UI pass one explicitly

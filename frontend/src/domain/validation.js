@@ -92,6 +92,8 @@ function checkRanges(design) {
     });
   });
   const site = design.site ?? {};
+  design.household.people.forEach((person, pi) => checks.push([person.height, 'personHeight', `household.people[${pi}].height`]));
+  if (design.fittings.releaseHeight !== null) checks.push([design.fittings.releaseHeight, 'releaseHeight', 'fittings.releaseHeight']);
   for (const field of ['ceiling', 'niche', 'clearance']) {
     if (site[field] !== null && site[field] !== undefined) checks.push([site[field], field, `site.${field}`]);
   }
@@ -104,6 +106,9 @@ function checkRanges(design) {
     for (const [key, limit] of Object.entries(OBSTACLE_LIMITS)) checks.push([item[key], limit, `site.obstacles[${oi}].${key}`]);
   });
   const issues = checks.map(([value, limit, path]) => rangeIssue(value, limit, path)).filter(Boolean);
+  if (design.fittings.childLock && design.fittings.releaseHeight === null) {
+    issues.push(new DomainError(E.SCHEMA_INVALID, 'fittings.releaseHeight', 'child locks need a release height'));
+  }
   if (Array.isArray(site.obstacles) && !site.obstacles.length) {
     issues.push(new DomainError(E.SCHEMA_INVALID, 'site.obstacles', 'no obstacles is null, not an empty list'));
   }

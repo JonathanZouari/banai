@@ -1,4 +1,4 @@
-"""Advisory layer: research-backed, non-blocking guidance on a canonical design (R1-R25).
+"""Advisory layer: research-backed, non-blocking guidance on a canonical design (R1-R26).
 
 Pure: (design, catalog) -> advisories. Every item carries its evidence grade and its source in
 docs/research/carpentry-wardrobes-research.md, so the app explains why instead of claiming a design
@@ -15,7 +15,8 @@ from __future__ import annotations
 import math
 
 from app.domain.apply import apply_ops
-from app.domain.defaults import SHOE_TIER, largest_screen, screen_height, screen_inches, screen_width
+from app.domain.defaults import (CHILD_HEIGHT, SHOE_TIER, largest_screen, release_height_for, screen_height, screen_inches,
+                                 screen_width)
 from app.domain.errors import DomainError
 from app.domain.layout import SLIDE_OVERLAP, SLIDE_TRACK_DEPTH, Layout, layout
 from app.i18n import tr
@@ -91,7 +92,7 @@ def advisories(design: dict, catalog: dict | None) -> list[dict]:
     """All advisories for a canonical, already validated design, most severe first (stable within a level)."""
     out = _Collector(design, catalog)
     lay = layout(design)
-    for rule in (_site, _fittings, _clearance, _obstacles, _hinged_doors, _sliding_doors, _drawers, _spans, _zones, _inserts, _screens, _hanging, _board):
+    for rule in (_site, _children, _fittings, _clearance, _obstacles, _hinged_doors, _sliding_doors, _drawers, _spans, _zones, _inserts, _screens, _hanging, _board):
         rule(design, lay, out)
     return sorted(out.items, key=lambda a: LEVEL_ORDER[a["level"]])
 
@@ -173,6 +174,41 @@ def _fittings(design: dict, lay: Layout, out: _Collector) -> None:
                 tr("צירים ומסילות רגילים זולים יותר, אבל דלתות ומגירות נטרקות. בטריקה שקטה הבולם משולב בציר ובמסילה."),
                 "יצרן", "[2][33]", ["carcass"],
                 out.fix(tr("החזר טריקה שקטה"), [{"op": "set_fittings", "softClose": True}]))
+
+
+def _children(design: dict, lay: Layout, out: _Collector) -> None:
+    """R26: a child in the household (anyone under CHILD_HEIGHT). A wardrobe that tips over onto a child is the
+    main danger: anchor it to the wall [100][103][119]. Then locks on the doors and drawers, with the release out
+    of the children's reach [120]: a deterrent, never a replacement for supervision."""
+    people = design["household"]["people"]
+    children = [p["height"] for p in people if p["height"] < CHILD_HEIGHT]
+    if not children:
+        return
+    anchors = 2 + max(0, -(-(lay.width - 1200) // 600))  # as the dossier: 2 up to 120 cm, one more per 60 cm [103]
+    out.add("r26-anchor", "warn", tr("יש ילד בבית: לקבע את הארון לקיר"),
+            tr("ארון שנופל על ילד הוא הסכנה העיקרית: ילדים מטפסים על מגירות ודלתות פתוחות. מעגנים את הארון לשלד הקיר "
+               "ב-{n} עוגנים לפחות, לפני השימוש. בארה״ב חל על ארונות בגדים תקן יציבות מחייב (ASTM F2057-23).", n=anchors),
+            "תקן", "[100][103][119]", ["carcass"])
+    fittings = design["fittings"]
+    need = release_height_for(people)
+    openable = (lay.doors and design["doors"]["type"] != "none") or any(c["drawers"] for c in design["compartments"])
+    if openable and not fittings["childLock"]:
+        out.add("r26-lock", "warn", tr("נעילת ילדים לדלתות ולמגירות"),
+                tr("מנעול סמוי בכל דלת ומגירה, ולחצן שחרור אחד בגובה {h} ס״מ, מעל טווח ההגעה המשוער של ילד עומד. "
+                   "ילד שמטפס עדיין יכול להגיע אליו: המנעול מרתיע, אבל לא מחליף השגחה.", h=cm(need)),
+                "הערכה", "[120]", ["carcass"],
+                out.fix(tr("הוסף נעילת ילדים"), [{"op": "set_fittings", "childLock": True, "releaseHeight": need}]))
+    elif fittings["childLock"] and (fittings["releaseHeight"] or 0) < need:
+        out.add("r26-release", "warn", tr("לחצן השחרור בהישג יד של ילד"),
+                tr("הלחצן בגובה {h} ס״מ, וילד בגובה {c} ס״מ מגיע עם יד מורמת לכ-{r} ס״מ (הערכה: פי 1.3 מהגובה).",
+                   h=cm(fittings["releaseHeight"] or 0), c=cm(max(children)), r=cm(max(children) * 1.3)),
+                "הערכה", "[120]", ["carcass"],
+                out.fix(tr("הגבה ל-{h} ס״מ", h=cm(need)), [{"op": "set_fittings", "releaseHeight": need}]))
+    if fittings["childLock"] and (fittings["releaseHeight"] or 0) > lay.height - 50:
+        out.add("r26-release-wall", "info", tr("הלחצן מעל גובה הארון"),
+                tr("הלחצן בגובה {h} ס״מ והארון {w} ס״מ: מתקינים אותו על הקיר ליד הארון, באותו גובה.",
+                   h=cm(fittings["releaseHeight"]), w=cm(lay.height)),
+                "הערכה", "[120]", ["carcass"])
 
 
 SCREEN_SIDE_AIR = 100  # mm each side: Sony's ~4 inches of side ventilation [118]

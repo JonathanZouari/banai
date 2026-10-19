@@ -37,7 +37,7 @@ describe('a carcass on legs', () => {
   });
 
   it('soft close is on by default and can be switched off', () => {
-    expect(basic.fittings).toEqual({ softClose: true });
+    expect(basic.fittings).toEqual({ softClose: true, childLock: false, releaseHeight: null });
     expect(applyOps(basic, [{ op: 'set_fittings', softClose: false }], catalog).fittings.softClose).toBe(false);
   });
 });

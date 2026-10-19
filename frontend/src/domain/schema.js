@@ -19,7 +19,7 @@ export const MAX_ITEMS_TOTAL = 300; // shelves + drawers + rails + inserts acros
 export const MAX_INSERTS = 4; // at most one insert of each type per compartment
 
 // Free text from customers / the LLM: no control or bidi-override characters.
-export const SAFE_TEXT_PATTERN = /^[^\x00-\x1f\x7f-\x9f\u200b-\u200d\u2028\u2029\u202a-\u202e\u2066-\u2069\ufeff]+$/;
+export const SAFE_TEXT_PATTERN = /^[^\x00-\x1f\x7f-\x9f\u00ad\u061c\u200b-\u200f\u2028\u2029\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]+$/;
 // Not blank, well-formed UTF-16 (no lone surrogates, which Python rejects), no Unicode tag
 // characters (invisible text usable for prompt injection). Mirrors CustomRef._visible_name.
 const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
@@ -118,6 +118,12 @@ const door = z.strictObject({
   topShelfId: typedId(ids.SHELF).nullable().default(null),
 });
 
+const person = z.strictObject({
+  name: z.string().refine((s) => [...s].length >= 1 && [...s].length <= 30).regex(SAFE_TEXT_PATTERN).refine(isVisibleText)
+    .nullable().default(null), // code points, as Python counts them
+  height: int(),
+});
+
 export const designSchema = z.strictObject({
   // A v1 design is upgraded: its v2 fields take their defaults.
   schemaVersion: z.union([z.literal(1), z.literal(2)]).transform(() => 2),
@@ -138,7 +144,13 @@ export const designSchema = z.strictObject({
   handles: handle.default(defaultHandles),
   site: site.nullable().default(null),
   // Hardware for the whole wardrobe: soft-close hinges and runners, on by default.
-  fittings: z.strictObject({ softClose: z.boolean().default(true) }).default({ softClose: true }),
+  fittings: z.strictObject({
+    softClose: z.boolean().default(true),
+    childLock: z.boolean().default(false), // locks on the doors and drawers...
+    releaseHeight: int().nullable().default(null), // ...released by a button this high above the floor
+  }).default({ softClose: true, childLock: false, releaseHeight: null }),
+  // The people who live with the wardrobe: scale figures, and child-safety advice for anyone under 140 cm.
+  household: z.strictObject({ people: z.array(person).max(6).default([]) }).default({ people: [] }),
 });
 
 export function formatPath(path) {

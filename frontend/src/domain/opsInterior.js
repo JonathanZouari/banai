@@ -4,7 +4,8 @@
 
 import * as ids from './ids.js';
 import {
-  DEFAULT_SHOE_TIERS, DEFAULT_TROUSER_HEIGHT, OBSTACLE_LIMITS, PULLDOWN_DROP, TV_CENTER_HEIGHT, defaultScreenInches, screenHeight,
+  DEFAULT_SHOE_TIERS, DEFAULT_TROUSER_HEIGHT, OBSTACLE_LIMITS, PULLDOWN_DROP, TV_CENTER_HEIGHT, defaultScreenInches, releaseHeightFor,
+  screenHeight,
 } from './defaults.js';
 import { DomainError, INVALID_OP } from './errors.js';
 import { interiorHeight } from './geometry.js';
@@ -306,14 +307,33 @@ function applyZonePreset(draft, compartment, op, path) {
 }
 
 function setFittings(draft, op, path) {
-  if (!isSet(op.softClose) && !isSet(op.base)) throw new DomainError(INVALID_OP, path, 'give softClose or base');
-  if (isSet(op.softClose)) draft.fittings = { ...draft.fittings, softClose: op.softClose };
+  if (![op.softClose, op.base, op.childLock, op.releaseHeight].some(isSet)) {
+    throw new DomainError(INVALID_OP, path, 'give softClose, base, childLock or releaseHeight');
+  }
+  const fittings = { ...draft.fittings };
+  if (isSet(op.softClose)) fittings.softClose = op.softClose;
   if (isSet(op.base)) draft.carcass.base = op.base;
+  if (isSet(op.releaseHeight)) {
+    requireRange(op.releaseHeight, 'releaseHeight', `${path}.releaseHeight`);
+    fittings.releaseHeight = op.releaseHeight;
+  }
+  if (isSet(op.childLock)) {
+    fittings.childLock = op.childLock;
+    if (op.childLock && fittings.releaseHeight === null) fittings.releaseHeight = releaseHeightFor(draft.household.people);
+  }
+  draft.fittings = fittings;
+  return draft;
+}
+
+function setHousehold(draft, op, path) {
+  op.people.forEach((person, i) => requireRange(person.height, 'personHeight', `${path}.people[${i}].height`));
+  draft.household = { people: op.people.map((p) => ({ name: p.name ?? null, height: p.height })) };
   return draft;
 }
 
 export const INTERIOR_HANDLERS = Object.freeze({
   set_fittings: setFittings,
+  set_household: setHousehold,
   apply_preset: applyPreset,
   add_insert: addInsert,
   modify_insert: modifyInsert,

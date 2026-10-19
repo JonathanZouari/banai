@@ -10,7 +10,7 @@ BanAI started as an MVP AI wardrobe designer for standard straight wardrobes. Th
 
 - **Hebrew RTL workspace** (Apple-style): inspector on the right, 3D in the centre, advice and chat on the left. `<html lang="he" dir="rtl">`, Assistant font.
 - **Schema v2:** site (ceiling, niche), plinth, presets, inserts (pull-down rail, shoe shelves, trouser rack, LED), split doors, and **zones** (2–4 per column, each with its own door or none and its own preset; ADR-027).
-- **Advisories** R1–R25 (`/api/advisories`): research-backed, non-blocking, each with an evidence grade, a source and, where possible, a one-click fix dry-run through the engine. The customer decides; advice never restricts a choice ("capabilities, not taste").
+- **Advisories** R1–R26 (`/api/advisories`): research-backed, non-blocking, each with an evidence grade, a source and, where possible, a one-click fix dry-run through the engine. The customer decides; advice never restricts a choice ("capabilities, not taste").
 - **Carpenter dossier PDF** (`/api/dossier`): drawings, cut list, sheet nesting, hardware, estimate and advisories, rendered by headless Chromium.
 - **Render and video:** a WebGL path tracer for a near-photoreal still (the dossier cover), and an MP4 demo of the doors, drawers and pull-down opening, live or path-traced.
 - **Undo/redo** and hold-to-compare against a saved version.
@@ -22,6 +22,13 @@ BanAI started as an MVP AI wardrobe designer for standard straight wardrobes. Th
   - The **conversation** has a session language, picked on the start screen or in the chat header and kept in the browser: the chat column's texts and direction, the agent's replies, the transcription hint and the spoken voice follow it.
   - The rest of the workspace stays Hebrew, and so do the proposal card's change lines (they come from the Hebrew diff).
 - **Wall obstacles and a scale figure** (2026-10-19, ADR-031): up to 8 obstacles on the wall behind (socket, switch, AC, pipes, window, skirting) in the site. Advisory R23 covers them, the viewer draws them dashed over the doors with their names, and the dossier lists them. A "דמות" switch shows a 170 cm scale figure beside the wardrobe (`viewer/figure.js`, hidden in renders and video).
+- **Household and child safety** (2026-10-19):
+  - **Household:** `household.people`, up to 6, each with an optional name and a height, set through `set_household`. They appear as scale figures at their heights beside the wardrobe, with labels, and the views frame them.
+  - **R26:** anyone under 140 cm is a child, which raises:
+    - anchoring the wardrobe [100][103][119]
+    - child locks on the doors and drawers (`fittings.childLock`)
+    - one release button at `releaseHeight`. Its default is the tallest child's estimated standing reach × 1.3, rounded up to 50 mm and at least 1500. It is an estimate, and a climbing child can still reach it.
+  - **Bob:** brings up safety himself when children are mentioned.
 - **The user's list** (2026-10-19):
   - **A warning pop-up:** a change that brings a new warning or critical advisory pops it up over the 3D view, with its quick fix, "שאלו את בוב" (the question is written into the chat, not sent), "הצג" and "השאר כך". It is not modal, and it can be switched off (`frontend/src/advice/alertSheet.js`).
   - **Projects in the browser:** save, open, delete, and export or import a file (`frontend/src/share/projects*.js`). "חדש" (Alt+N, "ניקוי מסך") starts over and asks first about unsaved changes. There is no server and no account.
@@ -128,7 +135,7 @@ python .claude/hooks/install_git_hooks.py      # (repo root) the Obsidian post-c
 - **API responses** use the envelope `{success, data, error}`. Error messages are English and never echo input; the UI shows Hebrew text by `error.code`.
 - **bobHabanai modules.**
   - `backend/app/domain/layout.py`: manufacturing geometry (full-overlay and split doors, sliding panels, hinges by height and weight). The viewer, the advisories and the dossier all follow it, so the 3D, the advice and the PDF describe the same wardrobe.
-  - `backend/app/advice/rules.py`: R1–R25. A quick fix is an op list that must apply through `apply_ops` and clear its own advisory (a test checks every one).
+  - `backend/app/advice/rules.py`: R1–R26. A quick fix is an op list that must apply through `apply_ops` and clear its own advisory (a test checks every one).
   - `backend/app/production/` (parts, boards, nesting, estimate, drawings) and `backend/app/dossier/` (Jinja2 templates, Chromium with JavaScript off and every non-`data:` request aborted).
   - `backend/app/agent/`: the chat turn, the prompt, signed proposals, transcription and speech. `backend/app/api/voice.py` takes multipart audio up to 1 MiB (declared type checked against the magic bytes, two transcriptions at a time) and, on `/api/voice/speak`, returns MP3 for a reply (text cleaned and cut at a sentence end, two at a time, `Cache-Control: no-store`). A chat request with `spoken: true` asks the agent to answer for the ear.
   - `frontend/src/viewer/`: builders, motion (one spring per moving part), `pathtrace.js`. `frontend/src/render/`: the render HUD and the video recorder (Mediabunny, explicit timestamps).
@@ -161,7 +168,11 @@ python .claude/hooks/install_git_hooks.py      # (repo root) the Obsidian post-c
 
 ## Gotchas
 
-- **Patch scripts and reruns:** a patch whose new text still contains its anchor is applied again on a rerun. This once tripled a block in `defaults.py` and `defaults.js`. Make patches idempotent (skip when the new text is already there), and run `ruff` (F811) after a rerun.
+- **Patch scripts and reruns:**
+  - A patch whose new text still contains its anchor is applied again on a rerun. This once tripled a block in `defaults.py` and `defaults.js`.
+  - The opposite check, skipping a patch when its new text is already present, misfires when the new text is part of the old (a removal). That once left a panel section rendered twice.
+  - Make each patch say what it means. After a rerun, run `ruff` (F811/F601) and grep for duplicated markers.
+  - The Write tool can also turn `\u00ad`-style escapes into literal characters. Scan for them.
 
 - **Panel handlers outlive their render:** the properties panel morphs fresh DOM into the existing fields, so an `onCommit` closure keeps the design it was built with. A handler that computes ops from the current state reads `context.current()` (three quick site readings once lost one this way).
 

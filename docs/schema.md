@@ -184,7 +184,15 @@ v2 is additive. A v1 design parses unchanged and comes out with `schemaVersion: 
 
 Op-level schema errors keep reporting at `ops[i]`, as in v1.
 
-`set_fittings {softClose?, base?}` sets either or both (one of them is required). Advisory R24 covers leg height (90–170 mm, Häfele AXILO [117]) and soft close switched off.
+`set_fittings {softClose?, base?, childLock?, releaseHeight?}` sets any of them (one is required). Turning `childLock` on with no `releaseHeight` sets it from the household: the tallest child's estimated standing reach (× 1.3, rounded up to 50 mm), at least 1500. Validation requires a release height whenever `childLock` is on.
+
+| `household: { people }` | `{ people: [] }` | Up to 6 people `{ name?, height }`. `name` is optional safe text of at most 30 characters, and `height` is 450–2300 mm. They appear as scale figures. Anyone under 1400 mm is a child for advisory R26. Set through `set_household { people }`, which replaces the list. |
+
+Advisory R26 (a child in the household):
+- anchor the wardrobe [100][103][119]
+- child locks with a release button above the children's estimated standing reach [120], with a fix
+- a release that is too low, with a fix
+- a release above the wardrobe (fit it on the wall) Advisory R24 covers leg height (90–170 mm, Häfele AXILO [117]) and soft close switched off.
 
 ## Site (bobHabanai, 2026-10-18)
 

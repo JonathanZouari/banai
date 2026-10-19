@@ -263,15 +263,21 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
     if (t >= 1) animation = null;
   };
   // Views frame the live design, also while a saved version is shown (so a size change stays visible).
-  const dimensionsNow = () => store.getState().design.dimensions;
+  // With the figures shown, the views frame the household beside the wardrobe too.
+  const framed = () => {
+    const { design } = store.getState();
+    if (!figureWanted) return design.dimensions;
+    const { right, height } = figure.extent(design);
+    return { ...design.dimensions, width: Math.max(design.dimensions.width, right), height: Math.max(design.dimensions.height, height) };
+  };
   const setView = (name, { animate = true } = {}) => {
-    const pose = poseFor(store.getState().design, name, camera.fov, camera.aspect);
+    const pose = poseFor({ dimensions: framed() }, name, camera.fov, camera.aspect);
     if (!pose) return;
     setViewName(name);
     moveTo(pose, animate);
   };
   const fitView = ({ animate = true } = {}) => {
-    moveTo(poseAlong(dimensionsNow(), animation?.direction ?? currentDirection(), camera.fov, camera.aspect), animate);
+    moveTo(poseAlong(framed(), animation?.direction ?? currentDirection(), camera.fov, camera.aspect), animate);
   };
   // Manual orbit/pan/zoom leaves the named view and cancels any running animation.
   const onControlsStart = () => {
@@ -370,7 +376,10 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
     }
     if ((ui.showFigure === true) !== figureWanted) {
       figureWanted = ui.showFigure === true;
-      if (!isRendering() && !capture) showFigure(figureWanted);
+      if (!isRendering() && !capture) {
+        showFigure(figureWanted);
+        if (rendered.dimsKey !== null && !comparing) fitView(); // bring the household into the frame, or leave it
+      }
     }
     if (sceneChanged) poseParts();
     if (geometryChanged || selection !== rendered.selection) {

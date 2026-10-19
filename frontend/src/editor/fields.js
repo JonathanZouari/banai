@@ -186,6 +186,11 @@ export function cmField(options) {
   return field;
 }
 
+/** A free-text field (names). `onCommit(text)` returns a result like the other fields. */
+export function textField({ label, value, testId, onCommit }) {
+  return inputField({ label, testId, value, inputMode: 'text', commit: (text) => onCommit(text) });
+}
+
 /** A whole-number field (counts). */
 export function countField({ label, value, testId, onCommit }) {
   return inputField({

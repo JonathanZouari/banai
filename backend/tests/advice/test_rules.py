@@ -61,6 +61,10 @@ SAMPLES = {
     # R24: legs with no height (the fix gives them 10 cm), and soft close switched off (the fix restores it).
     "legs-low": make({"op": "set_fittings", "base": "legs"}),
     "no-soft": make(hinged(), {"op": "set_fittings", "softClose": False}),
+    # R26: a child at home, no locks (the fix adds them); and locks whose release a child can reach (raised).
+    "child": make(hinged(), {"op": "set_household", "people": [{"height": 1800}, {"height": 1050}]}),
+    "child-low-release": make(hinged(), {"op": "set_household", "people": [{"height": 1250}]},
+                              {"op": "set_fittings", "childLock": True, "releaseHeight": 1200}),
     # R25: a 65-inch screen in a ~89 cm compartment (the fix: the largest screen with 10 cm of air each side).
     "screen-wide": make(hinged(), {"op": "add_insert", "compartmentId": "cmp_a", "type": "tv", "height": 809, "id": "ins_tv"}),
     # R23: a socket, an AC unit low enough to lower under, pipes and skirting behind; a window past the side.
@@ -93,7 +97,17 @@ def test_the_samples_cover_every_fix():
     fixed = {a["id"].rsplit("-", 1)[0] if a["id"][-1].isdigit() else a["id"]
              for d in SAMPLES.values() for a in advisories(d, CATALOG) if "fix" in a}
     assert fixed == {"r1-over", "r1-lift", "niche-over", "r12-filler", "r3-wide", "r6-mirror", "r5-depth", "r7-sag",
-                     "r8-rail", "r16-high", "r16-width", "r21-swing", "r23", "r24-legs", "r24-soft", "r25-wide-tv"}
+                     "r8-rail", "r16-high", "r16-width", "r21-swing", "r23", "r24-legs", "r24-soft", "r25-wide-tv", "r26-lock", "r26-release"}
+
+
+def test_child_safety():
+    child = by_id(SAMPLES["child"])
+    assert child["r26-anchor"]["level"] == "warn" and "3 עוגנים" in child["r26-anchor"]["body"]  # 180 cm wide: 2 + 1
+    assert child["r26-lock"]["fix"]["ops"] == [{"op": "set_fittings", "childLock": True, "releaseHeight": 1500}]
+    low = by_id(SAMPLES["child-low-release"])
+    assert low["r26-release"]["fix"]["ops"] == [{"op": "set_fittings", "releaseHeight": 1650}]  # ceil(1.3 x 1250 / 50) x 50
+    adults = by_id(make(hinged(), {"op": "set_household", "people": [{"height": 1650}, {"height": 1900}]}))
+    assert not {i for i in adults if i.startswith("r26")}
 
 
 def test_a_screen_in_a_compartment():

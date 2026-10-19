@@ -2025,5 +2025,207 @@
         "code": "OVERLAP"
       }
     }
+  },
+  {
+    "name": "set_household lists the people, each with an optional name",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_household",
+        "people": [
+          {
+            "name": "אבא",
+            "height": 1820
+          },
+          {
+            "height": 1050
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "household": {
+          "people": [
+            {
+              "name": "אבא",
+              "height": 1820
+            },
+            {
+              "name": null,
+              "height": 1050
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "a person's height is in range",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_household",
+        "people": [
+          {
+            "height": 300
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_RANGE",
+        "path": "ops[0].people[0].height"
+      }
+    }
+  },
+  {
+    "name": "at most six people",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_household",
+        "people": [
+          {
+            "height": 1700
+          },
+          {
+            "height": 1700
+          },
+          {
+            "height": 1700
+          },
+          {
+            "height": 1700
+          },
+          {
+            "height": 1700
+          },
+          {
+            "height": 1700
+          },
+          {
+            "height": 1700
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "SCHEMA_INVALID"
+      }
+    }
+  },
+  {
+    "name": "child lock puts the release above the tallest child's reach",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_household",
+        "people": [
+          {
+            "height": 1800
+          },
+          {
+            "height": 1210
+          }
+        ]
+      },
+      {
+        "op": "set_fittings",
+        "childLock": true
+      }
+    ],
+    "expect": {
+      "match": {
+        "fittings": {
+          "childLock": true,
+          "releaseHeight": 1600
+        }
+      }
+    }
+  },
+  {
+    "name": "child lock without children puts the release at 150 cm",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_fittings",
+        "childLock": true
+      }
+    ],
+    "expect": {
+      "match": {
+        "fittings": {
+          "childLock": true,
+          "releaseHeight": 1500
+        }
+      }
+    }
+  },
+  {
+    "name": "a release height out of range is refused",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_fittings",
+        "releaseHeight": 500
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_RANGE",
+        "path": "ops[0].releaseHeight"
+      }
+    }
+  },
+  {
+    "name": "a name must be visible text",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_household",
+        "people": [
+          {
+            "name": "a‮b",
+            "height": 1700
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "SCHEMA_INVALID"
+      }
+    }
+  },
+  {
+    "name": "child locks without a release height are invalid",
+    "base": "two",
+    "mutate": [
+      {
+        "path": [
+          "fittings"
+        ],
+        "value": {
+          "softClose": true,
+          "childLock": true,
+          "releaseHeight": null
+        }
+      }
+    ],
+    "ops": [
+      {
+        "op": "set_fittings",
+        "softClose": true
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "SCHEMA_INVALID",
+        "path": "fittings.releaseHeight"
+      }
+    }
   }
 ]

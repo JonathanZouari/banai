@@ -15,6 +15,7 @@
 - מרווח: בדלת 18 מ"מ עם קידוח 3–4 מ"מ הציר דורש רק 0.7–1.5 מ"מ (יצרן) [1]; מרווח נראה של 2–3 מ"מ הוא כלל אצבע ללא מקור.
 - טריקה שקטה (soft-close) משולבת בציר ב-Blum CLIP top BLUMOTION, ויש גם גרסאות בלי קפיץ [2][1].
 - רגליות מתכווננות לבסיס (יצרן): Häfele AXILO 78 בשלושה דגמים, 90–120, 115–145 ו-140–170 מ"מ, עד 150 ק"ג לרגלית, עם קליפס לצוקל; כיוון של 10–20 מ"מ מלמעלה [117] (תקציר).
+- ילדים (תקן): CPSC הפכה ב-2023 את ASTM F2057-23 לחובה לארונות בגדים מגובה 27 אינץ׳ (~69 ס"מ), עם מבחני יציבות שמדמים ילד עד 27 ק"ג ועד גיל 6; 199 ילדים נהרגו מנפילת רהיטים כאלה ב-2000–2022 [119][100]. מנעולי ילדים מגנטיים (יצרן): המפתח נשמר מחוץ להישג יד של ילדים, והמנעול מרתיע ואינו תחליף להשגחה [120]. גובה ההגעה של ילד לפי גילו לא נמצא בטבלה זמינה (פער); הלחצן מוצב לפי הערכה: פי 1.3 מגובה הילד הגבוה, ולפחות 150 ס"מ.
 - מסך בתוך ארון (יצרן): Sony ממליצה על כ-10 ס"מ אוורור בצדדים ו-5–15 ס"מ מאחור, ומזהירה מהתקנה בארון סגור בלי אוורור [118].
 - מספר צירים (יצרן): לפי Blum, 2 צירים ל-4–6 ק"ג ו-3 ל-6–12 ק"ג (כולל ידית), ובדלת גבוהה וצרה לפחות 3 [3]. בדלתות גבוהות המקורות חלוקים, ו-Salice שמרנית יותר [4][5][6]:
 
@@ -341,3 +342,4 @@
 | 113 | [בניית ארונות](https://www.pro.co.il/carpenters/services/building-cabinets-all-the-steps-to-the-solution) – pro.co.il | 114 | [Wickes](https://www.which.co.uk/reviews/fitted-bedroom-furniture/article/fitted-bedroom-furniture-brands-rated/wickes-fitted-wardrobes-aHLbh8A1XGqV) – Which?, 2022 (תקציר) |
 | 115 | [ביטול](https://www.chamber.org.il/serviceslobby/legal/1857/85665/) – לשכת המסחר, 2018 (תקציר) | 116 | [ביטול ברוכלות](https://www.kolzchut.org.il/he/ביטול_עסקה_ברוכלות) – כל זכות (תקציר) |
 | 117 | [AXILO 78 legs](https://www.cabinetparts.com/p/hafele-furniture-components-levelers-for-cabinets-and-furniture-HAF63776353-p81867) – Häfele via CabinetParts (תקציר) | 118 | [TV ventilation](https://www.sony.co.in/electronics/support/televisions-projectors-lcd-tvs-android-/k-43s25/articles/00029129) – Sony |
+| 119 | [CSU tip-over standard](https://cpsc.gov/Newsroom/News-Releases/2023/CPSC-Adopts-Final-Consumer-Product-Safety-Standard-to-Prevent-Tip-overs-of-Dressers-and-Other-Clothing-Storage-Units) – CPSC, 2023 | 120 | [Magnetic locks](https://safetystore.iu.edu/content/Product%20Instructions/Safety%201st/SF%20Magnetic%20Locking%20Sys%204%20pk%20-%208%20pk%20instructions.pdf) – Safety 1st |

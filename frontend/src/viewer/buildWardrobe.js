@@ -15,7 +15,7 @@ export function buildWardrobe(design, materials, { doorsVisible = true, hardware
   const group = new THREE.Group();
   group.name = 'wardrobe';
   group.add(
-    ...buildCarcass(frame, carcassMaterial, materials.metal),
+    ...buildCarcass(frame, carcassMaterial, materials.metal, materials.release),
     ...buildPartitions(design, frame, carcassMaterial),
     ...buildCompartmentItems(design, frame, materials),
     ...buildInserts(design, frame, materials),

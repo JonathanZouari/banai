@@ -52,6 +52,9 @@ export function diffDesigns(a, b) {
   dim('צוקל', a.carcass.plinthHeight, b.carcass.plinthHeight);
   if ((a.carcass.base ?? 'plinth') !== (b.carcass.base ?? 'plinth')) out.push(`בסיס: ${b.carcass.base === 'legs' ? 'רגליות' : 'צוקל'}`);
   if ((a.fittings?.softClose ?? true) !== (b.fittings?.softClose ?? true)) out.push(`טריקה שקטה: ${b.fittings?.softClose === false ? 'בלי' : 'עם'}`);
+  if ((a.fittings?.childLock ?? false) !== (b.fittings?.childLock ?? false)) out.push(`נעילת ילדים: ${b.fittings?.childLock ? 'עם' : 'בלי'}`);
+  dim('לחצן שחרור', a.fittings?.releaseHeight ?? null, b.fittings?.releaseHeight ?? null);
+  if ((a.household?.people?.length ?? 0) !== (b.household?.people?.length ?? 0)) out.push(`בני הבית: ${b.household?.people?.length ?? 0}`);
   dim('תקרה', a.site?.ceiling ?? null, b.site?.ceiling ?? null);
   dim('נישה', a.site?.niche ?? null, b.site?.niche ?? null);
   dim('מרחב מול הארון', a.site?.clearance ?? null, b.site?.clearance ?? null);

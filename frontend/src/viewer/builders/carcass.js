@@ -18,7 +18,7 @@ export function legPositions(frame) {
   return xs.flatMap((x) => [[x, -LEG_INSET], [x, -frame.depth + LEG_INSET]]);
 }
 
-export function buildCarcass(frame, material, legMaterial = material) {
+export function buildCarcass(frame, material, legMaterial = material, releaseMaterial = null) {
   const { width, height, depth, panel, plinth, baseY, innerHeight, legs } = frame;
   const userData = (part) => ({ componentId: 'carcass', kind: 'carcass', part });
   const innerW = width - 2 * panel;
@@ -35,6 +35,13 @@ export function buildCarcass(frame, material, legMaterial = material) {
       userData: userData('back'),
     }),
   ];
+  if (frame.release) { // the child lock's release: a disc on the right side, near the front, at an adult height
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(toM(18), toM(18), toM(8), 24), releaseMaterial ?? legMaterial);
+    disc.rotation.z = Math.PI / 2;
+    disc.position.set(toM(width + 4), toM(frame.release), toM(-70));
+    disc.userData = userData('release');
+    parts.push(disc);
+  }
   if (legs && plinth > 0) {
     const geometry = new THREE.CylinderGeometry(toM(LEG_RADIUS), toM(LEG_RADIUS), toM(plinth), 20);
     legPositions(frame).forEach(([x, z], i) => {

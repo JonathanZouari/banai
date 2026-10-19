@@ -40,7 +40,7 @@ MAX_ITEMS_TOTAL = 300  # shelves + drawers + rails + inserts across the whole de
 MAX_INSERTS = 4  # at most one insert of each type per compartment
 
 # Free text from customers / the LLM: no control or bidi-override characters.
-SAFE_TEXT_PATTERN = r"^[^\x00-\x1f\x7f-\x9f\u200b-\u200d\u2028\u2029\u202a-\u202e\u2066-\u2069\ufeff]+$"
+SAFE_TEXT_PATTERN = r"^[^\x00-\x1f\x7f-\x9f\u00ad\u061c\u200b-\u200f\u2028\u2029\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]+$"
 # Unknown keys are only named in an error path when they are plain identifiers.
 SAFE_KEY_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,39}$")
 
@@ -138,6 +138,27 @@ class Fittings(StrictModel):
     (Blum BLUMOTION is built into the hinge [research 2]); on by default, as the dossier always assumed."""
 
     soft_close: bool = True
+    # Child safety: locks on the doors and drawers, released by a button at release_height (mm above the floor).
+    child_lock: bool = False
+    release_height: Int | None = None
+
+
+class Person(StrictModel):
+    """Someone who lives with the wardrobe: a scale figure in 3D and, under CHILD_HEIGHT, child-safety advice."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=30, pattern=SAFE_TEXT_PATTERN)
+    height: Int
+
+    @field_validator("name")
+    @classmethod
+    def _visible_name(cls, value: str | None) -> str | None:
+        if value is not None and (not value.strip() or any(0xE0000 <= ord(ch) <= 0xE007F for ch in value)):
+            raise ValueError("name must be visible text")
+        return value
+
+
+class Household(StrictModel):
+    people: list[Person] = Field(default_factory=list, max_length=6)
 
 
 class Dimensions(StrictModel):
@@ -263,6 +284,7 @@ class Design(StrictModel):
     handles: Handle = Field(default_factory=_default_handles)
     site: Site | None = None
     fittings: Fittings = Field(default_factory=Fittings)
+    household: Household = Field(default_factory=Household)
 
     @field_validator("compartments")
     @classmethod

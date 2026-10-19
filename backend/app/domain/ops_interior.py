@@ -11,7 +11,7 @@ import copy
 from app.domain import ids
 from app.domain import ops as op_types
 from app.domain.defaults import (DEFAULT_SHOE_TIERS, DEFAULT_TROUSER_HEIGHT, OBSTACLE_LIMITS, PULLDOWN_DROP,
-                                 TV_CENTER_HEIGHT, default_screen_inches, screen_height)
+                                 TV_CENTER_HEIGHT, default_screen_inches, release_height_for, screen_height)
 from app.domain.errors import INVALID_OP, DomainError
 from app.domain.geometry import interior_height
 from app.domain.lookup import compartment_index, find_door, find_insert, require_range
@@ -328,17 +328,34 @@ def set_zone_door(draft: dict, op: op_types.SetZoneDoor, path: str) -> dict:
 
 
 def set_fittings(draft: dict, op: op_types.SetFittings, path: str) -> dict:
-    if op.soft_close is None and op.base is None:
-        raise DomainError(INVALID_OP, path, "give softClose or base")
+    if op.soft_close is None and op.base is None and op.child_lock is None and op.release_height is None:
+        raise DomainError(INVALID_OP, path, "give softClose, base, childLock or releaseHeight")
+    fittings = dict(draft["fittings"])
     if op.soft_close is not None:
-        draft["fittings"] = {**draft["fittings"], "softClose": op.soft_close}
+        fittings["softClose"] = op.soft_close
     if op.base is not None:
         draft["carcass"]["base"] = op.base
+    if op.release_height is not None:
+        require_range(op.release_height, "releaseHeight", f"{path}.releaseHeight")
+        fittings["releaseHeight"] = op.release_height
+    if op.child_lock is not None:
+        fittings["childLock"] = op.child_lock
+        if op.child_lock and fittings["releaseHeight"] is None:  # out of the household's children's reach
+            fittings["releaseHeight"] = release_height_for(draft["household"]["people"])
+    draft["fittings"] = fittings
+    return draft
+
+
+def set_household(draft: dict, op: op_types.SetHousehold, path: str) -> dict:
+    for i, person in enumerate(op.people):
+        require_range(person.height, "personHeight", f"{path}.people[{i}].height")
+    draft["household"] = {"people": [{"name": p.name, "height": p.height} for p in op.people]}
     return draft
 
 
 INTERIOR_HANDLERS = {
     op_types.SetFittings: set_fittings,
+    op_types.SetHousehold: set_household,
     op_types.ApplyPreset: apply_preset,
     op_types.AddInsert: add_insert,
     op_types.ModifyInsert: modify_insert,

@@ -359,6 +359,12 @@ async function boot() {
   bindHistory(store);
   bindCompare(store);
   const { feed, alerts } = bindAdvice(store, viewer);
+  let peopleCount = store.getState().design.household?.people?.length ?? 0;
+  store.subscribe((state) => {
+    const count = state.design.household?.people?.length ?? 0;
+    if (count > peopleCount && !state.ui.showFigure) store.setShowFigure(true); // a new person is seen at once
+    peopleCount = count;
+  });
   const hud = bindRenderAndDossier(store, viewer);
   bindVideoMenu(document.querySelector('.video-menu'), { viewer, getDesign: () => store.getState().design, toast, isBusy: () => hud.isActive() });
   // Projects in this browser. "חדש" (Alt+N) is "ניקוי מסך": start over, asking first about unsaved changes.

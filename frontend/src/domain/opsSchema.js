@@ -5,7 +5,9 @@
 import { z } from 'zod';
 import { DomainError, SCHEMA_INVALID } from './errors.js';
 import * as ids from './ids.js';
-import { MAX_SITE_OBSTACLES, handleFinish, handleStyle, insertType, int, list, obstacle, ref, schemaError, typedId } from './schema.js';
+import {
+  MAX_SITE_OBSTACLES, SAFE_TEXT_PATTERN, handleFinish, handleStyle, insertType, int, isVisibleText, list, obstacle, ref, schemaError, typedId,
+} from './schema.js';
 
 export const MAX_OPS = 100;
 
@@ -55,7 +57,15 @@ export const opSchema = z.discriminatedUnion('op', [
   }),
   op('remove_component', { id: z.string().regex(ids.ANY_ID_PATTERN) }),
   // ---- schema v2 ----
-  op('set_fittings', { softClose: opt(z.boolean()), base: opt(z.enum(['plinth', 'legs'])) }),
+  op('set_fittings', {
+    softClose: opt(z.boolean()), base: opt(z.enum(['plinth', 'legs'])), childLock: opt(z.boolean()), releaseHeight: opt(int()),
+  }),
+  op('set_household', {
+    people: z.array(z.strictObject({
+      name: z.string().refine((s) => [...s].length >= 1 && [...s].length <= 30).regex(SAFE_TEXT_PATTERN).refine(isVisibleText).nullish(),
+      height: int(),
+    })).max(6),
+  }),
   op('set_site', {
     ceiling: opt(int()), niche: opt(int()),
     heights: opt(z.array(int().nullable()).length(3)), widths: opt(z.array(int().nullable()).length(3)),

@@ -12,6 +12,7 @@ from pydantic import Field, TypeAdapter, ValidationError
 
 from app.domain.errors import SCHEMA_INVALID, DomainError
 from app.domain.schema import (
+    Person,
     MAX_LIST,
     MAX_OBSTACLES,
     Obstacle,
@@ -241,6 +242,15 @@ class SetFittings(StrictModel):
     op: Literal["set_fittings"]
     soft_close: bool | None = None
     base: Literal["plinth", "legs"] | None = None
+    child_lock: bool | None = None
+    release_height: Int | None = None
+
+
+class SetHousehold(StrictModel):
+    """The people who live with the wardrobe (replaces the list; [] clears it)."""
+
+    op: Literal["set_household"]
+    people: list[Person] = Field(max_length=6)
 
 
 class SplitDoor(StrictModel):
@@ -253,7 +263,7 @@ Op = Annotated[
     CreateWardrobe | UpdateDimensions | ConfigureDoors | ModifyDoor | AddCompartment | ModifyCompartment
     | AddPartition | ModifyPartition | AddShelf | ModifyShelf | AddDrawer | ModifyDrawer
     | AddRail | ModifyRail | SetMaterial | SetHandles | RemoveComponent
-    | SetSite | SetFittings | ApplyPreset | AddInsert | ModifyInsert | SplitDoor | SetZones | SetZoneDoor,
+    | SetSite | SetFittings | SetHousehold | ApplyPreset | AddInsert | ModifyInsert | SplitDoor | SetZones | SetZoneDoor,
     Field(discriminator="op"),
 ]
 

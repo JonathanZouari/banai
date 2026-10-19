@@ -107,6 +107,10 @@ def _check_ranges(design: dict) -> list[DomainError]:
             if item["height"] is not None:
                 checks.append((item["height"], "insertHeight", f"compartments[{ci}].inserts[{ii}].height"))
     site = design["site"] or {}
+    for pi, person in enumerate(design["household"]["people"]):
+        checks.append((person["height"], "personHeight", f"household.people[{pi}].height"))
+    if design["fittings"]["releaseHeight"] is not None:
+        checks.append((design["fittings"]["releaseHeight"], "releaseHeight", "fittings.releaseHeight"))
     for field in ("ceiling", "niche", "clearance"):
         if site.get(field) is not None:
             checks.append((site[field], field, f"site.{field}"))
@@ -118,6 +122,8 @@ def _check_ranges(design: dict) -> list[DomainError]:
         for key, limit in OBSTACLE_LIMITS.items():
             checks.append((item[key], limit, f"site.obstacles[{oi}].{key}"))
     issues = [issue for v, limit, path in checks if (issue := range_issue(v, limit, path))]
+    if design["fittings"]["childLock"] and design["fittings"]["releaseHeight"] is None:
+        issues.append(DomainError(codes.SCHEMA_INVALID, "fittings.releaseHeight", "child locks need a release height"))
     if site.get("obstacles") == []:
         issues.append(DomainError(codes.SCHEMA_INVALID, "site.obstacles", "no obstacles is null, not an empty list"))
     for readings, single in SITE_READINGS.items():

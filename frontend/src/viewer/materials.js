@@ -36,7 +36,8 @@ export function createMaterials(catalog, { anisotropy = 1 } = {}) {
   const screenBody = new THREE.MeshStandardMaterial({ color: '#141416', metalness: 0.2, roughness: 0.6 });
   const screenGlass = new THREE.MeshStandardMaterial({ color: '#0b0d12', metalness: 0.6, roughness: 0.08, emissive: '#0a1630', emissiveIntensity: 0.35 });
   const led = new THREE.MeshStandardMaterial({ color: '#fff7ec', emissive: '#ffd8a8', emissiveIntensity: 0, roughness: 0.4 });
-  const fixed = [rail, chrome, metal, led, screenBody, screenGlass];
+  const release = new THREE.MeshStandardMaterial({ color: '#d93025', roughness: 0.4, metalness: 0.1 }); // the child lock's button
+  const fixed = [rail, chrome, metal, led, screenBody, screenGlass, release];
 
   const grainTexture = (grain) => {
     if (!grains.has(grain)) grains.set(grain, createWoodTexture(grain, { anisotropy }));
@@ -63,6 +64,7 @@ export function createMaterials(catalog, { anisotropy = 1 } = {}) {
     metal,
     screenBody,
     screenGlass,
+    release,
     led,
     /** Dispose cached materials the current scene no longer uses (keeps memory bounded). Grain textures stay shared until dispose(). */
     retainOnly(inUse) {

@@ -10,7 +10,7 @@ from pypdf import PdfReader
 from app.domain.defaults import basic_wardrobe
 from app.dossier.render import RenderError, build, html_to_pdf, render_html, render_pdf, row_pages
 from app.i18n import long_date
-from tests.production.samples import CATALOG, DESIGNS, make, png
+from tests.production.samples import CATALOG, DESIGNS, hinged, make, png
 
 KINDS = ["cover", "front", "interior", "exploded", "materials", "estimate", "cutlist", "nesting", "site", "advice"]
 
@@ -118,6 +118,14 @@ def test_a_zoned_dossier():
     assert 8 <= len(reader.pages) <= 40
     text = "\n".join(page.extract_text() for page in reader.pages)
     assert "מדף קבוע" in text and "אזור" in text and "תיק נגר" in text
+
+
+def test_the_household_and_the_child_locks_reach_the_dossier():
+    design = make(hinged(), {"op": "set_household", "people": [{"name": "נועה", "height": 1050}, {"height": 1800}]},
+                  {"op": "set_fittings", "childLock": True})
+    html = render_html(build(design, CATALOG, None, date(2026, 10, 19)))
+    assert "נועה 105 ס״מ · 180 ס״מ" in html
+    assert "מנגנון שחרור מרכזי" in html and "לחצן בגובה 1500 מ״מ" in html
 
 
 def test_the_site_page_lists_the_readings_and_the_clearance():

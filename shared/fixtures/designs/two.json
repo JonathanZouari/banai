@@ -113,6 +113,11 @@
   },
   "site": null,
   "fittings": {
-    "softClose": true
+    "softClose": true,
+    "childLock": false,
+    "releaseHeight": null
+  },
+  "household": {
+    "people": []
   }
 }

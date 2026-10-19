@@ -66,6 +66,16 @@ export function wardrobeSection({ design, catalog, run }) {
     label: 'טריקה שקטה (צירים ומגירות)', checked: design.fittings?.softClose !== false, testId: 'soft-close',
     onChange: (on) => runDoors([{ op: 'set_fittings', softClose: on }]),
   }));
+  wardrobe.append(switchField({
+    label: 'נעילת ילדים (לחצן שחרור בגובה מבוגר)', checked: design.fittings?.childLock === true, testId: 'child-lock',
+    onChange: (on) => runDoors([{ op: 'set_fittings', childLock: on }]),
+  }));
+  if (design.fittings?.childLock) {
+    wardrobe.append(cmField({
+      label: 'גובה לחצן השחרור', mm: design.fittings.releaseHeight, testId: 'release-height',
+      onCommit: (mm) => (mm === null ? { ok: true } : run([{ op: 'set_fittings', releaseHeight: mm }])),
+    }));
+  }
   wardrobe.append(handleControls({
     label: 'ידיות', testPrefix: 'handles', target: 'all', inherited: design.handles, run: runDoors,
   }));

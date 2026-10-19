@@ -18,6 +18,7 @@ export function frameOf(design) {
   const panel = design.carcass.panelThickness;
   const plinth = design.carcass.plinthHeight ?? 0; // v1 objects have no plinth
   const legs = design.carcass.base === 'legs'; // the body stands on adjustable legs as tall as the plinth
+  const release = design.fittings?.childLock ? design.fittings.releaseHeight : null; // the child lock's button
   const sliding = design.doors?.type === 'sliding';
   const shelfDepth = depth - (sliding ? SLIDE_TRACK_DEPTH + SLIDE_SHELF_GAP : SHELF_SETBACK); // layout.py shelf_depth
   const innerBack = -depth + VISUAL.backThickness; // front face of the back panel
@@ -26,7 +27,7 @@ export function frameOf(design) {
   const innerDepth = innerFront - innerBack;
   const partitionDepth = partitionFront - innerBack;
   return {
-    width, height, depth, panel, plinth, legs, sliding, shelfDepth,
+    width, height, depth, panel, plinth, legs, release, sliding, shelfDepth,
     baseY: plinth + panel, // floor height of interior y = 0
     innerWidth: interiorWidth(design),
     innerHeight: interiorHeight(design),

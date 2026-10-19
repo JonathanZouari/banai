@@ -79,7 +79,8 @@ def create_wardrobe(_draft: dict | None, op: op_types.CreateWardrobe, path: str)
         "doors": {"type": "none", "appearance": default_appearance(), "items": []},
         "handles": default_handles(),
         "site": None,
-        "fittings": {"softClose": True},
+        "fittings": {"softClose": True, "childLock": False, "releaseHeight": None},
+        "household": {"people": []},
     }
 
 

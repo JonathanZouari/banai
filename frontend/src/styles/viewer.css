@@ -22,3 +22,6 @@
 }
 /* A wall obstacle's name, small, over its dashed outline. */
 .room-label--small { padding: 0 6px; font-size: 11px; }
+
+/* A scale figure's label: its name and height, above its head. */
+.figure-label { padding: 1px 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.88); border: 1px solid rgba(0, 0, 0, 0.08); color: #3a3a3c; font: 600 11.5px/1.4 var(--font-ui); white-space: nowrap; pointer-events: none; }

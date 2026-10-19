@@ -13,6 +13,7 @@ import { componentSection } from './componentSection.js';
 import { coalesceKey } from './interiorOps.js';
 import { createDragGate } from './liveSlider.js';
 import { siteSection } from './siteSection.js';
+import { householdSection } from './householdSection.js';
 import { wardrobeSection } from './wardrobeSection.js';
 
 const HINT_DEFAULT = 'לחצו על רכיב בתלת-ממד כדי לערוך אותו.';
@@ -107,6 +108,7 @@ export function mountPanel(root, store) {
       wardrobe,
       compartmentsSection(context),
       materials,
+      householdSection(context),
     ];
   };
 

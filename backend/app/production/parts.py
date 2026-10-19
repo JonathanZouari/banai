@@ -416,6 +416,13 @@ def _hardware(design: dict, lay: Layout, parts: list[Part], runner: int | None, 
         long_note = ("" if not long_push else tr(", גרסה ארוכה לדלת מעל {mm} מ״מ", mm=TIP_ON_LONG) if long_push == push_doors
                      else tr(", {n} בגרסה ארוכה (דלת מעל {mm} מ״מ) והשאר בקצרה", n=long_push, mm=TIP_ON_LONG))
         add("מנגנון פתיחה בלחיצה לדלת", push_doors, tr("עם ציר ללא קפיץ") + long_note, None, "[16]")
+    if design["fittings"]["childLock"]:
+        drawers = sum(len(c["drawers"]) for c in comps)
+        doors = len(lay.doors) if design["doors"]["type"] != "none" else 0
+        add("מנעול ילדים סמוי", doors + drawers, tr("לכל דלת ומגירה, מותקן מבפנים"), None, "[120]")
+        add("מנגנון שחרור מרכזי", 1 if doors + drawers else 0,
+            tr("לחצן בגובה {h} מ״מ מהרצפה, על דופן הארון. משחרר את כל המנעולים; צריך נקודת חשמל או סוללה.",
+               h=design["fittings"]["releaseHeight"] or 1500), None, "[120]")
     if lay.legs:
         low, high = leg_range(lay.plinth)
         add("רגלית מתכווננת", legs_for(design), tr("גובה {a}–{b} מ״מ, עד 150 ק״ג לרגלית", a=low, b=high), None, "[117]")
