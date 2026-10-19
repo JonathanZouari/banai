@@ -126,6 +126,21 @@ export function createStore({ design, revision = 1, catalog, now = () => Date.no
       commit({ design: next, revision, selection, history: historyInfo() });
     },
 
+    /**
+     * Open another project, or a new one: validated like any input, with a fresh undo history (the old
+     * project's steps do not belong to it) and a new revision, so a pending chat proposal goes stale.
+     */
+    open(design) {
+      const next = applyOps(design, [], state.catalog);
+      past.length = 0;
+      future.length = 0;
+      last = { key: null, at: -Infinity };
+      commit({
+        design: next, revision: state.revision + 1, selection: null, history: historyInfo(), version: null,
+        ui: { ...state.ui, comparing: false, doorsOpen: false },
+      });
+    },
+
     undo: () => travel(past, future),
     redo: () => travel(future, past),
 

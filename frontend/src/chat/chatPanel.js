@@ -216,6 +216,13 @@ export function mountChat(container, { model, onConfirm, aiSettings, onOpenSetti
       }
       input.focus();
     },
+    /** Write `text` into the composer for the customer to edit and send (never sent from here). */
+    draft(text) {
+      input.value = String(text ?? '').slice(0, MAX_MESSAGE_LENGTH);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    },
     /** Re-render, e.g. after the design revision changed (a pending proposal may now be stale). */
     refresh: render,
   };

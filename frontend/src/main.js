@@ -23,7 +23,8 @@ import {
 } from './chat/chatI18n.js';
 import { mountStartScreen } from './entry/startScreen.js';
 import { openAboutDialog } from './entry/about.js';
-import { createSaveDialog } from './share/saveDialog.js';
+import { createProjectsDialog } from './share/projectsDialog.js';
+import { mountAlertSheet } from './advice/alertSheet.js';
 import { coverPng, createRenderHud } from './render/renderHud.js';
 import { bindVideoMenu } from './render/video.js';
 import { createKeyStorage } from './settings/keyStorage.js';
@@ -32,6 +33,8 @@ import { createAiSettingsDialog } from './settings/aiSettingsDialog.js';
 import { createToast } from './ui/toast.js';
 
 const byId = (id) => document.getElementById(id);
+// Wired once the chat exists (later in boot): asking Bob from a warning, and resetting for a new project.
+const hooks = { askBob: null, onOpened: null };
 const toast = createToast(byId('toast'));
 const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
@@ -194,6 +197,8 @@ function bindAdvice(store, viewer) {
     toast(result.ok ? `עודכן: ${item.fix.label}` : 'התיקון כבר לא מתאים לתכנון. נסו שוב בעוד רגע.');
   };
   mountAdvisoryPanel(byId('advice-view'), { feed, onFix, onShow });
+  // A change that brings a new warning pops it up over the 3D view, with its fix and "ask Bob".
+  const alerts = mountAlertSheet(byId('viewer'), { feed, onFix, onShow, onAsk: (text) => hooks.askBob?.(text) });
   feed.subscribe((state) => {
     const { critical, warn } = countLevels(state.items);
     badge.hidden = critical + warn === 0;
@@ -202,7 +207,7 @@ function bindAdvice(store, viewer) {
   });
   feed.update(store.getState().design);
   store.subscribe((state) => feed.update(state.design));
-  return feed;
+  return { feed, alerts };
 }
 
 /** Render HUD + dossier download (the finished render becomes the dossier cover). */
@@ -353,11 +358,27 @@ async function boot() {
   mountPanel(byId('properties-content'), store);
   bindHistory(store);
   bindCompare(store);
-  const feed = bindAdvice(store, viewer);
+  const { feed, alerts } = bindAdvice(store, viewer);
   const hud = bindRenderAndDossier(store, viewer);
   bindVideoMenu(document.querySelector('.video-menu'), { viewer, getDesign: () => store.getState().design, toast, isBusy: () => hud.isActive() });
-  const save = createSaveDialog();
-  byId('open-save').addEventListener('click', save.open);
+  // Projects in this browser. "חדש" (Alt+N) is "ניקוי מסך": start over, asking first about unsaved changes.
+  // Not Alt+Shift: on Windows that switches the keyboard layout (Hebrew/English).
+  const projects = createProjectsDialog({
+    store, toast, newDesign: () => initial.design, onOpened: (kind) => hooks.onOpened?.(kind),
+  });
+  byId('open-save').addEventListener('click', () => projects.open());
+  byId('new-project').addEventListener('click', () => projects.startNew());
+  document.addEventListener('keydown', (event) => {
+    if (event.isComposing || document.querySelector('dialog[open]')) return;
+    const typing = event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable]');
+    if (event.altKey && !event.shiftKey && !event.ctrlKey && !event.metaKey && event.code === 'KeyN' && !typing) {
+      event.preventDefault();
+      projects.startNew();
+    } else if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.code === 'KeyS') {
+      event.preventDefault();
+      projects.save();
+    }
+  });
   app = { store, hud };
   removeLoading();
   // Compile the path tracer in the background so the first render starts at once. Not on a software
@@ -453,11 +474,11 @@ async function boot() {
   store.subscribe(() => chat.refresh());
 
   if (import.meta.env.DEV) {
-    window.__banai = Object.freeze({ store, viewer, chat: chatModel, aiSettings, feed, hud });
+    window.__banai = Object.freeze({ store, viewer, chat: chatModel, aiSettings, feed, hud, alerts, projects });
   }
 
   byId('open-about')?.addEventListener('click', () => openAboutDialog({ reducedMotion: reducedMotion() }));
-  mountStartScreen({
+  const showStart = () => mountStartScreen({
     reducedMotion: reducedMotion(),
     // A software renderer draws the start screen's wardrobe once instead of animating it.
     still: softwareRenderer(),
@@ -468,6 +489,18 @@ async function boot() {
       chat.focus(entry.composerHint);
     },
   });
+  hooks.askBob = (text) => {
+    tabs.showChat();
+    chat.draft(text);
+  };
+  hooks.onOpened = (kind) => {
+    chatModel.clear();
+    alerts.reset();
+    tabs.showAdvice();
+    if (kind === 'new') showStart(); // a fresh start begins where a visit begins
+    else toast('הפרויקט נפתח');
+  };
+  showStart();
 }
 
 boot().catch(() => {

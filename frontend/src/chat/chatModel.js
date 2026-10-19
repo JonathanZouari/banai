@@ -40,6 +40,7 @@ export function createChatModel({ getRevision, agent = null }) {
   let nextId = 1;
   let proposal = null;
   let thinking = false;
+  let generation = 0; // a cleared conversation drops answers still on their way
   const messages = [];
   const listeners = new Set();
   const notify = () => listeners.forEach((listener) => listener());
@@ -76,18 +77,33 @@ export function createChatModel({ getRevision, agent = null }) {
         .map((m) => ({ role: m.role, content: m.text }));
       thinking = true;
       notify();
+      const turn = generation;
       const done = Promise.resolve()
         .then(() => agent.reply(history, { spoken: Boolean(spoken) }))
         .then((answer) => {
+          if (turn !== generation) return;
           push('assistant', typeof answer === 'string' ? answer : answer.reply);
           if (answer?.proposal) proposal = answer.proposal;
         })
-        .catch((error) => push('system', ct(Object.hasOwn(CHAT_ERRORS, error?.code ?? '') ? CHAT_ERRORS[error.code] : AGENT_ERROR_MESSAGE)))
+        .catch((error) => {
+          if (turn !== generation) return;
+          push('system', ct(Object.hasOwn(CHAT_ERRORS, error?.code ?? '') ? CHAT_ERRORS[error.code] : AGENT_ERROR_MESSAGE));
+        })
         .finally(() => {
+          if (turn !== generation) return;
           thinking = false;
           notify();
         });
       return { ok: true, done };
+    },
+
+    /** A new or opened project: an empty conversation, no proposal, and no late answer from the old one. */
+    clear() {
+      generation += 1;
+      messages.length = 0;
+      proposal = null;
+      thinking = false;
+      notify();
     },
 
     /** Set by the agent integration (Phase 5) or the dev-only demo. */
