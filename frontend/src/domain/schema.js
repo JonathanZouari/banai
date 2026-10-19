@@ -91,6 +91,14 @@ export const obstacle = z.strictObject({
     .nullable().default(null),
 });
 export const MAX_SITE_OBSTACLES = MAX_OBSTACLES;
+// The room around the wardrobe (ADR-037, domain/room.js): a template's floor plan (mm), the wall the wardrobe's
+// back stands against (0-based) and its left face's distance from that wall's start. Mirrors backend Room.
+export const roomShape = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('rect'), width: int(), depth: int() }),
+  z.strictObject({ kind: z.literal('l'), width: int(), depth: int(), cutWidth: int(), cutDepth: int() }),
+  z.strictObject({ kind: z.literal('recess'), width: int(), depth: int(), recessX: int(), recessWidth: int(), recessDepth: int() }),
+]);
+const room = z.strictObject({ shape: roomShape, wall: int(), offset: int() });
 const site = z.strictObject({
   ceiling: int().nullable().default(null),
   niche: int().nullable().default(null),
@@ -154,6 +162,7 @@ export const designSchema = z.strictObject({
   }).default({ softClose: true, childLock: false, releaseHeight: null }),
   // The people who live with the wardrobe: scale figures, and child-safety advice for anyone under 140 cm.
   household: z.strictObject({ people: z.array(person).max(6).default([]) }).default({ people: [] }),
+  room: room.nullable().default(null),
 });
 
 export function formatPath(path) {

@@ -94,20 +94,25 @@ export function wallExtent(design, obstacles) {
   return { x0: Math.min(...xs) - WALL_MARGIN, x1: Math.max(...xs) + WALL_MARGIN, top };
 }
 
-/** The wall and the obstacles as one group, or null without obstacles. dispose() frees its geometry and materials. */
-export function buildObstacles(design, depth) {
+/**
+ * The wall and the obstacles as one group, or null without obstacles. `wall: false` leaves the wall out (the room
+ * plan builds it). dispose() frees its geometry and materials.
+ */
+export function buildObstacles(design, depth, { wall: withWall = true } = {}) {
   const obstacles = (design.site?.obstacles ?? []).filter((o) => Object.hasOwn(OBSTACLE_DEPTH, o.type));
   if (!obstacles.length) return null;
   const m = materialsFor();
   const group = new THREE.Group();
   group.name = 'obstacles';
-  const { x0, x1, top } = wallExtent(design, obstacles);
-  const wall = new THREE.Mesh(new THREE.PlaneGeometry(toM(x1 - x0), toM(top)), m.wall);
-  wall.position.set(toM((x0 + x1) / 2), toM(top / 2), toM(-depth - 1));
-  wall.receiveShadow = true;
-  wall.raycast = () => {};
-  wall.name = 'wall';
-  group.add(wall);
+  if (withWall) {
+    const { x0, x1, top } = wallExtent(design, obstacles);
+    const wall = new THREE.Mesh(new THREE.PlaneGeometry(toM(x1 - x0), toM(top)), m.wall);
+    wall.position.set(toM((x0 + x1) / 2), toM(top / 2), toM(-depth - 1));
+    wall.receiveShadow = true;
+    wall.raycast = () => {};
+    wall.name = 'wall';
+    group.add(wall);
+  }
   obstacles.forEach((o) => {
     const item = new THREE.Group();
     item.name = `obstacle-${o.type}`;

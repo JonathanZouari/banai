@@ -119,5 +119,6 @@
   },
   "household": {
     "people": []
-  }
+  },
+  "room": null
 }

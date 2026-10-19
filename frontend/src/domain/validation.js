@@ -9,6 +9,7 @@ import { LIMITS, OBSTACLE_LIMITS, SHOE_TIER } from './defaults.js';
 import * as E from './errors.js';
 import { DomainError } from './errors.js';
 import { interiorHeight, interiorWidth } from './geometry.js';
+import { SHAPE_LIMITS, roomWalls, shapeIssues } from './room.js';
 import { parseDesign } from './schema.js';
 import { ITEM_KINDS, sum } from './util.js';
 
@@ -105,7 +106,17 @@ function checkRanges(design) {
   (site.obstacles ?? []).forEach((item, oi) => {
     for (const [key, limit] of Object.entries(OBSTACLE_LIMITS)) checks.push([item[key], limit, `site.obstacles[${oi}].${key}`]);
   });
+  const { room } = design;
+  if (room) {
+    for (const [field, limit] of Object.entries(SHAPE_LIMITS[room.shape.kind])) checks.push([room.shape[field], limit, `room.shape.${field}`]);
+    checks.push([room.offset, 'roomOffset', 'room.offset']);
+  }
   const issues = checks.map(([value, limit, path]) => rangeIssue(value, limit, path)).filter(Boolean);
+  if (room) {
+    shapeIssues(room.shape).forEach(([field, message]) => issues.push(new DomainError(E.OUT_OF_BOUNDS, `room.shape.${field}`, message)));
+    const count = roomWalls(room.shape).length;
+    if (room.wall < 0 || room.wall >= count) issues.push(new DomainError(E.OUT_OF_RANGE, 'room.wall', `the room has walls 0..${count - 1}`));
+  }
   (site.obstacles ?? []).forEach((item, oi) => {
     if (item.type === 'other' && !item.name) {
       issues.push(new DomainError(E.SCHEMA_INVALID, `site.obstacles[${oi}].name`, 'an "other" obstacle needs a name'));

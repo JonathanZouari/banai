@@ -67,6 +67,9 @@ SAMPLES = {
                               {"op": "set_fittings", "childLock": True, "releaseHeight": 1200}),
     # R25: a 65-inch screen in a ~89 cm compartment (the fix: the largest screen with 10 cm of air each side).
     "screen-wide": make(hinged(), {"op": "add_insert", "compartmentId": "cmp_a", "type": "tv", "height": 809, "id": "ins_tv"}),
+    # R27: past the end of a 3 m wall (the fix centres it), and tight in a corner with hinged doors (50 mm filler).
+    "room-past": make(hinged(), {"op": "set_room", "shape": {"kind": "rect", "width": 3000, "depth": 3500}, "offset": 2000}),
+    "room-corner": make(hinged(), {"op": "set_room", "shape": {"kind": "rect", "width": 3000, "depth": 3500}, "offset": 0}),
     # R23: a socket, an AC unit low enough to lower under, pipes and skirting behind; a window past the side.
     "obstacles": make(hinged(), {"op": "set_site", "obstacles": [{"type": "socket", "x": 300, "y": 300, "width": 80, "height": 80}, {"type": "ac", "x": 200, "y": 2000, "width": 900, "height": 300}, {"type": "pipe", "x": 1200, "y": 200, "width": 60, "height": 400}, {"type": "panel", "x": -200, "y": 0, "width": 2400, "height": 80}, {"type": "window", "x": 3000, "y": 900, "width": 1200, "height": 1300}]}),
 }
@@ -97,7 +100,8 @@ def test_the_samples_cover_every_fix():
     fixed = {a["id"].rsplit("-", 1)[0] if a["id"][-1].isdigit() else a["id"]
              for d in SAMPLES.values() for a in advisories(d, CATALOG) if "fix" in a}
     assert fixed == {"r1-over", "r1-lift", "niche-over", "r12-filler", "r3-wide", "r6-mirror", "r5-depth", "r7-sag",
-                     "r8-rail", "r16-high", "r16-width", "r21-swing", "r23", "r24-legs", "r24-soft", "r25-wide-tv", "r26-lock", "r26-release"}
+                     "r8-rail", "r16-high", "r16-width", "r21-swing", "r23", "r24-legs", "r24-soft", "r25-wide-tv", "r26-lock", "r26-release",
+                     "r27-past", "r27-left"}
 
 
 def test_child_safety():
@@ -381,3 +385,42 @@ def test_an_obstacle_of_another_kind_needs_a_visible_name():
         obstacle = {"type": "other", "x": 300, "y": 150, "width": 800, "height": 600} | ({"name": name} if name is not None else {})
         issues = validate_design({**base, "site": {**(base["site"] or {}), "obstacles": [obstacle]}}, None)
         assert (not issues) == ok, (name, issues)
+
+
+def test_the_room_on_its_wall():
+    past = by_id(SAMPLES["room-past"])
+    assert past["r27-past"]["fix"]["ops"] == [{"op": "set_room", "offset": 600}]
+    assert "עובר את סופו ב-80 ס״מ" in past["r27-past"]["body"]
+    corner = by_id(SAMPLES["room-corner"])
+    assert corner["r27-left"]["fix"]["ops"] == [{"op": "set_room", "offset": 50}] and "r27-right" not in corner
+    # In the niche of a recess with no doors and no drawers, tight sides need no filler.
+    niche = {"op": "set_room", "shape": {"kind": "recess", "width": 4000, "depth": 3500, "recessX": 1000,
+                                          "recessWidth": 1800, "recessDepth": 700}}
+    assert not {i for i in by_id(make(niche)) if i.startswith("r27")}
+    tight = by_id(make(hinged(), niche))
+    assert {"r27-left", "r27-right"} <= set(tight) and "fix" not in tight["r27-left"]  # no room to move either way
+    wider = by_id(make(hinged(), {"op": "set_room", "shape": {"kind": "rect", "width": 1500, "depth": 3000}}))
+    assert "fix" not in wider["r27-past"]  # 180 cm on a 150 cm wall: no place to centre it
+
+
+def test_the_room_sets_the_clearance_for_r21():
+    # A 2.2 m deep room: 1.6 m in front of a 60 cm deep wardrobe. A measured 70 cm wins over the plan.
+    room = {"op": "set_room", "shape": {"kind": "rect", "width": 4000, "depth": 2200}}
+    assert "r21-swing" not in by_id(make(hinged(), room))
+    narrow = by_id(make(hinged(), {"op": "set_room", "shape": {"kind": "rect", "width": 4000, "depth": 1300}}))
+    assert "r21-swing" in narrow and "70 ס״מ" in narrow["r21-swing"]["body"]
+
+
+def test_a_wardrobe_that_does_not_fit_the_room():
+    deep = by_id(make(hinged(), {"op": "set_room", "shape": {"kind": "rect", "width": 3500, "depth": 1000}}, depth=1100))
+    assert deep["r27-room"]["level"] == "warn" and "fix" not in deep["r27-room"]
+    assert not {"r21-swing", "r27-left", "r27-right"} & set(deep)  # no clearance and no gaps from a plan it breaks
+    flush = by_id(make(hinged(), {"op": "set_room", "shape": {"kind": "rect", "width": 3500, "depth": 1000}}, depth=1000))
+    assert "r27-room" not in flush and "r21-swing" in flush  # front against the wall opposite: 0 cm to open
+
+
+def test_a_filler_only_beside_a_door_or_drawers_at_that_end():
+    # Three compartments, a door only on the middle one: tight in the corner needs no filler.
+    middle = make({"op": "configure_doors", "type": "hinged", "doors": [{"compartmentIds": ["cmp_b"], "hingeSide": "left"}]},
+                  {"op": "set_room", "shape": {"kind": "rect", "width": 3000, "depth": 3500}, "offset": 0}, count=3)
+    assert not {i for i in by_id(middle) if i.startswith("r27")}

@@ -1,0 +1,222 @@
+[
+  {
+    "name": "rectangle, centred on the top wall",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      }
+    ],
+    "walls": [
+      3500,
+      4000,
+      3500,
+      4000
+    ],
+    "front": 3500,
+    "left": 1250,
+    "right": 1250,
+    "fits": true
+  },
+  {
+    "name": "rectangle, in the top-left corner",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        },
+        "wall": 0,
+        "offset": 0
+      }
+    ],
+    "walls": [
+      3500,
+      4000,
+      3500,
+      4000
+    ],
+    "front": 3500,
+    "left": 0,
+    "right": 2500,
+    "fits": true
+  },
+  {
+    "name": "rectangle, on the right wall from its start",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        },
+        "wall": 1,
+        "offset": 0
+      }
+    ],
+    "walls": [
+      3500,
+      4000,
+      3500,
+      4000
+    ],
+    "front": 3000,
+    "left": 0,
+    "right": 3000,
+    "fits": true
+  },
+  {
+    "name": "in the recess: its sides are the niche walls",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "recess",
+          "width": 4000,
+          "depth": 3500,
+          "recessX": 1000,
+          "recessWidth": 2400,
+          "recessDepth": 700
+        }
+      }
+    ],
+    "walls": [
+      1000,
+      700,
+      2400,
+      700,
+      600,
+      3500,
+      4000,
+      3500
+    ],
+    "front": 3700,
+    "left": 700,
+    "right": 700,
+    "fits": true
+  },
+  {
+    "name": "an L room, on the cut's wall: open to the left, a wall close on the right",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "l",
+          "width": 4500,
+          "depth": 4000,
+          "cutWidth": 1500,
+          "cutDepth": 1500
+        },
+        "wall": 2,
+        "offset": 0
+      }
+    ],
+    "walls": [
+      3000,
+      1500,
+      1500,
+      2500,
+      4500,
+      4000
+    ],
+    "front": 2000,
+    "left": 3000,
+    "right": 500,
+    "fits": true
+  },
+  {
+    "name": "an L room: the wardrobe crosses the cut's wall",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "l",
+          "width": 1000,
+          "depth": 4000,
+          "cutWidth": 700,
+          "cutDepth": 2000
+        },
+        "wall": 5,
+        "offset": 1000
+      },
+      {
+        "op": "update_dimensions",
+        "width": 2000,
+        "depth": 600
+      }
+    ],
+    "walls": [
+      300,
+      2000,
+      700,
+      2000,
+      1000,
+      4000
+    ],
+    "fits": false,
+    "front": null,
+    "left": null,
+    "right": null
+  },
+  {
+    "name": "a room shallower than the wardrobe",
+    "ops": [
+      {
+        "op": "update_dimensions",
+        "depth": 1100
+      },
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 1000
+        }
+      }
+    ],
+    "walls": [
+      3500,
+      1000,
+      3500,
+      1000
+    ],
+    "fits": false,
+    "front": null,
+    "left": null,
+    "right": null
+  },
+  {
+    "name": "a room exactly as deep as the wardrobe: nothing in front",
+    "ops": [
+      {
+        "op": "update_dimensions",
+        "depth": 1000
+      },
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 1000
+        }
+      }
+    ],
+    "walls": [
+      3500,
+      1000,
+      3500,
+      1000
+    ],
+    "fits": true,
+    "front": 0,
+    "left": 1250,
+    "right": 1250
+  }
+]

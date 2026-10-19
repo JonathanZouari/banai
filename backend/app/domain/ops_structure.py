@@ -81,6 +81,7 @@ def create_wardrobe(_draft: dict | None, op: op_types.CreateWardrobe, path: str)
         "site": None,
         "fittings": {"softClose": True, "childLock": False, "releaseHeight": None},
         "household": {"people": []},
+        "room": None,
     }
 
 

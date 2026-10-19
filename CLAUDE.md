@@ -29,6 +29,16 @@ BanAI started as an MVP AI wardrobe designer for standard straight wardrobes. Th
   - The rest of the workspace stays Hebrew, and so do the proposal card's change lines (they come from the Hebrew diff).
 - **Wall obstacles and a scale figure** (2026-10-19, ADR-031): up to 8 obstacles on the wall behind (socket, switch, AC, pipes, window, skirting) in the site. Advisory R23 covers them, the viewer builds each one at its real size on the wall (`viewer/obstacles3d.js`: a wall plate, an AC unit, a pipe, a window with a sill, skirting), shows one hidden behind the carcass as a tinted patch over the doors, labels each with its name and size in cm, and the dossier lists them. A "דמות" switch shows a 170 cm scale figure beside the wardrobe (`viewer/figure.js`, hidden in renders and video).
 - **Top bar and workspace** (2026-10-19): "פתיחה" (Ctrl+O) opens the saved projects. The workspace is warm paper with a faint drafting grid (`--color-bg #f3eee6`), and the 3D studio matches (`#efe8dc`). The video menu is bound by `details[data-testid="video-menu"]`: the dossier menu shares the `.video-menu` class.
+- **Room editor** (ADR-037, stages 1–2; 2026-10-19):
+  - **Data:** `room: {shape, wall, offset}` from a template: rectangle, L, or a room with a recess (a niche). `set_room` on both engines. The geometry is in `domain/room.py` and `room.js`, with shared cases in `shared/fixtures/room_geometry.json`.
+  - **3D:** `viewer/walls3d.js` builds the floor and mitred 10 cm walls in the wardrobe's frame. A wall between the camera and the room fades (the cut-away, done per wall in `onBeforeRender`).
+  - **Panel ("החדר"):** template, sizes, and a clickable SVG plan with the walls numbered from 1. Then the wall list, the distance from the wall's left end, and "מרכז על הקיר".
+  - **What the plan feeds:**
+    - The clearance in front, unless the customer measured it. It is used by R21 and by the viewer's swings.
+    - Advisory R27: the wardrobe past its wall, a wardrobe that crosses a wall or leaves the room (`fits()`; it then has no computed clearance), and 5 cm filler strips beside a side wall at an end with a door or drawers.
+    - A "החדר" row in the dossier.
+    - ROOM in Bob's design context: wall lengths and the space around the wardrobe.
+  - **Not built yet (stages 3–4):** openings (an entry door, windows), a floor-plan page in the dossier, and free-form drawing.
 - **Household and child safety** (2026-10-19):
   - **Household:** `household.people`, up to 6, each with an optional name and a height, set through `set_household`. They appear as scale figures at their heights beside the wardrobe, with labels, and the views frame them.
   - **R26:** anyone under 140 cm is a child, which raises:
@@ -179,6 +189,7 @@ python .claude/hooks/install_git_hooks.py      # (repo root) the Obsidian post-c
   - A patch whose new text still contains its anchor is applied again on a rerun. This once tripled a block in `defaults.py` and `defaults.js`.
   - The opposite check, skipping a patch when its new text is already present, misfires when the new text is part of the old (a removal). That once left a panel section rendered twice.
   - Make each patch say what it means. After a rerun, run `ruff` (F811/F601) and grep for duplicated markers.
+  - Never put `\|` in a `sed` pattern: GNU sed reads it as "or". That once rewrote four rows of `docs/schema.md`. Use a Python patch script.
   - The Write tool can also turn `\u00ad`-style escapes into literal characters. Scan for them.
 
 - **Panel handlers outlive their render:** the properties panel morphs fresh DOM into the existing fields, so an `onCommit` closure keeps the design it was built with. A handler that computes ops from the current state reads `context.current()` (three quick site readings once lost one this way).

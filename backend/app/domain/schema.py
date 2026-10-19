@@ -250,6 +250,48 @@ class Site(StrictModel):
     obstacles: Annotated[list[Obstacle], Field(max_length=MAX_OBSTACLES)] | None = None
 
 
+class RectRoom(StrictModel):
+    """A rectangular room (mm)."""
+
+    kind: Literal["rect"]
+    width: Int
+    depth: Int
+
+
+class LRoom(StrictModel):
+    """An L-shaped room: a rectangle with its top-right corner cut away (mm)."""
+
+    kind: Literal["l"]
+    width: Int
+    depth: Int
+    cut_width: Int
+    cut_depth: Int
+
+
+class RecessRoom(StrictModel):
+    """A rectangle with a recess (a niche) going out of its top wall, `recess_x` from the left (mm)."""
+
+    kind: Literal["recess"]
+    width: Int
+    depth: Int
+    recess_x: Int
+    recess_width: Int
+    recess_depth: Int
+
+
+RoomShape = Annotated[RectRoom | LRoom | RecessRoom, Field(discriminator="kind")]
+
+
+class Room(StrictModel):
+    """The room around the wardrobe (ADR-037, app/domain/room.py): a template's floor plan, the wall the
+    wardrobe's back stands against (0-based, clockwise from the top-left corner) and its left face's distance
+    from that wall's start. Ranges and the template's own sense are checked in validation."""
+
+    shape: RoomShape
+    wall: Int
+    offset: Int
+
+
 class Compartment(StrictModel):
     id: CompartmentId
     width: Int
@@ -294,6 +336,7 @@ class Design(StrictModel):
     site: Site | None = None
     fittings: Fittings = Field(default_factory=Fittings)
     household: Household = Field(default_factory=Household)
+    room: Room | None = None
 
     @field_validator("compartments")
     @classmethod

@@ -2307,5 +2307,321 @@
         "path": "site.obstacles[1].name"
       }
     }
+  },
+  {
+    "name": "set_room makes a rectangular room and centres the wardrobe on the top wall",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      }
+    ],
+    "expect": {
+      "match": {
+        "room": {
+          "shape": {
+            "kind": "rect",
+            "width": 3500,
+            "depth": 4000
+          },
+          "wall": 0,
+          "offset": 1250
+        }
+      }
+    }
+  },
+  {
+    "name": "an L-shaped room: the top wall is shortened by the cut",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "l",
+          "width": 4500,
+          "depth": 4000,
+          "cutWidth": 1500,
+          "cutDepth": 1500
+        }
+      }
+    ],
+    "expect": {
+      "match": {
+        "room": {
+          "shape": {
+            "kind": "l",
+            "width": 4500,
+            "depth": 4000,
+            "cutWidth": 1500,
+            "cutDepth": 1500
+          },
+          "wall": 0,
+          "offset": 1000
+        }
+      }
+    }
+  },
+  {
+    "name": "a room with a recess puts the wardrobe in the niche, on its back wall",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "recess",
+          "width": 4000,
+          "depth": 3500,
+          "recessX": 1000,
+          "recessWidth": 2400,
+          "recessDepth": 700
+        }
+      }
+    ],
+    "expect": {
+      "match": {
+        "room": {
+          "shape": {
+            "kind": "recess",
+            "width": 4000,
+            "depth": 3500,
+            "recessX": 1000,
+            "recessWidth": 2400,
+            "recessDepth": 700
+          },
+          "wall": 2,
+          "offset": 700
+        }
+      }
+    }
+  },
+  {
+    "name": "another wall recentres the wardrobe; an offset places it",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "wall": 1
+      }
+    ],
+    "expect": {
+      "match": {
+        "room": {
+          "shape": {
+            "kind": "rect",
+            "width": 3500,
+            "depth": 4000
+          },
+          "wall": 1,
+          "offset": 1500
+        }
+      }
+    }
+  },
+  {
+    "name": "an offset alone moves the wardrobe along its wall",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        },
+        "wall": 3,
+        "offset": 0
+      },
+      {
+        "op": "set_room",
+        "offset": 200
+      }
+    ],
+    "expect": {
+      "match": {
+        "room": {
+          "shape": {
+            "kind": "rect",
+            "width": 3500,
+            "depth": 4000
+          },
+          "wall": 3,
+          "offset": 200
+        }
+      }
+    }
+  },
+  {
+    "name": "clear removes the room",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "clear": true
+      }
+    ],
+    "expect": {
+      "match": {
+        "room": null
+      }
+    }
+  },
+  {
+    "name": "set_room needs a room before a wall or an offset",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "offset": 100
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[0]"
+      }
+    }
+  },
+  {
+    "name": "set_room needs a value or clear",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[0]"
+      }
+    }
+  },
+  {
+    "name": "set_room clear cannot carry values",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        },
+        "clear": true
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[0]"
+      }
+    }
+  },
+  {
+    "name": "a rectangular room has four walls",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        },
+        "wall": 4
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_RANGE",
+        "path": "ops[0].wall"
+      }
+    }
+  },
+  {
+    "name": "an L cut must leave a wall",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "l",
+          "width": 4500,
+          "depth": 4000,
+          "cutWidth": 4300,
+          "cutDepth": 1500
+        }
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_BOUNDS",
+        "path": "room.shape.cutWidth"
+      }
+    }
+  },
+  {
+    "name": "a recess must end before the right wall",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "recess",
+          "width": 4000,
+          "depth": 3500,
+          "recessX": 1000,
+          "recessWidth": 2800,
+          "recessDepth": 700
+        }
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_BOUNDS",
+        "path": "room.shape.recessWidth"
+      }
+    }
+  },
+  {
+    "name": "a room is at least a metre",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 900,
+          "depth": 4000
+        }
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_RANGE",
+        "path": "room.shape.width"
+      }
+    }
   }
 ]

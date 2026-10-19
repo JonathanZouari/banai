@@ -258,3 +258,18 @@ def test_bad_request_details_are_logged_without_the_key():
     assert "BadRequestError status=400 model=gpt-x" in summary and "reasoning_effort" in summary
     auth = openai.AuthenticationError("x", response=httpx2.Response(401, request=request), body={"message": "Incorrect API key provided: sk-abc***wxyz"})
     assert "sk-" not in agent_chat.describe_error(auth, "gpt-x")
+
+
+def test_bob_knows_the_room_and_sees_its_walls_and_space():
+    from app.agent.prompts import design_context
+    from app.domain.apply import apply_ops
+    from app.domain.catalog import load_catalog
+    from app.domain.defaults import basic_wardrobe
+
+    assert "set_room {shape?, wall?, offset?, clear?}" in SYSTEM_PROMPT
+    catalog = load_catalog()
+    design = apply_ops(basic_wardrobe(), [{"op": "set_room", "shape": {"kind": "rect", "width": 3500, "depth": 4000}}], catalog)
+    context = design_context(design, 1, [], {"materials": [], "colors": [], "finishes": []})
+    assert ("ROOM (mm): wall 0 = 3500, wall 1 = 4000, wall 2 = 3500, wall 3 = 4000. The wardrobe is on wall 0, 750 from its "
+            "left end; free floor in front 3400, to the wall on the left 750, on the right 750.") in context
+    assert "ROOM" not in design_context(basic_wardrobe(), 1, [], {"materials": [], "colors": [], "finishes": []})

@@ -60,6 +60,7 @@ function createWardrobe(_draft, op, path) {
     site: null,
     fittings: { softClose: true, childLock: false, releaseHeight: null },
     household: { people: [] },
+    room: null,
   };
 }
 

@@ -29,6 +29,7 @@ from app.domain.schema import (
     RailId,
     Ref,
     ShelfId,
+    RoomShape,
     StrictModel,
     schema_error,
 )
@@ -253,6 +254,18 @@ class SetHousehold(StrictModel):
     people: list[Person] = Field(max_length=6)
 
 
+class SetRoom(StrictModel):
+    """The room (ADR-037): `shape` makes a new one (the wardrobe goes on its default wall, centred); `wall` moves
+    the wardrobe to another wall (centred unless `offset` is given); `offset` places it along its wall; `clear`
+    removes the room."""
+
+    op: Literal["set_room"]
+    shape: RoomShape | None = None
+    wall: Int | None = None
+    offset: Int | None = None
+    clear: bool = False
+
+
 class SplitDoor(StrictModel):
     op: Literal["split_door"]
     id: DoorId
@@ -263,7 +276,7 @@ Op = Annotated[
     CreateWardrobe | UpdateDimensions | ConfigureDoors | ModifyDoor | AddCompartment | ModifyCompartment
     | AddPartition | ModifyPartition | AddShelf | ModifyShelf | AddDrawer | ModifyDrawer
     | AddRail | ModifyRail | SetMaterial | SetHandles | RemoveComponent
-    | SetSite | SetFittings | SetHousehold | ApplyPreset | AddInsert | ModifyInsert | SplitDoor | SetZones | SetZoneDoor,
+    | SetSite | SetFittings | SetHousehold | SetRoom | ApplyPreset | AddInsert | ModifyInsert | SplitDoor | SetZones | SetZoneDoor,
     Field(discriminator="op"),
 ]
 

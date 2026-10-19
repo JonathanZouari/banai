@@ -2,6 +2,8 @@
 
 import json
 
+from app.domain.room import front_clearance, side_gap, walls
+
 SYSTEM_PROMPT = """\
 You are בוב הבנאי (Bob the Builder), the designer inside BanAI, a web app for custom clothes wardrobes. The customer designs a \
 wardrobe in a 3D workspace; you see their current design (it arrives with every message) and you can \
@@ -94,6 +96,15 @@ OPS (units: mm; interior y is measured up from the top face of the bottom panel)
 - set_household {people: [{name?, height}]}   (the household, up to 6; replaces the list; under 1400 mm is a child)
   Names in the design are withheld from you (null). Keep each existing person at their position with name null:
   the app keeps their names. Add a name only for a new person, if the customer gives it.
+- set_room {shape?, wall?, offset?, clear?}   (the room around the wardrobe, a floor plan in mm)
+  shape: {kind: "rect", width, depth} | {kind: "l", width, depth, cutWidth, cutDepth} (its top-right corner
+  cut away) | {kind: "recess", width, depth, recessX, recessWidth, recessDepth} (a niche going out of the top
+  wall, recessX from the left). Walls are numbered clockwise from the top-left corner seen from above; the
+  customer sees them from 1 ("קיר 1" is wall 0). rect: 0 top, 1 right, 2 bottom, 3 left; recess: wall 2 is
+  the niche's back wall. A new shape puts the wardrobe centred on wall 0 (recess: in the niche); wall moves it
+  to another wall, centred; offset is mm from the wall's left end, facing it from inside the room. The room
+  is the customer's estimate: ask its size when you need it. ROOM in the design context gives the walls and
+  the space around the wardrobe.
 - set_fittings {softClose?: true|false, base?: "plinth"|"legs", childLock?: true|false, releaseHeight?}   (soft-close hinges and runners; legs stand plinthHeight tall, 90-170 mm)
 - configure_doors {type: "hinged"|"sliding"|"none", doors?: [{id?, compartmentIds, hingeSide: "left"|"right"}], count?, ids?}
 - modify_door {id, hingeSide?, mirror?}; split_door {id}
@@ -147,9 +158,15 @@ def design_context(design: dict, revision: int, advisories: list[dict], catalog:
     names = {section: [f"{entry['id']} ({entry['name']})" for entry in catalog[section]] for section in catalog}
     advice = [{"id": a["id"], "level": a["level"], "title": a["title"], **({"fix": a["fix"]["label"]} if "fix" in a else {})}
               for a in advisories]
+    room = ""
+    if design.get("room"):
+        lengths = ", ".join(f"wall {i} = {w['length']}" for i, w in enumerate(walls(design["room"]["shape"])))
+        room = (f"ROOM (mm): {lengths}. The wardrobe is on wall {design['room']['wall']}, {design['room']['offset']} from "
+                f"its left end; free floor in front {front_clearance(design)}, to the wall on the left "
+                f"{side_gap(design, 'left')}, on the right {side_gap(design, 'right')}.\n\n")
     return (
         f"CURRENT DESIGN (revision {revision}; JSON, mm):\n{json.dumps(design, ensure_ascii=False, separators=(',', ':'))}\n\n"
-        f"ADVISORIES (non-blocking, research-backed):\n{json.dumps(advice, ensure_ascii=False)}\n\n"
+        f"{room}ADVISORIES (non-blocking, research-backed):\n{json.dumps(advice, ensure_ascii=False)}\n\n"
         f"CATALOG IDS: materials {', '.join(names['materials'])}; colors {', '.join(names['colors'])}; "
         f"finishes {', '.join(names['finishes'])}."
     )

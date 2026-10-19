@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { DomainError, SCHEMA_INVALID } from './errors.js';
 import * as ids from './ids.js';
 import {
-  MAX_SITE_OBSTACLES, SAFE_TEXT_PATTERN, handleFinish, handleStyle, insertType, int, isVisibleText, list, obstacle, ref, schemaError, typedId,
+  MAX_SITE_OBSTACLES, SAFE_TEXT_PATTERN, roomShape, handleFinish, handleStyle, insertType, int, isVisibleText, list, obstacle, ref, schemaError, typedId,
 } from './schema.js';
 
 export const MAX_OPS = 100;
@@ -66,6 +66,7 @@ export const opSchema = z.discriminatedUnion('op', [
       height: int(),
     })).max(6),
   }),
+  op('set_room', { shape: opt(roomShape), wall: opt(int()), offset: opt(int()), clear: z.boolean().default(false) }),
   op('set_site', {
     ceiling: opt(int()), niche: opt(int()),
     heights: opt(z.array(int().nullable()).length(3)), widths: opt(z.array(int().nullable()).length(3)),

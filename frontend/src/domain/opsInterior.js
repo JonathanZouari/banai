@@ -7,7 +7,8 @@ import {
   DEFAULT_SHOE_TIERS, DEFAULT_TROUSER_HEIGHT, OBSTACLE_LIMITS, PULLDOWN_DROP, TV_CENTER_HEIGHT, defaultScreenInches, releaseHeightFor,
   screenHeight,
 } from './defaults.js';
-import { DomainError, INVALID_OP } from './errors.js';
+import { DomainError, INVALID_OP, OUT_OF_RANGE } from './errors.js';
+import { DEFAULT_WALL, centred, roomWalls } from './room.js';
 import { interiorHeight } from './geometry.js';
 import { compartmentIndex, findDoor, findInsert, requireRange } from './lookup.js';
 import { isSet } from './util.js';
@@ -331,9 +332,45 @@ function setHousehold(draft, op, path) {
   return draft;
 }
 
+/** A new room, another wall or another place along it; or no room. Ranges are checked in validation. */
+function setRoom(draft, op, path) {
+  const given = ['shape', 'wall', 'offset'].filter((f) => isSet(op[f]));
+  if (op.clear) {
+    if (given.length) throw new DomainError(INVALID_OP, path, 'clear cannot be combined with new values');
+    draft.room = null;
+    return draft;
+  }
+  if (!given.length) throw new DomainError(INVALID_OP, path, 'give shape, wall or offset, or clear');
+  let room;
+  let recentre;
+  if (isSet(op.shape)) {
+    room = { shape: { ...op.shape }, wall: DEFAULT_WALL[op.shape.kind], offset: 0 };
+    recentre = true;
+  } else if (draft.room) {
+    room = structuredClone(draft.room);
+    recentre = false;
+  } else {
+    throw new DomainError(INVALID_OP, path, 'there is no room yet: give its shape');
+  }
+  if (isSet(op.wall)) {
+    room.wall = op.wall;
+    recentre = true;
+  }
+  const count = roomWalls(room.shape).length;
+  if (room.wall < 0 || room.wall >= count) throw new DomainError(OUT_OF_RANGE, `${path}.wall`, `the room has walls 0..${count - 1}`);
+  if (isSet(op.offset)) {
+    room.offset = op.offset;
+    recentre = false;
+  }
+  if (recentre) room.offset = centred(room.shape, room.wall, draft.dimensions.width);
+  draft.room = room;
+  return draft;
+}
+
 export const INTERIOR_HANDLERS = Object.freeze({
   set_fittings: setFittings,
   set_household: setHousehold,
+  set_room: setRoom,
   apply_preset: applyPreset,
   add_insert: addInsert,
   modify_insert: modifyInsert,

@@ -7,14 +7,17 @@
 //   switches, an AC unit, pipes, a window, skirting), each with its name; one the carcass covers that it
 //   cannot simply cut around (AC, pipes, a window) in the warning colour (it is advisory R23).
 // A swing or a pull-out that crosses the room's line is drawn in the warning colour (it is advisory R21).
-// Visual only: never picked, hidden in the path-traced render and in video frames. The geometry comes from
+// With a room plan (ADR-037) the floor and walls are built in 3D (walls3d.js), and the free floor in front comes
+// from the plan unless the customer measured it. Visual only: never picked, hidden in the path-traced render and in video frames. The geometry comes from
 // pure functions (mm in, mm out) that are unit-tested; the reach estimate is the same as advice R21's.
 import * as THREE from 'three';
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { doorRects } from './builders/doors.js';
 import { frameOf } from './builders/frame.js';
 import { cm } from './format.js';
+import { effectiveClearance } from '../domain/room.js';
 import { buildObstacles } from './obstacles3d.js';
+import { buildWalls } from './walls3d.js';
 import { VISUAL, toM } from './units.js';
 
 const FLOOR_Y = 1.5; // mm above the floor, over the grid and the shadow
@@ -31,7 +34,7 @@ export function drawerReach(frame) {
 /** Each hinged leaf's swing on the floor: { id, points: [[x, z]...] (mm), radius, blocked }. */
 export function doorSwings(design, frame = frameOf(design)) {
   if (design.doors.type !== 'hinged') return [];
-  const room = design.site?.clearance ?? null;
+  const room = effectiveClearance(design);
   const z0 = VISUAL.doorThickness;
   return doorRects(design, frame).map(({ door, x0, width }) => {
     const right = door.hingeSide === 'right';
@@ -49,7 +52,7 @@ export function doorSwings(design, frame = frameOf(design)) {
 
 /** Each drawer compartment's pull-out zone on the floor: { index, x0, x1, reach, blocked } (mm). */
 export function drawerZones(design, frame = frameOf(design)) {
-  const room = design.site?.clearance ?? null;
+  const room = effectiveClearance(design);
   const reach = drawerReach(frame);
   return design.compartments.flatMap((compartment, index) => (compartment.drawers.length
     ? [{ index, x0: frame.ranges[index][0], x1: frame.ranges[index][1], reach, blocked: room !== null && reach > room }]
@@ -58,7 +61,7 @@ export function drawerZones(design, frame = frameOf(design)) {
 
 /** The room's line in front of the wardrobe: { z, x0, x1, label } (mm), or null without a clearance. */
 export function clearanceLine(design, frame = frameOf(design)) {
-  const room = design.site?.clearance ?? null;
+  const room = effectiveClearance(design);
   if (room === null) return null;
   return { z: room, x0: -300, x1: frame.width + 300, label: `מרחב פנוי ${cm(room)} ס״מ` };
 }
@@ -159,8 +162,10 @@ export function createRoomOverlay(scene) {
     group,
     update(design) {
       clear();
-      if (!design.site) return;
+      if (!design.site && !design.room) return;
       const frame = frameOf(design);
+      const roomModel = buildWalls(design); // the room plan's floor and walls (ADR-037)
+      if (roomModel) group.add(roomModel);
       const room = clearanceLine(design, frame);
       if (room) {
         group.add(line([[room.x0, room.z], [room.x1, room.z]].map(onFloor), ROOM_COLORS.room, { dashed: true }));
@@ -179,7 +184,7 @@ export function createRoomOverlay(scene) {
       if (ceiling.length) group.add(line(ceiling.map(onFront), ROOM_COLORS.room));
       // The obstacles at their real size on the wall; one hidden behind the carcass also shows over the doors,
       // x-ray style: a tinted patch and its outline, red when it blocks (R23).
-      const models = buildObstacles(design, frame.depth);
+      const models = buildObstacles(design, frame.depth, { wall: !roomModel }); // the room has its own wall
       if (models) group.add(models);
       obstacleOutlines(design, frame).forEach((o) => {
         const color = o.blocking ? ROOM_COLORS.warn : ROOM_COLORS.room;

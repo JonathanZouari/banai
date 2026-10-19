@@ -59,6 +59,9 @@ export function diffDesigns(a, b) {
   dim('נישה', a.site?.niche ?? null, b.site?.niche ?? null);
   dim('מרחב מול הארון', a.site?.clearance ?? null, b.site?.clearance ?? null);
   // set_site replaces the whole obstacle list: a proposal that drops one must say so on its card.
+  // The room plan (ADR-037): added, removed, or changed (its shape, wall or place along it).
+  if (Boolean(a.room) !== Boolean(b.room)) out.push(b.room ? 'חדר: נוסף' : 'חדר: הוסר');
+  else if (a.room && JSON.stringify(a.room) !== JSON.stringify(b.room)) out.push('חדר: עודכן');
   const obstacles = (d) => d.site?.obstacles ?? [];
   if (obstacles(a).length !== obstacles(b).length) out.push(`מכשולים בקיר: ${obstacles(a).length} ← ${obstacles(b).length}`);
   else if (JSON.stringify(obstacles(a)) !== JSON.stringify(obstacles(b))) out.push('מכשולים בקיר: עודכנו');

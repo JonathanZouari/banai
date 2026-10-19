@@ -12,9 +12,10 @@ from app.domain import ids
 from app.domain import ops as op_types
 from app.domain.defaults import (DEFAULT_SHOE_TIERS, DEFAULT_TROUSER_HEIGHT, OBSTACLE_LIMITS, PULLDOWN_DROP,
                                  TV_CENTER_HEIGHT, default_screen_inches, release_height_for, screen_height)
-from app.domain.errors import INVALID_OP, DomainError
+from app.domain.errors import INVALID_OP, OUT_OF_RANGE, DomainError
 from app.domain.geometry import interior_height
 from app.domain.lookup import compartment_index, find_door, find_insert, require_range
+from app.domain.room import DEFAULT_WALL, centred, walls
 
 # Which optional fields each insert type takes. Everything else must be absent.
 INSERT_FIELDS = {"shoes": ("y", "tiers"), "trousers": ("y", "height"), "pulldown": ("y",), "led": (), "tv": ("y", "height")}
@@ -353,9 +354,40 @@ def set_household(draft: dict, op: op_types.SetHousehold, path: str) -> dict:
     return draft
 
 
+def set_room(draft: dict, op: op_types.SetRoom, path: str) -> dict:
+    """A new room, another wall or another place along it; or no room. Ranges are checked in validation."""
+    given = [f for f in ("shape", "wall", "offset") if getattr(op, f) is not None]
+    if op.clear:
+        if given:
+            raise DomainError(INVALID_OP, path, "clear cannot be combined with new values")
+        draft["room"] = None
+        return draft
+    if not given:
+        raise DomainError(INVALID_OP, path, "give shape, wall or offset, or clear")
+    if op.shape is not None:
+        shape = op.shape.model_dump(by_alias=True)
+        room, recentre = {"shape": shape, "wall": DEFAULT_WALL[shape["kind"]], "offset": 0}, True
+    elif draft.get("room"):
+        room, recentre = copy.deepcopy(draft["room"]), False
+    else:
+        raise DomainError(INVALID_OP, path, "there is no room yet: give its shape")
+    if op.wall is not None:
+        room["wall"], recentre = op.wall, True
+    count = len(walls(room["shape"]))
+    if not 0 <= room["wall"] < count:
+        raise DomainError(OUT_OF_RANGE, f"{path}.wall", f"the room has walls 0..{count - 1}")
+    if op.offset is not None:
+        room["offset"], recentre = op.offset, False
+    if recentre:
+        room["offset"] = centred(room["shape"], room["wall"], draft["dimensions"]["width"])
+    draft["room"] = room
+    return draft
+
+
 INTERIOR_HANDLERS = {
     op_types.SetFittings: set_fittings,
     op_types.SetHousehold: set_household,
+    op_types.SetRoom: set_room,
     op_types.ApplyPreset: apply_preset,
     op_types.AddInsert: add_insert,
     op_types.ModifyInsert: modify_insert,

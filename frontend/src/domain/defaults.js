@@ -27,6 +27,10 @@ export const LIMITS = deepFreeze({
   obstacleX: [-5000, 10000],
   obstacleY: [0, 5000],
   obstacleSize: [10, 5000],
+  // the room (ADR-037): a template's overall size, its parts (a cut, a recess) and where the wardrobe stands
+  roomSize: [1000, 15000],
+  roomPart: [300, 14700],
+  roomOffset: [0, 15000],
   shoeTiers: [1, 6],
   insertHeight: [200, 1500],
   zones: [1, 4],

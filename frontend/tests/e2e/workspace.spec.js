@@ -112,6 +112,7 @@ test.describe('workspace (RTL, schema v2)', () => {
 
   test('a slider drag is one undo step', async ({ page }) => {
     const slider = page.getByTestId('dim-width-slider');
+    await slider.scrollIntoViewIfNeeded(); // the panel is longer than the screen (the room section, ADR-037)
     const box = await slider.boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();

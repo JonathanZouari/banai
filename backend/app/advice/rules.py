@@ -19,6 +19,7 @@ from app.domain.defaults import (CHILD_HEIGHT, SHOE_TIER, largest_screen, releas
                                  screen_width)
 from app.domain.errors import DomainError
 from app.domain.layout import SLIDE_OVERLAP, SLIDE_TRACK_DEPTH, Layout, layout
+from app.domain.room import effective_clearance, fits, side_gap, walls
 from app.i18n import tr
 
 LEVEL_ORDER = {"critical": 0, "warn": 1, "info": 2}
@@ -92,7 +93,7 @@ def advisories(design: dict, catalog: dict | None) -> list[dict]:
     """All advisories for a canonical, already validated design, most severe first (stable within a level)."""
     out = _Collector(design, catalog)
     lay = layout(design)
-    for rule in (_site, _children, _fittings, _clearance, _obstacles, _hinged_doors, _sliding_doors, _drawers, _spans, _zones, _inserts, _screens, _hanging, _board):
+    for rule in (_site, _children, _fittings, _clearance, _room, _obstacles, _hinged_doors, _sliding_doors, _drawers, _spans, _zones, _inserts, _screens, _hanging, _board):
         rule(design, lay, out)
     return sorted(out.items, key=lambda a: LEVEL_ORDER[a["level"]])
 
@@ -291,10 +292,60 @@ def _obstacles(design: dict, lay: Layout, out: _Collector) -> None:
                     "כלל אצבע", "[11]", ["carcass"])
 
 
-def _clearance(design: dict, lay: Layout, out: _Collector) -> None:
-    """R21: room to open the doors and drawers, and to pass, in front of the wardrobe [99]."""
-    room = (design["site"] or {}).get("clearance")
+# R27 (ADR-037): a hinged door or drawers right against a side wall need a filler strip, so the door opens all
+# the way and its handle clears the wall. A carpenters' rule of thumb, not a standard.
+FILLER = 50
+
+
+def _room(design: dict, lay: Layout, out: _Collector) -> None:
+    """R27: the wardrobe on its wall in the room's plan: past the wall's end, or tight against a side wall."""
+    room = design["room"]
     if not room:
+        return
+    width, wall = design["dimensions"]["width"], walls(room["shape"])[room["wall"]]
+    over = room["offset"] + width - wall["length"]
+    if over > 0:
+        fix = out.fix(tr("מרכז על הקיר"), [{"op": "set_room", "offset": (wall["length"] - width) // 2}]) if width <= wall["length"] else None
+        out.add("r27-past", "warn", tr("הארון חורג מהקיר"),
+                tr("קיר {n} באורך {l} ס״מ, והארון ברוחב {w} ס״מ עובר את סופו ב-{x} ס״מ. "
+                   "מזיזים אותו על הקיר, בוחרים קיר אחר או מצמצמים את הרוחב.",
+                   n=room["wall"] + 1, l=cm(wall["length"]), w=cm(width), x=cm(over)),
+                "חישוב", "תוכנית החדר", ["carcass"], fix)
+        return
+    if not fits(design):
+        out.add("r27-room", "warn", tr("הארון לא נכנס בחדר"),
+                tr("לפי תוכנית החדר, הארון ({w}×{d} ס״מ) חוצה קיר או יוצא מהחדר. בודקים את מידות החדר, "
+                   "את הקיר שהארון עומד עליו ואת המיקום לאורכו.", w=cm(width), d=cm(design["dimensions"]["depth"])),
+                "חישוב", "תוכנית החדר", ["carcass"])
+        return
+    # A filler is needed beside a hinged door or drawers at that end of the wardrobe (within 6 cm of the face).
+    hinged = design["doors"]["type"] == "hinged"
+    edge = 60
+    needs = {"left": (hinged and any(d.x0 < edge for d in lay.doors)) or bool(design["compartments"][0]["drawers"]),
+             "right": (hinged and any(d.x0 + d.width > width - edge for d in lay.doors))
+             or bool(design["compartments"][-1]["drawers"])}
+    gaps = {side: side_gap(design, side) for side in ("left", "right")}
+    for side, other in (("left", "right"), ("right", "left")):
+        gap = gaps[side]
+        if gap is None or gap >= FILLER or not needs[side]:
+            continue
+        shift = FILLER - gap
+        fix = None
+        if gaps[other] is not None and gaps[other] - shift >= (FILLER if needs[other] else 0):
+            offset = room["offset"] + (shift if side == "left" else -shift)
+            fix = out.fix(tr("השאר {f} ס״מ מהקיר", f=cm(FILLER)), [{"op": "set_room", "offset": offset}])
+        title = tr("צמוד לקיר משמאל") if side == "left" else tr("צמוד לקיר מימין")
+        out.add(f"r27-{side}", "warn", title,
+                tr("{g} ס״מ בין הארון לקיר. ליד קיר, דלת ציר או מגירה צריכות פס מילוי של כ-{f} ס״מ, "
+                   "כדי שהדלת תיפתח עד הסוף והידית לא תפגע בקיר.", g=cm(gap), f=cm(FILLER)),
+                "כלל אצבע", "פרקטיקה מקובלת", ["carcass"], fix)
+
+
+def _clearance(design: dict, lay: Layout, out: _Collector) -> None:
+    """R21: room to open the doors and drawers, and to pass, in front of the wardrobe [99]. The customer's
+    measurement, else the room's plan (ADR-037)."""
+    room = effective_clearance(design)
+    if room is None:  # 0 is a clearance: the wardrobe's front against the wall opposite
         return
     fired = False
     if design["doors"]["type"] == "hinged" and lay.doors:

@@ -360,3 +360,15 @@ body.is-capturing .viewer-toolbar { opacity: 0.45; pointer-events: none; transit
 .person-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; align-items: end; gap: var(--space-2); margin-bottom: var(--space-2); }
 .person-row > * { min-width: 0; }
 .person-add { display: flex; gap: var(--space-2); margin-bottom: var(--space-2); }
+
+/* The room plan (ADR-037): the floor from above, walls by number, the wardrobe's wall and the wardrobe. */
+.room-sizes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 var(--space-2); }
+.room-plan { display: block; width: 100%; max-width: 280px; height: auto; margin: var(--space-2) auto; }
+.room-plan__floor { fill: #f6efe4; stroke: none; pointer-events: none; }
+.room-plan__hit { stroke: transparent; stroke-width: 18; }
+.room-plan__wall { stroke: #8a7f73; stroke-width: 4; stroke-linecap: square; }
+.room-plan__wall--chosen { stroke: #b4532a; stroke-width: 6; }
+.room-plan__item { cursor: pointer; }
+.room-plan__item:hover .room-plan__wall { stroke: #c8602f; }
+.room-plan__label { font: 600 11px var(--font-sans, system-ui), sans-serif; fill: #5c544b; text-anchor: middle; direction: ltr; }
+.room-plan__wardrobe { fill: rgba(180, 83, 42, 0.18); stroke: #b4532a; stroke-width: 1.5; pointer-events: none; }

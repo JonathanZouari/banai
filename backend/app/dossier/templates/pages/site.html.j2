@@ -13,7 +13,8 @@
         <div><dt>{{ t("עוגנים לשלד") }}</dt><dd>{{ t("{n} (לפי רוחב {w} ס״מ)", n=p.anchors, w=lay.width | cm) }}</dd></div>
 {% if p.obstacles %}        <div><dt>{{ t("מכשולים בקיר") }}</dt><dd>{% for o in p.obstacles %}{{ o }}{% if not loop.last %}<br>{% endif %}{% endfor %}</dd></div>
 {% endif %}{% if p.household %}        <div><dt>{{ t("בני הבית") }}</dt><dd>{{ p.household }}</dd></div>
-{% endif %}        <div><dt>{{ t("מרחב פנוי מול הארון") }}</dt><dd>{% if p.clearance %}{{ num(p.clearance) }}{% else %}{{ t("לא נמסר") }}{% endif %}</dd></div>
+{% endif %}{% if p.room %}        <div><dt>{{ t("החדר") }}</dt><dd>{% for line in p.room %}{{ line }}{% if not loop.last %}<br>{% endif %}{% endfor %}</dd></div>
+{% endif %}        <div><dt>{{ t("מרחב פנוי מול הארון") }}</dt><dd>{% if p.clearance is not none %}{{ num(p.clearance) }}{% if p.clearance_from_room %} {{ t("(מתוכנית החדר)") }}{% endif %}{% else %}{{ t("לא נמסר") }}{% endif %}</dd></div>
         <div><dt>{{ t("מרחב פתיחה מול הארון") }}</dt><dd>{% if p.reach %}{{ num(p.reach | mm) }}{% else %}{{ p.reach_label }}{% endif %}</dd></div>
       </dl>
     </div>

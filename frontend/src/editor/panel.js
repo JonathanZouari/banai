@@ -13,6 +13,7 @@ import { componentSection } from './componentSection.js';
 import { coalesceKey } from './interiorOps.js';
 import { createDragGate } from './liveSlider.js';
 import { siteSection } from './siteSection.js';
+import { roomSection } from './roomSection.js';
 import { householdSection } from './householdSection.js';
 import { wardrobeSection } from './wardrobeSection.js';
 
@@ -105,6 +106,7 @@ export function mountPanel(root, store) {
     return [
       ...(state.selection ? [componentSection(context)] : []),
       siteSection(context),
+      roomSection(context),
       wardrobe,
       compartmentsSection(context),
       materials,

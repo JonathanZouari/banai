@@ -30,6 +30,7 @@ from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import Route, async_playwright
 
 from app.advice.rules import advisories, obstacle_name
+from app.domain.room import front_clearance, side_gap, walls
 from app.domain.layout import Layout, layout
 from app.i18n import LANGUAGES, is_rtl, language, long_date, template, tr
 from app.production import drawings
@@ -209,13 +210,38 @@ def _site(design: dict, lay: Layout, prod: Production) -> dict:
             "reach_label": {"sliding": tr("הזזה, ללא"), "none": tr("ללא דלתות")}.get(doors_type, ""),
             "heights": _readings(site.get("heights"), "heights"),
             "widths": _readings(site.get("widths"), "widths"),
-            "clearance": site.get("clearance"),
+            "clearance": site.get("clearance") if site.get("clearance") is not None else front_clearance(design),
+            "clearance_from_room": site.get("clearance") is None and design["room"] is not None,
+            "room": _room_lines(design),
             "household": " · ".join(tr("{name} {h} ס״מ", name=p["name"], h=cm(p["height"])) if p["name"]
                                     else tr("{h} ס״מ", h=cm(p["height"])) for p in design["household"]["people"]),
             "obstacles": [tr("{name}: {x} ס״מ מקצה הארון השמאלי, {y} ס״מ מהרצפה, {w}×{h} ס״מ", name=obstacle_name(o["type"], o.get("name")),
                              x=cm(o["x"]), y=cm(o["y"]), w=cm(o["width"]), h=cm(o["height"]))
                           for o in site.get("obstacles") or []],
             "checks": _checks(lay, diagonal)}
+
+
+def _room_lines(design: dict) -> list[str]:
+    """The room (ADR-037): its plan, the wall the wardrobe stands on, and the space beside it."""
+    room = design["room"]
+    if not room:
+        return []
+    s = room["shape"]
+    if s["kind"] == "l":
+        plan = tr("חדר בצורת L, {w}×{d} ס״מ, בלי פינה של {cw}×{cd} ס״מ", w=cm(s["width"]), d=cm(s["depth"]),
+                  cw=cm(s["cutWidth"]), cd=cm(s["cutDepth"]))
+    elif s["kind"] == "recess":
+        plan = tr("חדר {w}×{d} ס״מ עם נישה {rw}×{rd} ס״מ, {rx} ס״מ מהפינה השמאלית", w=cm(s["width"]), d=cm(s["depth"]),
+                  rw=cm(s["recessWidth"]), rd=cm(s["recessDepth"]), rx=cm(s["recessX"]))
+    else:
+        plan = tr("חדר מלבני {w}×{d} ס״מ", w=cm(s["width"]), d=cm(s["depth"]))
+    wall = walls(s)[room["wall"]]
+    place = tr("הארון על קיר {n} (באורך {l} ס״מ), {o} ס״מ מקצהו השמאלי", n=room["wall"] + 1, l=cm(wall["length"]),
+               o=cm(room["offset"]))
+    left, right = side_gap(design, "left"), side_gap(design, "right")
+    beside = tr("עד הקיר: משמאל {l} ס״מ, מימין {r} ס״מ", l=cm(left) if left is not None else "—",
+                r=cm(right) if right is not None else "—")
+    return [plan, place, beside]
 
 
 def _readings(values: list | None, kind: str) -> str | None:
