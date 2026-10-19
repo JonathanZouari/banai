@@ -73,7 +73,7 @@ It is generated entirely in the browser. It makes no network calls and never cha
 | Module | Role |
 |---|---|
 | `export/carpenterPlan.js` | **Pure** `(design, catalog, language) → plan`. The plan holds the overview, per-compartment lines, a cut list (identical parts merged), assembly steps and the front-elevation measurements. The assumed construction method is in `ASSUMED_CONSTRUCTION`: configurable prototype values, separate from the render-only `VISUAL`. |
-| `export/pageRenderer.js` | Draws A4 pages at 150 dpi on Canvas 2D: cover with a 3D snapshot, elevation drawing with dimension lines, cut list, then steps. The browser lays out Hebrew RTL, so no fonts are embedded. Text is drawn with `fillText`, never as markup. |
+| `export/pageRenderer.js` | Draws A4 pages at 150 dpi on Canvas 2D, in the BanAI look: the site logo from `ui/logo.js` and the `tokens.css` palette. The pages are:<br>1. A designed **sketch & measurements** sheet: elevation with dimension lines, 3D thumbnail, measurement cards, and a title block with scale and sheet number.<br>2. Compartment details.<br>3. Cut list.<br>4. Steps.<br>Numbers and Latin names keep LTR order on RTL pages. The browser lays out Hebrew RTL, so no fonts are embedded. Text is drawn with `fillText`, never as markup. |
 | `export/pdfWriter.js` | **Pure** minimal PDF 1.4 writer: one JPEG (DCTDecode) per page, 1–60 pages. A design at the domain caps measured 37 pages (6.8 MB, about 1.3 s). |
 | `export/carpenterExport.js` | Orchestrates the steps above and triggers the Blob download. Uses `viewer.snapshot()` for the illustration. |
 
