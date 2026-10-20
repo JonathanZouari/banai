@@ -5,6 +5,7 @@
 // clock and ids are injected, so it is unit-tested.
 
 import { storedCustomer } from './customer.js';
+import { storedRemote } from './remote.js';
 
 export const PROJECTS_KEY = 'banai.projects.v1';
 export const MAX_PROJECTS = 30;
@@ -57,14 +58,16 @@ export function createProjectStore({
     /** A saved project's design and customer details (null when none, or not valid any more), or null. */
     entry(id) {
       const found = read().find((p) => p.id === id);
-      return found ? { design: found.design, customer: storedCustomer(found.customer) } : null;
+      return found ? { design: found.design, customer: storedCustomer(found.customer), remote: storedRemote(found.remote) } : null;
     },
     /** Save a design: a new project, or over `id`. Returns { ok, id } or { ok: false, reason: 'full' | 'storage' }. */
-    save({ id = null, name, design, customer = null }) {
+    save({ id = null, name, design, customer = null, remote = null }) {
       const projects = read();
       const entry = { id: id && ID.test(id) ? id : newId(), name: cleanName(name), savedAt: now(), design };
       const details = storedCustomer(customer);
       if (details) entry.customer = details;
+      const link = storedRemote(remote); // the project's place on the server, so it can be saved there again
+      if (link) entry.remote = link;
       const index = projects.findIndex((p) => p.id === entry.id);
       if (index >= 0) projects[index] = entry;
       else if (projects.length >= MAX_PROJECTS) return { ok: false, reason: 'full' };

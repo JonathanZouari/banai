@@ -43,7 +43,7 @@ describe('details with the project', () => {
   it('are saved and opened with it, and travel in the project file', () => {
     const projects = createProjectStore({ storage: memory(), newId: () => 'project-0001' });
     projects.save({ name: 'חדר שינה', design: { a: 1 }, customer: DANA });
-    expect(projects.entry('project-0001')).toEqual({ design: { a: 1 }, customer: DANA });
+    expect(projects.entry('project-0001')).toEqual({ design: { a: 1 }, customer: DANA, remote: null });
     projects.save({ id: 'project-0001', name: 'חדר שינה', design: { a: 1 } });
     expect(projects.entry('project-0001').customer).toBeNull();
     expect(projects.entry('missing')).toBeNull();

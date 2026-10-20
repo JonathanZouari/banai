@@ -27,6 +27,7 @@ import { mountStartScreen } from './entry/startScreen.js';
 import { openAboutDialog } from './entry/about.js';
 import { createProjectsDialog } from './share/projectsDialog.js';
 import { createCustomerDialog } from './share/customerDialog.js';
+import { parseShareHash } from './share/remote.js';
 import { mountAlertSheet } from './advice/alertSheet.js';
 import { coverPng, createRenderHud } from './render/renderHud.js';
 import { bindVideoMenu } from './render/video.js';
@@ -568,6 +569,8 @@ async function boot() {
     tabs.closeAdvice(); // the question is written into the chat, which is always there
     chat.draft(text);
   };
+  // A shared link (#d=<id>.<token>) opens that project instead of the start screen.
+  const sharedLink = parseShareHash(globalThis.location.hash);
   hooks.onOpened = (kind) => {
     chatModel.clear();
     alerts.reset();
@@ -575,6 +578,8 @@ async function boot() {
     if (kind === 'new') showStart(); // a fresh start begins where a visit begins
     else toast('הפרויקט נפתח');
   };
+  if (sharedLink && await projects.openShared(sharedLink)) return;
+  if (sharedLink) toast('לא הצלחנו לפתוח את הפרויקט מהקישור');
   showStart();
 }
 

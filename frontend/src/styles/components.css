@@ -250,3 +250,7 @@
 .project-list__when { color: var(--color-muted, #6e6e73); font-size: 0.78rem; }
 .project-list__actions { display: flex; gap: 0.3rem; flex: none; }
 .project-list__empty { color: var(--color-muted, #6e6e73); font-size: 0.88rem; }
+
+/* The link to a project kept on the server (ADR-042): the address takes the row, the copy button sits beside it. */
+.project-row--link { flex-wrap: nowrap; align-items: center; }
+.project-row--link .field__input { flex: 1; min-width: 0; direction: ltr; text-align: left; font-size: 0.8rem; }

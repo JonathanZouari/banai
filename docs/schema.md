@@ -247,3 +247,17 @@ A compartment (column) can be divided vertically into 2–4 **zones**. Each zone
 | `split_door` | | The "already split" check counts doors with the same compartment **and** the same anchors, so a zone door can be split. |
 | `remove_component` | a divider | Refused while a door is anchored to it (`INVALID_OP` at `.id`, "a door is anchored to this shelf: change the zones first"). |
 | `add_partition` | | Anchored doors stay on the original (left) compartment; the new compartment opens without them. |
+
+## Projects on the server (bobHabanai, 2026-10-20, ADR-042)
+
+A project kept on the server is a row of `public.designs`: `id` (uuid), `token_hash` (SHA-256 hex of the access token), `name` (1 to 60 safe characters), `design` (jsonb, the canonical design), `customer` (jsonb or null: the customer's details as the browser writes them, camelCase, only the fields that are set), `revision` (starts at 1, +1 per save), `created_at`, `updated_at`. Only the backend reads and writes it.
+
+| Route | Needs | Answers |
+|---|---|---|
+| `POST /api/projects` `{name, design, customer?}` | | 201 `{id, token, revision}` |
+| `GET /api/projects/{id}` | `Authorization: Bearer <token>` | `{id, name, design, customer, revision}` |
+| `PUT /api/projects/{id}` `{name, design, customer?}` | token, `If-Match: <revision>` | `{revision}`; 409 `STALE`; 428 without `If-Match` |
+| `DELETE /api/projects/{id}` | token | `{deleted: true}` |
+
+Errors: 404 `NOT_FOUND` (unknown id and wrong token alike), 422 (engine error, safe text), 429 `BUSY` or `RATE_LIMITED`, 503 `STORAGE_OFF`, `STORAGE_UNAVAILABLE` or `STORAGE_FULL`. A response never echoes the request.
+

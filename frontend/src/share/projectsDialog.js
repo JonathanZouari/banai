@@ -3,8 +3,9 @@
 // only (share/projects.js). Leaving a design with unsaved changes asks first, inside the page.
 import { button, el } from '../editor/fields.js';
 import { createDialog } from '../ui/dialog.js';
-import { sameCustomer } from './customer.js';
-import { DEFAULT_NAME, MAX_NAME, createProjectStore, fileName, projectFile, readProjectFile } from './projects.js';
+import { sameCustomer, storedCustomer } from './customer.js';
+import { DEFAULT_NAME, MAX_NAME, cleanName, createProjectStore, fileName, projectFile, readProjectFile } from './projects.js';
+import { remoteApi, shareHash } from './remote.js';
 
 const SAVE_ERRORS = Object.freeze({
   full: 'אפשר לשמור עד 30 פרויקטים בדפדפן. מחקו פרויקט ישן ונסו שוב.',
@@ -20,10 +21,11 @@ const when = (iso) => {
  * @param newDesign   () => a fresh default design
  * @param onOpened    (kind: 'new' | 'open') => void, after the store holds another design
  * @param toast       (text) => void
+ * @param remote      the server calls (share/remote.js): projects kept on the server and shared by a link (ADR-042)
  */
-export function createProjectsDialog({ store, newDesign, onOpened, toast, projects = createProjectStore() }) {
+export function createProjectsDialog({ store, newDesign, onOpened, toast, projects = createProjectStore(), remote = remoteApi }) {
   // The customer's details (ADR-038) belong to the project: saved, opened and started over with it.
-  let current = { id: null, name: DEFAULT_NAME, saved: store.getState().design, customer: null, savedCustomer: null };
+  let current = { id: null, name: DEFAULT_NAME, saved: store.getState().design, customer: null, savedCustomer: null, remote: null };
   const dirty = () => store.getState().design !== current.saved || !sameCustomer(current.customer, current.savedCustomer);
 
   const nameInput = el('input', { className: 'field__input', attrs: { id: 'project-name', type: 'text', maxlength: String(MAX_NAME), autocomplete: 'off' } });
@@ -87,7 +89,7 @@ export function createProjectsDialog({ store, newDesign, onOpened, toast, projec
   };
 
   function save() {
-    const result = projects.save({ id: current.id, name: nameInput.value || current.name, design: store.getState().design, customer: current.customer });
+    const result = projects.save({ id: current.id, name: nameInput.value || current.name, design: store.getState().design, customer: current.customer, remote: current.remote });
     if (!result.ok) {
       status.textContent = SAVE_ERRORS[result.reason];
       return false;
@@ -100,14 +102,17 @@ export function createProjectsDialog({ store, newDesign, onOpened, toast, projec
     return true;
   }
 
-  function adopt(design, { id = null, name = DEFAULT_NAME, customer = null }, kind) {
+  function adopt(design, { id = null, name = DEFAULT_NAME, customer = null, remote: link = null }, kind) {
     try {
       store.open(design);
     } catch {
       status.textContent = 'הפרויקט פגום ולא נפתח. התכנון הנוכחי לא השתנה.';
       return false;
     }
-    current = { id, name, saved: store.getState().design, customer, savedCustomer: customer };
+    current = { id, name, saved: store.getState().design, customer, savedCustomer: customer, remote: link };
+    // A new project is no longer the shared one: its address loses the link.
+    if (kind === 'new' && globalThis.location?.hash) globalThis.history?.replaceState(null, '', globalThis.location.pathname + globalThis.location.search);
+    renderShare();
     nameInput.value = name === DEFAULT_NAME ? '' : name;
     status.textContent = kind === 'new' ? 'פרויקט חדש.' : `נפתח: ${name}`;
     renderList();
@@ -129,7 +134,7 @@ export function createProjectsDialog({ store, newDesign, onOpened, toast, projec
     list.replaceChildren(...items.map((item) => {
       const open = button('פתיחה', () => guard(`לפני שפותחים את "${item.name}": לשמור את התכנון הנוכחי?`, () => {
         const saved = projects.entry(item.id);
-        if (saved && adopt(saved.design, { ...item, customer: saved.customer }, 'open')) dialog.close();
+        if (saved && adopt(saved.design, { ...item, customer: saved.customer, remote: saved.remote }, 'open')) dialog.close();
       }), { variant: 'secondary', testId: `project-open-${item.id}` });
       const remove = button('מחיקה', () => {
         deleting = item;
@@ -171,6 +176,121 @@ export function createProjectsDialog({ store, newDesign, onOpened, toast, projec
     });
   });
 
+
+  // Projects on the server, shared by a link (ADR-042). The customer's details go there too, but never to Bob.
+  const SHARE_ERRORS = Object.freeze({
+    STALE: 'הפרויקט נשמר ממקום אחר מאז שפתחתם אותו, ולכן לא דרסנו אותו. אפשר לשמור את מה שיש לכם כפרויקט חדש בשרת.',
+    NOT_FOUND: 'הפרויקט כבר לא קיים בשרת, או שהקישור לא נכון.',
+    STORAGE_OFF: 'השרת הזה לא מוגדר לשמור פרויקטים.',
+    STORAGE_UNAVAILABLE: 'מאגר הפרויקטים לא ענה. נסו שוב בעוד רגע.',
+    STORAGE_FULL: 'השרת לא יכול לשמור עוד פרויקטים כרגע.',
+    BUSY: 'השרת עסוק. נסו שוב בעוד רגע.',
+    RATE_LIMITED: 'נשמרו יותר מדי פרויקטים חדשים. נסו שוב מאוחר יותר.',
+    SCHEMA_INVALID: 'התכנון לא עבר את בדיקות השרת, ולכן לא נשמר.',
+  });
+  const shareStatus = el('p', { className: 'dialog__status', attrs: { role: 'status' } });
+  shareStatus.dataset.testid = 'share-status';
+  const linkInput = el('input', { className: 'field__input', attrs: { type: 'text', readonly: '', dir: 'ltr', 'aria-label': 'קישור לפרויקט', autocomplete: 'off' } });
+  linkInput.dataset.testid = 'share-link';
+  const copyLink = button('העתקת הקישור', async () => {
+    try {
+      await navigator.clipboard.writeText(linkInput.value);
+      shareStatus.textContent = 'הקישור הועתק.';
+    } catch {
+      linkInput.select();
+      shareStatus.textContent = 'סמנו והעתיקו את הקישור (Ctrl+C).';
+    }
+  }, { variant: 'ghost', testId: 'share-copy' });
+  const linkRow = el('div', { className: 'project-row project-row--link' }, [linkInput, copyLink]);
+  linkRow.hidden = true;
+  const shareSave = button('שמירה בשרת וקבלת קישור', () => saveToServer(), { variant: 'secondary', testId: 'share-save' });
+  const shareSaveNew = button('שמירה כפרויקט חדש בשרת', () => saveToServer({ asNew: true }), { variant: 'ghost', testId: 'share-save-new' });
+  shareSaveNew.hidden = true;
+  const shareDelete = button('מחיקה מהשרת', () => unshareConfirm.open(), { variant: 'ghost', testId: 'share-delete' });
+  shareDelete.hidden = true;
+  let serverOn = null; // null: not asked yet; the answer comes from /api/health
+  let sharing = false;
+
+  const unshareConfirm = createDialog({
+    title: 'למחוק את הפרויקט מהשרת?',
+    labelId: 'share-delete-title',
+    testId: 'share-delete-dialog',
+    body: [el('p', { className: 'dialog__text', text: 'הקישור יפסיק לעבוד לכל מי שיש לו אותו. הפרויקט נשאר בדפדפן הזה, ואפשר לשמור אותו בשרת שוב.' })],
+    actions: [
+      button('מחיקה מהשרת', async () => {
+        unshareConfirm.close();
+        if (!current.remote) return;
+        try {
+          await remote.remove(current.remote);
+          current = { ...current, remote: null };
+          shareStatus.textContent = 'הפרויקט נמחק מהשרת.';
+        } catch (error) {
+          if (error?.code === 'NOT_FOUND') current = { ...current, remote: null };
+          shareStatus.textContent = SHARE_ERRORS[error?.code] ?? 'לא הצלחנו למחוק מהשרת. נסו שוב.';
+        }
+        renderShare();
+      }, { variant: 'primary', testId: 'share-delete-confirm' }),
+      button('ביטול', () => unshareConfirm.close(), { variant: 'ghost', testId: 'share-delete-cancel' }),
+    ],
+  });
+
+  function renderShare() {
+    const link = current.remote;
+    linkRow.hidden = !link;
+    shareDelete.hidden = !link;
+    if (link) linkInput.value = `${globalThis.location.origin}${globalThis.location.pathname}${shareHash(link)}`;
+    shareSave.textContent = link ? 'עדכון בשרת' : 'שמירה בשרת וקבלת קישור';
+    shareSave.disabled = sharing || serverOn === false;
+    shareSaveNew.disabled = sharing || serverOn === false;
+    if (serverOn === false) shareStatus.textContent = 'השרת הזה לא מוגדר לשמור פרויקטים, אז אפשר לשמור רק בדפדפן או בקובץ.';
+  }
+
+  async function saveToServer({ asNew = false } = {}) {
+    if (sharing) return;
+    sharing = true;
+    shareSaveNew.hidden = true;
+    renderShare();
+    const name = cleanName(nameInput.value || current.name);
+    const { design } = store.getState();
+    const { customer } = current;
+    try {
+      let link;
+      if (current.remote && !asNew) {
+        const saved = await remote.save(current.remote, { name, design, customer });
+        link = { ...current.remote, revision: saved.revision };
+      } else {
+        const made = await remote.create({ name, design, customer });
+        link = { id: made.id, token: made.token, revision: made.revision };
+      }
+      current = { ...current, name, remote: link, saved: design, savedCustomer: customer };
+      nameInput.value = name;
+      save(); // the local list keeps the same project, with its link
+      shareStatus.textContent = customer
+        ? 'נשמר בשרת. כל מי שיש לו את הקישור יכול לפתוח ולערוך, כולל פרטי הלקוח. שלחו אותו רק למי שצריך.'
+        : 'נשמר בשרת. כל מי שיש לו את הקישור יכול לפתוח ולערוך. שלחו אותו רק למי שצריך.';
+    } catch (error) {
+      if (error?.code === 'NOT_FOUND') current = { ...current, remote: null };
+      shareSaveNew.hidden = error?.code !== 'STALE';
+      shareStatus.textContent = SHARE_ERRORS[error?.code] ?? 'לא הצלחנו לשמור בשרת. בדקו את החיבור ונסו שוב.';
+    } finally {
+      sharing = false;
+      renderShare();
+    }
+  }
+
+  /** Open a project from its link (boot, or a link pasted into the address bar). Resolves true when it opened. */
+  async function openShared(link) {
+    try {
+      const data = await remote.open(link);
+      const opened = adopt(data.design, { name: data.name, customer: storedCustomer(data.customer), remote: { ...link, revision: data.revision } }, 'open');
+      if (opened) toast?.('הפרויקט נפתח מקישור. שמירה בשרת תעדכן את הפרויקט הזה, ומי שיש לו את הקישור רואה גם את פרטי הלקוח.');
+      return opened;
+    } catch (error) {
+      status.textContent = SHARE_ERRORS[error?.code] ?? 'לא הצלחנו לפתוח את הפרויקט מהקישור.';
+      return false;
+    }
+  }
+
   const listTitle = el('h3', { className: 'project-list__title', text: 'פרויקטים שמורים' });
   const dialog = createDialog({
     title: 'הפרויקטים שלי',
@@ -184,6 +304,11 @@ export function createProjectsDialog({ store, newDesign, onOpened, toast, projec
         button('פרויקט חדש', startNew, { variant: 'secondary', testId: 'project-new' }),
       ]),
       status,
+      el('h3', { className: 'project-list__title', text: 'שמירה בשרת וקישור' }),
+      el('p', { className: 'dialog__text', text: 'אפשר לשמור את הפרויקט בשרת ולקבל קישור: מי שיש לו את הקישור יכול לפתוח ולערוך, בלי חשבון. פרטי הלקוח נשמרים איתו בשרת, עד שתמחקו אותו משם.' }),
+      el('div', { className: 'project-row' }, [shareSave, shareSaveNew, shareDelete]),
+      linkRow,
+      shareStatus,
       listTitle,
       list,
       el('div', { className: 'project-row' }, [
@@ -201,6 +326,8 @@ export function createProjectsDialog({ store, newDesign, onOpened, toast, projec
       nameInput.value = current.name === DEFAULT_NAME ? '' : current.name;
       status.textContent = dirty() ? 'יש שינויים שלא נשמרו.' : '';
       renderList();
+      renderShare();
+      if (serverOn === null) remote.available().then((on) => { serverOn = on; renderShare(); });
       dialog.open();
       if (!toList) {
         nameInput.focus();
@@ -212,6 +339,7 @@ export function createProjectsDialog({ store, newDesign, onOpened, toast, projec
     },
     /** "ניקוי מסך": start over, asking first when there are unsaved changes. */
     startNew: () => guard('לפני שמתחילים מחדש: לשמור את התכנון הנוכחי?', () => adopt(newDesign(), {}, 'new')),
+    openShared,
     save: () => (current.id ? save() : (dialog.open(), nameInput.focus())),
     get dirty() {
       return dirty();

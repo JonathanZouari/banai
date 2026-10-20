@@ -3,7 +3,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import advisories, ai_settings, chat, dossier, health, proposals, reference, voice
+from app.api import advisories, ai_settings, chat, dossier, health, projects, proposals, reference, voice
 from app.body_limit import BodySizeLimitMiddleware
 from app.config import get_settings
 
@@ -33,7 +33,7 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,
-        allow_methods=["GET", "POST", "PUT"],
+        allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["Authorization", "Content-Type", "If-Match"],
     )
     app.include_router(health.router)
@@ -44,6 +44,7 @@ def create_app() -> FastAPI:
     app.include_router(advisories.router)
     app.include_router(dossier.router)
     app.include_router(voice.router)
+    app.include_router(projects.router)
     return app
 
 
