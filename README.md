@@ -2,6 +2,8 @@
 
 An MVP for designing standard straight wardrobes with three synchronized parts: a conversational AI agent, a manual properties editor, and a dimensionally accurate Three.js viewer.
 
+> Branch `bobHabanai` (fork `ariel-korenn/banai`) grows this into a custom-wardrobe designer with a Hebrew start screen, advisories, a carpenter dossier PDF and "Bob the Builder", a fictional master carpenter who is the chat agent (the About page tells his story and says it is fictional). See `CLAUDE.md` for the full feature list.
+
 > Status: **Phase 1 (Foundations & Infrastructure)**. See `docs/architecture.md` for the full plan and phase breakdown.
 
 ## Repository layout

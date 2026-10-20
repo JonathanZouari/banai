@@ -89,16 +89,16 @@ describe('Bob', () => {
 describe('About', () => {
   it('tells the master carpenter story and says it is fictional', () => {
     expect(ABOUT.sign).toBe('בוב · מאסטר נגר');
-    expect(ABOUT.lead).toContain(String(ABOUT.since));
+    expect(ABOUT.lead).toContain('בוב בנאי');
     expect(ABOUT.disclosure).toContain('בדיונית');
     expect(ABOUT.disclosure).toContain('AI');
     expect(`${ABOUT.lead}${ABOUT.text}`).not.toMatch(/צעיר|מחייך/);
   });
 
   it('lists four figures that match the story, and the content cannot be changed at run time', () => {
-    expect(ABOUT.stats.map((s) => s.value)).toEqual([31, 1284, 20, 1]);
-    expect(2026 - ABOUT.since).toBe(ABOUT.stats[0].value); // the story is set in 2026: 31 years, as the title says
-    expect(ABOUT.title[0]).toContain('שלושים ואחת');
+    expect(ABOUT.stats.map((s) => s.value)).toEqual([30, 1284, 20, 1]);
+    expect(2026 - ABOUT.since).toBe(ABOUT.stats[0].value); // the story is set in 2026: 30 years, as the title says
+    expect(ABOUT.title[0]).toContain('שלושים שנה');
     expect(Object.isFrozen(ABOUT)).toBe(true);
     expect(Object.isFrozen(ABOUT.stats[0])).toBe(true);
   });

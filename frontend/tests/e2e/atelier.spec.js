@@ -22,7 +22,7 @@ test.describe('atelier start screen', () => {
     await page.goto('/');
     await page.getByTestId('start-about').click();
     const about = start(page).getByTestId('about');
-    await expect(about.getByRole('heading', { name: /שלושים ואחת שנה בסדנה/ })).toBeInViewport();
+    await expect(about.getByRole('heading', { name: /שלושים שנה בסדנה/ })).toBeInViewport();
     await expect(about).toContainText('בוב · מאסטר נגר');
     await expect(about).toContainText('דמות בדיונית');
     await expect(about.locator('.stat__value').nth(1)).toHaveText('1,284', { timeout: 5_000 });

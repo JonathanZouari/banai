@@ -264,6 +264,13 @@ html.is-start-open, html.is-start-open body { overflow: hidden; max-width: 100%;
 .stat dt { order: 2; margin-top: 2.4rem; color: var(--muted); font-size: 0.9rem; }
 .stat dd { order: 1; margin: 0; }
 .stat__value { display: inline-block; min-width: 4.5rem; font-size: clamp(2rem, 3.4vw, 2.9rem); font-weight: 800; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.about__heading { margin: 2.6rem 0 1.2rem; font-size: clamp(1.3rem, 2vw, 1.7rem); font-weight: 800; letter-spacing: -0.01em; }
+.about__projects { display: grid; gap: 1.6rem; margin: 0 0 1.6rem; }
+.about__project { padding-inline-start: 1rem; border-inline-start: 1px solid var(--graphite); }
+.about__project-name { margin: 0 0 0.4rem; font-size: 1.1rem; font-weight: 700; }
+.about__project-place { margin-inline-start: 0.6rem; color: var(--muted); font-size: 0.9rem; font-weight: 500; }
+.about__project-text { margin: 0; color: var(--ink-2); line-height: 1.65; }
+.about__cta { margin: 0 0 2.6rem; font-size: 1.2rem; font-weight: 700; }
 .about__disclosure { margin: 0; color: var(--muted); font-size: 0.85rem; }
 
 /* The About page from the top bar. */
