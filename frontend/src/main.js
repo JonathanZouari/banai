@@ -105,10 +105,15 @@ async function boot() {
   // The agent only proposes. The server signs proposals, and Confirm sends the signed proposal back
   // to be verified and applied; the committed design never changes until then.
   const agent = async ({ messages, design, revision }) => {
-    const { reply, proposal } = await postChat({ messages, design, revision, language: language.get() });
+    const { reply, proposal } = await postChat({ messages, design, revision, language: language.get(), units: units.get() });
+    if (!proposal) return { reply, proposal: null };
+    // `changes` is described on every render, so the rows follow later language and unit switches.
     return {
       reply,
-      proposal: proposal && { ...proposal, id: proposal.signature, changes: describeOps(proposal.ops, language.get()) },
+      proposal: Object.defineProperty({ ...proposal, id: proposal.signature }, 'changes', {
+        enumerable: true,
+        get() { return describeOps(this.ops, language.get(), units.get()); },
+      }),
     };
   };
   // Voice is optional: the mic only appears when the server has it switched on and the browser can record.
@@ -153,6 +158,7 @@ async function boot() {
   bindUndo(store, chatModel, language);
   // A manual edit changes the revision, which may turn a pending proposal stale.
   store.subscribe(() => chat.refresh());
+  units.subscribe(() => chat.refresh());
 
   if (import.meta.env.DEV) {
     window.__banai = Object.freeze({ store, viewer, chat: chatModel });

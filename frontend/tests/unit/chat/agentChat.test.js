@@ -68,6 +68,14 @@ describe('describeOps', () => {
     expect(rows[1]).toEqual({ title: 'Add shelf', detail: 'in left at 50 cm' });
     expect(rows[2].title).toBe('Change');
   });
+
+  it('writes lengths in the display unit, never in mm', () => {
+    const ops = [{ op: 'update_dimensions', width: 2032 }, { op: 'configure_doors', type: 'sliding', count: 2 }];
+    expect(describeOps(ops, 'en', 'in')[0].detail).toBe('width 80 in');
+    expect(describeOps(ops, 'he', 'in')[0].detail).toBe('רוחב 80 אינץ׳');
+    expect(describeOps(ops, 'en', 'mm')[0].detail).toBe('width 203.2 cm'); // mm is not offered: falls back to cm
+    expect(describeOps(ops, 'he')[1].detail).toBe('הזזה, 2 דלתות');
+  });
 });
 
 describe('postChat / applyProposal', () => {

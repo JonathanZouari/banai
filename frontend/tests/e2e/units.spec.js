@@ -3,11 +3,12 @@ import { test, expect, openDesigner } from './fixtures.js';
 const dimension = (page) => page.evaluate(() => window.__banai.store.getState().design.dimensions.width);
 
 test.describe('units switch', () => {
-  test('replaces the old "cm" chip with a working mm / cm / in switch, cm selected by default', async ({ page }) => {
+  test('offers only cm and in, cm selected by default', async ({ page }) => {
     await openDesigner(page);
     await expect(page.getByTestId('unit-switch')).toBeVisible();
     await expect(page.getByTestId('unit-cm')).toHaveAttribute('aria-checked', 'true');
-    await expect(page.getByTestId('unit-mm')).toHaveAttribute('aria-checked', 'false');
+    await expect(page.getByTestId('unit-in')).toHaveAttribute('aria-checked', 'false');
+    await expect(page.getByTestId('unit-mm')).toHaveCount(0);
     await expect(page.getByTestId('dim-width')).toHaveValue('200.0');
   });
 
@@ -16,10 +17,8 @@ test.describe('units switch', () => {
     await page.getByTestId('unit-in').click();
     await expect(page.getByTestId('dim-width')).toHaveValue('78.74');
     await expect(page.getByText('W 78.74 in', { exact: true })).toBeVisible();
-    await page.getByTestId('unit-mm').click();
-    await expect(page.getByTestId('dim-width')).toHaveValue('2000');
-    await expect(page.getByText('W 2000 mm', { exact: true })).toBeVisible();
     await page.getByTestId('unit-cm').click();
+    await expect(page.getByTestId('dim-width')).toHaveValue('200.0');
     await expect(page.getByText('W 200.0 cm', { exact: true })).toBeVisible();
     expect(await dimension(page)).toBe(2000);
   });
@@ -35,11 +34,18 @@ test.describe('units switch', () => {
 
   test('a bad number names the unit in its message', async ({ page }) => {
     await openDesigner(page);
-    await page.getByTestId('unit-mm').click();
+    await page.getByTestId('unit-in').click();
     await page.getByTestId('dim-width').fill('abc');
     await page.getByTestId('dim-width').press('Enter');
-    await expect(page.getByText('Enter a number in mm, e.g. 645')).toBeVisible();
+    await expect(page.getByText('Enter a number in in, e.g. 25.5')).toBeVisible();
     expect(await dimension(page)).toBe(2000);
+  });
+
+  test('a remembered mm choice from before falls back to cm', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('banai.units', 'mm'));
+    await openDesigner(page);
+    await expect(page.getByTestId('unit-cm')).toHaveAttribute('aria-checked', 'true');
+    await expect(page.getByText('W 200.0 cm', { exact: true })).toBeVisible();
   });
 
   test('is remembered after a reload', async ({ page }) => {

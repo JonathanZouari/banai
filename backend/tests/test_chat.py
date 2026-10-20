@@ -62,6 +62,14 @@ def test_valid_proposal_is_signed(make_client):
     assert data["proposal"]["ops"] == WIDTH_OPS["ops"]
 
 
+@pytest.mark.parametrize(("units", "expected"), [(None, "in cm, never in millimetres"), ("in", "in in, never in millimetres")])
+def test_agent_is_told_the_display_unit(make_client, units, expected):
+    fake = FakeClient(completion("Sure.", "propose_changes", WIDTH_OPS))
+    payload = body() if units is None else {**body(), "units": units}
+    assert make_client(fake).post("/api/chat", json=payload).status_code == 200
+    assert expected in fake.calls[0]["messages"][0]["content"]
+
+
 def test_invalid_ops_trigger_repair_then_succeed(make_client):
     bad = {"summary": "x", "ops": [{"op": "update_dimensions", "width": 99999}]}
     fake = FakeClient(completion(None, "propose_changes", bad), completion(None, "propose_changes", WIDTH_OPS))
@@ -97,6 +105,8 @@ def test_missing_key_is_503(make_client):
         {**body(), "messages": [{"role": "user", "content": "x" * 2001}]},
         {**body(), "messages": [{"role": "user", "content": "x"}] * 21},
         {**body(), "extra": 1},
+        {**body(), "units": "mm"},
+        {**body(), "units": "furlong"},
     ],
 )
 def test_bad_requests_rejected_without_echo(make_client, payload):

@@ -1,7 +1,8 @@
 // Display units. The design always stays in integer millimetres; only what is shown and typed changes.
 // DEFAULT_UNIT is a configurable default, not a business rule. The choice is remembered per viewer
 // (optional: storage may be unavailable and is never required).
-export const UNITS = Object.freeze(['mm', 'cm', 'in']);
+// Millimetres are not offered for display: customers think in cm or inches.
+export const UNITS = Object.freeze(['cm', 'in']);
 export const DEFAULT_UNIT = 'cm';
 const STORAGE_KEY = 'banai.units';
 const MAX_ABS_MM = 1_000_000;
@@ -9,7 +10,6 @@ const NUMBER_PATTERN = /^-?\d+([.,]\d+)?$/;
 
 // perMm: how many millimetres make one unit. decimals: digits shown. example: shown in the input hint.
 const SPEC = Object.freeze({
-  mm: { perMm: 1, decimals: 0, example: '645' },
   cm: { perMm: 10, decimals: 1, example: '64.5' },
   in: { perMm: 25.4, decimals: 2, example: '25.5' },
 });
@@ -24,6 +24,9 @@ export function formatLength(mm, unit = DEFAULT_UNIT) {
 
 /** A length with its unit, e.g. "200.0 cm". */
 export const lengthLabel = (mm, unit = DEFAULT_UNIT) => `${formatLength(mm, unit)} ${isUnit(unit) ? unit : DEFAULT_UNIT}`;
+
+/** A length as text without trailing zeros, for running text: 2400 mm -> "240" (cm), 2000 mm -> "78.74" (in). */
+export const compactLength = (mm, unit = DEFAULT_UNIT) => String(Number(formatLength(mm, unit)));
 
 /** Parse typed text in `unit` (`.` or `,` decimal) to integer millimetres. */
 export function parseLength(text, unit = DEFAULT_UNIT) {

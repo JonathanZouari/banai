@@ -48,10 +48,20 @@ def language_rule(language: str) -> str:
     )
 
 
-def build_system_message(design: dict, catalog: dict, language: str = "en") -> str:
+UNIT_NAMES = {"cm": "centimetres (cm)", "in": "inches (in)"}
+
+
+def units_rule(units: str) -> str:
+    return (
+        f"UNITS RULE: The customer sees sizes in {UNIT_NAMES[units]}. Write every length in your reply, `summary` "
+        f"and questions in {units}, never in millimetres. Ops still use integer millimetres."
+    )
+
+
+def build_system_message(design: dict, catalog: dict, language: str = "en", units: str = "cm") -> str:
     catalog_ids = {key: [item["id"] for item in items] for key, items in catalog.items() if isinstance(items, list)}
     rule = language_rule(language)
     return (
-        f"{rule}\n\n{SYSTEM_PROMPT}\nCatalog ids: {canonical_json(catalog_ids)}\n"
+        f"{rule}\n\n{SYSTEM_PROMPT}\n{units_rule(units)}\nCatalog ids: {canonical_json(catalog_ids)}\n"
         f"Current design (JSON, the single source of truth):\n{canonical_json(design)}\n\n{rule}"
     )

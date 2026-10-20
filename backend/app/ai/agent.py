@@ -122,9 +122,10 @@ def run_agent(
     revision: int,
     catalog: dict,
     language: str = "en",
+    units: str = "cm",
 ) -> AgentResult:
     convo: list[dict] = [
-        {"role": "system", "content": build_system_message(design, catalog, language)},
+        {"role": "system", "content": build_system_message(design, catalog, language, units)},
         *messages,
     ]
     fallback = FALLBACK_CLARIFICATION[language]
