@@ -24,6 +24,7 @@ import { doorsInScene, motionAt, pullOutAccess } from './motion.js';
 import { createMotionDriver } from './motionDriver.js';
 import { createPathTracer } from './pathtrace.js';
 import { attachPicking } from './picking.js';
+import { attachDragging } from './dragTool.js';
 import { applyPullOuts } from './pullOuts.js';
 import { fitShadowCamera } from './shadow.js';
 
@@ -100,7 +101,7 @@ export function shownState(state) {
     : { design: state.design, selection: state.selection ?? null, comparing };
 }
 
-export function createViewer(container, store, { onDimensionStep } = {}) {
+export function createViewer(container, store, { onDimensionStep, onDragError } = {}) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -164,7 +165,8 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
   const isRendering = () => Boolean(tracer?.rendering);
   let capture = null; // video capture (render/video.js): saved camera and pixel ratio while frames are drawn on demand
   let traced = null; // path-traced capture: { motion } of the last baked frame
-  const overlaysVisible = () => !moving && !isRendering() && !capture;
+  let dragActive = false; // a drag (dragTool.js) moves parts in place: their outlines would stay behind
+  const overlaysVisible = () => !moving && !dragActive && !isRendering() && !capture;
   // Overlays copy the mesh transform when built, so they are rebuilt once the doors settle.
   const refreshOverlays = () => {
     const { design, selection } = shown();
@@ -409,6 +411,35 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
 
   // No picking while a render runs or a saved version is shown (its parts are not in the design).
   const pickable = () => !isRendering() && !capture && !shown().comparing;
+  // The room is drawn around the wardrobe: after the wardrobe moves `mm` along its wall the camera moves with the
+  // room, so the room stays put on screen and the wardrobe is where it was dropped.
+  const followWardrobe = (mm) => {
+    const dx = -mm / 1000;
+    camera.position.x += dx;
+    controls.target.x += dx;
+    controls.update();
+  };
+  // Drag (ADR-039): the selected part, or any obstacle or opening, along its allowed line. When the wardrobe moves
+  // along its wall the room is redrawn around it, so the camera moves with the room and nothing jumps.
+  const dragging = attachDragging({
+    dom: renderer.domElement, camera, controls, store,
+    getWardrobe: () => group, getRoom: () => room.group,
+    isEnabled: () => pickable() && driver.settled, // never while doors or drawers move: their pose is not settled
+    getExtras: (target) => (target.kind === 'wardrobe' && props ? [props] : []), // the clothes go with the wardrobe
+    onPreview: () => { renderer.shadowMap.needsUpdate = true; },
+    onError: (error) => onDragError?.(error),
+    onStart: () => {
+      dragActive = true;
+      highlighter.setVisible(false);
+      dimensions.setVisible(false); // dimension lines would stay behind what moves
+    },
+    onEnd: () => {
+      dragActive = false;
+      dimensions.setVisible(true);
+      refreshOverlays();
+    },
+    onWardrobeMoved: (mm) => followWardrobe(mm),
+  });
   const detachPicking = attachPicking({
     dom: renderer.domElement,
     camera,
@@ -422,7 +453,7 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
     onHover: (hit) => {
       const { design, selection } = shown();
       const id = pickable() ? componentAt(hit, design) : null;
-      renderer.domElement.style.cursor = id ? 'pointer' : '';
+      renderer.domElement.style.cursor = dragging.grabbable ? 'grab' : id ? 'pointer' : '';
       const hovered = id && id !== selection?.id ? id : null;
       if (hovered === hoveredId) return;
       hoveredId = hovered;
@@ -614,6 +645,25 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
     meshOf: (componentId) => group?.children.find((mesh) => mesh.userData.componentId === componentId) ?? null,
     /** Test hook: whether the scale figure is in the scene now. */
     get figureShown() { return figure.group.visible; },
+    /** After an arrow key moved the wardrobe `mm` along its wall: the camera stays with the room. */
+    followWardrobe: (mm) => followWardrobe(mm),
+    /** Test hook: whether a drag is moving something now. */
+    get dragging() { return dragging.dragging; },
+    /**
+     * Test hook: client coordinates of a drag target's centre: { kind: 'obstacle', index } or { kind: 'opening',
+     * index } in the room, or a component id.
+     */
+    screenPointOfTarget(target) {
+      let object = null;
+      if (typeof target === 'string') object = this.meshOf(target);
+      else if (target.kind === 'obstacle') room.group.traverse((n) => { if (n.userData.obstacleIndex === target.index) object = n; });
+      else if (target.kind === 'opening') room.group.traverse((n) => { if (!object && /^room-(door|window)-(\d+)$/.exec(n.name)?.[2] === String(target.index)) object = n; });
+      if (!object) return null;
+      object.updateMatrixWorld();
+      const centre = new THREE.Box3().setFromObject(object).getCenter(new THREE.Vector3()).project(camera);
+      const rect = renderer.domElement.getBoundingClientRect();
+      return { x: rect.left + ((centre.x + 1) / 2) * rect.width, y: rect.top + ((1 - centre.y) / 2) * rect.height };
+    },
     /** Client (page) coordinates of a component's centre, for tests and tooling. */
     screenPointOf(componentId) {
       const mesh = this.meshOf(componentId);
@@ -650,6 +700,7 @@ export function createViewer(container, store, { onDimensionStep } = {}) {
     dispose() {
       renderer.setAnimationLoop(null);
       unsubscribe();
+      dragging.dispose();
       detachPicking();
       tracer.dispose();
       controls.removeEventListener('start', onControlsStart);

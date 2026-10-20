@@ -12,6 +12,8 @@ import { countLevels, mountAdvisoryPanel } from './advice/advisoryPanel.js';
 import { createStore } from './state/store.js';
 import { diffDesigns } from './state/diff.js';
 import { mountPanel } from './editor/panel.js';
+import { nudge, targetForSelection } from './viewer/dragRules.js';
+import { friendlyError } from './editor/opsFromForm.js';
 import { createViewer } from './viewer/viewer.js';
 import { bindQuickControls, stepDimension } from './quickControls.js';
 import { createChatModel } from './chat/chatModel.js';
@@ -74,6 +76,9 @@ function bindSideTabs() {
   });
   return { showChat: () => select(tabs[1]), showAdvice: () => select(tabs[0]) };
 }
+
+// Arrow keys: the axis and the direction a selected part moves (physical left and right, also in RTL).
+const NUDGE_KEYS = Object.freeze({ ArrowLeft: ['x', -1], ArrowRight: ['x', 1], ArrowUp: ['y', 1], ArrowDown: ['y', -1] });
 
 function bindInteriorToggle(store) {
   const toggle = byId('toggle-interior');
@@ -357,7 +362,10 @@ async function boot() {
   }
   // Validates the server data before anything is rendered (throws on invalid data).
   const store = createStore({ design: initial.design, revision: initial.revision, catalog });
-  const viewer = createViewer(byId('viewer'), store, { onDimensionStep: (step) => stepDimension(store, step) });
+  const viewer = createViewer(byId('viewer'), store, {
+    onDimensionStep: (step) => stepDimension(store, step),
+    onDragError: (error) => toast(`לא הוזז: ${friendlyError(error)}`), // the engine refused the drop; nothing changed
+  });
   bindInteriorToggle(store);
   bindViewToolbar(viewer);
   bindQuickControls(store, viewer, byId('viewer'));
@@ -390,10 +398,25 @@ async function boot() {
     const saveKey = (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.code === 'KeyS';
     if (saveKey) event.preventDefault(); // never the browser's "Save page as", even over a dialog
     if (event.isComposing || document.querySelector('dialog[open]')) return;
+    if (viewer.dragging) return; // a drag in 3D owns the keys until it ends (Escape cancels it)
     const typing = event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable]');
     if (event.altKey && !event.shiftKey && !event.ctrlKey && !event.metaKey && event.code === 'KeyN' && !typing) {
       event.preventDefault();
       projects.startNew();
+    } else if (NUDGE_KEYS[event.code] && !typing && !event.ctrlKey && !event.metaKey && !event.altKey && !event.defaultPrevented
+      && !(event.target instanceof Element && event.target.closest('#properties-panel, #side-panel, [role="tab"], .topbar, header'))) {
+      // The arrows move the selected part along its line (1 cm, Shift 10 cm), as a drag would (ADR-039); in the
+      // panels they keep their own meaning (tabs, scrolling).
+      const { design, selection } = store.getState();
+      const target = targetForSelection(design, selection);
+      const [key, sign] = NUDGE_KEYS[event.code];
+      const ops = target && nudge(design, target, key, sign, event.shiftKey);
+      if (!ops) return;
+      event.preventDefault();
+      const offset = design.room?.offset;
+      const result = store.dispatch(ops, { coalesce: `nudge:${selection.id}` });
+      if (!result.ok) toast(`לא הוזז: ${friendlyError(result.error)}`);
+      else if (target.kind === 'wardrobe') viewer.followWardrobe(store.getState().design.room.offset - offset);
     } else if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.code === 'KeyO' && !typing) {
       event.preventDefault();
       projects.open({ list: true });

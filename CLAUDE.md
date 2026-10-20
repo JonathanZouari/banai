@@ -29,6 +29,18 @@ BanAI started as an MVP AI wardrobe designer for standard straight wardrobes. Th
   - The rest of the workspace stays Hebrew, and so do the proposal card's change lines (they come from the Hebrew diff).
 - **Wall obstacles and a scale figure** (2026-10-19, ADR-031): up to 8 obstacles on the wall behind (socket, switch, AC, pipes, window, skirting) in the site. Advisory R23 covers them, the viewer builds each one at its real size on the wall (`viewer/obstacles3d.js`: a wall plate, an AC unit, a pipe, a window with a sill, skirting), shows one hidden behind the carcass as a tinted patch over the doors, labels each with its name and size in cm, and the dossier lists them. A "דמות" switch shows a 170 cm scale figure beside the wardrobe (`viewer/figure.js`, hidden in renders and video).
 - **Top bar and workspace** (2026-10-19): "פתיחה" (Ctrl+O) opens the saved projects. The workspace is warm paper with a faint drafting grid (`--color-bg #f3eee6`), and the 3D studio matches (`#efe8dc`). The video menu is bound by `details[data-testid="video-menu"]`: the dossier menu shares the `.video-menu` class.
+- **Drag in 3D** (ADR-039, stage 1; 2026-10-20):
+  - **Rules:** `viewer/dragRules.js` (pure) sets, for each target, the axes it may move on, its limits, its snaps (1 cm grid, plus useful places within 2 cm), its label and the op it sends. `viewer/dragTool.js` handles the pointer.
+  - **What drags:**
+    - The selected wardrobe part: the carcass or a door moves the wardrobe along its wall (`set_room offset`). A shelf, drawer, rail or insert moves up and down between its neighbours; a partition moves left and right.
+    - Any wall obstacle moves directly: skirting along the floor only, the rest along or up the wall. A two-axis drag locks to the first clear direction.
+    - Any door or window of the room moves along its wall; a window also moves up and down.
+  - **How a drag behaves:**
+    - The preview offsets meshes in place; on release one op goes to the store (one undo step). When the wardrobe moves, the camera follows the room.
+    - A press on an unselected wardrobe part still orbits, and the wardrobe hides obstacles behind it.
+    - Only the primary pointer drags, and never while doors or drawers move.
+    - A change to the design during a drag cancels it. Escape cancels too.
+  - **Keyboard:** arrows nudge the selection by 1 cm (Shift: 10 cm), but not inside the panels or tabs.
 - **Customer details** (ADR-038, 2026-10-20):
   - **Fields:** name, phone, email, installation address, city, floor and lift, contact times, desired installation date, and notes. Every field is optional.
   - **Where they live:** with the project in this browser, outside the design. They are not in undo, not in a signed proposal, and Bob never sees them.

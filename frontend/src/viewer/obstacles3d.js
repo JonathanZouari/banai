@@ -99,7 +99,8 @@ export function wallExtent(design, obstacles) {
  * plan builds it). dispose() frees its geometry and materials.
  */
 export function buildObstacles(design, depth, { wall: withWall = true } = {}) {
-  const obstacles = (design.site?.obstacles ?? []).filter((o) => Object.hasOwn(OBSTACLE_DEPTH, o.type));
+  // Each keeps its place in the site's list (obstacleIndex): a drag (dragTool.js) moves that one.
+  const obstacles = (design.site?.obstacles ?? []).map((o, index) => ({ ...o, index })).filter((o) => Object.hasOwn(OBSTACLE_DEPTH, o.type));
   if (!obstacles.length) return null;
   const m = materialsFor();
   const group = new THREE.Group();
@@ -116,6 +117,7 @@ export function buildObstacles(design, depth, { wall: withWall = true } = {}) {
   obstacles.forEach((o) => {
     const item = new THREE.Group();
     item.name = `obstacle-${o.type}`;
+    item.userData.obstacleIndex = o.index;
     item.position.set(toM(o.x + o.width / 2), toM(o.y + o.height / 2), toM(-depth));
     obstacleParts(o, m).forEach((part) => item.add(part));
     group.add(item);

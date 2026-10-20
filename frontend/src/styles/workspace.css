@@ -388,3 +388,6 @@ body.is-capturing .viewer-toolbar { opacity: 0.45; pointer-events: none; transit
 .customer__error { color: var(--color-danger, #b3261e); }
 .menu-note { margin: 0 0 var(--space-2); padding: var(--space-2); border-radius: var(--radius-md); background: #fff6dc; color: #3d2f00; font-size: 0.85em; }
 @media (max-width: 560px) { .customer-grid { grid-template-columns: 1fr; } }
+
+/* Drag in 3D (ADR-039): the value beside the pointer while something moves. */
+.drag-label { position: fixed; z-index: 50; pointer-events: none; padding: 4px 10px; border-radius: 999px; background: rgba(29, 29, 31, 0.86); color: #fff; font-size: 12px; font-weight: 600; white-space: nowrap; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18); direction: rtl; }
