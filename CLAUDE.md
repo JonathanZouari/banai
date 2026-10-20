@@ -41,6 +41,15 @@ BanAI started as an MVP AI wardrobe designer for standard straight wardrobes. Th
     - Only the primary pointer drags, and never while doors or drawers move.
     - A change to the design during a drag cancels it. Escape cancels too.
   - **Keyboard:** arrows nudge the selection by 1 cm (Shift: 10 cm), but not inside the panels or tabs.
+- **Stretch handles** (ADR-039, stage 2): `viewer/resizeRules.js` (pure: handles, limits, ops, ghost, camera shift) and `viewer/handles3d.js` (discs drawn over everything, plus a translucent ghost).
+  - **Handles:**
+    - The selected wardrobe: left and right (width; the left edge also moves it along its wall), top (height) and front (depth, growing forward).
+    - A drawer's or an insert's top (its height).
+    - A clicked obstacle's edges.
+    - The room's walls (its width or depth). On the wardrobe's own wall the handle sits beside the wardrobe, never behind it.
+  - **On release:** one op; the camera does not refit, and the scene stays still.
+  - **What stays put when a wall moves:** the openings and the wardrobe measured from a corner that moved.
+  - **Limits:** what the engine accepts: compartments at least 5 cm after scaling, the height above the highest item, walls never cutting off an opening or the wardrobe.
 - **Customer details** (ADR-038, 2026-10-20):
   - **Fields:** name, phone, email, installation address, city, floor and lift, contact times, desired installation date, and notes. Every field is optional.
   - **Where they live:** with the project in this browser, outside the design. They are not in undo, not in a signed proposal, and Bob never sees them.

@@ -83,6 +83,7 @@ const WIDER = [{ op: 'update_dimensions', width: 2400 }];
 
 test.describe('chat proposals (signed by the server, confirmed by the customer)', () => {
   test('a proposal shows its changes and impact; Confirm applies it through the server as one undo step; a manual edit makes the next one stale', async ({ page }) => {
+    test.slow(); // three turns, a server apply and an undo: past 30 s when the whole suite loads the machine
     const requests = await scriptChat(page, [
       { reply: 'הרחבה ל-240 ס"מ נותנת לכל תא כ-8 ס"מ נוספים. הנה ההצעה.', ops: WIDER, summary: 'רוחב הארון 240 ס"מ' },
       { reply: 'אפשר להנמיך ל-230 ס"מ.', ops: [{ op: 'update_dimensions', height: 2300 }], summary: 'גובה 230 ס"מ' },

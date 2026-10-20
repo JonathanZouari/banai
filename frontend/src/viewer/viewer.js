@@ -25,6 +25,8 @@ import { createMotionDriver } from './motionDriver.js';
 import { createPathTracer } from './pathtrace.js';
 import { attachPicking } from './picking.js';
 import { attachDragging } from './dragTool.js';
+import { createHandles } from './handles3d.js';
+import { handlesFor, roomShift } from './resizeRules.js';
 import { applyPullOuts } from './pullOuts.js';
 import { fitShadowCamera } from './shadow.js';
 
@@ -166,6 +168,7 @@ export function createViewer(container, store, { onDimensionStep, onDragError } 
   let capture = null; // video capture (render/video.js): saved camera and pixel ratio while frames are drawn on demand
   let traced = null; // path-traced capture: { motion } of the last baked frame
   let dragActive = false; // a drag (dragTool.js) moves parts in place: their outlines would stay behind
+  let keepCamera = false; // while a stretch is dropped: no refit to the new size, the camera stays (onResized shifts it)
   const overlaysVisible = () => !moving && !dragActive && !isRendering() && !capture;
   // Overlays copy the mesh transform when built, so they are rebuilt once the doors settle.
   const refreshOverlays = () => {
@@ -174,6 +177,7 @@ export function createViewer(container, store, { onDimensionStep, onDragError } 
     highlighter.update(group, design, selection);
     highlighter.setHover(group, design, hoveredId);
     dimensions.update(group, design, selection);
+    updateHandles();
   };
   /** Pose the doors, the pull-outs and the clothes they carry from the driver. */
   const poseParts = () => {
@@ -309,6 +313,7 @@ export function createViewer(container, store, { onDimensionStep, onDragError } 
     if (on) renderer.compileAsync(scene, camera).catch(() => {});
     dimensions.setVisible(!on);
     room.setVisible(!on);
+    handles.setVisible(!on);
     showFigure(!on && figureWanted);
     labels.domElement.classList.toggle('viewer-labels--hidden', on);
     renderer.domElement.style.cursor = '';
@@ -369,7 +374,7 @@ export function createViewer(container, store, { onDimensionStep, onDragError } 
     const { width, height, depth } = state.design.dimensions;
     const dimsKey = `${width}x${height}x${depth}`;
     if (rendered.dimsKey === null) setView('threeQuarter', { animate: false });
-    else if (dimsKey !== rendered.dimsKey && !comparing) fitView({ animate: false });
+    else if (dimsKey !== rendered.dimsKey && !comparing && !keepCamera) fitView({ animate: false }); // a stretch keeps the view
     if (!comparing || rendered.dimsKey === null) rendered = { ...rendered, dimsKey };
     if (design !== rendered.propsDesign || showClothes !== rendered.showClothes) {
       rebuildProps(design, showClothes);
@@ -393,6 +398,7 @@ export function createViewer(container, store, { onDimensionStep, onDragError } 
       rendered = { ...rendered, selection };
     }
     if (sceneChanged && isRendering()) tracer.restage();
+    updateHandles();
   };
 
   const resize = () => {
@@ -413,11 +419,28 @@ export function createViewer(container, store, { onDimensionStep, onDragError } 
   const pickable = () => !isRendering() && !capture && !shown().comparing;
   // The room is drawn around the wardrobe: after the wardrobe moves `mm` along its wall the camera moves with the
   // room, so the room stays put on screen and the wardrobe is where it was dropped.
-  const followWardrobe = (mm) => {
-    const dx = -mm / 1000;
-    camera.position.x += dx;
-    controls.target.x += dx;
+  const shiftCamera = (dxMm, dzMm = 0) => {
+    camera.position.x += dxMm / 1000;
+    camera.position.z += dzMm / 1000;
+    controls.target.x += dxMm / 1000;
+    controls.target.z += dzMm / 1000;
     controls.update();
+  };
+  const followWardrobe = (mm) => shiftCamera(-mm);
+  // Stretch handles (ADR-039 stage 2): on the selected wardrobe, drawer or insert, on a clicked obstacle, and on
+  // the room's walls. `activeObstacle` is the obstacle whose handles show (a click on it; a pick elsewhere clears it).
+  const handles = createHandles(scene);
+  let activeObstacle = null;
+  let obstacleList = null;
+  const updateHandles = () => {
+    if (dragActive) return; // the dragged handle stays; the drop rebuilds them
+    const { design, selection, comparing } = shown();
+    if (design.site?.obstacles !== obstacleList) { // another list (an edit, an undo, a project): no stale handles
+      obstacleList = design.site?.obstacles ?? null;
+      if (activeObstacle && !obstacleList?.[activeObstacle.index]) activeObstacle = null;
+    }
+    handles.update(comparing ? [] : handlesFor(design, selection, activeObstacle));
+    handles.setVisible(overlaysVisible() && !capture && !isRendering());
   };
   // Drag (ADR-039): the selected part, or any obstacle or opening, along its allowed line. When the wardrobe moves
   // along its wall the room is redrawn around it, so the camera moves with the room and nothing jumps.
@@ -437,8 +460,21 @@ export function createViewer(container, store, { onDimensionStep, onDragError } 
       dragActive = false;
       dimensions.setVisible(true);
       refreshOverlays();
+      updateHandles();
     },
     onWardrobeMoved: (mm) => followWardrobe(mm),
+    handles,
+    onActivate: (target) => {
+      activeObstacle = target;
+      obstacleList = store.getState().design.site?.obstacles ?? null;
+      updateHandles();
+    },
+    // After a stretch the room may be redrawn around the wardrobe: the camera moves so the scene stays still.
+    onDrop: (dropping) => { keepCamera = dropping; },
+    onResized: (before, after, spec, value) => {
+      const [dx, dz] = spec.shift ? spec.shift(value) : roomShift(before, after, spec.anchor, value);
+      if (dx || dz) shiftCamera(dx, dz);
+    },
   });
   const detachPicking = attachPicking({
     dom: renderer.domElement,
@@ -449,7 +485,12 @@ export function createViewer(container, store, { onDimensionStep, onDragError } 
       group.updateMatrixWorld();
       return group.children;
     },
-    onPick: (hit) => { if (pickable()) store.select(componentAt(hit, shown().design)); },
+    onPick: (hit) => {
+      if (!pickable() || dragging.tookPress) return; // a press on a draggable thing or a handle is not a pick
+      activeObstacle = null; // a pick anywhere else hides an obstacle's handles
+      store.select(componentAt(hit, shown().design));
+      updateHandles();
+    },
     onHover: (hit) => {
       const { design, selection } = shown();
       const id = pickable() ? componentAt(hit, design) : null;
@@ -478,6 +519,7 @@ export function createViewer(container, store, { onDimensionStep, onDragError } 
     stepMotion(now);
     stepAnimation(now);
     flasher.step(now);
+    handles.face(camera);
     controls.update();
     renderer.render(scene, camera);
     labels.render(scene, camera);
@@ -543,6 +585,7 @@ export function createViewer(container, store, { onDimensionStep, onDragError } 
       highlighter.setVisible(false);
       dimensions.setVisible(false);
       room.setVisible(false);
+      handles.setVisible(false);
       showFigure(false);
       labels.domElement.classList.add('viewer-labels--hidden');
       renderer.setPixelRatio(1);
@@ -629,6 +672,7 @@ export function createViewer(container, store, { onDimensionStep, onDragError } 
       dimensions.setVisible(true);
       room.setVisible(true);
       showFigure(figureWanted);
+      updateHandles();
       labels.domElement.classList.remove('viewer-labels--hidden');
       refreshOverlays();
     },
@@ -647,6 +691,18 @@ export function createViewer(container, store, { onDimensionStep, onDragError } 
     get figureShown() { return figure.group.visible; },
     /** After an arrow key moved the wardrobe `mm` along its wall: the camera stays with the room. */
     followWardrobe: (mm) => followWardrobe(mm),
+    /** Test hook: client coordinates of a stretch handle by key ('wardrobe:right', 'wall:1', ...), or null. */
+    screenPointOfHandle(key) {
+      const item = handles.group.children.find((c) => c.userData.handle?.key === key);
+      if (!item || !handles.group.visible) return null;
+      const p = item.getWorldPosition(new THREE.Vector3()).project(camera);
+      const rect = renderer.domElement.getBoundingClientRect();
+      return { x: rect.left + ((p.x + 1) / 2) * rect.width, y: rect.top + ((1 - p.y) / 2) * rect.height };
+    },
+    /** Test hook: whether the doors and pull-outs have stopped moving (drags wait for it). */
+    get settled() { return driver.settled; },
+    /** Test hook: the stretch handles shown now (their keys). */
+    get handleKeys() { return handles.group.children.map((c) => c.userData.handle?.key); },
     /** Test hook: whether a drag is moving something now. */
     get dragging() { return dragging.dragging; },
     /**
@@ -701,6 +757,7 @@ export function createViewer(container, store, { onDimensionStep, onDragError } 
       renderer.setAnimationLoop(null);
       unsubscribe();
       dragging.dispose();
+      handles.dispose();
       detachPicking();
       tracer.dispose();
       controls.removeEventListener('start', onControlsStart);

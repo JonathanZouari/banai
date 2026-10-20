@@ -7,9 +7,13 @@
 // stops at its limits and snaps to whole centimetres and to useful places. On release one op list goes to the
 // store: one undo step, checked by the engine. Two axes (an obstacle, a window) lock to the first clear direction,
 // so a drag is always a straight line. Escape or a lost pointer puts everything back.
+//
+// Stage 2: a stretch handle (handles3d.js) changes a size instead: a ghost box previews it, and the drop sends
+// the new size. A click (no drag) on an obstacle shows its handles.
 import * as THREE from 'three';
 import { roomWalls, toWardrobe } from '../domain/room.js';
 import { alongAxis, dragSpec, settle, targetForSelection } from './dragRules.js';
+import { resizeSpec } from './resizeRules.js';
 
 const START_PX = 6; // movement before a press becomes a drag; above picking's click tolerance (5 px)
 const LOCK_PX = 10; // movement before a two-axis drag picks its direction
@@ -27,9 +31,14 @@ const AXIS = Object.freeze({ x: new THREE.Vector3(1, 0, 0), y: new THREE.Vector3
  * @param onStart, onEnd  (target) => void, when a drag starts moving and when it ends (stale overlays hide meanwhile)
  * @param onPreview    () => void, after each preview move (shadows are drawn on demand)
  * @param getExtras    (target) => more objects that move with it (the wardrobe's clothes)
+ * @param handles      the stretch handles (handles3d.js): grabbed first, they are drawn over everything
+ * @param onActivate   (target) => void, a click on an obstacle (its handles show)
+ * @param onResized    (before, after, spec, value) => void, after a stretch was dropped
+ * @param onDrop       (dropping) => void, true just before a stretch is dispatched and false after (the viewer
+ *                     then keeps its camera instead of refitting to the new size)
  */
 export function attachDragging({ dom, camera, controls, store, getWardrobe, getRoom, isEnabled, onError, onWardrobeMoved, onStart, onEnd,
-  onPreview, getExtras = () => [] }) {
+  onPreview, getExtras = () => [], handles = null, onActivate, onResized, onDrop }) {
   const raycaster = new THREE.Raycaster();
   const label = document.createElement('div');
   label.className = 'drag-label';
@@ -39,6 +48,7 @@ export function attachDragging({ dom, camera, controls, store, getWardrobe, getR
   document.body.append(label);
   let drag = null;
   let grabbable = false;
+  let tookPress = false; // this press is the drag tool's: it is not also a click that selects
   let hoverFrame = 0;
 
   const rayAt = (clientX, clientY) => {
@@ -75,6 +85,17 @@ export function attachDragging({ dom, camera, controls, store, getWardrobe, getR
     if (!isEnabled()) return null;
     const ray = rayAt(clientX, clientY);
     const { design, selection } = store.getState();
+    const grabbed = handles?.hit(raycaster);
+    if (grabbed) { // a stretch handle wins: it is drawn over everything
+      const rs = resizeSpec(design, grabbed.handle);
+      if (rs) {
+        return {
+          target: { kind: 'resize', handle: grabbed.handle }, point: grabbed.point, objects: [grabbed.object], resize: rs,
+          spec: { axes: [{ key: 'v', vector: rs.axis.vector, value: rs.axis.value, limits: rs.axis.limits, snaps: rs.axis.snaps }],
+            label: (values) => rs.label(values.v), ops: (values) => rs.ops(values.v) },
+        };
+      }
+    }
     const wardrobe = getWardrobe();
     let best = null;
     let nearest = Infinity; // the wardrobe hides whatever is behind it, selected or not
@@ -119,6 +140,7 @@ export function attachDragging({ dom, camera, controls, store, getWardrobe, getR
     drag?.objects.forEach((object, i) => object.position.copy(drag.origins[i]));
   };
   const finish = () => {
+    if (drag?.resize) handles.ghost(null);
     if (drag?.moving) onEnd?.(drag.target);
     if (drag?.pointerId !== undefined) {
       try { dom.releasePointerCapture(drag.pointerId); } catch { /* the pointer is already gone */ }
@@ -131,8 +153,11 @@ export function attachDragging({ dom, camera, controls, store, getWardrobe, getR
 
   const onPointerDown = (event) => {
     if (event.button !== 0 || !event.isPrimary || drag) return; // a second finger never takes over a gesture
+    tookPress = false;
     const found = pick(event.clientX, event.clientY);
     if (!found) return;
+    // Only a handle, an obstacle or an opening owns its click; a click on a wardrobe part still selects.
+    tookPress = ['resize', 'obstacle', 'opening'].includes(found.target.kind);
     controls.enabled = false; // runs before OrbitControls sees this press (capture phase), so it does not orbit
     drag = {
       ...found,
@@ -140,7 +165,7 @@ export function attachDragging({ dom, camera, controls, store, getWardrobe, getR
       pointerId: event.pointerId,
       start: { x: event.clientX, y: event.clientY },
       origins: found.objects.map((o) => o.position.clone()),
-      axes: found.spec.axes.map((axis) => ({ ...axis, vector: axisVector(found.target, axis.key) })),
+      axes: found.spec.axes.map((axis) => ({ ...axis, vector: axis.vector ? new THREE.Vector3(...axis.vector) : axisVector(found.target, axis.key) })),
       locked: found.spec.axes.length === 1 ? found.spec.axes[0].key : null,
       moving: false,
       values: {},
@@ -172,6 +197,7 @@ export function attachDragging({ dom, camera, controls, store, getWardrobe, getR
     drag.values = { [axis.key]: value };
     const offset = axis.vector.clone().multiplyScalar((value - axis.value) / 1000);
     drag.objects.forEach((object, i) => object.position.copy(drag.origins[i]).add(offset));
+    if (drag.resize) handles.ghost(drag.resize.ghost(value));
     onPreview?.();
     showLabel(drag.spec.label(drag.values), event.clientX, event.clientY);
     return undefined;
@@ -180,19 +206,29 @@ export function attachDragging({ dom, camera, controls, store, getWardrobe, getR
   const onPointerUp = (event) => {
     if (!drag || event.pointerId !== drag.pointerId) return;
     if (store.getState().design !== drag.design || !isEnabled()) return onPointerCancel(); // never drop on a newer design
-    const { moving, spec, values, target } = drag;
+    const { moving, spec, values, target, resize } = drag;
     restore();
     finish();
-    if (!moving) return;
+    if (!moving) {
+      if (target.kind === 'obstacle') onActivate?.(target); // a click shows the obstacle's stretch handles
+      return undefined;
+    }
     const ops = spec.ops(values);
     if (!ops) return;
     const before = store.getState().design;
-    const result = store.dispatch(ops);
+    if (resize) onDrop?.(true);
+    let result;
+    try {
+      result = store.dispatch(ops);
+    } finally {
+      if (resize) onDrop?.(false);
+    }
     if (!result?.ok) {
       onError?.(result?.error);
       return;
     }
     if (target.kind === 'wardrobe') onWardrobeMoved?.(values.x - before.room.offset);
+    if (resize) onResized?.(before, store.getState().design, resize, values.v);
     return undefined;
   };
 
@@ -233,6 +269,8 @@ export function attachDragging({ dom, camera, controls, store, getWardrobe, getR
   window.addEventListener('keydown', onKey, true);
   return {
     get grabbable() { return grabbable; },
+    /** Whether the last press was taken by a drag or a handle (then it does not select on release). */
+    get tookPress() { return tookPress; },
     get dragging() { return Boolean(drag?.moving); },
     dispose() {
       onPointerCancel();
