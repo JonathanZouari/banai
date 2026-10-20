@@ -15,12 +15,18 @@
           <button type="button" class="icon-btn" id="redo" data-testid="redo" data-icon="redo" disabled aria-label="Redo" data-i18n-aria="uiRedoAria" data-i18n-title="uiRedoAria"></button>
         </div>
         <span class="topbar__divider" aria-hidden="true"></span>
-        <button type="button" class="btn btn--primary" id="open-save" data-testid="open-save" data-icon="save"><span data-i18n="uiSave">Save</span></button>
-        <div class="topbar__menu">
-          <button type="button" class="icon-btn" id="more-menu" data-testid="more-menu" data-icon="more" aria-label="More actions" data-i18n-aria="uiMoreAria" data-i18n-title="uiMoreAria"></button>
-          <div class="menu" id="more-panel" data-testid="more-panel">
-            <button type="button" role="menuitem" class="menu__item" id="open-render" data-testid="open-render" data-icon="image"><span data-i18n="uiRenderPreview">Render preview</span></button>
-            <button type="button" role="menuitem" class="menu__item" id="copy-link" data-testid="menu-copy-link" data-icon="copy" disabled><span data-i18n="uiCopyLink">Copy share link</span></button>
+        <div class="topbar__group topbar__actions-main" role="group" aria-label="Save, export and share">
+          <button type="button" class="btn topbar__action" id="open-save" data-testid="open-save" data-icon="save"><span data-i18n="uiSave">Save</span></button>
+          <button type="button" class="btn topbar__action" id="open-export" data-testid="open-export" data-icon="download" aria-label="Export a PDF specification" data-i18n-aria="uiExportAria" data-i18n-title="uiExportAria"><span data-i18n="uiExport">Export</span></button>
+          <button type="button" class="btn topbar__action" id="open-render" data-testid="open-render" data-icon="image" aria-label="Render preview" data-i18n-aria="uiRenderPreview" data-i18n-title="uiRenderPreview"><span data-i18n="uiRender">Render</span></button>
+          <div class="topbar__menu">
+            <button type="button" class="btn topbar__action" id="share-menu" data-testid="share-menu" data-icon="share" aria-label="Share this design" data-i18n-aria="uiShareAria" data-i18n-title="uiShareAria"><span data-i18n="uiShare">Share</span></button>
+            <div class="menu" id="share-panel" data-testid="share-panel">
+              <button type="button" role="menuitem" class="menu__item" id="share-copy" data-testid="share-copy" data-icon="copy" disabled><span data-i18n="uiCopyLink">Copy link</span></button>
+              <button type="button" role="menuitem" class="menu__item" id="share-whatsapp" data-testid="share-whatsapp" data-icon="chat" disabled><span data-i18n="uiShareWhatsapp">WhatsApp</span></button>
+              <button type="button" role="menuitem" class="menu__item" id="share-email" data-testid="share-email" data-icon="mail" disabled><span data-i18n="uiShareEmail">Email</span></button>
+              <p class="menu__note" id="share-note" data-testid="share-note" role="status" data-i18n="uiShareNeedsSave">Sharing needs a saved design. Saving with a private link is coming soon.</p>
+            </div>
           </div>
         </div>
         <div class="topbar__menu">

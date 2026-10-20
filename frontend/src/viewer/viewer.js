@@ -17,7 +17,7 @@ import { toM } from './units.js';
 
 const BACKGROUND = '#eceeec';
 
-function createScene() {
+function createScene({ grid: withGrid = true } = {}) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(BACKGROUND);
   scene.add(new THREE.HemisphereLight('#ffffff', '#c9c4b8', 2.2));
@@ -27,9 +27,11 @@ function createScene() {
   const fill = new THREE.DirectionalLight('#ffffff', 0.9);
   fill.position.set(-2, 2, 5);
   scene.add(fill);
-  const grid = new THREE.GridHelper(12, 24, '#c9ccc8', '#dcdfdb');
-  grid.position.y = -0.0005;
-  scene.add(grid);
+  if (withGrid) {
+    const grid = new THREE.GridHelper(12, 24, '#c9ccc8', '#dcdfdb');
+    grid.position.y = -0.0005;
+    scene.add(grid);
+  }
   return scene;
 }
 
@@ -151,6 +153,44 @@ export function createViewer(container, store) {
       controls.update();
       fitCamera(store.getState().design);
       controls.enableDamping = true;
+    },
+    /**
+     * A clean JPEG of the wardrobe (no grid, labels or selection) rendered off-screen, for the PDF export.
+     * Never touches the store or the on-screen view. Returns a data URL.
+     */
+    capture({ doorsVisible = true, width = 1600, height = 1100 } = {}) {
+      const { design, catalog } = store.getState();
+      const shotRenderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+      shotRenderer.setPixelRatio(1);
+      shotRenderer.setSize(width, height, false);
+      shotRenderer.outputColorSpace = THREE.SRGBColorSpace;
+      const shotScene = createScene({ grid: false });
+      const shotMaterials = createMaterials(catalog);
+      const shotPmrem = new THREE.PMREMGenerator(shotRenderer);
+      const shotRoom = new RoomEnvironment();
+      const shotEnvironment = shotPmrem.fromScene(shotRoom, 0.04).texture;
+      shotRoom.dispose?.();
+      shotMaterials.setEnvironment(shotEnvironment);
+      const shotGroup = buildWardrobe(design, shotMaterials, { doorsVisible });
+      shotScene.add(shotGroup);
+      try {
+        const { width: w, height: h, depth: d } = design.dimensions;
+        const shotCamera = new THREE.PerspectiveCamera(40, width / height, 0.05, 60);
+        const half = Math.tan(THREE.MathUtils.degToRad(shotCamera.fov / 2));
+        const distance = Math.max(toM(h) / (2 * half), toM(w) / (2 * half * shotCamera.aspect)) * 1.12 + toM(d) / 2;
+        const center = new THREE.Vector3(toM(w / 2), toM(h / 2), toM(-d / 2));
+        shotCamera.position.set(center.x + distance * 0.35, center.y + distance * 0.12, center.z + distance);
+        shotCamera.lookAt(center);
+        shotRenderer.render(shotScene, shotCamera);
+        return shotRenderer.domElement.toDataURL('image/jpeg', 0.92);
+      } finally {
+        disposeWardrobe(shotGroup);
+        shotMaterials.dispose();
+        shotEnvironment.dispose();
+        shotPmrem.dispose();
+        shotRenderer.dispose();
+        shotRenderer.forceContextLoss();
+      }
     },
     meshOf: (componentId) => group?.children.find((mesh) => mesh.userData.componentId === componentId) ?? null,
     /** Client (page) coordinates of a component's centre, for tests and tooling. */
