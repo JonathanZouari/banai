@@ -69,9 +69,9 @@ npm run build                                  # vite build -> dist/
 
 ## Architecture (target design; implemented incrementally by phase)
 
-- **Single operation protocol.** Every change is a list of typed, pure ops (`(design) -> newDesign`, no mutation). That covers manual edits and AI edits alike: `update_dimensions`, `configure_doors`, `add_*` / `modify_*` for compartments, partitions, shelves, drawers, and rails, `set_material`, and `remove_component`. The ops engine exists twice:
+- **Single operation protocol.** Every change is a list of typed, pure ops (`(design) -> newDesign`, no mutation). That covers manual edits and AI edits alike: `update_dimensions`, `configure_doors`, `add_*` / `modify_*` for compartments, partitions, shelves, drawers, and rails, `set_material`, `set_handles`, `modify_door`, and `remove_component`. The ops engine exists twice:
   - `backend/app/domain/`: the authoritative version, used for AI validation and saves.
-  - `frontend/src/state/`: used for instant manual editing.
+  - `frontend/src/domain/`: used for instant manual editing (the store in `frontend/src/state/` calls it).
   - Parity between them is enforced by golden fixtures in `shared/fixtures/ops/*.json`, which both pytest and vitest run. If you change an op on one side, change the other side and the fixtures too.
 - **Canonical schema.**
   - All lengths are integer **millimetres**.

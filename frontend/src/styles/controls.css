@@ -229,3 +229,42 @@ select.field__input {
 .interior-layouts__label { color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-label-medium); }
 .btn--chip { height: 28px; padding: 0 var(--space-3); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-sys-shape-small); background: transparent; color: var(--md-sys-color-on-surface); font: var(--md-sys-typescale-label-medium); }
 .btn--chip:hover:not(:disabled) { background: rgba(35, 25, 23, 0.06); border-color: var(--md-sys-color-outline); }
+
+/* Handles & mirrors */
+.handle-styles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--space-1); }
+.handle-style {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: var(--space-2) 2px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-small);
+  background: transparent;
+  color: var(--md-sys-color-on-surface-variant);
+  cursor: pointer;
+}
+.handle-style:hover { background: rgba(35, 25, 23, 0.05); }
+.handle-style:focus-visible { outline: var(--focus-outline); outline-offset: 1px; }
+.handle-style[aria-pressed="true"] { border-color: var(--md-sys-color-primary); background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
+.handle-style__name { max-width: 100%; overflow: hidden; font: var(--md-sys-typescale-label-small); text-overflow: ellipsis; white-space: nowrap; }
+.swatch--metal { background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.45) 0%, transparent 45%, rgba(0, 0, 0, 0.18) 100%); }
+.swatch-option:disabled .swatch { opacity: 0.4; }
+.mirror-fronts { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.mirror-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-small);
+  background: transparent;
+  color: var(--md-sys-color-on-surface);
+  font: var(--md-sys-typescale-label-large);
+  cursor: pointer;
+}
+.mirror-chip:hover { background: rgba(35, 25, 23, 0.05); }
+.mirror-chip:focus-visible { outline: var(--focus-outline); outline-offset: 1px; }
+.mirror-chip[aria-pressed="true"] { border-color: transparent; background: linear-gradient(135deg, #dfe8ec, #b9c7cf); color: #1f2a30; }

@@ -21,6 +21,11 @@ export function createMaterials(catalog) {
   const hardware = new THREE.MeshStandardMaterial({ color: '#4a4e53', metalness: 0.6, roughness: 0.4 });
   // Thin outline on door panels so adjacent white panels stay readable.
   const doorEdge = new THREE.LineBasicMaterial({ color: '#3b3530', transparent: true, opacity: 0.38 });
+  // Mirror fronts: a polished metal look. Reflections come from an environment map the viewer
+  // provides (setEnvironment); without one (e.g. in tests) it renders as plain bright metal.
+  const mirror = new THREE.MeshStandardMaterial({ color: '#e9eef1', metalness: 1, roughness: 0.04 });
+  // Door handles, one material per catalog finish.
+  const handles = new Map();
 
   return {
     forAppearance(appearance) {
@@ -37,6 +42,21 @@ export function createMaterials(catalog) {
     rail,
     hardware,
     doorEdge,
+    mirror,
+    /** Handle material for a catalog finish id (unknown ids fall back to the neutral hardware). */
+    handle(finishId) {
+      if (!handles.has(finishId)) {
+        const finish = catalog.handleFinishes?.find((f) => f.id === finishId);
+        handles.set(finishId, finish
+          ? new THREE.MeshStandardMaterial({ color: finish.hex, metalness: finish.metalness, roughness: 0.35 })
+          : hardware);
+      }
+      return handles.get(finishId);
+    },
+    setEnvironment(texture) {
+      mirror.envMap = texture;
+      mirror.needsUpdate = true;
+    },
     /** Dispose cached materials the current scene no longer uses (keeps memory bounded). */
     retainOnly(inUse) {
       for (const [key, material] of cache) {
@@ -52,6 +72,9 @@ export function createMaterials(catalog) {
       rail.dispose();
       hardware.dispose();
       doorEdge.dispose();
+      mirror.dispose();
+      handles.forEach((material) => material.dispose());
+      handles.clear();
     },
   };
 }

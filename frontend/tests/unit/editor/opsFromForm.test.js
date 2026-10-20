@@ -150,3 +150,34 @@ describe('curated colours', () => {
     expect(materialChangeOps(parsed, custom, 'doors', 'walnut_veneer')[0].color).toEqual({ catalogId: 'walnut' });
   });
 });
+
+describe('door op builders', () => {
+  it('a new sliding-panel count keeps the existing panels and their mirror fronts', async () => {
+    const { slidingCountOps } = await import('../../../src/editor/opsFromForm.js');
+    const sliding = applyOps(basic, [
+      { op: 'configure_doors', type: 'sliding', ids: ['dr_a', 'dr_b'] },
+      { op: 'modify_door', id: 'dr_b', front: 'mirror' },
+    ], catalog);
+    const three = applyOps(sliding, slidingCountOps(sliding, 3), catalog);
+    expect(three.doors.items.map((d) => d.id).slice(0, 2)).toEqual(['dr_a', 'dr_b']);
+    expect(three.doors.items.map((d) => d.front)).toEqual(['panel', 'mirror', 'panel']);
+    const one = applyOps(three, slidingCountOps(three, 1), catalog);
+    expect(one.doors.items.map((d) => d.id)).toEqual(['dr_a']);
+  });
+
+  it('builds handle and door-front ops', async () => {
+    const { doorFrontOps, handleOps } = await import('../../../src/editor/opsFromForm.js');
+    expect(handleOps('style', 'knob')).toEqual([{ op: 'set_handles', style: 'knob' }]);
+    expect(doorFrontOps('dr_left', 'mirror')).toEqual([{ op: 'modify_door', id: 'dr_left', front: 'mirror' }]);
+    expect(applyOps(basic, doorFrontOps('dr_left', 'mirror'), catalog).doors.items[0].front).toBe('mirror');
+  });
+
+  it('a hinge change keeps the door\'s mirror front and its own finish', () => {
+    const styled = applyOps(basic, [
+      { op: 'modify_door', id: 'dr_left', front: 'mirror' },
+      { op: 'set_material', target: 'dr_left', color: { catalogId: 'walnut' } },
+    ], catalog);
+    const flipped = applyOps(styled, doorHingeOps(styled, 'dr_left', 'right'), catalog);
+    expect(flipped.doors.items[0]).toMatchObject({ hingeSide: 'right', front: 'mirror', appearance: { color: { catalogId: 'walnut' } } });
+  });
+});

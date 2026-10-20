@@ -25,6 +25,19 @@ describe('schema and validation', () => {
     expect(parseDesign(two)).toEqual(two);
   });
 
+  it('a design without handles or door fronts gets the defaults', () => {
+    const older = structuredClone(loadDesign('two'));
+    delete older.doors.handles;
+    older.doors.items.forEach((door) => { delete door.front; });
+    const parsed = parseDesign(older);
+    expect(parsed.doors.handles).toEqual({ style: 'bar', finish: 'black' });
+    expect(parsed.doors.items.map((d) => d.front)).toEqual(['panel', 'panel']);
+    expect(validateDesign(older, catalog)).toEqual([]);
+    const bad = structuredClone(loadDesign('two'));
+    bad.doors.handles.style = 'Bar!';
+    expect(catchError(() => parseDesign(bad)).code).toBe('SCHEMA_INVALID');
+  });
+
   it('basic wardrobe matches the shared fixture and is valid', () => {
     const design = basicWardrobe(catalog);
     expect(design).toEqual(loadDesign('basic'));

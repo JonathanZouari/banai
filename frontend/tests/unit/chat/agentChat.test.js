@@ -76,6 +76,12 @@ describe('describeOps', () => {
     expect(describeOps(ops, 'en', 'mm')[0].detail).toBe('width 203.2 cm'); // mm is not offered: falls back to cm
     expect(describeOps(ops, 'he')[1].detail).toBe('הזזה, 2 דלתות');
   });
+
+  it('describes handles and mirror fronts in both languages', () => {
+    const ops = [{ op: 'set_handles', style: 'long_bar', finish: 'brass' }, { op: 'set_handles', style: 'none' }, { op: 'modify_door', id: 'dr_middle', front: 'mirror' }];
+    expect(describeOps(ops).map((r) => r.detail)).toEqual(['long bar, brass', 'no handles', 'middle: mirror']);
+    expect(describeOps(ops, 'he').map((r) => r.detail)).toEqual(['מוט ארוך, פליז', 'ללא ידיות', 'דלת אמצעית: מראה']);
+  });
 });
 
 describe('postChat / applyProposal', () => {

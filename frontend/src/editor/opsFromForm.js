@@ -1,6 +1,7 @@
 // Pure mapping from editor form input to domain ops. No DOM here, so every rule is
 // unit-tested. The domain engine remains the single authority on validity.
 import { interiorHeight } from '../domain/geometry.js';
+import { DOOR, newId } from '../domain/ids.js';
 import { formatLength, parseLength } from '../ui/units.js';
 import { t, tf } from '../i18n/strings.js';
 
@@ -19,6 +20,17 @@ export function doorTypeOps(type, count) {
   if (type === 'sliding') return [{ op: 'configure_doors', type, count: count ?? 2 }];
   return [{ op: 'configure_doors', type }];
 }
+
+/** A new sliding-panel count that keeps the existing panels (and their fronts) and adds or drops at the end. */
+export function slidingCountOps(design, count) {
+  const kept = design.doors.items.slice(0, count).map((door) => door.id);
+  const ids = [...kept, ...Array.from({ length: Math.max(0, count - kept.length) }, () => newId(DOOR))];
+  return [{ op: 'configure_doors', type: 'sliding', count, ids }];
+}
+
+export const handleOps = (field, id) => [{ op: 'set_handles', [field]: id }];
+
+export const doorFrontOps = (doorId, front) => [{ op: 'modify_door', id: doorId, front }];
 
 /** Change one hinged door's hinge side by re-stating every door (ids preserved). */
 export function doorHingeOps(design, doorId, hingeSide) {

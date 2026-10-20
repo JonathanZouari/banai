@@ -31,6 +31,26 @@ def test_basic_wardrobe_matches_shared_fixture_and_is_valid(catalog):
     assert validate_design(design, catalog) == []
 
 
+def test_design_without_handles_or_fronts_gets_the_defaults(two, catalog):
+    older = copy.deepcopy(two)
+    del older["doors"]["handles"]
+    for door in older["doors"]["items"]:
+        del door["front"]
+    parsed = parse_design(older)
+    assert parsed["doors"]["handles"] == {"style": "bar", "finish": "black"}
+    assert [door["front"] for door in parsed["doors"]["items"]] == ["panel", "panel"]
+    assert validate_design(older, catalog) == []
+
+
+@pytest.mark.parametrize(("field", "value"), [("style", "Bar!"), ("finish", "x" * 41)])
+def test_handle_ids_are_pattern_checked(two, field, value):
+    bad = copy.deepcopy(two)
+    bad["doors"]["handles"][field] = value
+    with pytest.raises(DomainError) as caught:
+        parse_design(bad)
+    assert caught.value.code == "SCHEMA_INVALID" and value not in caught.value.message
+
+
 def test_unknown_field_is_schema_error(two):
     bad = {**two, "price": 100}
     with pytest.raises(DomainError) as info:

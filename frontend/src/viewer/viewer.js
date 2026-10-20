@@ -3,6 +3,7 @@
 // except through store.select().
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { buildWardrobe, disposeWardrobe } from './buildWardrobe.js';
 import { frameOf } from './builders/frame.js';
@@ -60,6 +61,13 @@ export function createViewer(container, store) {
   Object.assign(controls, { enableDamping: true, minDistance: 0.6, maxDistance: 14, maxPolarAngle: Math.PI / 2 - 0.02 });
 
   const materials = createMaterials(store.getState().catalog);
+  // A soft studio room for mirror reflections only (other materials keep the plain lighting).
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const roomEnvironment = new RoomEnvironment();
+  const environment = pmrem.fromScene(roomEnvironment, 0.04).texture;
+  roomEnvironment.dispose?.();
+  pmrem.dispose();
+  materials.setEnvironment(environment);
   const highlighter = createHighlighter(scene);
   const dimensions = createDimensions(scene);
   let group = null;
@@ -164,6 +172,7 @@ export function createViewer(container, store) {
       highlighter.dispose();
       dimensions.dispose();
       materials.dispose();
+      environment.dispose();
       controls.dispose();
       renderer.dispose();
     },

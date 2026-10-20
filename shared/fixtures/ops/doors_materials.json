@@ -94,5 +94,82 @@
     "base": "two",
     "ops": [{ "op": "set_material", "target": "carcass" }],
     "expect": { "error": { "code": "INVALID_OP", "path": "ops[0]" } }
+  },
+  {
+    "name": "set handle style and finish for every door",
+    "base": "two",
+    "ops": [{ "op": "set_handles", "style": "knob", "finish": "brass" }],
+    "expect": { "match": { "doors": { "handles": { "style": "knob", "finish": "brass" } } } }
+  },
+  {
+    "name": "set_handles changes only the given field",
+    "base": "two",
+    "ops": [{ "op": "set_handles", "style": "none" }],
+    "expect": { "match": { "doors": { "handles": { "style": "none", "finish": "black" } } } }
+  },
+  {
+    "name": "set_handles rejects an unknown handle style",
+    "base": "two",
+    "ops": [{ "op": "set_handles", "style": "gold_lion" }],
+    "expect": { "error": { "code": "UNKNOWN_CATALOG_ID", "path": "doors.handles.style" } }
+  },
+  {
+    "name": "set_handles needs a style or a finish",
+    "base": "two",
+    "ops": [{ "op": "set_handles", "style": null }],
+    "expect": { "error": { "code": "INVALID_OP", "path": "ops[0]" } }
+  },
+  {
+    "name": "make one hinged door a mirror, then back to a panel",
+    "base": "two",
+    "ops": [{ "op": "modify_door", "id": "dr_b", "front": "mirror" }],
+    "expect": { "match": { "doors": { "items": [{ "id": "dr_a", "front": "panel" }, { "id": "dr_b", "front": "mirror" }] } } }
+  },
+  {
+    "name": "mirror fronts work on sliding doors too",
+    "base": "two",
+    "ops": [
+      { "op": "configure_doors", "type": "sliding", "count": 3, "ids": ["dr_s1", "dr_s2", "dr_s3"] },
+      { "op": "modify_door", "id": "dr_s2", "front": "mirror" },
+      { "op": "modify_door", "id": "dr_s3", "front": "mirror" }
+    ],
+    "expect": { "match": { "doors": { "type": "sliding", "items": [{ "front": "panel" }, { "front": "mirror" }, { "front": "mirror" }] } } }
+  },
+  {
+    "name": "modify_door needs an existing door",
+    "base": "two",
+    "ops": [{ "op": "modify_door", "id": "dr_nope", "front": "mirror" }],
+    "expect": { "error": { "code": "NOT_FOUND", "path": "ops[0].id" } }
+  },
+  {
+    "name": "modify_door rejects an unknown front",
+    "base": "two",
+    "ops": [{ "op": "modify_door", "id": "dr_a", "front": "glass" }],
+    "expect": { "error": { "code": "SCHEMA_INVALID" } }
+  },
+  {
+    "name": "re-stating hinged doors keeps each surviving door's front and finish",
+    "base": "two",
+    "ops": [
+      { "op": "modify_door", "id": "dr_a", "front": "mirror" },
+      { "op": "set_material", "target": "dr_b", "color": { "catalogId": "walnut" } },
+      { "op": "configure_doors", "type": "hinged", "doors": [
+        { "id": "dr_a", "compartmentIds": ["cmp_a"], "hingeSide": "right" },
+        { "id": "dr_b", "compartmentIds": ["cmp_b"], "hingeSide": "left" }
+      ] }
+    ],
+    "expect": { "match": { "doors": { "items": [
+      { "id": "dr_a", "hingeSide": "right", "front": "mirror", "appearance": null },
+      { "id": "dr_b", "hingeSide": "left", "front": "panel", "appearance": { "color": { "catalogId": "walnut" } } }
+    ] } } }
+  },
+  {
+    "name": "new door ids start as plain panels",
+    "base": "two",
+    "ops": [
+      { "op": "modify_door", "id": "dr_a", "front": "mirror" },
+      { "op": "configure_doors", "type": "sliding", "count": 2, "ids": ["dr_s1", "dr_s2"] }
+    ],
+    "expect": { "match": { "doors": { "items": [{ "id": "dr_s1", "front": "panel", "appearance": null }, { "id": "dr_s2", "front": "panel" }] } } }
   }
 ]

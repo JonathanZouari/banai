@@ -24,5 +24,17 @@
     { "id": "matte", "name": "Matte" },
     { "id": "satin", "name": "Satin" },
     { "id": "gloss", "name": "Gloss" }
+  ],
+  "handleStyles": [
+    { "id": "bar", "name": "Bar" },
+    { "id": "long_bar", "name": "Long bar" },
+    { "id": "knob", "name": "Knob" },
+    { "id": "edge_pull", "name": "Edge pull" },
+    { "id": "none", "name": "No handles" }
+  ],
+  "handleFinishes": [
+    { "id": "black", "name": "Black", "hex": "#2a2b2d", "metalness": 0.4 },
+    { "id": "brushed_steel", "name": "Brushed steel", "hex": "#a9adb1", "metalness": 0.85 },
+    { "id": "brass", "name": "Brass", "hex": "#b8945a", "metalness": 0.85 }
   ]
 }

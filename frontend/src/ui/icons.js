@@ -26,6 +26,12 @@ const PATHS = Object.freeze({
   interior: 'M4 2h16a1 1 0 011 1v18a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1zm1 2v4h14V4H5zm0 6v4h14v-4H5zm0 6v4h14v-4H5zm6-11h2v2h-2V5z',
   reset: 'M12 5V1L7 6l5 5V7a6 6 0 11-6 6H4a8 8 0 108-8z',
   mirror: 'M5 2h14a1 1 0 011 1v18a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1zm1 2v16h12V4H6zm2.3 9.3l5-5 1.4 1.4-5 5-1.4-1.4zm0 4l8-8 1.4 1.4-8 8-1.4-1.4z',
+  // Handle style pictograms: a door outline with its handle.
+  handleBar: 'M5 2h14v20H5V2zm2 2v16h10V4H7zm7 6h2v5h-2v-5z',
+  handleLongBar: 'M5 2h14v20H5V2zm2 2v16h10V4H7zm7 2h2v12h-2V6z',
+  handleKnob: 'M5 2h14v20H5V2zm2 2v16h10V4H7zm7.5 7a1.5 1.5 0 110 3 1.5 1.5 0 010-3z',
+  handleEdgePull: 'M5 2h14v20H5V2zm2 2v16h10V4H7zm8.5 6h1.5v4h-1.5v-4z',
+  handleNone: 'M5 2h14v20H5V2zm2 2v16h10V4H7z',
 });
 
 /** Returns an <svg> icon element. Unknown names throw, so typos fail loudly in tests. */

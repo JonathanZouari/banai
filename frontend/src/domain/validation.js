@@ -4,7 +4,7 @@
 //   6 per-compartment bounds/overlaps  7 doors  8 catalog refs
 // Rendering/data-safety checks only, never manufacturing rules.
 
-import { catalogIds } from './catalog.js';
+import { catalogIds, handleIds } from './catalog.js';
 import { LIMITS } from './defaults.js';
 import * as E from './errors.js';
 import { DomainError } from './errors.js';
@@ -182,6 +182,13 @@ function checkCatalog(design, catalog) {
       if ('catalogId' in ref && !known[field].has(ref.catalogId)) {
         issues.push(new DomainError(E.UNKNOWN_CATALOG_ID, `${path}.${field}`, `unknown catalog ${field}`));
       }
+    }
+  }
+  const { handles } = design.doors;
+  const knownHandles = handleIds(catalog);
+  for (const field of ['style', 'finish']) {
+    if (!knownHandles[field].has(handles[field])) {
+      issues.push(new DomainError(E.UNKNOWN_CATALOG_ID, `doors.handles.${field}`, `unknown handle ${field}`));
     }
   }
   return issues;

@@ -237,3 +237,17 @@ def test_every_catalog_colour_names_known_materials():
     for colour in catalog["colors"]:
         assert colour["kind"] in {"solid", "wood"}
         assert colour["materials"] and set(colour["materials"]) <= materials
+
+
+def test_agent_can_propose_handles_and_mirror_doors(make_client):
+    from app.ai.agent import _OP_DEFS
+
+    assert {"SetHandles", "ModifyDoor"} <= set(_OP_DEFS)
+    ops = {"summary": "Knobs and a mirror", "ops": [
+        {"op": "set_handles", "style": "knob", "finish": "brass"},
+        {"op": "modify_door", "id": "dr_middle", "front": "mirror"},
+    ]}
+    fake = FakeClient(completion("Done.", "propose_changes", ops))
+    data = make_client(fake).post("/api/chat", json=body("knobs and a mirror in the middle")).json()["data"]
+    assert data["proposal"]["ops"] == ops["ops"]
+    assert "set_handles" in fake.calls[0]["messages"][0]["content"]

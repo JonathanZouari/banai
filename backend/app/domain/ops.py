@@ -14,6 +14,7 @@ from app.domain.errors import SCHEMA_INVALID, DomainError
 from app.domain.schema import (
     MAX_LIST,
     AnyId,
+    CatalogId,
     CompartmentId,
     DoorId,
     DrawerId,
@@ -146,6 +147,18 @@ class SetMaterial(StrictModel):
     clear: bool = False
 
 
+class SetHandles(StrictModel):
+    op: Literal["set_handles"]
+    style: CatalogId | None = None
+    finish: CatalogId | None = None
+
+
+class ModifyDoor(StrictModel):
+    op: Literal["modify_door"]
+    id: DoorId
+    front: Literal["panel", "mirror"] | None = None
+
+
 class RemoveComponent(StrictModel):
     op: Literal["remove_component"]
     id: AnyId
@@ -154,7 +167,7 @@ class RemoveComponent(StrictModel):
 Op = Annotated[
     CreateWardrobe | UpdateDimensions | ConfigureDoors | AddCompartment | ModifyCompartment
     | AddPartition | ModifyPartition | AddShelf | ModifyShelf | AddDrawer | ModifyDrawer
-    | AddRail | ModifyRail | SetMaterial | RemoveComponent,
+    | AddRail | ModifyRail | SetMaterial | SetHandles | ModifyDoor | RemoveComponent,
     Field(discriminator="op"),
 ]
 

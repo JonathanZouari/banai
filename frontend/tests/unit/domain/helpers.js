@@ -11,8 +11,8 @@ const readJson = (path) => JSON.parse(readFileSync(path, 'utf-8'));
 
 // The backend file is the single source of catalog data; the browser receives it via the API.
 export const loadCatalog = () => {
-  const { materials, colors, finishes } = readJson(join(repoRoot, 'backend', 'app', 'domain', 'catalog.json'));
-  return { materials, colors, finishes };
+  const { materials, colors, finishes, handleStyles, handleFinishes } = readJson(join(repoRoot, 'backend', 'app', 'domain', 'catalog.json'));
+  return { materials, colors, finishes, handleStyles, handleFinishes };
 };
 
 export const loadDesign = (name) => readJson(join(fixturesDir, 'designs', `${name}.json`));

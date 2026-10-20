@@ -5,6 +5,8 @@ import { DomainError, SCHEMA_INVALID } from './errors.js';
 import { SAFE_TEXT_PATTERN, isVisibleText } from './schema.js';
 
 export const SECTIONS = Object.freeze({ material: 'materials', color: 'colors', finish: 'finishes' });
+// Door handle field -> catalog section.
+export const HANDLE_SECTIONS = Object.freeze({ style: 'handleStyles', finish: 'handleFinishes' });
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 const entry = z.object({
@@ -20,6 +22,8 @@ const catalogSchema = z.object({
     materials: z.array(z.string().regex(/^[a-z0-9_]{1,40}$/)).max(100).default([]),
   })).max(100),
   finishes: z.array(entry).max(100),
+  handleStyles: z.array(entry).max(100),
+  handleFinishes: z.array(entry.extend({ hex: z.string().regex(HEX), metalness: z.number().min(0).max(1) })).max(100),
 });
 
 /** Validate a catalog received from the server; throws DomainError when malformed. */
@@ -40,4 +44,9 @@ export const coloursFor = (catalog, materialId) =>
 export const catalogIds = (catalog) =>
   Object.fromEntries(
     Object.entries(SECTIONS).map(([field, section]) => [field, new Set(catalog[section].map((e) => e.id))]),
+  );
+
+export const handleIds = (catalog) =>
+  Object.fromEntries(
+    Object.entries(HANDLE_SECTIONS).map(([field, section]) => [field, new Set(catalog[section].map((e) => e.id))]),
   );

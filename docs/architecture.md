@@ -42,7 +42,7 @@ Browser (vanilla JS + Three.js, Vite)
 ```
 **Single operation protocol.** Every change, whether manual or AI, is a list of typed ops, for example `{op:"add_shelf", compartmentId, y, …}`. The ops engine exists in Python (authoritative, used for AI validation and save) and in JS (instant manual editing). **Parity is guaranteed by shared golden fixtures** in `shared/fixtures/ops/*.json` (input design + ops → expected design or error), run by both pytest and vitest. Each op is pure: `(design) → newDesign`. Nothing is mutated.
 
-Op set: `create_wardrobe, update_dimensions, configure_doors, add_compartment, modify_compartment, add_partition, modify_partition, add_shelf, modify_shelf, add_drawer, modify_drawer, add_rail, modify_rail, set_material, remove_component`.
+Op set: `create_wardrobe, update_dimensions, configure_doors, add_compartment, modify_compartment, add_partition, modify_partition, add_shelf, modify_shelf, add_drawer, modify_drawer, add_rail, modify_rail, set_material, set_handles, modify_door, remove_component`.
 
 ## 4. Canonical schema (v1, JSON/JSONB)
 ```jsonc

@@ -1,7 +1,7 @@
 // Properties of the selected component; only the fields that apply to its kind.
 import { appearanceControls } from './appearanceControls.js';
 import { actionResult, button, cmField, el, section, segmented } from './fields.js';
-import { addItemOps, clearAppearanceOps, doorHingeOps, removeOps } from './opsFromForm.js';
+import { addItemOps, clearAppearanceOps, doorFrontOps, doorHingeOps, removeOps } from './opsFromForm.js';
 import { partitionLeftEdge } from '../domain/geometry.js';
 import { t, tf } from '../i18n/strings.js';
 
@@ -73,6 +73,11 @@ function fieldsFor(kind, { design, catalog, selection, run, runAction }) {
         options: [{ value: 'left', label: t('edLeft') }, { value: 'right', label: t('edRight') }],
         onChange: (side) => runAction(doorHingeOps(design, id, side)),
       })] : []),
+      segmented({
+        label: t('edFront'), value: door.front, testId: 'door-front',
+        options: [{ value: 'panel', label: t('edFrontPanel') }, { value: 'mirror', label: t('edFrontMirror') }],
+        onChange: (front) => runAction(doorFrontOps(id, front)),
+      }),
       ...overrideControls({ catalog, design, item: door, inherited: design.doors.appearance, run: runAction, label: t('edDoorFinish'), inheritedFrom: 'door' }),
     ];
   }

@@ -61,12 +61,18 @@ const compartment = z.strictObject({
   rails: list(rail),
 });
 
+export const catalogId = () => z.string().regex(/^[a-z0-9_]{1,40}$/);
+
 const door = z.strictObject({
   id: typedId(ids.DOOR),
   compartmentIds: list(typedId(ids.COMPARTMENT)),
   hingeSide: z.enum(['left', 'right']).nullable().default(null),
   appearance: override,
+  front: z.enum(['panel', 'mirror']).default('panel'),
 });
+
+// One handle style and finish for every door (catalog ids; style `none` means no handles).
+const handles = z.strictObject({ style: catalogId().default('bar'), finish: catalogId().default('black') });
 
 export const designSchema = z.strictObject({
   schemaVersion: z.literal(1),
@@ -82,6 +88,7 @@ export const designSchema = z.strictObject({
     type: z.enum(['hinged', 'sliding', 'none']),
     appearance,
     items: z.array(door).max(MAX_DOORS),
+    handles: handles.default({ style: 'bar', finish: 'black' }),
   }),
 });
 

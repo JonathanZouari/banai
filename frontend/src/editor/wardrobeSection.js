@@ -3,7 +3,7 @@
 import { appearanceControls } from './appearanceControls.js';
 import { t } from '../i18n/strings.js';
 import { actionResult, cmField, countField, el, section, segmented } from './fields.js';
-import { dimensionOps, doorTypeOps } from './opsFromForm.js';
+import { dimensionOps, doorTypeOps, slidingCountOps } from './opsFromForm.js';
 
 function dimensionsRow(design, run) {
   const { width, height, depth } = design.dimensions;
@@ -28,7 +28,7 @@ export function wardrobeSection({ design, catalog, run }) {
   if (doors.type === 'sliding') {
     wardrobe.append(countField({
       label: t('edSlidingPanels'), value: doors.items.length, testId: 'sliding-count',
-      onCommit: (count) => run(doorTypeOps('sliding', count)),
+      onCommit: (count) => run(slidingCountOps(design, count)),
     }));
   }
 

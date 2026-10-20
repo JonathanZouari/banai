@@ -3,6 +3,7 @@
 import { compactLength, DEFAULT_UNIT, isUnit } from '../ui/units.js';
 
 const label = (id) => String(id ?? '').replace(/^[a-z]+_/, '').replace(/[_-]/g, ' ');
+const words = (catalogId) => String(catalogId ?? '').replace(/_/g, ' ');
 const lengthIn = (unitName, unit) => (mm) => `${compactLength(Number(mm) || 0, unit)} ${unitName}`;
 
 const DESCRIBE = {
@@ -20,11 +21,14 @@ const DESCRIBE = {
   add_rail: (o, len) => ['Add hanging rail', `in ${label(o.compartmentId)} at ${len(o.y)}`],
   modify_rail: (o, len) => ['Move hanging rail', `${label(o.id)} to ${len(o.y)}`],
   set_material: (o) => ['Material', [o.material, o.color, o.finish].filter(Boolean).map((r) => r.catalogId ?? r.name).join(', ') || (o.clear ? 'Reset' : '')],
+  set_handles: (o) => ['Handles', [o.style, o.finish].filter(Boolean).map((id) => (id === 'none' ? 'no handles' : words(id))).join(', ')],
+  modify_door: (o) => ['Door front', `${label(o.id)}: ${o.front === 'mirror' ? 'mirror' : 'plain panel'}`],
   remove_component: (o) => ['Remove', label(o.id)],
 };
 
 // Default compartment names and component types in Hebrew; any other id keeps its own short name.
 const HE_SIDE = { left: 'שמאלי', middle: 'אמצעי', right: 'ימני' };
+const HE_SIDE_DOOR = { left: 'שמאלית', middle: 'אמצעית', right: 'ימנית' }; // "door" is feminine in Hebrew
 const HE_NOUN = { cmp: 'תא', prt: 'מחיצה', shf: 'מדף', drw: 'מגירה', rail: 'מוט', dr: 'דלת' };
 function heLabel(id) {
   const [prefix, ...rest] = String(id ?? '').split('_');
@@ -32,12 +36,17 @@ function heLabel(id) {
   const noun = HE_NOUN[prefix];
   if (!noun) return label(id);
   if (prefix === 'cmp' && HE_SIDE[name]) return `${noun} ${HE_SIDE[name]}`;
+  if (prefix === 'dr' && HE_SIDE_DOOR[name]) return `${noun} ${HE_SIDE_DOOR[name]}`;
   return name ? `${noun} ${name}` : noun;
 }
 const inHe = (id) => `ב${heLabel(id)}`;
 
 const HE_DIMENSION = { width: 'רוחב', height: 'גובה', depth: 'עומק' };
 const HE_DOOR_TYPE = { hinged: 'צירים', sliding: 'הזזה' };
+const HE_HANDLE = {
+  bar: 'מוט', long_bar: 'מוט ארוך', knob: 'כפתור', edge_pull: 'שקע בקצה', none: 'ללא ידיות',
+  black: 'שחור', brushed_steel: 'פלדה מוברשת', brass: 'פליז',
+};
 
 const DESCRIBE_HE = {
   create_wardrobe: (o, len) => ['ארון חדש', `${len(o.width)} × ${len(o.height)} × ${len(o.depth)}, ${o.compartmentCount} תאים`],
@@ -54,6 +63,8 @@ const DESCRIBE_HE = {
   add_rail: (o, len) => ['הוספת מוט תלייה', `${inHe(o.compartmentId)} בגובה ${len(o.y)}`],
   modify_rail: (o, len) => ['הזזת מוט תלייה', `${heLabel(o.id)} ל-${len(o.y)}`],
   set_material: (o) => ['חומר', [o.material, o.color, o.finish].filter(Boolean).map((r) => r.catalogId ?? r.name).join(', ') || (o.clear ? 'איפוס' : '')],
+  set_handles: (o) => ['ידיות', [o.style, o.finish].filter(Boolean).map((id) => HE_HANDLE[id] ?? words(id)).join(', ')],
+  modify_door: (o) => ['חזית דלת', `${heLabel(o.id)}: ${o.front === 'mirror' ? 'מראה' : 'חזית רגילה'}`],
   remove_component: (o) => ['הסרה', heLabel(o.id)],
 };
 
