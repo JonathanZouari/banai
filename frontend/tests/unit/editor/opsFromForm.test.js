@@ -117,3 +117,36 @@ describe('layoutOps', () => {
     expect(layoutOps(basic, 'cmp_left', 'disco')).toEqual([]);
   });
 });
+
+describe('curated colours', () => {
+  it('parses colour kind and materials, with safe defaults, and rejects unknown materials', async () => {
+    const { parseCatalog } = await import('../../../src/domain/catalog.js');
+    const parsed = parseCatalog(catalog);
+    expect(parsed.colors.find((c) => c.id === 'walnut')).toMatchObject({ kind: 'wood', materials: ['melamine', 'walnut_veneer'] });
+    const legacy = parseCatalog({ ...catalog, colors: [{ id: 'white', name: 'White', hex: '#ffffff' }] });
+    expect(legacy.colors[0]).toMatchObject({ kind: 'solid', materials: [] });
+    expect(() => parseCatalog({ ...catalog, colors: [{ id: 'x', name: 'X', hex: '#000000', materials: ['marble'] }] })).toThrow();
+    expect(() => parseCatalog({ ...catalog, colors: [{ id: 'x', name: 'X', hex: '#000000', kind: 'neon' }] })).toThrow();
+  });
+
+  it('lists only the colours a material is offered in', async () => {
+    const { coloursFor, parseCatalog } = await import('../../../src/domain/catalog.js');
+    const parsed = parseCatalog(catalog);
+    expect(coloursFor(parsed, 'oak_veneer').map((c) => c.id)).toEqual(['natural_oak', 'whitewashed_oak', 'smoked_oak']);
+    expect(coloursFor(parsed, 'lacquered_mdf').map((c) => c.id)).toContain('sage');
+    expect(coloursFor(parsed, 'melamine').map((c) => c.id)).not.toContain('sage');
+  });
+
+  it('a material change keeps an offered colour, otherwise picks the first offered one', async () => {
+    const { parseCatalog } = await import('../../../src/domain/catalog.js');
+    const { materialChangeOps } = await import('../../../src/editor/appearanceControls.js');
+    const parsed = parseCatalog(catalog);
+    const white = basic.carcass.appearance;
+    expect(materialChangeOps(parsed, white, 'carcass', 'lacquered_mdf')).toEqual([{ op: 'set_material', target: 'carcass', material: { catalogId: 'lacquered_mdf' } }]);
+    const [op] = materialChangeOps(parsed, white, 'carcass', 'oak_veneer');
+    expect(op).toEqual({ op: 'set_material', target: 'carcass', material: { catalogId: 'oak_veneer' }, color: { catalogId: 'natural_oak' } });
+    expect(applyOps(basic, [op], catalog).carcass.appearance.color).toEqual({ catalogId: 'natural_oak' });
+    const custom = { ...white, color: { custom: true, name: 'Sage', hex: '#9caf88' } };
+    expect(materialChangeOps(parsed, custom, 'doors', 'walnut_veneer')[0].color).toEqual({ catalogId: 'walnut' });
+  });
+});

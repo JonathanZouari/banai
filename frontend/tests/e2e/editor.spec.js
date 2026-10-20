@@ -54,7 +54,7 @@ test.describe('Phase 4: manual editing', () => {
   });
 
   test('changing the carcass colour updates the rendered material', async ({ page }) => {
-    await page.getByRole('button', { name: 'Walnut' }).first().click();
+    await page.getByTestId('swatch-carcass-walnut').click();
     await expect.poll(() => page.evaluate(() => window.__banai.viewer.meshOf('carcass').material.color.getHexString())).toBe('6b4a32');
   });
 
@@ -64,12 +64,30 @@ test.describe('Phase 4: manual editing', () => {
     await expect(page.getByTestId('sliding-count')).toHaveValue('2');
   });
 
-  test('custom colour names are rendered as text, never as markup', async ({ page }) => {
-    await page.getByText('Custom colour…').first().click();
-    await page.getByLabel('Custom colour name').first().fill('<b>Sage</b>');
-    await page.getByRole('button', { name: 'Apply custom colour' }).first().click();
-    await expect(page.getByText('Custom: <b>Sage</b>').first()).toBeVisible();
+  test('colours are curated per material: only the decors that material comes in', async ({ page }) => {
+    const swatches = page.locator('[data-testid^="swatch-carcass-"]');
+    await expect(page.getByTestId('swatch-carcass-white')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('swatch-carcass-sage')).toHaveCount(0); // lacquer only
+    await expect(page.getByTestId('swatch-carcass-walnut')).toContainText('Walnut');
+    await expect(page.getByText('Custom colour…')).toHaveCount(0);
+    await page.getByTestId('material-carcass').selectOption('oak_veneer');
+    await expect.poll(async () => (await state(page)).design.carcass.appearance).toEqual({
+      material: { catalogId: 'oak_veneer' }, color: { catalogId: 'natural_oak' }, finish: { catalogId: 'matte' },
+    });
+    await expect(swatches).toHaveCount(3);
+    await expect(page.getByTestId('swatch-carcass-smoked_oak')).toBeVisible();
+    await page.getByTestId('material-carcass').selectOption('melamine');
+    expect((await state(page)).design.carcass.appearance.color).toEqual({ catalogId: 'natural_oak' }); // melamine has an oak decor too
+  });
+
+  test('an existing custom colour shows as a read-only chip, as text, never as markup', async ({ page }) => {
+    await page.evaluate(() => window.__banai.store.dispatch([{ op: 'set_material', target: 'carcass', color: { custom: true, name: '<b>Sage</b>', hex: '#9caf88' } }]));
+    const chip = page.getByTestId('swatch-carcass-custom');
+    await expect(chip).toContainText('Custom: <b>Sage</b>');
+    await expect(chip).toBeDisabled();
     expect(await page.locator('#properties-content b').count()).toBe(0);
+    await page.getByTestId('swatch-carcass-black').click();
+    await expect(page.getByTestId('swatch-carcass-custom')).toHaveCount(0);
   });
 
   test('deleting the selected shelf removes it and clears the selection', async ({ page }) => {

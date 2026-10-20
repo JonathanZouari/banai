@@ -58,10 +58,21 @@ def units_rule(units: str) -> str:
     )
 
 
+def colours_by_material(catalog: dict) -> dict[str, list[str]]:
+    """Which colour ids each material is offered in (from the catalog's per-colour `materials`)."""
+    offered: dict[str, list[str]] = {material["id"]: [] for material in catalog.get("materials", [])}
+    for colour in catalog.get("colors", []):
+        for material in colour.get("materials", []):
+            offered.setdefault(material, []).append(colour["id"])
+    return offered
+
+
 def build_system_message(design: dict, catalog: dict, language: str = "en", units: str = "cm") -> str:
     catalog_ids = {key: [item["id"] for item in items] for key, items in catalog.items() if isinstance(items, list)}
     rule = language_rule(language)
     return (
         f"{rule}\n\n{SYSTEM_PROMPT}\n{units_rule(units)}\nCatalog ids: {canonical_json(catalog_ids)}\n"
+        f"Colours offered per material (pick a colour from the chosen material's list; when changing the material, "
+        f"also set a colour it offers): {canonical_json(colours_by_material(catalog))}\n"
         f"Current design (JSON, the single source of truth):\n{canonical_json(design)}\n\n{rule}"
     )

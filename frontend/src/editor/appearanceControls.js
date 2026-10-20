@@ -1,41 +1,54 @@
 // Material / colour / finish controls for one appearance target (carcass, doors, item).
-// Catalog values and customer-defined custom colours stay visibly distinct.
-import { button, el, segmented, selectField } from './fields.js';
+// Colours are curated per material: only the decors a material is offered in are shown, each with
+// its name. A design that already holds a custom colour (e.g. from an earlier version) shows it as
+// a read-only chip, visibly distinct from catalog values.
+import { el, segmented, selectField } from './fields.js';
 import { materialOps } from './opsFromForm.js';
+import { coloursFor } from '../domain/catalog.js';
 import { catalogName, t, tf } from '../i18n/strings.js';
 
 const isCatalog = (ref, id) => !ref.custom && ref.catalogId === id;
 
+function swatch({ name, hex, kind, pressed, onClick, testId }) {
+  const chip = el('span', { className: `swatch${kind === 'wood' ? ' swatch--wood' : ''}`, attrs: { 'aria-hidden': 'true' } });
+  if (hex) chip.style.backgroundColor = hex; // validated #rrggbb (catalog or custom ref)
+  const node = el('button', {
+    className: 'swatch-option',
+    attrs: { type: 'button', title: name, 'aria-label': name, 'aria-pressed': String(pressed) },
+  }, [chip, el('span', { className: 'swatch-option__name', text: name })]);
+  if (testId) node.dataset.testid = testId;
+  if (onClick) node.addEventListener('click', onClick);
+  else node.disabled = true;
+  return node;
+}
+
 function swatches({ catalog, appearance, run, target }) {
+  const { material, color } = appearance;
+  const offered = material.custom ? catalog.colors : coloursFor(catalog, material.catalogId);
+  // A catalog colour the material does not list (e.g. set by the agent) is still shown while selected.
+  const current = !color.custom && !offered.some((c) => c.id === color.catalogId) ? catalog.colors.filter((c) => c.id === color.catalogId) : [];
   const row = el('div', { className: 'swatches', attrs: { role: 'group', 'aria-label': t('edColour') } });
-  catalog.colors.forEach((color) => {
-    const swatch = el('button', {
-      className: 'swatch',
-      attrs: { type: 'button', title: catalogName(color), 'aria-label': catalogName(color), 'aria-pressed': String(isCatalog(appearance.color, color.id)) },
-    });
-    swatch.style.backgroundColor = color.hex; // validated #rrggbb from the parsed catalog
-    swatch.addEventListener('click', () => run(materialOps(target, 'color', { catalogId: color.id })));
-    row.append(swatch);
-  });
+  if (color.custom) {
+    row.append(swatch({ name: tf('edCustomBadge', { name: color.name }), hex: color.hex, pressed: true, testId: `swatch-${target}-custom` }));
+  }
+  [...current, ...offered].forEach((c) => row.append(swatch({
+    name: catalogName(c),
+    hex: c.hex,
+    kind: c.kind,
+    pressed: isCatalog(color, c.id),
+    testId: `swatch-${target}-${c.id}`,
+    onClick: () => run(materialOps(target, 'color', { catalogId: c.id })),
+  })));
   return row;
 }
 
-function customColour({ appearance, run, target }) {
-  const current = appearance.color.custom ? appearance.color : null;
-  const name = el('input', { className: 'field__input', attrs: { type: 'text', maxlength: '80', placeholder: t('edCustomPlaceholder'), 'aria-label': t('edCustomNameAria') } });
-  name.value = current?.name ?? '';
-  const picker = el('input', { className: 'colour-input', attrs: { type: 'color', 'aria-label': t('edCustomPickerAria') } });
-  picker.value = current?.hex ?? '#9caf88';
-  const applyButton = button(t('edApplyCustom'), () => {
-    run(materialOps(target, 'color', { custom: true, name: name.value.trim() || 'Custom colour', hex: picker.value }));
-  }, { variant: 'ghost' });
-  const badge = current ? [el('p', { className: 'custom-badge', text: tf('edCustomBadge', { name: current.name }) })] : [];
-  return el('details', { className: 'custom-colour', attrs: current ? { open: '' } : {} }, [
-    el('summary', { text: t('edCustomColour') }),
-    ...badge,
-    el('div', { className: 'custom-colour__row' }, [picker, name]),
-    applyButton,
-  ]);
+/** Changing the material keeps the colour when the new material offers it, else picks its first colour. */
+export function materialChangeOps(catalog, appearance, target, materialId) {
+  const offered = coloursFor(catalog, materialId);
+  const keep = !appearance.color.custom && offered.some((c) => c.id === appearance.color.catalogId);
+  const op = { op: 'set_material', target, material: { catalogId: materialId } };
+  if (!keep && offered.length > 0) op.color = { catalogId: offered[0].id };
+  return [op];
 }
 
 export function appearanceControls({ catalog, appearance, target, run, label }) {
@@ -49,10 +62,11 @@ export function appearanceControls({ catalog, appearance, target, run, label }) 
         ...(material.custom ? [{ value: '', label: tf('edCustomBadge', { name: material.name }) }] : []),
         ...catalog.materials.map((m) => ({ value: m.id, label: catalogName(m) })),
       ],
-      onChange: (id) => run(materialOps(target, 'material', { catalogId: id })),
+      onChange: (id) => run(materialChangeOps(catalog, appearance, target, id)),
+      testId: `material-${target}`,
     }),
+    el('p', { className: 'field__label', text: t('edColour') }),
     swatches({ catalog, appearance, run, target }),
-    customColour({ appearance, run, target }),
     segmented({
       label: t('edFinish'),
       value: appearance.finish.custom ? null : appearance.finish.catalogId,

@@ -215,3 +215,25 @@ def test_unexpected_errors_use_the_envelope_without_details(make_client):
     response = http.post("/api/chat", json=body())
     assert response.status_code == 500 and "secret" not in response.text
     assert response.json()["error"]["code"] == "INTERNAL_ERROR"
+
+
+def test_prompt_lists_colours_per_material():
+    from app.ai.prompt import build_system_message, colours_by_material
+    from app.domain.catalog import load_catalog
+
+    catalog = load_catalog()
+    offered = colours_by_material(catalog)
+    assert offered["oak_veneer"] == ["natural_oak", "whitewashed_oak", "smoked_oak"]
+    assert "sage" in offered["lacquered_mdf"] and "sage" not in offered["melamine"]
+    assert set(offered) == {m["id"] for m in catalog["materials"]}
+    assert '"walnut_veneer":["walnut"]' in build_system_message(basic_wardrobe(), catalog)
+
+
+def test_every_catalog_colour_names_known_materials():
+    from app.domain.catalog import load_catalog
+
+    catalog = load_catalog()
+    materials = {m["id"] for m in catalog["materials"]}
+    for colour in catalog["colors"]:
+        assert colour["kind"] in {"solid", "wood"}
+        assert colour["materials"] and set(colour["materials"]) <= materials

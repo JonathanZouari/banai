@@ -13,7 +13,12 @@ const entry = z.object({
 });
 const catalogSchema = z.object({
   materials: z.array(entry).max(100),
-  colors: z.array(entry.extend({ hex: z.string().regex(HEX) })).max(100),
+  // `kind` drives the swatch look; `materials` lists where the colour is offered (a guide, not a rule).
+  colors: z.array(entry.extend({
+    hex: z.string().regex(HEX),
+    kind: z.enum(['solid', 'wood']).default('solid'),
+    materials: z.array(z.string().regex(/^[a-z0-9_]{1,40}$/)).max(100).default([]),
+  })).max(100),
   finishes: z.array(entry).max(100),
 });
 
@@ -21,8 +26,16 @@ const catalogSchema = z.object({
 export function parseCatalog(data) {
   const result = catalogSchema.safeParse(data);
   if (!result.success) throw new DomainError(SCHEMA_INVALID, 'catalog', 'invalid catalog');
+  const materials = new Set(result.data.materials.map((m) => m.id));
+  if (result.data.colors.some((c) => c.materials.some((id) => !materials.has(id)))) {
+    throw new DomainError(SCHEMA_INVALID, 'catalog', 'colour offered in an unknown material');
+  }
   return result.data;
 }
+
+/** Colours offered in a material. A colour that lists no materials is offered everywhere. */
+export const coloursFor = (catalog, materialId) =>
+  catalog.colors.filter((c) => c.materials.length === 0 || c.materials.includes(materialId));
 
 export const catalogIds = (catalog) =>
   Object.fromEntries(

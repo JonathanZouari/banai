@@ -1,17 +1,24 @@
 {
-  "_note": "Prototype catalog. Configurable placeholder values, not approved business data.",
+  "_note": "Prototype catalog. Configurable placeholder values, not approved business data. Each colour lists the materials it is offered in (a display guide for the editor and the agent, not a validation rule).",
   "materials": [
     { "id": "melamine", "name": "Melamine board" },
     { "id": "oak_veneer", "name": "Oak veneer" },
+    { "id": "walnut_veneer", "name": "Walnut veneer" },
     { "id": "lacquered_mdf", "name": "Lacquered MDF" }
   ],
   "colors": [
-    { "id": "white", "name": "White", "hex": "#f2f1ed" },
-    { "id": "light_grey", "name": "Light grey", "hex": "#c9c8c4" },
-    { "id": "anthracite", "name": "Anthracite", "hex": "#3b3d40" },
-    { "id": "black", "name": "Black", "hex": "#1d1d1f" },
-    { "id": "natural_oak", "name": "Natural oak", "hex": "#c49a6c" },
-    { "id": "walnut", "name": "Walnut", "hex": "#6b4a32" }
+    { "id": "white", "name": "White", "hex": "#f2f1ed", "kind": "solid", "materials": ["melamine", "lacquered_mdf"] },
+    { "id": "light_grey", "name": "Light grey", "hex": "#c9c8c4", "kind": "solid", "materials": ["melamine", "lacquered_mdf"] },
+    { "id": "sand", "name": "Sand", "hex": "#d6c7ae", "kind": "solid", "materials": ["melamine", "lacquered_mdf"] },
+    { "id": "anthracite", "name": "Anthracite", "hex": "#3b3d40", "kind": "solid", "materials": ["melamine", "lacquered_mdf"] },
+    { "id": "black", "name": "Black", "hex": "#1d1d1f", "kind": "solid", "materials": ["melamine", "lacquered_mdf"] },
+    { "id": "sage", "name": "Sage green", "hex": "#9caf88", "kind": "solid", "materials": ["lacquered_mdf"] },
+    { "id": "navy", "name": "Navy blue", "hex": "#2f3e55", "kind": "solid", "materials": ["lacquered_mdf"] },
+    { "id": "clay", "name": "Clay", "hex": "#b5654a", "kind": "solid", "materials": ["lacquered_mdf"] },
+    { "id": "natural_oak", "name": "Natural oak", "hex": "#c49a6c", "kind": "wood", "materials": ["melamine", "oak_veneer"] },
+    { "id": "whitewashed_oak", "name": "Whitewashed oak", "hex": "#d9c8ad", "kind": "wood", "materials": ["oak_veneer"] },
+    { "id": "smoked_oak", "name": "Smoked oak", "hex": "#7d5d43", "kind": "wood", "materials": ["oak_veneer"] },
+    { "id": "walnut", "name": "Walnut", "hex": "#6b4a32", "kind": "wood", "materials": ["melamine", "walnut_veneer"] }
   ],
   "finishes": [
     { "id": "matte", "name": "Matte" },
