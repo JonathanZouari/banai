@@ -53,9 +53,9 @@ test.describe('top menu bar', () => {
     await expect(page.getByTestId('help-badge')).toHaveText((await page.locator('#advice-badge').textContent()) ?? '');
     await page.getByTestId('menu-help-button').click();
     await expect(page.getByTestId('tab-advice').locator('.tab-badge')).toBeVisible();
-    await expect(page.getByTestId('contact-phone')).toHaveText('058-444-4548');
-    await expect(page.getByTestId('contact-phone')).toHaveAttribute('href', 'tel:+972584444548');
-    await expect(page.getByTestId('contact-whatsapp')).toHaveAttribute('href', /^https:\/\/wa\.me\/972584444548/);
+    await expect(page.getByTestId('contact-phone')).toHaveText('051-234-5678');
+    await expect(page.getByTestId('contact-phone')).toHaveAttribute('href', 'tel:+972512345678');
+    await expect(page.getByTestId('contact-whatsapp')).toHaveAttribute('href', /^https:\/\/wa\.me\/972512345678/);
     await expect(page.getByTestId('contact-whatsapp')).toHaveAttribute('rel', /noopener/);
   });
 
