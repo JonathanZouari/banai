@@ -3,6 +3,7 @@
 // and shows an inline message. No LLM is involved in manual editing.
 import { compartmentsSection } from './compartmentsSection.js';
 import { componentSection } from './componentSection.js';
+import { interiorSection } from './interiorSection.js';
 import { wardrobeSection } from './wardrobeSection.js';
 import { units } from '../ui/units.js';
 import { language } from '../i18n/strings.js';
@@ -26,6 +27,7 @@ export function mountPanel(root, store) {
       ...(state.selection ? [componentSection(context)] : []),
       ...wardrobeSection(context),
       compartmentsSection(context),
+      interiorSection(context),
     );
   };
 

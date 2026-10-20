@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { applyOps } from '../../../src/domain/apply.js';
 import {
-  addCompartmentOps, addItemOps, doorHingeOps, doorTypeOps, friendlyError, materialOps, parseCm, toCmText,
+  addCompartmentOps, addItemOps, doorHingeOps, doorTypeOps, friendlyError, LAYOUTS, layoutOps, materialOps, parseCm, toCmText,
 } from '../../../src/editor/opsFromForm.js';
 import { DomainError } from '../../../src/domain/errors.js';
 import { loadCatalog, loadDesign } from '../domain/helpers.js';
@@ -73,5 +73,47 @@ describe('friendlyError', () => {
     expect(friendlyError(new DomainError('OUT_OF_BOUNDS', 'x', 'x'))).toMatch(/inside the wardrobe/i);
     expect(friendlyError(new DomainError('OUT_OF_RANGE', 'ops[0].width', 'x'))).toMatch(/allowed range/i);
     expect(friendlyError(new DomainError('SOMETHING_NEW', 'x', 'x'))).toMatch(/could not be applied/i);
+  });
+});
+
+describe('layoutOps', () => {
+  const contents = (design, id) => {
+    const c = design.compartments.find((x) => x.id === id);
+    return { shelves: c.shelves.length, drawers: c.drawers.length, rails: c.rails.length };
+  };
+
+  it('replaces every compartment\'s contents with each layout, and the result is valid', () => {
+    for (const compartment of basic.compartments) {
+      for (const layout of LAYOUTS) {
+        const result = applyOps(basic, layoutOps(basic, compartment.id, layout), catalog);
+        const others = basic.compartments.filter((c) => c.id !== compartment.id);
+        others.forEach((other) => expect(result.compartments.find((c) => c.id === other.id)).toEqual(other));
+        const old = [...compartment.shelves, ...compartment.drawers, ...compartment.rails].map((item) => item.id);
+        const now = result.compartments.find((c) => c.id === compartment.id);
+        old.forEach((id) => expect(JSON.stringify(now)).not.toContain(id));
+      }
+    }
+  });
+
+  it('builds the expected layouts for a 2400 mm wardrobe', () => {
+    const hanging = applyOps(basic, layoutOps(basic, 'cmp_left', 'hanging'), catalog);
+    expect(contents(hanging, 'cmp_left')).toEqual({ shelves: 1, drawers: 0, rails: 1 });
+    const left = hanging.compartments[0];
+    expect(left.rails[0].y).toBeLessThan(left.shelves[0].y); // the rail hangs under the shelf
+    expect(contents(applyOps(basic, layoutOps(basic, 'cmp_left', 'shelves'), catalog), 'cmp_left')).toEqual({ shelves: 5, drawers: 0, rails: 0 });
+    const drawers = applyOps(basic, layoutOps(basic, 'cmp_left', 'drawers'), catalog);
+    expect(contents(drawers, 'cmp_left')).toEqual({ shelves: 4, drawers: 3, rails: 0 });
+    expect(drawers.compartments[0].drawers.map((d) => d.y)).toEqual([0, 200, 400]);
+  });
+
+  it('still fits a very low wardrobe', () => {
+    const empty = basic.compartments.flatMap((c) => [...c.shelves, ...c.drawers, ...c.rails].map((item) => ({ op: 'remove_component', id: item.id })));
+    const low = applyOps(basic, [...empty, { op: 'update_dimensions', height: 400 }], catalog);
+    for (const layout of LAYOUTS) expect(() => applyOps(low, layoutOps(low, 'cmp_left', layout), catalog)).not.toThrow();
+  });
+
+  it('ignores unknown compartments and layouts', () => {
+    expect(layoutOps(basic, 'cmp_nope', 'shelves')).toEqual([]);
+    expect(layoutOps(basic, 'cmp_left', 'disco')).toEqual([]);
   });
 });
