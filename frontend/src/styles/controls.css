@@ -252,6 +252,7 @@ select.field__input {
 .swatch--metal { background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.45) 0%, transparent 45%, rgba(0, 0, 0, 0.18) 100%); }
 .swatch-option:disabled .swatch { opacity: 0.4; }
 .mirror-fronts { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.mirror-fronts + .panel__note { margin-top: var(--space-3); }
 .mirror-chip {
   display: inline-flex;
   align-items: center;

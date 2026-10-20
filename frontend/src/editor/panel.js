@@ -4,8 +4,8 @@
 import { compartmentsSection } from './compartmentsSection.js';
 import { componentSection } from './componentSection.js';
 import { interiorSection } from './interiorSection.js';
-import { doorsSection } from './doorsSection.js';
-import { wardrobeSection } from './wardrobeSection.js';
+import { doorsSection, handlesSection } from './doorsSection.js';
+import { materialsSection, wardrobeSection } from './wardrobeSection.js';
 import { units } from '../ui/units.js';
 import { language } from '../i18n/strings.js';
 
@@ -28,6 +28,8 @@ export function mountPanel(root, store) {
       ...(state.selection ? [componentSection(context)] : []),
       ...wardrobeSection(context),
       ...doorsSection(context),
+      ...handlesSection(context),
+      ...materialsSection(context),
       compartmentsSection(context),
       interiorSection(context),
     );

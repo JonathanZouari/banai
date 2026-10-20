@@ -51,11 +51,12 @@ test.describe('handles and mirror fronts', () => {
   test('the section hides with no doors and speaks Hebrew', async ({ page }) => {
     await openDesigner(page);
     await chooseSetting(page, 'lang-he');
-    await expect(page.getByTestId('doors-section')).toContainText('ידיות ומראות');
+    await expect(page.getByTestId('doors-section')).toContainText('דלתות');
     await expect(page.getByTestId('handle-style-knob')).toContainText('כפתור');
     await expect(page.getByTestId('mirror-dr_left')).toHaveText('דלת 1');
     await page.evaluate(() => window.__banai.store.dispatch([{ op: 'configure_doors', type: 'none' }]));
-    await expect(page.getByTestId('doors-section')).toHaveCount(0);
+    await expect(page.getByTestId('handles-section')).toHaveCount(0);
+    await expect(page.getByTestId('doors-section')).toBeVisible();
   });
 
   test('one undo reverts a mirror front', async ({ page }) => {

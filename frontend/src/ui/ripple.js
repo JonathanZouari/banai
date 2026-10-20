@@ -1,6 +1,6 @@
 // Material-style press ripple, delegated from the document so every button gets it.
 // Purely decorative: it never changes content or focus, and is removed when it finishes.
-const TARGETS = '.btn, .icon-btn, .segmented__option, .suggestion, .swatch';
+const TARGETS = '.btn, .icon-btn, .segmented__option, .suggestion, .swatch, .chat__voice-toggle, .view-switch__btn';
 
 export function installRipple(root = document) {
   root.addEventListener('pointerdown', (event) => {

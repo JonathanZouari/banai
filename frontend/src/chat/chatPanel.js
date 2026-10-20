@@ -123,9 +123,24 @@ export function mountChat(container, { model, onConfirm, connected = false, lang
 
   const lang = () => (language ? language.get() : 'en');
 
+  // Replay a one-shot CSS animation class (removed again when it ends).
+  const playOnce = (node, className) => {
+    node.classList.remove(className);
+    void node.offsetWidth; // restart the animation if it is already running
+    node.classList.add(className);
+    node.addEventListener('animationend', () => node.classList.remove(className), { once: true });
+  };
+  let lastEnabled = null;
+
   function renderVoice() {
     if (!voice) return;
     const { state, speaking, enabled, error } = voice.getState();
+    if (lastEnabled !== null && lastEnabled !== enabled) {
+      playOnce(voiceSwitchState, 'chat__voice-toggle-state--flip');
+      playOnce(voiceSwitch, enabled ? 'chat__voice-toggle--turned-on' : 'chat__voice-toggle--turned-off');
+      if (enabled) playOnce(micButton, 'chat__mic--enter');
+    }
+    lastEnabled = enabled;
     const recording = state === 'recording';
     voiceSwitch.setAttribute('aria-checked', String(enabled));
     voiceSwitch.classList.toggle('chat__voice-toggle--on', enabled);
@@ -146,8 +161,8 @@ export function mountChat(container, { model, onConfirm, connected = false, lang
       : recording ? t('voiceListening') : state === 'transcribing' ? t('voiceTranscribing') : speaking ? t('voiceSpeaking') : '';
     voiceStatus.textContent = text;
     voiceStatus.hidden = !text;
+    voiceStatus.title = text;
     voiceStatus.classList.toggle('chat__voice-status--error', Boolean(error));
-    voiceNote.hidden = !enabled;
   }
 
   function applyLanguage() {

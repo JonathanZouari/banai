@@ -220,7 +220,8 @@ test.describe('lean header and 3D view toolbar', () => {
     await expect(page.getByTestId('unit-in')).toHaveAttribute('aria-checked', 'true');
     await page.getByTestId('lang-he').click();
     await expect(page.getByTestId('settings-panel')).toBeVisible();
-    await expect(page.locator('.topbar')).toHaveAttribute('dir', 'rtl');
+    await expect(page.locator('.topbar')).toHaveAttribute('dir', 'ltr');
+    await expect(page.getByTestId('settings-panel')).toHaveAttribute('dir', 'rtl');
     await expect(page.getByTestId('unit-in')).toHaveAttribute('title', 'אינצ׳ים');
   });
 
@@ -249,7 +250,7 @@ test.describe('lean header and 3D view toolbar', () => {
     expect(await page.evaluate(() => window.__banai.store.getState().design.compartments[0].shelves[0].y)).toBe(450);
   });
 
-  test('the toolbar switches between doors and interior and resets the camera', async ({ page }) => {
+  test('the toolbar switches between doors and interior and orbits the camera', async ({ page }) => {
     await openDesigner(page);
     await expect(page.getByTestId('view-doors')).toHaveAttribute('aria-checked', 'true');
     await page.getByTestId('view-interior').click();
@@ -265,8 +266,7 @@ test.describe('lean header and 3D view toolbar', () => {
     await page.mouse.move(box.x + box.width / 2 + 200, box.y + box.height / 2, { steps: 8 });
     await page.mouse.up();
     await expect.poll(camera).not.toBe(start);
-    await page.getByTestId('reset-view').click();
-    await expect.poll(camera).toBe(start);
+    await expect(page.getByTestId('reset-view')).toHaveCount(0);
   });
 });
 

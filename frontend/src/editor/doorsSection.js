@@ -1,7 +1,7 @@
-// Door hardware and fronts: one handle style and finish for every door, and which doors have a
-// mirror front (hinged and sliding alike). Hidden when the wardrobe has no doors.
-import { actionResult, el, section } from './fields.js';
-import { doorFrontOps, handleOps } from './opsFromForm.js';
+// Two sections. Doors: everything about the doors themselves (type, sliding panel count, mirror fronts).
+// Handles: one handle style and finish for every door. Handles are hidden when the wardrobe has no doors.
+import { actionResult, countField, el, section, segmented } from './fields.js';
+import { doorFrontOps, doorTypeOps, handleOps, slidingCountOps } from './opsFromForm.js';
 import { icon } from '../ui/icons.js';
 import { catalogName, t, tf } from '../i18n/strings.js';
 
@@ -65,16 +65,37 @@ function mirrorFronts({ design, run }) {
   ]);
 }
 
-export function doorsSection({ design, catalog, run }) {
-  if (design.doors.type === 'none') return [];
-  const container = section(t('edHandlesMirrors'), []);
+export function doorsSection({ design, run }) {
+  const { doors } = design;
+  const container = section(t('edDoors'), []);
   container.dataset.testid = 'doors-section';
+  const runDoors = (ops) => actionResult(container, run(ops));
+  container.append(segmented({
+    label: t('edDoorType'),
+    testId: 'door-type',
+    value: doors.type,
+    options: [{ value: 'hinged', label: t('edHinged') }, { value: 'sliding', label: t('edSliding') }, { value: 'none', label: t('edNone') }],
+    onChange: (type) => runDoors(doorTypeOps(type)),
+  }));
+  if (doors.type === 'sliding') {
+    container.append(countField({
+      label: t('edSlidingPanels'), value: doors.items.length, testId: 'sliding-count',
+      onCommit: (count) => run(slidingCountOps(design, count)),
+    }));
+  }
+  if (doors.type !== 'none') container.append(mirrorFronts({ design, run: runDoors }));
+  return [container];
+}
+
+export function handlesSection({ design, catalog, run }) {
+  if (design.doors.type === 'none') return [];
+  const container = section(t('edHandles'), []);
+  container.dataset.testid = 'handles-section';
   const runAction = (ops) => actionResult(container, run(ops));
   const { handles } = design.doors;
   container.append(
     handleStyles({ catalog, handles, run: runAction }),
     ...handleFinishes({ catalog, handles, run: runAction }),
-    mirrorFronts({ design, run: runAction }),
   );
   return [container];
 }

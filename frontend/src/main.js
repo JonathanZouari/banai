@@ -63,7 +63,9 @@ function bindStaticLanguage() {
     document.querySelectorAll('[data-i18n]').forEach((node) => { node.textContent = language.t(node.dataset.i18n); });
     document.querySelectorAll('[data-i18n-aria]').forEach((node) => { node.setAttribute('aria-label', language.t(node.dataset.i18nAria)); });
     document.querySelectorAll('[data-i18n-title]').forEach((node) => { node.title = language.t(node.dataset.i18nTitle); });
-    document.querySelector('.topbar').dir = language.dir();
+    // The header keeps the English arrangement in every language; only the text and the open menus follow the language.
+    document.querySelector('.topbar').dir = 'ltr';
+    document.querySelectorAll('.topbar .popover').forEach((panel) => { panel.dir = language.dir(); });
     const properties = document.getElementById('properties-panel');
     properties.lang = language.get();
     properties.dir = language.dir();
