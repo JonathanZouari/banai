@@ -40,6 +40,11 @@ LIMITS: dict[str, tuple[int, int]] = {
     "openingWidth": (300, 5000),
     "openingHeight": (300, 3000),
     "openingSill": (0, 2500),
+    # free-standing furniture in the room (ADR-041): its centre on the plan, its size; a person's place on the floor
+    "furniturePos": (-20000, 20000),
+    "furnitureSize": (20, 4000),
+    "furnitureHeight": (20, 2500),
+    "personAt": (-20000, 20000),
     "shoeTiers": (1, 6),
     "insertHeight": (200, 1500),
     "zones": (1, 4),
@@ -47,6 +52,7 @@ LIMITS: dict[str, tuple[int, int]] = {
 
 MAX_OBSTACLES = 8  # wall obstacles in one site
 MAX_OPENINGS = 8  # doors, windows and passages in one room (ADR-037)
+MAX_FURNITURE = 8  # free-standing furniture in one room (ADR-041)
 # Which limit each obstacle field takes.
 OBSTACLE_LIMITS = {"x": "obstacleX", "y": "obstacleY", "width": "obstacleSize", "height": "obstacleSize"}
 

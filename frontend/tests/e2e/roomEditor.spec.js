@@ -27,7 +27,7 @@ test.describe('the room editor', () => {
   test('a rectangular room: sizes, a wall from the plan, a corner, the R27 fix, and no room again', async ({ page }) => {
     await page.getByTestId('room-kind').selectOption('rect');
     await expect(page.getByTestId('room-plan')).toBeVisible();
-    expect((await store(page)).design.room).toEqual({ shape: { kind: 'rect', width: 3500, depth: 4000 }, wall: 0, offset: 750, openings: [] });
+    expect((await store(page)).design.room).toEqual({ shape: { kind: 'rect', width: 3500, depth: 4000 }, wall: 0, offset: 750, openings: [], furniture: [] });
     await expect(page.getByTestId('room-space')).toHaveText('מול הארון 340.0 ס״מ · משמאל 75.0 ס״מ · מימין 75.0 ס״מ עד הקיר.');
 
     await fill(page, 'room-depth', '300');

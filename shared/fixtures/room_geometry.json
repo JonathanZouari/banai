@@ -218,5 +218,71 @@
     "front": 0,
     "left": 1250,
     "right": 1250
+  },
+  {
+    "name": "a bed in front of the wardrobe takes the floor",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        },
+        "furniture": [
+          {
+            "type": "bed",
+            "x": 1750,
+            "y": 2500,
+            "width": 1600,
+            "depth": 2000,
+            "height": 550
+          }
+        ]
+      }
+    ],
+    "walls": [
+      3500,
+      4000,
+      3500,
+      4000
+    ],
+    "fits": true,
+    "front": 1000,
+    "left": 1250,
+    "right": 1250
+  },
+  {
+    "name": "a narrow chest between the rays still takes the floor in front",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        },
+        "furniture": [
+          {
+            "type": "dresser",
+            "x": 1500,
+            "y": 1300,
+            "width": 300,
+            "depth": 400,
+            "height": 850
+          }
+        ]
+      }
+    ],
+    "walls": [
+      3500,
+      4000,
+      3500,
+      4000
+    ],
+    "fits": true,
+    "front": 600,
+    "left": 1250,
+    "right": 1250
   }
 ]

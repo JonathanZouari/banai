@@ -11,7 +11,7 @@ export const CHILD = 1100;
 
 /** set_household ops for the list with person `index` changed by `patch` (null removes them). */
 export function householdOps(people, index, patch) {
-  const next = people.map((p) => ({ name: p.name ?? null, height: p.height }));
+  const next = people.map((p) => ({ name: p.name ?? null, height: p.height, at: p.at ?? null })); // where they stand stays (ADR-041)
   if (patch === null) next.splice(index, 1);
   else next[index] = { ...next[index], ...patch };
   return [{ op: 'set_household', people: next }];
@@ -42,7 +42,7 @@ export function householdSection({ design, run, current = () => design }) {
     ]));
   });
   if (people.length < MAX_PEOPLE) {
-    const add = (height) => () => run([{ op: 'set_household', people: [...now().map((p) => ({ name: p.name ?? null, height: p.height })), { name: null, height }] }]);
+    const add = (height) => () => run([{ op: 'set_household', people: [...now().map((p) => ({ name: p.name ?? null, height: p.height, at: p.at ?? null })), { name: null, height }] }]);
     section.append(el('div', { className: 'person-add' }, [
       button('+ מבוגר', add(ADULT), { variant: 'secondary', testId: 'person-add-adult' }),
       button('+ ילד', add(CHILD), { variant: 'secondary', testId: 'person-add-child' }),

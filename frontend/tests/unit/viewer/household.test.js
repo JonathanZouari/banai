@@ -36,8 +36,11 @@ describe('the household', () => {
 
   it('edits one person, removes one, and keeps the others', () => {
     const { people } = family.household;
-    expect(householdOps(people, 1, { height: 1120 })).toEqual([{ op: 'set_household', people: [{ name: 'אבא', height: 1820 }, { name: null, height: 1120 }] }]);
-    expect(householdOps(people, 0, null)).toEqual([{ op: 'set_household', people: [{ name: null, height: 1050 }] }]);
+    expect(householdOps(people, 1, { height: 1120 })).toEqual([{ op: 'set_household', people: [{ name: 'אבא', height: 1820, at: null }, { name: null, height: 1120, at: null }] }]);
+    expect(householdOps(people, 0, null)).toEqual([{ op: 'set_household', people: [{ name: null, height: 1050, at: null }] }]);
+    // Where a person was dragged to (ADR-041) stays through an edit of anyone.
+    const placed = [{ name: 'אבא', height: 1820, at: [2600, 900] }, { name: null, height: 1050, at: null }];
+    expect(householdOps(placed, 1, { height: 1100 })[0].people[0].at).toEqual([2600, 900]);
   });
 
   it('puts the release above the tallest child\'s reach, at 150 cm at least (as the server)', () => {

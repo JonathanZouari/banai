@@ -108,6 +108,7 @@ h3 { margin: 0 0 2mm; font-size: 10.5pt; font-weight: 700; }
 .room-plan .cut { stroke-width: 3.5; }
 .room-plan .hatch-line { stroke-width: 4; }
 .room-plan .body { stroke-width: 5; }
+.room-plan .furniture { fill: #f1ebe2; stroke: #8a7f73; stroke-width: 3; stroke-dasharray: 18 10; }
 .room-plan .ln-heavy { stroke-width: 9; }
 .room-plan .ln-thin { stroke-width: 3.5; }
 .room-plan .ln-dash { stroke-width: 4; stroke-dasharray: 45 30; }

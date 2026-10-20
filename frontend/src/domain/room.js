@@ -83,10 +83,20 @@ export function toWardrobe(design, [px, py]) {
   return [dx * u[0] + dy * u[1] - design.room.offset, dx * n[0] + dy * n[1] - design.dimensions.depth];
 }
 
-/** Distance from `origin` along the unit `direction` to the nearest wall (null when nothing is hit). */
-function hit(origin, direction, shape) {
+/** What stops a ray on the floor: the walls, and the outline of each piece of furniture (ADR-041). */
+function segments(room) {
+  const out = roomWalls(room.shape).map((w) => [w.start, w.end]);
+  for (const f of room.furniture ?? []) {
+    const c = furnitureCorners(f);
+    c.forEach((p, i) => out.push([p, c[(i + 1) % 4]]));
+  }
+  return out;
+}
+
+/** Distance from `origin` along the unit `direction` to the nearest wall or furniture (null when nothing is hit). */
+function hit(origin, direction, room) {
   let best = null;
-  for (const { start: [ax, ay], end: [bx, by] } of roomWalls(shape)) {
+  for (const [[ax, ay], [bx, by]] of segments(room)) {
     const [ex, ey] = [bx - ax, by - ay];
     const denom = direction[0] * ey - direction[1] * ex;
     if (Math.abs(denom) < 1e-9) continue; // parallel: never hit
@@ -104,6 +114,9 @@ function local(design, [px, py]) {
   const [dx, dy] = [px - x0, py - y0];
   return [dx * u[0] + dy * u[1], dx * n[0] + dy * n[1]];
 }
+
+/** Whether a plan point is inside the room's floor plan (or on its walls' inner faces). */
+export const insideRoom = (shape, [x, y]) => inside(roomCorners(shape), x, y);
 
 /** Whether (a, b) is inside the polygon or on its boundary. */
 function inside(poly, a, b) {
@@ -163,7 +176,14 @@ export function frontClearance(design) {
   if (!design.room || !fits(design)) return null;
   const { width: w, depth: d } = design.dimensions;
   const { n } = wardrobeFrame(design);
-  return nearest([1, w / 2, w - 1].map((a) => hit(point(design, design.room.offset + a, d), n, design.room.shape)));
+  const hits = [1, w / 2, w - 1].map((a) => hit(point(design, design.room.offset + a, d), n, design.room));
+  // Furniture anywhere across the front, also between those three rays; a piece over the front leaves nothing.
+  for (const f of design.room.furniture ?? []) {
+    const pts = furnitureCorners(f).map((p) => local(design, p));
+    const [a0, a1] = [Math.min(...pts.map((p) => p[0])), Math.max(...pts.map((p) => p[0]))];
+    if (a1 > design.room.offset && a0 < design.room.offset + w) hits.push(Math.max(0, Math.min(...pts.map((p) => p[1])) - d));
+  }
+  return nearest(hits);
 }
 
 /** Free space beside the wardrobe's `side` ('left'/'right') face to the nearest wall (mm); null without a room or a fit. */
@@ -173,7 +193,7 @@ export function sideGap(design, side) {
   const { u } = wardrobeFrame(design);
   const along = side === 'left' ? design.room.offset : design.room.offset + w;
   const direction = side === 'left' ? [-u[0], -u[1]] : u;
-  return nearest([1, d / 2, d - 1].map((b) => hit(point(design, along, b), direction, design.room.shape)));
+  return nearest([1, d / 2, d - 1].map((b) => hit(point(design, along, b), direction, design.room)));
 }
 
 /** The free floor in front of the wardrobe: the customer's measurement, else the room's. */
@@ -189,6 +209,28 @@ export const OPENING_TYPES = Object.freeze(['door', 'window', 'passage']);
 export const OPENING_ONLY = Object.freeze({ sill: 'window', hinge: 'door', swing: 'door' });
 export const DEFAULT_OPENING = Object.freeze({ sill: 900, hinge: 'left', swing: 'in' });
 // Which limit each opening field takes (defaults LIMITS).
+// ---- free-standing furniture (ADR-041) ----
+export const FURNITURE_TYPES = Object.freeze(['bed', 'dresser', 'desk', 'mirror']);
+// A new piece's size (mm): a double bed, a chest of drawers, a desk, a standing mirror.
+export const DEFAULT_FURNITURE = Object.freeze({
+  bed: [1600, 2000, 550], dresser: [1000, 500, 850], desk: [1200, 600, 750], mirror: [700, 60, 1700],
+});
+export const FURNITURE_LIMITS = Object.freeze({ x: 'furniturePos', y: 'furniturePos', width: 'furnitureSize', depth: 'furnitureSize', height: 'furnitureHeight' });
+
+/** A piece's footprint on the plan: four corners around its centre (width along x at rotation 0 and 180). */
+export function furnitureCorners(f) {
+  const [w, d] = [0, 180].includes(f.rotation ?? 0) ? [f.width, f.depth] : [f.depth, f.width];
+  return [[f.x - w / 2, f.y - d / 2], [f.x + w / 2, f.y - d / 2], [f.x + w / 2, f.y + d / 2], [f.x - w / 2, f.y + d / 2]];
+}
+
+/** The inverse of toWardrobe: a point in the viewer's frame ([x, z] mm) on the room's plan. */
+export function fromWardrobe(design, [x, z]) {
+  const { start: [x0, y0], u, n } = wardrobeFrame(design);
+  const along = x + design.room.offset;
+  const into = z + design.dimensions.depth;
+  return [x0 + u[0] * along + n[0] * into, y0 + u[1] * along + n[1] * into];
+}
+
 export const OPENING_LIMITS = Object.freeze({ at: 'openingAt', width: 'openingWidth', height: 'openingHeight', sill: 'openingSill' });
 
 /** Where the opening starts above the floor: a window's sill, else the floor. */

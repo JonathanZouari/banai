@@ -68,6 +68,7 @@ VARIANTS = {
     "room-openings-pass": lambda: make(hinged(2), {"op": "set_room", "shape": {"kind": "l", "width": 4500, "depth": 4000, "cutWidth": 1500, "cutDepth": 1500}, "wall": 5, "offset": 1900, "openings": [
         {"type": "passage", "wall": 0, "at": 0, "width": 800, "height": 2100},
         {"type": "window", "wall": 3, "at": 500, "width": 1200, "height": 1300, "sill": 600}]}),
+    "room-furniture": lambda: make(hinged(2), {"op": "set_room", "shape": {"kind": "rect", "width": 4000, "depth": 4000}, "furniture": [{"type": "bed", "x": 2000, "y": 2600, "width": 1600, "depth": 2000, "height": 550}, {"type": "mirror", "x": 3500, "y": 1500, "width": 700, "depth": 60, "height": 1700, "rotation": 90}]}),
     "pulldown-wide": lambda: make({"op": "add_insert", "compartmentId": "cmp_a", "type": "pulldown", "id": "ins_pw"}, count=1, width=1400),
     "led-many": lambda: make({"op": "add_insert", "compartmentId": "cmp_a", "type": "led", "id": "ins_l1"},
                              {"op": "add_insert", "compartmentId": "cmp_b", "type": "led", "id": "ins_l2"}),

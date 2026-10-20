@@ -83,11 +83,19 @@ def _point(design: dict, along: float, into: float) -> tuple[float, float]:
     return x0 + u[0] * along + n[0] * into, y0 + u[1] * along + n[1] * into
 
 
-def _hit(origin, direction, shape: dict) -> float | None:
-    """Distance from `origin` along the unit `direction` to the nearest wall (None when nothing is hit)."""
+def _segments(room: dict) -> list[tuple]:
+    """What stops a ray on the floor: the walls, and the outline of each piece of furniture (ADR-041)."""
+    out = [(w["start"], w["end"]) for w in walls(room["shape"])]
+    for f in room.get("furniture") or []:
+        c = furniture_corners(f)
+        out += [(c[i], c[(i + 1) % 4]) for i in range(4)]
+    return out
+
+
+def _hit(origin, direction, room: dict) -> float | None:
+    """Distance from `origin` along the unit `direction` to the nearest wall or furniture (None when nothing is hit)."""
     best = None
-    for wall in walls(shape):
-        (ax, ay), (bx, by) = wall["start"], wall["end"]
+    for (ax, ay), (bx, by) in _segments(room):
         ex, ey = bx - ax, by - ay
         denom = direction[0] * ey - direction[1] * ex
         if abs(denom) < 1e-9:  # parallel: never hit
@@ -168,7 +176,13 @@ def front_clearance(design: dict) -> int | None:
         return None
     room, (w, d) = design["room"], (design["dimensions"]["width"], design["dimensions"]["depth"])
     _, _, n = _frame(design)
-    hits = [_hit(_point(design, room["offset"] + a, d), n, room["shape"]) for a in (1, w / 2, w - 1)]
+    hits = [_hit(_point(design, room["offset"] + a, d), n, room) for a in (1, w / 2, w - 1)]
+    # Furniture anywhere across the front, also between those three rays; a piece over the front leaves nothing.
+    for f in room.get("furniture") or []:
+        local = [_local(design, p) for p in furniture_corners(f)]
+        a0, a1 = min(p[0] for p in local), max(p[0] for p in local)
+        if a1 > room["offset"] and a0 < room["offset"] + w:
+            hits.append(max(0.0, min(p[1] for p in local) - d))
     known = [h for h in hits if h is not None]
     return _whole(min(known)) if known else None
 
@@ -182,7 +196,7 @@ def side_gap(design: dict, side: str) -> int | None:
     _, u, _ = _frame(design)
     along = room["offset"] if side == "left" else room["offset"] + w
     direction = (-u[0], -u[1]) if side == "left" else u
-    hits = [_hit(_point(design, along, b), direction, room["shape"]) for b in (1, d / 2, d - 1)]
+    hits = [_hit(_point(design, along, b), direction, room) for b in (1, d / 2, d - 1)]
     known = [h for h in hits if h is not None]
     return _whole(min(known)) if known else None
 
@@ -191,6 +205,22 @@ def effective_clearance(design: dict) -> int | None:
     """The free floor in front of the wardrobe: the customer's measurement, else the room's."""
     measured = (design.get("site") or {}).get("clearance")
     return measured if measured is not None else front_clearance(design)
+
+
+# ---------- free-standing furniture (ADR-041) ----------
+
+FURNITURE_TYPES = ("bed", "dresser", "desk", "mirror")
+# A new piece's size (mm): a double bed, a chest of drawers, a desk, a standing mirror.
+DEFAULT_FURNITURE = {"bed": (1600, 2000, 550), "dresser": (1000, 500, 850), "desk": (1200, 600, 750), "mirror": (700, 60, 1700)}
+# Which limit each furniture field takes (defaults.LIMITS).
+FURNITURE_LIMITS = {"x": "furniturePos", "y": "furniturePos", "width": "furnitureSize", "depth": "furnitureSize", "height": "furnitureHeight"}
+
+
+def furniture_corners(f: dict) -> list[tuple[float, float]]:
+    """A piece's footprint on the plan: four corners around its centre (width along x at rotation 0 and 180)."""
+    w, d = (f["width"], f["depth"]) if f.get("rotation", 0) in (0, 180) else (f["depth"], f["width"])
+    x, y = f["x"], f["y"]
+    return [(x - w / 2, y - d / 2), (x + w / 2, y - d / 2), (x + w / 2, y + d / 2), (x - w / 2, y + d / 2)]
 
 
 # ---------- openings (ADR-037 stage 3) ----------

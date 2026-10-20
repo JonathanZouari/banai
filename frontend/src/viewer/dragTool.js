@@ -34,11 +34,12 @@ const AXIS = Object.freeze({ x: new THREE.Vector3(1, 0, 0), y: new THREE.Vector3
  * @param handles      the stretch handles (handles3d.js): grabbed first, they are drawn over everything
  * @param onActivate   (target) => void, a click on an obstacle (its handles show)
  * @param onResized    (before, after, spec, value) => void, after a stretch was dropped
+ * @param getFigures   () => the scale figures' group when shown (people carry userData.personIndex)
  * @param onDrop       (dropping) => void, true just before a stretch is dispatched and false after (the viewer
  *                     then keeps its camera instead of refitting to the new size)
  */
 export function attachDragging({ dom, camera, controls, store, getWardrobe, getRoom, isEnabled, onError, onWardrobeMoved, onStart, onEnd,
-  onPreview, getExtras = () => [], handles = null, onActivate, onResized, onDrop }) {
+  onPreview, getExtras = () => [], handles = null, onActivate, onResized, onDrop, getFigures = () => null }) {
   const raycaster = new THREE.Raycaster();
   const label = document.createElement('div');
   label.className = 'drag-label';
@@ -59,13 +60,26 @@ export function attachDragging({ dom, camera, controls, store, getWardrobe, getR
 
   /** Room things under the pointer: obstacles and openings, nearest first ({ target, point, objects }). */
   const roomHits = (ray) => {
-    const room = getRoom();
-    if (!room) return [];
-    room.updateMatrixWorld();
     const hits = [];
     const box = new THREE.Box3();
     const point = new THREE.Vector3();
+    const figures = getFigures();
+    if (figures) { // the people standing in the room (ADR-041)
+      figures.updateMatrixWorld();
+      figures.children.forEach((body) => {
+        if (Number.isInteger(body.userData.personIndex) && ray.intersectBox(box.setFromObject(body), point)) {
+          hits.push({ target: { kind: 'figure', index: body.userData.personIndex }, point: point.clone(), objects: [body] });
+        }
+      });
+    }
+    const room = getRoom();
+    if (!room) return hits.sort((a, b) => a.point.distanceTo(ray.origin) - b.point.distanceTo(ray.origin));
+    room.updateMatrixWorld();
     room.traverse((node) => {
+      const piece = node.userData.furnitureIndex;
+      if (Number.isInteger(piece) && ray.intersectBox(box.setFromObject(node), point)) {
+        hits.push({ target: { kind: 'furniture', index: piece }, point: point.clone(), objects: [node] });
+      }
       const index = node.userData.obstacleIndex;
       if (Number.isInteger(index) && ray.intersectBox(box.setFromObject(node), point)) {
         hits.push({ target: { kind: 'obstacle', index }, point: point.clone(), objects: [node] });
@@ -129,6 +143,29 @@ export function attachDragging({ dom, camera, controls, store, getWardrobe, getR
     return new THREE.Vector3(b[0] - a[0], 0, b[1] - a[1]).normalize();
   };
 
+  /**
+   * The axis a two-axis drag follows: the one whose direction on screen best matches the pointer's movement. An
+   * axis seen end-on (pointing at the camera) has almost no length on screen and is never chosen.
+   */
+  const lockedAxis = (current, event) => {
+    const rect = dom.getBoundingClientRect();
+    const toPx = (v) => { const p = v.clone().project(camera); return [((p.x + 1) / 2) * rect.width, ((1 - p.y) / 2) * rect.height]; };
+    const from = toPx(current.point);
+    const move = [event.clientX - current.start.x, event.clientY - current.start.y];
+    const length = Math.hypot(...move) || 1;
+    let best = current.axes[0].key;
+    let score = -1;
+    current.axes.forEach((axis) => {
+      const to = toPx(current.point.clone().addScaledVector(axis.vector, 0.1)); // 10 cm along it
+      const dir = [to[0] - from[0], to[1] - from[1]];
+      const dirLength = Math.hypot(...dir);
+      if (dirLength < 2) return; // end-on: no movement on screen can be read from it
+      const match = Math.abs(move[0] * dir[0] + move[1] * dir[1]) / (length * dirLength);
+      if (match > score) [best, score] = [axis.key, match];
+    });
+    return best;
+  };
+
   const showLabel = (text, clientX, clientY) => {
     label.textContent = text;
     label.hidden = false;
@@ -157,7 +194,7 @@ export function attachDragging({ dom, camera, controls, store, getWardrobe, getR
     const found = pick(event.clientX, event.clientY);
     if (!found) return;
     // Only a handle, an obstacle or an opening owns its click; a click on a wardrobe part still selects.
-    tookPress = ['resize', 'obstacle', 'opening'].includes(found.target.kind);
+    tookPress = ['resize', 'obstacle', 'opening', 'figure', 'furniture'].includes(found.target.kind);
     controls.enabled = false; // runs before OrbitControls sees this press (capture phase), so it does not orbit
     drag = {
       ...found,
@@ -190,7 +227,7 @@ export function attachDragging({ dom, camera, controls, store, getWardrobe, getR
     }));
     if (!drag.locked) {
       if (moved < LOCK_PX) return undefined;
-      drag.locked = Math.abs(deltas.x ?? 0) >= Math.abs(deltas.y ?? 0) ? 'x' : 'y';
+      drag.locked = lockedAxis(drag, event); // the axis the pointer moves along on screen
     }
     const axis = drag.axes.find((a) => a.key === drag.locked);
     const value = settle(axis.value + deltas[axis.key], axis.limits, axis.snaps);

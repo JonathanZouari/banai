@@ -30,6 +30,20 @@ export function figurePlacement(design) {
   return { x: design.dimensions.width + FIGURE_OFFSET.x, z: FIGURE_OFFSET.z };
 }
 
+/**
+ * Where each person stands (mm, the wardrobe's frame): their own place (`at`, ADR-041) or the next one in the row
+ * beside the wardrobe. Without a household, the one default person.
+ */
+export function figureSpots(design) {
+  const { x, z } = figurePlacement(design);
+  const people = design.household?.people ?? [];
+  const count = Math.max(1, people.length);
+  return Array.from({ length: count }, (_, i) => {
+    const at = people[i]?.at;
+    return at ? { x: at[0], z: at[1] } : { x: x + i * FIGURE_SPACING, z };
+  });
+}
+
 /** The people to draw: the household, or one default person. { height, label } each, label null for the default. */
 export function figurePeople(design) {
   const people = design.household?.people ?? [];
@@ -60,7 +74,7 @@ export function createFigure(scene) {
     labels = [];
   };
 
-  function person({ height, label, child }, index) {
+  function person({ height, label, child }, index, spot, owned) {
     const body = new THREE.Group();
     body.name = 'person';
     const scale = height / FIGURE_HEIGHT;
@@ -79,17 +93,18 @@ export function createFigure(scene) {
       body.add(mesh);
     });
     body.scale.setScalar(scale);
-    body.position.x = toM(index * FIGURE_SPACING);
+    body.position.set(toM(spot.x), 0, toM(spot.z));
+    body.userData.personIndex = owned ? index : -1; // -1: the default person, not in the household yet
     if (label && typeof document !== 'undefined') {
       const element = document.createElement('div');
       element.className = 'figure-label';
       element.textContent = label; // text only, never HTML
       element.dir = 'auto';
       const tag = new CSS2DObject(element);
-      tag.position.set(toM(index * FIGURE_SPACING), toM(height + 120), 0);
+      tag.position.set(0, toM((height + 120) / scale), 0); // on the person (their scale undone), so it goes with a drag
       tag.visible = group.visible;
       labels.push(tag);
-      group.add(tag);
+      body.add(tag);
     }
     return body;
   }
@@ -97,14 +112,15 @@ export function createFigure(scene) {
   return {
     group,
     update(design) {
-      const { x, z } = figurePlacement(design);
-      group.position.set(toM(x), 0, toM(z));
+      group.position.set(0, 0, 0);
       const people = figurePeople(design);
-      const next = JSON.stringify(people);
+      const spots = figureSpots(design);
+      const next = JSON.stringify([people, spots]);
       if (next === key) return;
       key = next;
       clear();
-      people.forEach((p, i) => group.add(person(p, i)));
+      const owned = (design.household?.people ?? []).length > 0;
+      people.forEach((p, i) => group.add(person(p, i, spots[i], owned)));
     },
     setVisible(on) {
       group.visible = Boolean(on);
@@ -113,8 +129,8 @@ export function createFigure(scene) {
     /** How far right (mm, from the wardrobe's left face) the figures reach, and the tallest one's height. */
     extent(design) {
       const people = figurePeople(design);
-      const { x } = figurePlacement(design);
-      return { right: x + (people.length - 1) * FIGURE_SPACING + 300, height: Math.max(...people.map((p) => p.height)) + 200 };
+      const right = Math.max(...figureSpots(design).map((s) => s.x));
+      return { right: right + 300, height: Math.max(...people.map((p) => p.height)) + 200 };
     },
     get count() {
       return group.children.filter((child) => child.name === 'person').length;

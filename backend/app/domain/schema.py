@@ -27,7 +27,7 @@ from pydantic import (
 from pydantic.alias_generators import to_camel
 
 from app.domain import ids
-from app.domain.defaults import MAX_OBSTACLES, MAX_OPENINGS, default_handles
+from app.domain.defaults import MAX_FURNITURE, MAX_OBSTACLES, MAX_OPENINGS, default_handles
 from app.domain.errors import SCHEMA_INVALID, DomainError
 
 # Hard structural bounds (anti-abuse). Kept small: every op re-validates the whole
@@ -148,6 +148,9 @@ class Person(StrictModel):
 
     name: str | None = Field(default=None, min_length=1, max_length=30, pattern=SAFE_TEXT_PATTERN)
     height: Int
+    # Where they stand (ADR-041): [x, z] mm on the floor in the wardrobe's frame (x from its left outer face, z toward
+    # the front); null: beside the wardrobe, where the viewer puts them.
+    at: Annotated[list[Int], Field(min_length=2, max_length=2)] | None = None
 
     @field_validator("name")
     @classmethod
@@ -299,6 +302,20 @@ class Opening(StrictModel):
     swing: Literal["in", "out"] | None = None
 
 
+class Furniture(StrictModel):
+    """A free-standing piece of furniture in the room (ADR-041): its centre on the room's plan (mm), its width (along
+    plan x at rotation 0), depth and height, and its rotation on the floor. It takes floor space: the free floor in
+    front of and beside the wardrobe counts it."""
+
+    type: Literal["bed", "dresser", "desk", "mirror"]
+    x: Int
+    y: Int
+    width: Int
+    depth: Int
+    height: Int
+    rotation: Literal[0, 90, 180, 270] = 0
+
+
 class Room(StrictModel):
     """The room around the wardrobe (ADR-037, app/domain/room.py): a template's floor plan, the wall the
     wardrobe's back stands against (0-based, clockwise from the top-left corner) and its left face's distance
@@ -308,6 +325,7 @@ class Room(StrictModel):
     wall: Int
     offset: Int
     openings: Annotated[list[Opening], Field(max_length=MAX_OPENINGS)] = Field(default_factory=list)
+    furniture: Annotated[list[Furniture], Field(max_length=MAX_FURNITURE)] = Field(default_factory=list)
 
 
 class Compartment(StrictModel):

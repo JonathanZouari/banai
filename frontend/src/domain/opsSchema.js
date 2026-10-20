@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { DomainError, SCHEMA_INVALID } from './errors.js';
 import * as ids from './ids.js';
 import {
-  MAX_ROOM_OPENINGS, MAX_SITE_OBSTACLES, SAFE_TEXT_PATTERN, opening, roomShape, handleFinish, handleStyle, insertType, int, isVisibleText, list, obstacle, ref, schemaError, typedId,
+  MAX_ROOM_OPENINGS, MAX_ROOM_FURNITURE, MAX_SITE_OBSTACLES, furnitureItem, SAFE_TEXT_PATTERN, opening, roomShape, handleFinish, handleStyle, insertType, int, isVisibleText, list, obstacle, ref, schemaError, typedId,
 } from './schema.js';
 
 export const MAX_OPS = 100;
@@ -64,10 +64,12 @@ export const opSchema = z.discriminatedUnion('op', [
     people: z.array(z.strictObject({
       name: z.string().refine((s) => [...s].length >= 1 && [...s].length <= 30).regex(SAFE_TEXT_PATTERN).refine(isVisibleText).nullish(),
       height: int(),
+      at: opt(z.array(int()).length(2)),
     })).max(6),
   }),
   op('set_room', {
     shape: opt(roomShape), wall: opt(int()), offset: opt(int()), openings: opt(z.array(opening).max(MAX_ROOM_OPENINGS)),
+    furniture: opt(z.array(furnitureItem).max(MAX_ROOM_FURNITURE)), // replaces the list (ADR-041)
     clear: z.boolean().default(false),
   }),
   op('set_site', {

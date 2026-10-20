@@ -9,7 +9,7 @@ import { LIMITS, OBSTACLE_LIMITS, SHOE_TIER } from './defaults.js';
 import * as E from './errors.js';
 import { DomainError } from './errors.js';
 import { interiorHeight, interiorWidth } from './geometry.js';
-import { OPENING_LIMITS, SHAPE_LIMITS, openingIssues, roomWalls, shapeIssues } from './room.js';
+import { FURNITURE_LIMITS, OPENING_LIMITS, SHAPE_LIMITS, openingIssues, roomWalls, shapeIssues } from './room.js';
 import { parseDesign } from './schema.js';
 import { ITEM_KINDS, sum } from './util.js';
 
@@ -93,7 +93,10 @@ function checkRanges(design) {
     });
   });
   const site = design.site ?? {};
-  design.household.people.forEach((person, pi) => checks.push([person.height, 'personHeight', `household.people[${pi}].height`]));
+  design.household.people.forEach((person, pi) => {
+    checks.push([person.height, 'personHeight', `household.people[${pi}].height`]);
+    (person.at ?? []).forEach((v, k) => checks.push([v, 'personAt', `household.people[${pi}].at[${k}]`]));
+  });
   if (design.fittings.releaseHeight !== null) checks.push([design.fittings.releaseHeight, 'releaseHeight', 'fittings.releaseHeight']);
   for (const field of ['ceiling', 'niche', 'clearance']) {
     if (site[field] !== null && site[field] !== undefined) checks.push([site[field], field, `site.${field}`]);
@@ -112,6 +115,9 @@ function checkRanges(design) {
     checks.push([room.offset, 'roomOffset', 'room.offset']);
     room.openings.forEach((item, oi) => {
       for (const [key, limit] of Object.entries(OPENING_LIMITS)) if (item[key] !== null) checks.push([item[key], limit, `room.openings[${oi}].${key}`]);
+    });
+    (room.furniture ?? []).forEach((item, fi) => {
+      for (const [key, limit] of Object.entries(FURNITURE_LIMITS)) checks.push([item[key], limit, `room.furniture[${fi}].${key}`]);
     });
   }
   const issues = checks.map(([value, limit, path]) => rangeIssue(value, limit, path)).filter(Boolean);

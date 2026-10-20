@@ -3374,5 +3374,235 @@
         "path": "room.openings[0].sill"
       }
     }
+  },
+  {
+    "name": "set_room furniture places a bed in the room",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "furniture": [
+          {
+            "type": "bed",
+            "x": 1750,
+            "y": 2500,
+            "width": 1600,
+            "depth": 2000,
+            "height": 550
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "room": {
+          "furniture": [
+            {
+              "type": "bed",
+              "x": 1750,
+              "y": 2500,
+              "width": 1600,
+              "depth": 2000,
+              "height": 550,
+              "rotation": 0
+            }
+          ],
+          "offset": 1250
+        }
+      }
+    }
+  },
+  {
+    "name": "the same template at another size keeps the furniture; another drops it",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        },
+        "furniture": [
+          {
+            "type": "bed",
+            "x": 1750,
+            "y": 2500,
+            "width": 1600,
+            "depth": 2000,
+            "height": 550
+          }
+        ]
+      },
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3600,
+          "depth": 4000
+        }
+      }
+    ],
+    "expect": {
+      "match": {
+        "room": {
+          "furniture": [
+            {
+              "type": "bed",
+              "x": 1750,
+              "y": 2500,
+              "width": 1600,
+              "depth": 2000,
+              "height": 550,
+              "rotation": 0
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "another template drops the furniture",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        },
+        "furniture": [
+          {
+            "type": "bed",
+            "x": 1750,
+            "y": 2500,
+            "width": 1600,
+            "depth": 2000,
+            "height": 550
+          }
+        ]
+      },
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "l",
+          "width": 4500,
+          "depth": 4000,
+          "cutWidth": 1500,
+          "cutDepth": 1500
+        }
+      }
+    ],
+    "expect": {
+      "match": {
+        "room": {
+          "furniture": []
+        }
+      }
+    }
+  },
+  {
+    "name": "a person keeps a place on the floor",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_household",
+        "people": [
+          {
+            "height": 1700,
+            "at": [
+              2500,
+              800
+            ]
+          },
+          {
+            "height": 1100
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "household": {
+          "people": [
+            {
+              "height": 1700,
+              "at": [
+                2500,
+                800
+              ],
+              "name": null
+            },
+            {
+              "height": 1100,
+              "at": null
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "furniture is at least 2 cm",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        },
+        "furniture": [
+          {
+            "type": "bed",
+            "x": 1750,
+            "y": 2500,
+            "width": 10,
+            "depth": 2000,
+            "height": 550
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_RANGE",
+        "path": "room.furniture[0].width"
+      }
+    }
+  },
+  {
+    "name": "a person stands within 20 m",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_household",
+        "people": [
+          {
+            "height": 1700,
+            "at": [
+              25000,
+              0
+            ]
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_RANGE",
+        "path": "ops[0].people[0].at[0]"
+      }
+    }
   }
 ]

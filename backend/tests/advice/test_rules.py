@@ -489,3 +489,13 @@ def test_the_opening_fix_needs_no_new_filler():
     assert door["r27-block-1"]["fix"] == door["r27-door-1"]["fix"]
     after = apply_ops(SAMPLES["room-door"], door["r27-block-1"]["fix"]["ops"], CATALOG)
     assert not {i for i in by_id(after) if i.startswith("r27")}
+
+
+def test_furniture_takes_the_floor_in_front():
+    # A 4 m deep room leaves plenty in front; a bed 60 cm from the wardrobe's front leaves too little to open a door.
+    room = {"op": "set_room", "shape": {"kind": "rect", "width": 4000, "depth": 4000}}
+    assert "r21-swing" not in by_id(make(hinged(), room))
+    bed = {"op": "set_room", "furniture": [{"type": "bed", "x": 2000, "y": 2200, "width": 1600, "depth": 2000, "height": 550}]}
+    tight = by_id(make(hinged(), room, bed))  # the bed starts at y 1200: 60 cm in front of the 60 cm deep wardrobe
+    assert "r21-swing" in tight and "60 ס״מ" in tight["r21-swing"]["body"]
+

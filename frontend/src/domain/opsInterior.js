@@ -327,8 +327,11 @@ function setFittings(draft, op, path) {
 }
 
 function setHousehold(draft, op, path) {
-  op.people.forEach((person, i) => requireRange(person.height, 'personHeight', `${path}.people[${i}].height`));
-  draft.household = { people: op.people.map((p) => ({ name: p.name ?? null, height: p.height })) };
+  op.people.forEach((person, i) => {
+    requireRange(person.height, 'personHeight', `${path}.people[${i}].height`);
+    (person.at ?? []).forEach((v, k) => requireRange(v, 'personAt', `${path}.people[${i}].at[${k}]`));
+  });
+  draft.household = { people: op.people.map((p) => ({ name: p.name ?? null, height: p.height, at: p.at ? [...p.at] : null })) };
   return draft;
 }
 
@@ -349,19 +352,21 @@ function roomOpening(item, path) {
 
 /** A new room, another wall or another place along it, its openings; or no room. Ranges are checked in validation. */
 function setRoom(draft, op, path) {
-  const given = ['shape', 'wall', 'offset', 'openings'].filter((f) => isSet(op[f]));
+  const given = ['shape', 'wall', 'offset', 'openings', 'furniture'].filter((f) => isSet(op[f]));
   if (op.clear) {
     if (given.length) throw new DomainError(INVALID_OP, path, 'clear cannot be combined with new values');
     draft.room = null;
     return draft;
   }
-  if (!given.length) throw new DomainError(INVALID_OP, path, 'give shape, wall, offset or openings, or clear');
+  if (!given.length) throw new DomainError(INVALID_OP, path, 'give shape, wall, offset, openings or furniture, or clear');
   let room;
   let recentre;
   if (isSet(op.shape)) {
     // The same template at another size keeps its walls' numbers, so its openings stay.
-    const kept = draft.room && draft.room.shape.kind === op.shape.kind ? structuredClone(draft.room.openings ?? []) : [];
-    room = { shape: { ...op.shape }, wall: DEFAULT_WALL[op.shape.kind], offset: 0, openings: kept };
+    const same = draft.room && draft.room.shape.kind === op.shape.kind;
+    const kept = same ? structuredClone(draft.room.openings ?? []) : [];
+    const things = same ? structuredClone(draft.room.furniture ?? []) : []; // furniture stays with its plan too
+    room = { shape: { ...op.shape }, wall: DEFAULT_WALL[op.shape.kind], offset: 0, openings: kept, furniture: things };
     recentre = true;
   } else if (draft.room) {
     room = structuredClone(draft.room);
@@ -381,6 +386,8 @@ function setRoom(draft, op, path) {
   }
   if (recentre) room.offset = centred(room.shape, room.wall, draft.dimensions.width);
   if (isSet(op.openings)) room.openings = op.openings.map((item, i) => roomOpening(item, `${path}.openings[${i}]`));
+  if (isSet(op.furniture)) room.furniture = op.furniture.map((item) => ({ rotation: 0, ...item }));
+  room.furniture ??= [];
   draft.room = room;
   return draft;
 }

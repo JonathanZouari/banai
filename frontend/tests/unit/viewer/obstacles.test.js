@@ -6,7 +6,8 @@ import { applyOps } from '../../../src/domain/apply.js';
 import {
   MAX_PANEL_OBSTACLES, addObstacleOps, newObstacle, removeObstacleOps, updateObstacleOps,
 } from '../../../src/editor/interiorOps.js';
-import { FIGURE_HEIGHT, FIGURE_PARTS, createFigure, figurePlacement } from '../../../src/viewer/figure.js';
+import { FIGURE_HEIGHT, FIGURE_PARTS, createFigure, figurePlacement, figureSpots } from '../../../src/viewer/figure.js';
+import { buildFurniture } from '../../../src/viewer/furniture3d.js';
 import { createRoomOverlay, obstacleOutlines } from '../../../src/viewer/room.js';
 import { diffDesigns } from '../../../src/state/diff.js';
 import { loadCatalog, loadDesign } from '../domain/helpers.js';
@@ -70,7 +71,7 @@ describe('the scale figure', () => {
     const figure = createFigure(scene);
     expect(figure.group.visible).toBe(false);
     figure.update(basic);
-    expect(figure.group.position.x).toBeCloseTo(2.45);
+    expect(figure.group.children.find((c) => c.name === 'person').position.x).toBeCloseTo(2.45); // each person at their spot
     const box = new THREE.Box3().setFromObject(figure.group);
     expect(box.max.y).toBeCloseTo(1.7, 2);
     expect(box.min.y).toBeCloseTo(0, 2);
@@ -126,5 +127,34 @@ describe('an obstacle of another kind', () => {
     const one = apply(basic, addObstacleOps(basic.site, newObstacle(basic)));
     const other = apply(one, updateObstacleOps(one.site, 0, { type: 'other', name: 'מכשול' }));
     expect(other.site.obstacles[0]).toMatchObject({ type: 'other', name: 'מכשול' });
+  });
+});
+
+describe('people where they stand, and furniture in the room (ADR-041)', () => {
+  it('a person with a place stands there; the others keep the row beside the wardrobe', () => {
+    const design = apply(basic, [{ op: 'set_household', people: [{ height: 1700, at: [-800, 1200] }, { height: 1100 }] }]);
+    expect(figureSpots(design)).toEqual([{ x: -800, z: 1200 }, { x: 2450 + 550, z: 350 }]);
+    const figure = createFigure(new THREE.Scene());
+    figure.update(design);
+    const bodies = figure.group.children.filter((c) => c.name === 'person');
+    expect(bodies.map((b) => [Math.round(b.position.x * 1000), Math.round(b.position.z * 1000), b.userData.personIndex])).toEqual([[-800, 1200, 0], [3000, 350, 1]]);
+    figure.dispose();
+    expect(figureSpots(basic)).toEqual([{ x: 2450, z: 350 }]); // no household: the default person
+  });
+
+  it('furniture stands at its place and size, turned with its rotation', () => {
+    const design = apply(basic, [{ op: 'set_room', shape: { kind: 'rect', width: 4000, depth: 4000 },
+      furniture: [{ type: 'bed', x: 2000, y: 2600, width: 1600, depth: 2000, height: 550 },
+        { type: 'dresser', x: 3400, y: 2000, width: 1000, depth: 500, height: 850, rotation: 90 }] }]); // offset 1000
+    const group = buildFurniture(design);
+    const size = (o) => new THREE.Box3().setFromObject(o).getSize(new THREE.Vector3()).toArray().map((v) => Math.round(v * 1000));
+    const [bed, dresser] = group.children;
+    expect([bed.userData.furnitureIndex, dresser.userData.furnitureIndex]).toEqual([0, 1]);
+    expect([Math.round(bed.position.x * 1000), Math.round(bed.position.z * 1000)]).toEqual([1000, 2000]); // plan (2000, 2600) → frame
+    expect(size(bed)[0]).toBe(1600);
+    expect(size(dresser)[0]).toBeGreaterThanOrEqual(500); // turned 90°: its depth (and drawer fronts) runs across
+    expect(size(dresser)[0]).toBeLessThan(520);
+    group.userData.dispose();
+    expect(buildFurniture(basic)).toBeNull();
   });
 });

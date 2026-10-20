@@ -466,6 +466,7 @@ export function createViewer(container, store, { onDimensionStep, onDragError, o
   const dragging = attachDragging({
     dom: renderer.domElement, camera, controls, store,
     getWardrobe: () => group, getRoom: () => room.group,
+    getFigures: () => (figure.group.visible ? figure.group : null), // people can be moved while they are shown
     isEnabled: () => pickable() && driver.settled, // never while doors or drawers move: their pose is not settled
     getExtras: (target) => (target.kind === 'wardrobe' && props ? [props] : []), // the clothes go with the wardrobe
     onPreview: () => { renderer.shadowMap.needsUpdate = true; },
@@ -746,6 +747,8 @@ export function createViewer(container, store, { onDimensionStep, onDragError, o
       if (typeof target === 'string') object = this.meshOf(target);
       else if (target.kind === 'obstacle') room.group.traverse((n) => { if (n.userData.obstacleIndex === target.index) object = n; });
       else if (target.kind === 'opening') room.group.traverse((n) => { if (!object && /^room-(door|window)-(\d+)$/.exec(n.name)?.[2] === String(target.index)) object = n; });
+      else if (target.kind === 'furniture') room.group.traverse((n) => { if (n.userData.furnitureIndex === target.index) object = n; });
+      else if (target.kind === 'figure') object = figure.group.children.find((n) => n.userData.personIndex === target.index) ?? null;
       if (!object) return null;
       object.updateMatrixWorld();
       const centre = new THREE.Box3().setFromObject(object).getCenter(new THREE.Vector3()).project(camera);

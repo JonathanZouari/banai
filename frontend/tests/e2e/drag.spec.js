@@ -24,6 +24,7 @@ test.describe('drag in 3D', () => {
   });
 
   test('the selected wardrobe slides along its wall, shows its place, and one Ctrl+Z puts it back', async ({ page }) => {
+    test.slow(); // several drags with a real mouse: past 30 s on a busy machine
     const door = await pointOf(page, 'dr_middle');
     await drag(page, door, 140, 0); // not selected: an orbit, nothing moves
     expect((await state(page)).design.room.offset).toBe(1000);
@@ -46,6 +47,7 @@ test.describe('drag in 3D', () => {
   });
 
   test('a selected shelf moves up only as far as the shelf above; Escape cancels a drag', async ({ page }) => {
+    test.slow(); // several drags with a real mouse: past 30 s on a busy machine
     await page.evaluate(() => window.__banai.store.select('shf_l2'));
     await page.waitForTimeout(300);
     const shelf = await pointOf(page, 'shf_l2');

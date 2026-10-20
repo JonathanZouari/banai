@@ -5,8 +5,8 @@
 // fields outlive their render. The room's doors, windows and passages are listed below the plan (stage 3) and
 // drawn on it; `set_room openings` replaces the whole list.
 import { actionResult, button, cmField, collapsibleSection, el, selectField } from './fields.js';
-import { frontClearance, roomCorners, roomWalls, sideGap } from '../domain/room.js';
-import { MAX_OPENINGS } from '../domain/defaults.js';
+import { DEFAULT_FURNITURE, frontClearance, roomCorners, roomWalls, sideGap } from '../domain/room.js';
+import { MAX_FURNITURE, MAX_OPENINGS } from '../domain/defaults.js';
 import { toCmText } from './opsFromForm.js';
 
 export const ROOM_TEMPLATES = Object.freeze([
@@ -238,6 +238,73 @@ function openingsBox({ design, run, current }) {
   return box;
 }
 
+// ---- free-standing furniture (ADR-041) ----
+export const FURNITURE_OPTIONS = Object.freeze([
+  { value: 'bed', label: 'מיטה' },
+  { value: 'dresser', label: 'שידה' },
+  { value: 'desk', label: 'שולחן' },
+  { value: 'mirror', label: 'מראה' },
+]);
+const ROTATION_OPTIONS = Object.freeze([0, 90, 180, 270].map((r) => ({ value: String(r), label: `${r}°` })));
+const FURNITURE_FIELDS = Object.freeze([['width', 'רוחב'], ['depth', 'עומק'], ['height', 'גובה']]);
+const furnitureOf = (design) => design.room?.furniture ?? [];
+
+/** A new piece of `type` at its usual size, in the middle of the room's plan. */
+export function newFurniture(design, type) {
+  const pts = roomCorners(design.room.shape);
+  const mid = (k) => Math.round((Math.min(...pts.map((p) => p[k])) + Math.max(...pts.map((p) => p[k]))) / 2);
+  const [width, depth, height] = DEFAULT_FURNITURE[type];
+  return { type, x: mid(0), y: mid(1), width, depth, height, rotation: 0 };
+}
+
+/** set_room ops that add, change or remove one piece (null when nothing applies). */
+export function addFurnitureOps(design, item) {
+  if (!design.room || furnitureOf(design).length >= MAX_FURNITURE) return null;
+  return [{ op: 'set_room', furniture: [...furnitureOf(design), item] }];
+}
+export function updateFurnitureOps(design, index, change) {
+  const list = furnitureOf(design);
+  if (!list[index]) return null;
+  return [{ op: 'set_room', furniture: list.map((f, i) => (i === index ? { ...f, ...change } : f)) }];
+}
+export function removeFurnitureOps(design, index) {
+  const list = furnitureOf(design);
+  if (!list[index]) return null;
+  return [{ op: 'set_room', furniture: list.filter((_, i) => i !== index) }];
+}
+
+/** The room's furniture: add a piece, set its size and rotation; drag it in the 3D view to place it. */
+function furnitureBox({ design, run, current }) {
+  const list = furnitureOf(design);
+  const box = el('div', { className: 'site-obstacles room-furniture', attrs: { role: 'group', 'aria-label': 'רהיטים בחדר' } }, [
+    el('p', { className: 'site-readings__title', text: 'רהיטים בחדר' }),
+    el('p', { className: 'panel__note', text: 'מיטה, שידה, שולחן או מראה: גוררים אותם בתלת-ממד למקומם. הם תופסים מקום על הרצפה, וכך גם המרחב הפנוי מול הארון.' }),
+  ]);
+  box.dataset.testid = 'room-furniture';
+  const commit = (row, ops) => actionResult(row, ops ? run(ops) : { ok: true });
+  const names = Object.fromEntries(FURNITURE_OPTIONS.map((o) => [o.value, o.label]));
+  list.forEach((item, index) => {
+    const row = el('div', { className: 'site-obstacle' });
+    row.dataset.testid = `furniture-${index}`;
+    const title = el('p', { className: 'site-readings__title', text: `${names[item.type]} ${index + 1}` });
+    const remove = button('הסרה', () => commit(row, removeFurnitureOps(current(), index)), { variant: 'link', testId: `furniture-${index}-remove` });
+    const fields = FURNITURE_FIELDS.map(([key, label]) => cmField({
+      label, testId: `furniture-${index}-${key}`, mm: item[key],
+      onCommit: (mm) => (mm === null ? { ok: true } : run(updateFurnitureOps(current(), index, { [key]: mm }))),
+    }));
+    const turn = selectField({
+      label: 'סיבוב', options: ROTATION_OPTIONS, value: String(item.rotation ?? 0), testId: `furniture-${index}-rotation`,
+      onChange: (value) => commit(row, updateFurnitureOps(current(), index, { rotation: Number(value) })),
+    });
+    row.append(el('div', { className: 'site-obstacle__head' }, [title, remove]), el('div', { className: 'site-obstacle__grid' }, [...fields, turn]));
+    box.append(row);
+  });
+  const full = list.length >= MAX_FURNITURE;
+  box.append(el('div', { className: 'room-furniture__add' }, FURNITURE_OPTIONS.map(({ value, label }) => button(`+ ${label}`,
+    () => commit(box, addFurnitureOps(current(), newFurniture(current(), value))), { variant: 'secondary', testId: `add-furniture-${value}`, disabled: full }))));
+  return box;
+}
+
 /** The space the plan leaves around the wardrobe, in words. */
 function spaceNote(design) {
   const cmText = (mm) => (mm === null ? '—' : `${toCmText(mm)} ס״מ`);
@@ -281,5 +348,6 @@ export function roomSection({ design, run, current = () => design }) {
   }));
   section.append(el('p', { className: 'panel__note', text: spaceNote(design), attrs: { 'data-testid': 'room-space' } }));
   section.append(openingsBox({ design, run, current }));
+  section.append(furnitureBox({ design, run, current }));
   return section;
 }

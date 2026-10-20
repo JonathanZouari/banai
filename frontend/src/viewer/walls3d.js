@@ -11,6 +11,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { openingBottom, roomCorners, roomWalls, toWardrobe } from '../domain/room.js';
+import { buildFurniture } from './furniture3d.js';
 import { toM } from './units.js';
 
 export const WALL_THICKNESS = 100; // mm
@@ -225,7 +226,14 @@ export function buildWalls(design) {
     node.raycast = () => {}; // never picked
     node.castShadow = false;
   });
+  // The room's furniture (ADR-041) stands on its floor; it casts shadows and a drag can move it.
+  const furniture = buildFurniture(design);
+  if (furniture) {
+    furniture.traverse((node) => { node.raycast = () => {}; });
+    group.add(furniture);
+  }
   group.userData.dispose = () => {
+    furniture?.userData.dispose();
     group.traverse((node) => node.geometry?.dispose());
     materials.forEach((material) => material.dispose());
   };

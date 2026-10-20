@@ -36,6 +36,11 @@ export const LIMITS = deepFreeze({
   openingWidth: [300, 5000],
   openingHeight: [300, 3000],
   openingSill: [0, 2500],
+  // free-standing furniture in the room (ADR-041): its centre on the plan, its size; a person's place on the floor
+  furniturePos: [-20000, 20000],
+  furnitureSize: [20, 4000],
+  furnitureHeight: [20, 2500],
+  personAt: [-20000, 20000],
   shoeTiers: [1, 6],
   insertHeight: [200, 1500],
   zones: [1, 4],
@@ -43,6 +48,7 @@ export const LIMITS = deepFreeze({
 
 export const MAX_OBSTACLES = 8; // wall obstacles in one site
 export const MAX_OPENINGS = 8; // doors, windows and passages in one room (ADR-037)
+export const MAX_FURNITURE = 8; // free-standing furniture in one room (ADR-041)
 export const OBSTACLE_TYPES = Object.freeze(['socket', 'switch', 'ac', 'pipe', 'window', 'panel', 'other']);
 // Which limit each obstacle field takes.
 export const OBSTACLE_LIMITS = Object.freeze({ x: 'obstacleX', y: 'obstacleY', width: 'obstacleSize', height: 'obstacleSize' });

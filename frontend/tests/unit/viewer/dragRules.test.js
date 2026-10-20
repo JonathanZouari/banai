@@ -90,3 +90,25 @@ describe('what moves and how', () => {
     expect(nudge(roomed, { kind: 'wardrobe' }, 'x', -1, true)).toEqual([{ op: 'set_room', offset: 900 }]);
   });
 });
+
+describe('people and furniture across the floor (ADR-041)', () => {
+  it('the default person joins the household where dropped; a person never stands inside the wardrobe', () => {
+    const spec = dragSpec(roomed, { kind: 'figure', index: -1 });
+    expect(spec.axes.map((a) => [a.key, a.value])).toEqual([['x', 2450], ['z', 350]]);
+    expect(spec.axes[0].limits).toEqual([-800, 2800]); // the room (-1000..3000) less half a body
+    const [op] = spec.ops({ x: 2800 });
+    expect(op).toEqual({ op: 'set_household', people: [{ name: null, height: 1700, at: [2800, 350] }] });
+    const inside = dragSpec(apply(roomed, [{ op: 'set_household', people: [{ height: 1500, at: [500, 900] }] }]), { kind: 'figure', index: 0 });
+    expect(inside.ops({ z: 0 })[0].people[0].at).toEqual([500, 250]); // in front of the doors, not in them
+  });
+
+  it('a piece of furniture moves across the room and keeps its place on the plan', () => {
+    const design = apply(roomed, [{ op: 'set_room', furniture: [{ type: 'bed', x: 2000, y: 2600, width: 1600, depth: 2000, height: 550 }] }]);
+    const spec = dragSpec(design, { kind: 'furniture', index: 0 });
+    expect(spec.axes.map((a) => [a.key, a.value, a.limits])).toEqual([['x', 1000, [-200, 2200]], ['z', 2000, [400, 2400]]]);
+    const moved = apply(design, spec.ops({ z: 2400 }));
+    expect(moved.room.furniture[0]).toMatchObject({ x: 2000, y: 3000 });
+    expect(spec.label({ z: 2400 })).toBe('מיטה · 140 ס״מ מחזית הארון');
+  });
+});
+

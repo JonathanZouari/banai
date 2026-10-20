@@ -25,6 +25,7 @@ test.describe('atelier start screen', () => {
     await expect(about.getByRole('heading', { name: /שלושים שנה בסדנה/ })).toBeInViewport();
     await expect(about).toContainText('בוב · מאסטר נגר');
     await expect(about).toContainText('דמות בדיונית');
+    await about.locator('.stat__value').nth(1).scrollIntoViewIfNeeded(); // the longer story (3c79b4c) puts the numbers lower: they count up once seen
     await expect(about.locator('.stat__value').nth(1)).toHaveText('1,284', { timeout: 5_000 });
     await expect(about.locator('.bob svg')).toHaveCount(1);
   });
@@ -43,7 +44,7 @@ test.describe('atelier start screen', () => {
     const dialog = page.getByTestId('about-dialog');
     await expect(dialog).toBeVisible();
     await expect(page.getByTestId('about-close')).toBeFocused();
-    await expect(dialog.getByRole('heading', { name: /שלושים ואחת שנה/ })).toBeVisible();
+    await expect(dialog.getByRole('heading', { name: /שלושים שנה/ })).toBeVisible(); // the user's text (3c79b4c): thirty years since 1996
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
     await page.getByTestId('open-about').click();
@@ -56,7 +57,7 @@ test.describe('atelier start screen', () => {
     await page.goto('/');
     await expect(page.getByTestId('bob-greeting')).toHaveText(/היי, אני בוב/, { timeout: 1_500 });
     const values = await start(page).locator('.stat__value').allTextContents();
-    expect(values).toEqual(['31', '1,284', '20', '1']);
+    expect(values).toEqual(['30', '1,284', '20', '1']);
   });
 });
 

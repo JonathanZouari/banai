@@ -16,7 +16,7 @@ from app.domain.catalog import catalog_ids
 from app.domain.defaults import LIMITS, OBSTACLE_LIMITS, SHOE_TIER
 from app.domain.errors import DomainError
 from app.domain.geometry import interior_height, interior_width
-from app.domain.room import OPENING_LIMITS, SHAPE_LIMITS, opening_issues, shape_issues, walls
+from app.domain.room import FURNITURE_LIMITS, OPENING_LIMITS, SHAPE_LIMITS, opening_issues, shape_issues, walls
 from app.domain.schema import parse_design
 
 # The raw readings and the governing value each one sets (the smallest known reading).
@@ -110,6 +110,8 @@ def _check_ranges(design: dict) -> list[DomainError]:
     site = design["site"] or {}
     for pi, person in enumerate(design["household"]["people"]):
         checks.append((person["height"], "personHeight", f"household.people[{pi}].height"))
+        for k, v in enumerate(person.get("at") or []):
+            checks.append((v, "personAt", f"household.people[{pi}].at[{k}]"))
     if design["fittings"]["releaseHeight"] is not None:
         checks.append((design["fittings"]["releaseHeight"], "releaseHeight", "fittings.releaseHeight"))
     for field in ("ceiling", "niche", "clearance"):
@@ -131,6 +133,9 @@ def _check_ranges(design: dict) -> list[DomainError]:
             for key, limit in OPENING_LIMITS.items():
                 if opening[key] is not None:
                     checks.append((opening[key], limit, f"room.openings[{oi}].{key}"))
+        for fi, item in enumerate(room.get("furniture") or []):
+            for key, limit in FURNITURE_LIMITS.items():
+                checks.append((item[key], limit, f"room.furniture[{fi}].{key}"))
     issues = [issue for v, limit, path in checks if (issue := range_issue(v, limit, path))]
     if room:
         issues += [DomainError(codes.OUT_OF_BOUNDS, f"room.shape.{field}", message) for field, message in shape_issues(room["shape"])]

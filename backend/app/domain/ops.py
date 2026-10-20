@@ -10,6 +10,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field, TypeAdapter, ValidationError
 
+from app.domain.defaults import MAX_FURNITURE
 from app.domain.errors import SCHEMA_INVALID, DomainError
 from app.domain.schema import (
     Person,
@@ -30,6 +31,7 @@ from app.domain.schema import (
     Ref,
     ShelfId,
     MAX_OPENINGS,
+    Furniture,
     Opening,
     RoomShape,
     StrictModel,
@@ -267,6 +269,7 @@ class SetRoom(StrictModel):
     wall: Int | None = None
     offset: Int | None = None
     openings: Annotated[list[Opening], Field(max_length=MAX_OPENINGS)] | None = None
+    furniture: Annotated[list[Furniture], Field(max_length=MAX_FURNITURE)] | None = None  # replaces the list (ADR-041)
     clear: bool = False
 
 

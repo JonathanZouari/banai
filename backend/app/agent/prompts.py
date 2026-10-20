@@ -93,7 +93,9 @@ OPS (units: mm; interior y is measured up from the top face of the bottom panel)
   type "other" with a short name; ask its size, or search the web for a typical size and say it is typical:
   x from the wardrobe's left outer face (may be negative), y from the floor. The list replaces the old one,
   so always send every current obstacle plus the change, never only the new one.)
-- set_household {people: [{name?, height}]}   (the household, up to 6; replaces the list; under 1400 mm is a child)
+- set_household {people: [{name?, height, at?}]}   (the household, up to 6; replaces the list; under 1400 mm is a child;
+  at = [x, z] mm where the person stands on the floor, x from the wardrobe's left face, z toward the front; keep each
+  person's at as it is, the customer drags them)
   Names in the design are withheld from you (null). Keep each existing person at their position with name null:
   the app keeps their names. Add a name only for a new person, if the customer gives it.
 - set_room {shape?, wall?, offset?, openings?, clear?}   (the room around the wardrobe, a floor plan in mm)
@@ -113,6 +115,11 @@ OPS (units: mm; interior y is measured up from the top face of the bottom panel)
   default "in"). An opening lies inside its wall, two in one wall never overlap, and a new shape of another kind
   drops them (its walls are numbered anew). The customer numbers them from 1 ("פתח 1" is openings[0]). The
   advisories warn when a door swings into the wardrobe or its open doors, or the wardrobe blocks an opening.
+  furniture: free-standing pieces in the room, up to 8; the list replaces the old one, so send every piece you keep.
+  Each {type: "bed"|"dresser"|"desk"|"mirror", x, y, width, depth, height, rotation?: 0|90|180|270}: x, y is its
+  centre on the room's plan (mm, from the top-left corner, y down), width runs along x at rotation 0. They take
+  floor space: the free floor in front of the wardrobe (and the advice on opening its doors) counts them. Usual
+  sizes: a double bed 1600×2000×550, a chest of drawers 1000×500×850, a desk 1200×600×750, a mirror 700×60×1700.
 - set_fittings {softClose?: true|false, base?: "plinth"|"legs", childLock?: true|false, releaseHeight?}   (soft-close hinges and runners; legs stand plinthHeight tall, 90-170 mm)
 - configure_doors {type: "hinged"|"sliding"|"none", doors?: [{id?, compartmentIds, hingeSide: "left"|"right"}], count?, ids?}
 - modify_door {id, hingeSide?, mirror?}; split_door {id}
@@ -173,6 +180,14 @@ def _openings(openings: list[dict]) -> str:
     return "; ".join(lines) or "none"
 
 
+def _furniture(items: list[dict]) -> str:
+    """The room's furniture in one line for the model (types and numbers only)."""
+    if not items:
+        return "none"
+    return "; ".join(f"{i}: {f['type']} {f['width']}x{f['depth']}x{f['height']} at ({f['x']}, {f['y']}) rotation {f.get('rotation', 0)}"
+                     for i, f in enumerate(items))
+
+
 def design_context(design: dict, revision: int, advisories: list[dict], catalog: dict) -> str:
     """The developer message sent with each turn: the current design, its advisories and the catalog ids."""
     design = private_view(design)
@@ -185,7 +200,8 @@ def design_context(design: dict, revision: int, advisories: list[dict], catalog:
         room = (f"ROOM (mm): {lengths}. The wardrobe is on wall {design['room']['wall']}, {design['room']['offset']} from "
                 f"its left end; free floor in front {front_clearance(design)}, to the wall on the left "
                 f"{side_gap(design, 'left')}, on the right {side_gap(design, 'right')}. "
-                f"Openings: {_openings(design['room']['openings'])}.\n\n")
+                f"Openings: {_openings(design['room']['openings'])}. "
+                f"Furniture: {_furniture(design['room'].get('furniture') or [])}.\n\n")
     return (
         f"CURRENT DESIGN (revision {revision}; JSON, mm):\n{json.dumps(design, ensure_ascii=False, separators=(',', ':'))}\n\n"
         f"{room}ADVISORIES (non-blocking, research-backed):\n{json.dumps(advice, ensure_ascii=False)}\n\n"

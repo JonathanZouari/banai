@@ -279,3 +279,25 @@ def test_bob_knows_the_room_and_sees_its_walls_and_space():
         {"type": "window", "wall": 1, "at": 1000, "width": 1200, "height": 1300}]}], catalog)
     assert ("Openings: 0 door on wall 2 at 300, 900 wide, 2100 high, hinge left, opens in; 1 window on wall 1 at 1000, "
             "1200 wide, 1300 high, sill 900.") in design_context(doors, 2, [], {"materials": [], "colors": [], "finishes": []})
+
+
+def test_bob_sees_the_room_furniture_and_where_people_stand():
+    from app.agent.prompts import design_context
+    from app.domain.apply import apply_ops
+    from app.domain.catalog import load_catalog
+    from app.domain.defaults import basic_wardrobe
+
+    assert 'furniture: free-standing pieces in the room' in SYSTEM_PROMPT and "at = [x, z]" in SYSTEM_PROMPT
+    design = apply_ops(basic_wardrobe(), [{"op": "set_room", "shape": {"kind": "rect", "width": 4000, "depth": 4000},
+                                           "furniture": [{"type": "bed", "x": 2000, "y": 2600, "width": 1600, "depth": 2000, "height": 550}]}],
+                       load_catalog())
+    context = design_context(design, 1, [], {"materials": [], "colors": [], "finishes": []})
+    assert "Furniture: 0: bed 1600x2000x550 at (2000, 2600) rotation 0." in context
+
+
+def test_a_household_change_from_bob_keeps_where_people_stand():
+    design = {"household": {"people": [{"name": "נועה", "height": 1050, "at": [2600, 900]}, {"name": None, "height": 1800, "at": None}]}}
+    ops = [{"op": "set_household", "people": [{"name": None, "height": 1100}, {"name": None, "height": 1800, "at": [100, 800]}]}]
+    assert agent_chat.restore_names(ops, design)[0]["people"] == [
+        {"name": "נועה", "height": 1100, "at": [2600, 900]}, {"name": None, "height": 1800, "at": [100, 800]}]
+

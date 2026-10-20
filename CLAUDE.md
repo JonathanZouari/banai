@@ -50,6 +50,15 @@ BanAI started as an MVP AI wardrobe designer for standard straight wardrobes. Th
   - **On release:** one op; the camera does not refit, and the scene stays still.
   - **What stays put when a wall moves:** the openings and the wardrobe measured from a corner that moved.
   - **Limits:** what the engine accepts: compartments at least 5 cm after scaling, the height above the highest item, walls never cutting off an opening or the wardrobe.
+- **People and furniture** (ADR-041, 2026-10-20):
+  - **People:** `household.people[].at = [x, z]` (mm, wardrobe frame) is where a person stands. A person is dragged across the floor while figures are shown. Dragging the default person creates a household of one 170 cm person. A person never stands inside the wardrobe. `at` survives panel edits and Bob's proposals (`restore_names`).
+  - **Furniture:** `room.furniture`, up to 8 pieces (bed, dresser, desk, mirror): a plan centre, size and rotation 0/90/180/270, set through `set_room furniture`.
+    - **Panel:** "רהיטים בחדר" for sizes and rotation.
+    - **3D:** `viewer/furniture3d.js`, dragged across the floor in a straight line, never outside the room or onto the wardrobe.
+    - **Free floor:** furniture takes floor space. The rays and every piece across the front feed `front_clearance`, so R21 and the dossier count it.
+    - **Dossier:** a line plus footprints on the floor-plan page.
+    - **Walls and Bob:** a wall move keeps it in place. Bob sees it in ROOM.
+  - **Axis lock:** follows the pointer's direction on screen, never an axis seen end-on.
 - **Measuring** (ADR-040, 2026-10-20):
   - **Code:** `viewer/measure.js` (pure: snapping, axis lock, labels) and `viewer/measureTool.js`.
   - **Turning it on:** the "מדידה" toolbar button or M. While it is on, nothing is selected or dragged.

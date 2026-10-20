@@ -6,10 +6,12 @@
 // Targets: { kind: 'wardrobe' } along its wall (with a room), { kind: 'item', id } for a shelf, drawer, rail or
 // insert (up and down in its compartment), { kind: 'partition', id } (left and right), { kind: 'obstacle',
 // index } on the wall behind (skirting only along the floor), { kind: 'opening', index } along its wall (a
-// window also up and down).
+// window also up and down), { kind: 'figure', index } (a person; -1 the default one) and { kind: 'furniture',
+// index } across the floor (ADR-041).
 import { LIMITS } from '../domain/defaults.js';
 import { interiorHeight, partitionLeftEdge } from '../domain/geometry.js';
-import { roomWalls } from '../domain/room.js';
+import { fromWardrobe, furnitureCorners, insideRoom, roomCorners, roomWalls, toWardrobe } from '../domain/room.js';
+import { FIGURE_HEIGHT, FIGURE_OFFSET, figureSpots } from './figure.js';
 import { roomHeight } from './walls3d.js';
 
 export const GRID = 10; // mm: every value lands on a whole centimetre
@@ -79,6 +81,8 @@ const ITEM_NAME = Object.freeze({ shelf: 'מדף', drawer: 'מגירה', rail: '
  */
 export function dragSpec(design, target) {
   if (!target) return null;
+  if (target.kind === 'figure') return figureSpec(design, target.index);
+  if (target.kind === 'furniture') return furnitureSpec(design, target.index);
   const W = design.dimensions.width;
 
   if (target.kind === 'wardrobe') {
@@ -174,6 +178,86 @@ export function dragSpec(design, target) {
     };
   }
   return null;
+}
+
+/** The room's extent in the viewer's frame (mm): { x: [min, max], z: [min, max] } of its corners. */
+function roomBounds(design) {
+  const pts = roomCorners(design.room.shape).map((p) => toWardrobe(design, p));
+  return { x: [Math.min(...pts.map((p) => p[0])), Math.max(...pts.map((p) => p[0]))], z: [Math.min(...pts.map((p) => p[1])), Math.max(...pts.map((p) => p[1]))] };
+}
+const within = ([lo, hi], value) => (hi >= lo ? [lo, hi] : [value, value]);
+const FURNITURE_NAME = Object.freeze({ bed: 'מיטה', dresser: 'שידה', desk: 'שולחן', mirror: 'מראה' });
+const BODY = 200; // mm: half a person's footprint, kept off the walls
+const IN_FRONT = 250; // mm: a person beside or in front of the wardrobe, never inside it
+
+/** Dragging a person (ADR-041): across the floor, inside the room, never inside the wardrobe. */
+function figureSpec(design, index) {
+  const people = design.household?.people ?? [];
+  const spot = figureSpots(design)[Math.max(0, index)];
+  if (!spot || (index >= 0 && !people[index])) return null;
+  const W = design.dimensions.width;
+  const bounds = design.room ? roomBounds(design) : { x: [-5000, W + 5000], z: [-design.dimensions.depth, 5000] };
+  const x0 = Math.round(spot.x);
+  const z0 = Math.round(spot.z);
+  const values = (v) => {
+    const x = v.x ?? x0;
+    let z = v.z ?? z0;
+    if (x > -IN_FRONT && x < W + IN_FRONT && z < IN_FRONT) z = IN_FRONT; // step out in front of it
+    return { x, z };
+  };
+  return {
+    axes: [
+      { key: 'x', vector: [1, 0, 0], value: x0, limits: within([bounds.x[0] + BODY, bounds.x[1] - BODY], x0), snaps: [W + FIGURE_OFFSET.x, -FIGURE_OFFSET.x] },
+      { key: 'z', vector: [0, 0, 1], value: z0, limits: within([bounds.z[0] + BODY, bounds.z[1] - BODY], z0), snaps: [FIGURE_OFFSET.z] },
+    ],
+    label: (v) => { const { x, z } = values(v); return `${cm(z)} ס״מ לפני חזית הארון · ${cm(x)} ס״מ מקצהו השמאלי`; },
+    ops: (v) => {
+      const { x, z } = values(v);
+      if (x === x0 && z === z0) return null;
+      const next = people.length
+        ? people.map((p, i) => (i === index ? { ...p, at: [x, z] } : p))
+        : [{ name: null, height: FIGURE_HEIGHT, at: [x, z] }]; // the default person joins the household where dropped
+      return [{ op: 'set_household', people: next.map((p) => ({ name: p.name ?? null, height: p.height, at: p.at ?? null })) }];
+    },
+  };
+}
+
+/** Dragging furniture (ADR-041): across the room's floor; its place is kept on the room's plan. */
+function furnitureSpec(design, index) {
+  const list = design.room?.furniture ?? [];
+  const f = list[index];
+  if (!f) return null;
+  const [cx, cz] = toWardrobe(design, [f.x, f.y]).map(Math.round);
+  const corners = furnitureCorners(f).map((p) => toWardrobe(design, p));
+  const ex = (Math.max(...corners.map((p) => p[0])) - Math.min(...corners.map((p) => p[0]))) / 2;
+  const ez = (Math.max(...corners.map((p) => p[1])) - Math.min(...corners.map((p) => p[1]))) / 2;
+  const bounds = roomBounds(design);
+  const values = (v) => ({ x: v.x ?? cx, z: v.z ?? cz });
+  const W = design.dimensions.width;
+  // Where a drop may land: the footprint inside the room (an L's cut or beside a recess is outside), off the wardrobe.
+  const blocked = (v) => {
+    const { x, z } = values(v);
+    const [px, py] = fromWardrobe(design, [x, z]);
+    const moved = furnitureCorners({ ...f, x: px, y: py });
+    if (!moved.every((p) => insideRoom(design.room.shape, p))) return 'מחוץ לחדר';
+    const local = moved.map((p) => toWardrobe(design, p));
+    const [a0, a1] = [Math.min(...local.map((p) => p[0])), Math.max(...local.map((p) => p[0]))];
+    const b0 = Math.min(...local.map((p) => p[1]));
+    return a1 > 0 && a0 < W && b0 < 0 ? 'על הארון' : null;
+  };
+  return {
+    axes: [
+      { key: 'x', vector: [1, 0, 0], value: cx, limits: within([Math.ceil(bounds.x[0] + ex), Math.floor(bounds.x[1] - ex)], cx), snaps: [] },
+      { key: 'z', vector: [0, 0, 1], value: cz, limits: within([Math.ceil(bounds.z[0] + ez), Math.floor(bounds.z[1] - ez)], cz), snaps: [] },
+    ],
+    label: (v) => blocked(v) ?? `${FURNITURE_NAME[f.type] ?? ''} · ${cm(Math.max(0, values(v).z - ez))} ס״מ מחזית הארון`,
+    ops: (v) => {
+      const { x, z } = values(v);
+      if ((x === cx && z === cz) || blocked(v)) return null; // stays where it was
+      const [px, py] = fromWardrobe(design, [x, z]).map(Math.round);
+      return [{ op: 'set_room', furniture: list.map((item, i) => (i === index ? { ...item, x: px, y: py } : item)) }];
+    },
+  };
 }
 
 /** The drag target for a selected design component: the wardrobe (its carcass or a door), an item or a partition. */

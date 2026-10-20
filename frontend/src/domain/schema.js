@@ -5,7 +5,7 @@
 
 import { z } from 'zod';
 import { DomainError, SCHEMA_INVALID } from './errors.js';
-import { defaultHandles, INSERT_TYPES, MAX_OBSTACLES, MAX_OPENINGS } from './defaults.js';
+import { defaultHandles, INSERT_TYPES, MAX_FURNITURE, MAX_OBSTACLES, MAX_OPENINGS } from './defaults.js';
 import * as ids from './ids.js';
 import { isPlainObject, sum } from './util.js';
 
@@ -109,7 +109,19 @@ export const opening = z.strictObject({
   swing: z.enum(['in', 'out']).nullable().default(null),
 });
 export const MAX_ROOM_OPENINGS = MAX_OPENINGS;
-const room = z.strictObject({ shape: roomShape, wall: int(), offset: int(), openings: z.array(opening).max(MAX_OPENINGS).default([]) });
+// A free-standing piece of furniture (ADR-041): its centre on the room's plan, its size and its rotation. Mirrors
+// backend Furniture.
+export const furnitureItem = z.strictObject({
+  type: z.enum(['bed', 'dresser', 'desk', 'mirror']),
+  x: int(), y: int(), width: int(), depth: int(), height: int(),
+  rotation: z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]).default(0),
+});
+export const MAX_ROOM_FURNITURE = MAX_FURNITURE;
+const room = z.strictObject({
+  shape: roomShape, wall: int(), offset: int(),
+  openings: z.array(opening).max(MAX_OPENINGS).default([]),
+  furniture: z.array(furnitureItem).max(MAX_FURNITURE).default([]),
+});
 const site = z.strictObject({
   ceiling: int().nullable().default(null),
   niche: int().nullable().default(null),
@@ -144,6 +156,7 @@ const person = z.strictObject({
   name: z.string().refine((s) => [...s].length >= 1 && [...s].length <= 30).regex(SAFE_TEXT_PATTERN).refine(isVisibleText)
     .nullable().default(null), // code points, as Python counts them
   height: int(),
+  at: z.array(int()).length(2).nullable().default(null), // where they stand (ADR-041), [x, z] mm; null: beside it
 });
 
 export const designSchema = z.strictObject({

@@ -249,8 +249,11 @@ export function resizeSpec(design, handle) {
       ops: (v) => {
         if (v === value) return null;
         const shifted = openings.map((o) => (o.wall === next ? { ...o, at: o.at + v - value } : o)); // they stay in the room
+        // A rectangle's left or top wall moves the plan's origin: the furniture's plan place follows, so it stays put.
+        const [dx, dy] = shape.kind === 'rect' && owner.index === 3 ? [v - value, 0] : shape.kind === 'rect' && owner.index === 0 ? [0, v - value] : [0, 0];
+        const things = (room.furniture ?? []).map((f) => ({ ...f, x: f.x + dx, y: f.y + dy }));
         return [{ op: 'set_room', shape: { ...shape, [field]: v }, wall: room.wall, offset: room.offset + (startMoves ? v - value : 0),
-          ...(openings.length ? { openings: shifted } : {}) }];
+          ...(openings.length ? { openings: shifted } : {}), ...(things.length && (dx || dy) ? { furniture: things } : {}) }];
       },
       ghost: (v) => {
         const d = v - value; // the wall's inner face moves out by d

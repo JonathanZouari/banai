@@ -350,7 +350,9 @@ def set_fittings(draft: dict, op: op_types.SetFittings, path: str) -> dict:
 def set_household(draft: dict, op: op_types.SetHousehold, path: str) -> dict:
     for i, person in enumerate(op.people):
         require_range(person.height, "personHeight", f"{path}.people[{i}].height")
-    draft["household"] = {"people": [{"name": p.name, "height": p.height} for p in op.people]}
+        for k, v in enumerate(person.at or []):
+            require_range(v, "personAt", f"{path}.people[{i}].at[{k}]")
+    draft["household"] = {"people": [{"name": p.name, "height": p.height, "at": list(p.at) if p.at else None} for p in op.people]}
     return draft
 
 
@@ -369,20 +371,22 @@ def _opening(item, path: str) -> dict:
 def set_room(draft: dict, op: op_types.SetRoom, path: str) -> dict:
     """A new room, another wall or another place along it, its openings; or no room. Ranges are checked in
     validation."""
-    given = [f for f in ("shape", "wall", "offset", "openings") if getattr(op, f) is not None]
+    given = [f for f in ("shape", "wall", "offset", "openings", "furniture") if getattr(op, f) is not None]
     if op.clear:
         if given:
             raise DomainError(INVALID_OP, path, "clear cannot be combined with new values")
         draft["room"] = None
         return draft
     if not given:
-        raise DomainError(INVALID_OP, path, "give shape, wall, offset or openings, or clear")
+        raise DomainError(INVALID_OP, path, "give shape, wall, offset, openings or furniture, or clear")
     if op.shape is not None:
         shape = op.shape.model_dump(by_alias=True)
         old = draft.get("room")
         # The same template at another size keeps its walls' numbers, so its openings stay.
-        kept = copy.deepcopy(old.get("openings", [])) if old and old["shape"]["kind"] == shape["kind"] else []
-        room, recentre = {"shape": shape, "wall": DEFAULT_WALL[shape["kind"]], "offset": 0, "openings": kept}, True
+        same = old and old["shape"]["kind"] == shape["kind"]
+        kept = copy.deepcopy(old.get("openings", [])) if same else []
+        things = copy.deepcopy(old.get("furniture", [])) if same else []  # furniture stays with its plan too
+        room, recentre = {"shape": shape, "wall": DEFAULT_WALL[shape["kind"]], "offset": 0, "openings": kept, "furniture": things}, True
     elif draft.get("room"):
         room, recentre = copy.deepcopy(draft["room"]), False
     else:
@@ -398,6 +402,9 @@ def set_room(draft: dict, op: op_types.SetRoom, path: str) -> dict:
         room["offset"] = centred(room["shape"], room["wall"], draft["dimensions"]["width"])
     if op.openings is not None:
         room["openings"] = [_opening(item, f"{path}.openings[{i}]") for i, item in enumerate(op.openings)]
+    if op.furniture is not None:
+        room["furniture"] = [item.model_dump() for item in op.furniture]
+    room.setdefault("furniture", [])
     draft["room"] = room
     return draft
 

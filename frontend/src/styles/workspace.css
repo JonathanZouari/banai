@@ -400,3 +400,6 @@ canvas.is-measuring { cursor: crosshair !important; }
 .measure-label { display: grid; gap: 1px; padding: 3px 9px; border-radius: 8px; background: #fff; border: 1.5px solid #d0451b; color: #1d1d1f; font-size: 12px; line-height: 1.35; text-align: center; white-space: nowrap; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); pointer-events: none; }
 .measure-label b { font-size: 13px; color: #a8350f; }
 .measure-label span { color: #5c544b; font-size: 11px; }
+
+/* Furniture in the room (ADR-041): one button per piece. */
+.room-furniture__add { display: flex; flex-wrap: wrap; gap: var(--space-2); }

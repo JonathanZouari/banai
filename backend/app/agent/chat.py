@@ -96,14 +96,25 @@ def normalise_ops(value):
 
 def restore_names(ops: list, design: dict) -> list:
     """The model never sees household names (prompts.private_view), so set_household from it keeps each existing
-    person's name at their position when it gives none."""
-    names = [p.get("name") for p in ((design.get("household") or {}).get("people") or [])]
+    person's name at their position when it gives none; and the place each person stands (`at`, ADR-041, set by a
+    drag) unless it gives one."""
+    existing = (design.get("household") or {}).get("people") or []
     out = []
     for op in ops:
         if isinstance(op, dict) and op.get("op") == "set_household" and isinstance(op.get("people"), list):
-            people = [{**p, "name": names[i]} if isinstance(p, dict) and p.get("name") is None and i < len(names) and names[i]
-                      else p for i, p in enumerate(op["people"])]
+            people = []
+            for i, p in enumerate(op["people"]):
+                if isinstance(p, dict) and i < len(existing):
+                    if p.get("name") is None and existing[i].get("name"):
+                        p = {**p, "name": existing[i]["name"]}
+                    if p.get("at") is None and existing[i].get("at"):
+                        p = {**p, "at": existing[i]["at"]}
+                people.append(p)
             op = {**op, "people": people}
+        if isinstance(op, dict) and op.get("op") == "set_room" and isinstance(op.get("furniture"), list):
+            old = ((design.get("room") or {}).get("furniture")) or []
+            op = {**op, "furniture": [{**f, "rotation": old[i].get("rotation", 0)} if isinstance(f, dict) and "rotation" not in f
+                                      and i < len(old) else f for i, f in enumerate(op["furniture"])]}
         out.append(op)
     return out
 

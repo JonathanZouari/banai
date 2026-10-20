@@ -18,7 +18,7 @@ from markupsafe import Markup, escape
 
 from app.domain.defaults import SHOE_TIER
 from app.domain.layout import DOOR_GAP, SLIDE_TOP_TRACK, DoorLayout, Layout
-from app.domain.room import corners, walls
+from app.domain.room import corners, furniture_corners, walls
 from app.domain.room_plan import WALL_THICKNESS, hinge_point, wall_frame, wall_pieces, wardrobe_box
 from app.i18n import tr
 from app.production.boards import Board, board_for, handle_of, resolve
@@ -531,6 +531,14 @@ def room_plan(design: dict, uid: str = "rp") -> Markup:
         mx, my = round(mx, 1), round(my, 1)
         svg.add(text(mx, my + fs * 0.35, tr("קיר {n} · {l}", n=i + 1, l=wall["length"]), font_size=fs * 0.85, class_="note",
                      transform=f"rotate({angle} {_num(mx)} {_num(my)})"))
+
+    # Free-standing furniture (ADR-041): its footprint, named.
+    names = {"bed": tr("מיטה"), "dresser": tr("שידה"), "desk": tr("שולחן"), "mirror": tr("מראה")}
+    for f in room.get("furniture") or []:
+        pts = furniture_corners(f)
+        svg.add(El("polygon", {"points": _points(pts), "class": "furniture"}))
+        fx, fy = sum(p[0] for p in pts) / 4, sum(p[1] for p in pts) / 4
+        svg.add(text(round(fx, 1), round(fy + fs * 0.3, 1), names.get(f["type"], ""), font_size=fs * 0.8, class_="note"))
 
     body = wardrobe_box(design)
     svg.add(El("polygon", {"points": _points(body), "class": "body wardrobe"}))

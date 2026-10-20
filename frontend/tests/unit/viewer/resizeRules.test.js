@@ -104,4 +104,12 @@ describe('what a stretch does', () => {
     expect(left.axis.limits[0]).toBe(3800); // the window (20 cm from the corner) stops the wall
     expect(() => apply(design, left.ops(left.axis.limits[0]))).not.toThrow();
   });
+
+  it('a left wall moved out keeps the furniture where it stands in the room', () => {
+    const design = apply(roomed, [{ op: 'set_room', furniture: [{ type: 'bed', x: 2000, y: 2600, width: 1600, depth: 2000, height: 550 }] }]);
+    const left = resizeSpec(design, handle(design, 'wall:3'));
+    const grown = apply(design, left.ops(4500));
+    expect(grown.room.furniture[0]).toMatchObject({ x: 2500, y: 2600 }); // 50 cm further from the moved corner: the same place
+  });
 });
+

@@ -286,7 +286,10 @@ def _room_lines(design: dict) -> list[str]:
     left, right = side_gap(design, "left"), side_gap(design, "right")
     beside = tr("עד הקיר: משמאל {l} ס״מ, מימין {r} ס״מ", l=cm(left) if left is not None else "—",
                 r=cm(right) if right is not None else "—")
-    return [plan, place, beside]
+    names = {"bed": tr("מיטה"), "dresser": tr("שידה"), "desk": tr("שולחן"), "mirror": tr("מראה")}
+    pieces = [tr("{name} {w}×{d} ס״מ", name=names[f["type"]], w=cm(f["width"]), d=cm(f["depth"])) for f in room.get("furniture") or []]
+    furniture = [tr("ריהוט בחדר: {list}", list=", ".join(pieces))] if pieces else []
+    return [plan, place, beside, *furniture]
 
 
 def _readings(values: list | None, kind: str) -> str | None:
