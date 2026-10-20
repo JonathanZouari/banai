@@ -63,6 +63,19 @@ Styles follow Material Design 3 (`styles/tokens.css` holds the `--md-sys-*` toke
 Door hardware (handles, sliding rails, outlines) is built in `viewer/builders/doors.js` as non-selectable `kind: 'hardware'` objects. Picking refreshes world matrices before raycasting, so a click is correct even if it lands before the next rendered frame.
 In dev builds `window.__banai.chat` exposes the chat model, so a proposal can be shown for visual checks (`chat.setProposal({...})`).
 
+## Wood tones and the design sheet
+- **Wood tones.** Six catalog colours (light oak, natural oak, teak, smoked oak, walnut and wenge) are wood tones: `WOOD_COLOR_IDS` in `src/domain/catalog.js` is a presentation hint, not a domain rule.
+  - Wood tones and the `oak_veneer` material render with one shared procedural grain texture (`src/viewer/woodTexture.js`, a `DataTexture` built without canvas), tinted by the catalog colour.
+  - In the editor, the swatches are grouped as **Solid** and **Wood**. Choosing a wood tone for doors also sets `oak_veneer` in the same op.
+- **Design sheet (PDF).** The top-bar button downloads an illustrative A4 sheet (`src/sheet/`). It contains:
+  - a 3D illustration (doors closed)
+  - a to-scale front view with dimensions (`elevation.js`)
+  - compartments and components (`sheetModel.js`, pure and unit-tested)
+  - doors and finishes
+  - a disclaimer
+
+  It follows the chat language. It is laid out as HTML, rendered with `html2canvas` and packed into A4 pages with `jsPDF`. Both libraries load only on click. It is **not** a manufacturing drawing: there is no cut list and there are no build steps (manufacturing/CNC export stays excluded).
+
 ## Testing
 - **Unit:** `npm test` (vitest). This covers the domain engine and parity fixtures, the store, the API client, and the builders.
 - **E2E:** `npm run test:e2e` (Playwright, Chromium with SwiftShader WebGL). It starts uvicorn on :8010 and Vite on :5183. `window.__banai` exists only in dev builds (`import.meta.env.DEV`) and is stripped from production bundles.

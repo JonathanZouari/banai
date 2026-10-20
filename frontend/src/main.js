@@ -17,6 +17,7 @@ import { createSaveDialog } from './share/saveDialog.js';
 import { createRenderDialog } from './render/renderDialog.js';
 import { createLogo } from './ui/logo.js';
 import { installRipple } from './ui/ripple.js';
+import { exportDesignSheet } from './sheet/designSheet.js';
 
 function showError(message) {
   const banner = document.getElementById('error-banner');
@@ -28,6 +29,34 @@ function bindInteriorToggle(store) {
   const toggle = document.getElementById('toggle-interior');
   toggle.addEventListener('change', () => store.setDoorsVisible(!toggle.checked));
   store.subscribe((state) => { toggle.checked = !state.ui.doorsVisible; });
+}
+
+/** "Design sheet (PDF)": labelled in the chat language; busy while the PDF is being built. */
+function bindDesignSheet({ store, viewer, language }) {
+  const button = document.getElementById('export-sheet');
+  const label = () => {
+    const s = language.strings().sheet;
+    button.textContent = s.button;
+    button.title = s.buttonTitle;
+  };
+  label();
+  language.subscribe(label);
+  button.addEventListener('click', async () => {
+    if (button.disabled) return;
+    const s = language.strings().sheet;
+    button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
+    button.textContent = s.busy;
+    try {
+      await exportDesignSheet({ store, viewer, language });
+    } catch {
+      showError(s.error);
+    } finally {
+      button.disabled = false;
+      button.removeAttribute('aria-busy');
+      label();
+    }
+  });
 }
 
 function bindDialogs() {
@@ -88,6 +117,7 @@ async function boot() {
     }
   };
   const chat = mountChat(document.getElementById('chat-panel'), { model: chatModel, onConfirm: confirmProposal, language });
+  bindDesignSheet({ store, viewer, language });
   // A manual edit changes the revision, which may turn a pending proposal stale.
   store.subscribe(() => chat.refresh());
 

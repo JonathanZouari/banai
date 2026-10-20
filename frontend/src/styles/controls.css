@@ -168,3 +168,9 @@ select.field__input {
 .compartment-row .field__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .compartment-row:hover { background: rgba(35, 25, 23, 0.06); }
 .compartment-row.is-selected { background: var(--md-sys-color-secondary-container); box-shadow: inset 3px 0 0 var(--md-sys-color-primary); }
+
+/* Colour swatches grouped as Solid / Wood; wood swatches show a hint of grain. */
+.swatch-groups { display: grid; gap: var(--space-1); margin-bottom: var(--space-2); }
+.swatch-groups__label { color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-label-small); letter-spacing: 0.04em; text-transform: uppercase; }
+.swatch-groups .swatches { margin-bottom: var(--space-1); }
+.swatch--wood { background-image: repeating-linear-gradient(92deg, rgba(255, 255, 255, 0.10) 0 2px, rgba(0, 0, 0, 0.08) 2px 4px, rgba(255, 255, 255, 0) 4px 7px); }

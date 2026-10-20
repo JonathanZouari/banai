@@ -1,6 +1,8 @@
 // Appearance -> three.js material, with a cache per distinct appearance.
 // Catalog data stays outside the renderer: colours come from the injected catalog.
 import * as THREE from 'three';
+import { isWoodAppearance } from '../domain/catalog.js';
+import { createWoodTexture } from './woodTexture.js';
 
 // ASSUMPTION: prototype visual mapping, not a material specification.
 export const FINISH_ROUGHNESS = Object.freeze({ matte: 0.85, satin: 0.5, gloss: 0.15 });
@@ -16,6 +18,11 @@ const resolveRoughness = (ref) => (ref.custom ? DEFAULT_ROUGHNESS : FINISH_ROUGH
 
 export function createMaterials(catalog) {
   const cache = new Map();
+  let grain = null; // one wood-grain texture, created on first use and shared by all wood materials
+  const woodGrain = () => {
+    grain ??= createWoodTexture();
+    return grain;
+  };
   const rail = new THREE.MeshStandardMaterial({ color: '#9ea3a8', metalness: 0.8, roughness: 0.3 });
   // Door handles and sliding rails: neutral dark metal, independent of the design's appearance.
   const hardware = new THREE.MeshStandardMaterial({ color: '#4a4e53', metalness: 0.6, roughness: 0.4 });
@@ -26,8 +33,10 @@ export function createMaterials(catalog) {
     forAppearance(appearance) {
       const key = JSON.stringify(appearance);
       if (!cache.has(key)) {
+        // Wood tones and veneers get the shared grain texture, tinted by the chosen colour.
         cache.set(key, new THREE.MeshStandardMaterial({
           color: resolveColor(appearance.color, catalog),
+          map: isWoodAppearance(appearance) ? woodGrain() : null,
           roughness: resolveRoughness(appearance.finish),
           metalness: 0,
         }));
@@ -41,13 +50,15 @@ export function createMaterials(catalog) {
     retainOnly(inUse) {
       for (const [key, material] of cache) {
         if (!inUse.has(material)) {
-          material.dispose();
+          material.dispose(); // the shared grain texture stays for the next wood material
           cache.delete(key);
         }
       }
     },
     dispose() {
       cache.forEach((material) => material.dispose());
+      grain?.dispose();
+      grain = null;
       cache.clear();
       rail.dispose();
       hardware.dispose();
