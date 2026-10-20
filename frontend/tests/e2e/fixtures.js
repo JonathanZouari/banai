@@ -20,16 +20,39 @@ export const test = base.extend({
 
 export { expect };
 
-export async function openDesigner(page) {
+export async function openDesigner(page, { advice = false } = {}) {
   await page.goto('/');
   // The start screen is modal: choose the basic wardrobe to reach the editor.
   await page.getByTestId('entry-basic').click();
   await page.waitForFunction(() => window.__banai?.viewer.meshOf('shf_l1'));
+  if (advice) await openAdvice(page);
 }
 
-/** The chat lives in the side column's second tab (the advice tab is shown first). */
+/** The advice opens from the Help menu as a panel over the 3D view. */
+export async function openAdvice(page) {
+  if (await page.getByTestId('advice-panel').isVisible()) return;
+  await page.getByTestId('menu-help-button').click();
+  await page.getByTestId('tab-advice').click();
+  await expect(page.getByTestId('advice-panel')).toBeVisible();
+}
+
+/** Opens, by clicking their summaries as a user would, the menus above a control in the top menu bar. */
+export async function reveal(page, testId) {
+  const closed = await page.evaluate((id) => {
+    const target = document.querySelector(`[data-testid="${id}"]`);
+    // A summary's own <details> is what a click on it opens: only the menus above that one are opened here.
+    const all = [...document.querySelectorAll('details')];
+    const found = [];
+    for (let node = target?.tagName === 'SUMMARY' ? target.parentElement?.parentElement : target?.parentElement; node; node = node.parentElement) {
+      if (node.tagName === 'DETAILS' && !node.open) found.unshift(all.indexOf(node));
+    }
+    return found;
+  }, testId);
+  for (const index of closed) await page.locator('details').nth(index).locator(':scope > summary').click();
+}
+
+/** The chat is always in the side column. */
 export async function openChat(page) {
-  await page.getByTestId('tab-chat').click();
   await expect(page.getByTestId('chat-input')).toBeVisible();
 }
 

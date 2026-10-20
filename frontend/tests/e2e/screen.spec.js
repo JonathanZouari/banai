@@ -7,7 +7,7 @@ const store = (page) => page.evaluate(() => window.__banai.store.getState());
 const screenOf = async (page) => (await store(page)).design.compartments[1].inserts.find((x) => x.type === 'tv');
 
 test('a screen goes into a compartment, its size is picked in inches, and a screen too wide pops up a fix', async ({ page }) => {
-  await openDesigner(page);
+  await openDesigner(page, { advice: true });
   await page.evaluate(() => window.__banai.store.dispatch([{ op: 'update_dimensions', width: 3000 }])); // ~98 cm compartments
   await page.getByTestId('select-cmp_middle').click();
   await page.getByTestId('insert-tv').click();

@@ -21,7 +21,7 @@ async function fill(page, testId, value) {
 
 test.describe('the room editor', () => {
   test.beforeEach(async ({ page }) => {
-    await openDesigner(page);
+    await openDesigner(page, { advice: true });
   });
 
   test('a rectangular room: sizes, a wall from the plan, a corner, the R27 fix, and no room again', async ({ page }) => {

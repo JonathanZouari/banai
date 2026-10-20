@@ -1,4 +1,4 @@
-import { test, expect, openDesigner, openChat } from './fixtures.js';
+import { test, expect, openAdvice, openDesigner, openChat, reveal } from './fixtures.js';
 
 // The user's list (2026-10-19): a warning pop-up with ways to fix, and projects in the browser
 // (new, save, open, "ניקוי מסך" = start over).
@@ -13,9 +13,10 @@ async function fill(page, testId, value) {
 
 test.describe('warning pop-up', () => {
   test('a change that brings a new warning pops it up with its fix; the opened design itself does not', async ({ page }) => {
-    await openDesigner(page);
+    await openDesigner(page, { advice: true });
     await expect(page.getByTestId('advice-r3-wide')).toBeVisible(); // warnings the design opened with...
     await expect(sheet(page)).toBeHidden(); // ...are the starting point, not a change
+    await page.getByTestId('advice-close').click(); // while the advice is open, the pop-up would only repeat it
     await fill(page, 'site-clearance', '60');
     await expect(sheet(page)).toBeVisible();
     await expect(sheet(page)).toContainText('אין מקום לפתוח את הדלת');
@@ -32,6 +33,7 @@ test.describe('warning pop-up', () => {
     await page.getByTestId('alert-keep').click();
     await expect(sheet(page)).toBeHidden();
     expect((await store(page)).design).toEqual(before);
+    await openAdvice(page);
     await expect(page.getByTestId('advice-r21-swing')).toBeVisible();
   });
 
@@ -51,14 +53,15 @@ test.describe('warning pop-up', () => {
     await expect(sheet(page)).toBeHidden();
     await openDesigner(page);
     await fill(page, 'site-clearance', '40');
+    await expect(sheet(page)).toBeHidden(); // muted, though the warning is there:
+    await openAdvice(page);
     await expect(page.getByTestId('advice-r21-swing')).toBeVisible();
-    await expect(sheet(page)).toBeHidden();
   });
 });
 
 test.describe('projects in the browser', () => {
   test('save, start over ("ניקוי מסך") with a prompt, and open the saved project again', async ({ page }) => {
-    await openDesigner(page);
+    await openDesigner(page, { advice: true });
     await fill(page, 'site-clearance', '120');
     await page.getByTestId('open-save').click();
     await page.getByTestId('project-name').fill('חדר שינה');
@@ -68,6 +71,7 @@ test.describe('projects in the browser', () => {
     await page.getByTestId('save-close').click();
 
     await fill(page, 'site-clearance', '150'); // an unsaved change
+    await reveal(page, 'new-project');
     await page.getByTestId('new-project').click();
     await expect(page.getByTestId('project-confirm')).toBeVisible();
     await page.getByTestId('project-confirm-discard').click();
@@ -83,7 +87,7 @@ test.describe('projects in the browser', () => {
   });
 
   test('Alt+N starts over at once when nothing is unsaved, and clears the chat', async ({ page }) => {
-    await openDesigner(page);
+    await openDesigner(page, { advice: true });
     await openChat(page);
     await page.getByTestId('chat-input').fill('שלום');
     await page.getByTestId('chat-send').click();
@@ -98,7 +102,7 @@ test.describe('projects in the browser', () => {
   });
 
   test('a project file opens; anything else is refused and changes nothing', async ({ page }) => {
-    await openDesigner(page);
+    await openDesigner(page, { advice: true });
     const design = (await store(page)).design;
     const file = { app: 'banai', version: 1, name: 'מהקובץ', design: { ...design, dimensions: { ...design.dimensions, depth: 550 } } };
     await page.getByTestId('open-save').click();
@@ -113,23 +117,29 @@ test.describe('projects in the browser', () => {
 
 test.describe('top bar', () => {
   test('"פתיחה" opens the saved projects', async ({ page }) => {
-    await openDesigner(page);
+    await openDesigner(page, { advice: true });
     await page.getByTestId('open-save').click();
     await page.getByTestId('project-name').fill('ארון ילדים');
     await page.getByTestId('save-confirm').click();
     await page.getByTestId('save-close').click();
+    await reveal(page, 'open-project');
     await page.getByTestId('open-project').click();
     await expect(page.getByTestId('save-dialog')).toBeVisible();
     await expect(page.getByTestId('project-item')).toContainText('ארון ילדים');
     await expect(page.getByTestId('project-item').getByRole('button', { name: 'פתיחה' })).toBeFocused();
   });
 
-  test('the video button records: clicking a video option starts it, and the button cancels it', async ({ page }) => {
-    await openDesigner(page);
+  test('the video option records: the File menu shows the progress, and pressing it cancels', async ({ page }) => {
+    test.setTimeout(90_000); // a recording on a software renderer
+    await openDesigner(page, { advice: true });
+    await reveal(page, 'open-video');
     await page.getByTestId('open-video').click();
+    await reveal(page, 'video-quick');
     await page.getByTestId('video-quick').click();
-    await expect(page.getByTestId('open-video')).toContainText(/מקליט/, { timeout: 15_000 });
-    await page.getByTestId('open-video').click();
-    await expect(page.getByTestId('open-video')).toHaveText('סרטון', { timeout: 15_000 });
+    // The menu closes; its title carries the progress, and the title is the cancel button.
+    await expect(page.getByTestId('menu-file-button')).toContainText(/מקליט/, { timeout: 15_000 });
+    await page.getByTestId('menu-file-button').click();
+    await expect(page.getByTestId('menu-file-button')).toHaveText('קובץ', { timeout: 15_000 });
+    await expect(page.getByTestId('open-video')).toHaveText('הפקת סרטון');
   });
 });

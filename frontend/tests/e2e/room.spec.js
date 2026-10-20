@@ -14,7 +14,7 @@ async function fill(page, testId, value) {
 
 test.describe('room elements', () => {
   test.beforeEach(async ({ page }) => {
-    await openDesigner(page);
+    await openDesigner(page, { advice: true });
   });
 
   test('three readings: the smallest governs, and an out-of-square niche is explained', async ({ page }) => {

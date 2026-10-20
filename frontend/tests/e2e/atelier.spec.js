@@ -1,4 +1,4 @@
-import { test, expect, openDesigner } from './fixtures.js';
+import { test, expect, openDesigner, reveal } from './fixtures.js';
 
 // The atelier start screen and the About page (P3, approved 2026-10-17): a 3D wardrobe with pencil dimensions,
 // Bob's greeting, three glass cards that lead into the editor, and the fictional master carpenter's story.
@@ -40,6 +40,7 @@ test.describe('atelier start screen', () => {
 
   test('the About page opens from the top bar and closes with Escape', async ({ page }) => {
     await openDesigner(page);
+    await reveal(page, 'open-about');
     await page.getByTestId('open-about').click();
     const dialog = page.getByTestId('about-dialog');
     await expect(dialog).toBeVisible();
@@ -47,6 +48,7 @@ test.describe('atelier start screen', () => {
     await expect(dialog.getByRole('heading', { name: /שלושים שנה/ })).toBeVisible(); // the user's text (3c79b4c): thirty years since 1996
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
+    await reveal(page, 'open-about');
     await page.getByTestId('open-about').click();
     await page.getByTestId('about-close').click();
     await expect(page.getByTestId('about-dialog')).toHaveCount(0);

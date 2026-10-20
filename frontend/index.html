@@ -22,6 +22,74 @@
           <span class="brand__project">ארון בגדים בהתאמה אישית · טיוטה</span>
         </h1>
       </div>
+      <nav class="menubar" aria-label="תפריט ראשי" data-testid="menubar">
+        <details class="help menubar-menu" data-testid="menu-file">
+          <summary data-testid="menu-file-button">קובץ</summary>
+          <div class="help__popover menubar__popover">
+            <button type="button" class="menu-item" data-mirror="open-save" data-testid="menu-save"><span>שמירה</span><kbd>Ctrl+S</kbd></button>
+            <button type="button" class="menu-item" id="open-project" data-testid="open-project" title="פתיחת פרויקט שמור"><span>פתיחה</span><kbd>Ctrl+O</kbd></button>
+            <button type="button" class="menu-item" id="new-project" data-testid="new-project" title="התחלה מחדש"><span>חדש</span><kbd>Alt+N</kbd></button>
+            <hr class="menu-sep" />
+            <details class="help video-menu" data-testid="video-menu">
+              <summary data-testid="open-video" title="סרטון המחשה: הדלתות נפתחות, המגירות נשלפות, והמצלמה מסתובבת">הפקת סרטון</summary>
+              <div class="help__popover video-menu__popover">
+                <button type="button" class="menu-option" data-video="quick" data-testid="video-quick"><b>מהיר</b><span>התצוגה החיה · כמה שניות</span></button>
+                <button type="button" class="menu-option" data-video="traced" data-testid="video-traced"><b>פוטוריאליסטי</b><span>path tracing לכל פריים · כמה דקות, עדיף עם כרטיס מסך</span></button>
+              </div>
+            </details>
+            <details class="help video-menu dossier-menu" data-testid="dossier-menu">
+              <summary id="open-dossier" data-testid="open-dossier" title="תוכנית ייצור מפורטת לנגר, בשפה שהנגר בוחר">הפקת תוכנית לנגר</summary>
+              <div class="help__popover video-menu__popover" role="group" aria-label="שפת תוכנית הנגר">
+                <p class="menu-note" data-testid="dossier-customer-note" hidden>אין פרטי לקוח בתוכנית. אפשר להוסיף ב"הגדרות · עדכון פרטים".</p>
+                <button type="button" class="menu-option" data-lang="he" data-testid="dossier-he"><b lang="he" dir="rtl">עברית</b><span>תוכנית הנגר בעברית</span></button>
+                <button type="button" class="menu-option" data-lang="en" data-testid="dossier-en"><b lang="en" dir="ltr">English</b><span>תוכנית הנגר באנגלית</span></button>
+                <button type="button" class="menu-option" data-lang="ru" data-testid="dossier-ru"><b lang="ru" dir="ltr">Русский</b><span>תוכנית הנגר ברוסית</span></button>
+                <button type="button" class="menu-option" data-lang="ar" data-testid="dossier-ar"><b lang="ar" dir="rtl">العربية</b><span>תוכנית הנגר בערבית</span></button>
+              </div>
+            </details>
+          </div>
+        </details>
+        <details class="help menubar-menu" data-testid="menu-tools">
+          <summary data-testid="menu-tools-button">כלים</summary>
+          <div class="help__popover menubar__popover">
+            <button type="button" class="menu-item" id="open-render" data-testid="open-render"><span>רינדור</span></button>
+            <button type="button" class="menu-item" data-mirror="undo" data-testid="menu-undo"><span>חזרה אחורה</span><kbd>Ctrl+Z</kbd></button>
+            <button type="button" class="menu-item" data-mirror="redo" data-testid="menu-redo"><span>חזרה קדימה</span><kbd>Ctrl+Shift+Z</kbd></button>
+            <hr class="menu-sep" />
+            <button type="button" class="menu-item" id="check-health" data-testid="check-health" title="בודק את החיבור לשרת, לבסיס הנתונים ולמפתח ה-AI"><span>בדיקת תקינות</span><small>חיבור לרשת</small></button>
+          </div>
+        </details>
+        <details class="help menubar-menu" data-testid="menu-settings">
+          <summary data-testid="menu-settings-button">הגדרות</summary>
+          <div class="help__popover menubar__popover">
+            <button type="button" class="menu-item" id="open-ai-settings" data-testid="open-ai-settings"><span>הגדרות AI</span></button>
+            <button type="button" class="menu-item" id="open-customer" data-testid="open-customer" title="פרטי הלקוח לתוכנית הנגר"><span>עדכון פרטים</span><small>פרטי לקוח</small></button>
+          </div>
+        </details>
+        <details class="help menubar-menu" data-testid="menu-help">
+          <summary data-testid="menu-help-button">עזרה<span class="tab-badge" id="help-badge" data-testid="help-badge" hidden></span></summary>
+          <div class="help__popover menubar__popover">
+            <button type="button" class="menu-item" id="tab-advice" data-testid="tab-advice" aria-pressed="false" aria-controls="advice-float"><span>ייעוץ</span><span class="tab-badge" id="advice-badge" hidden></span></button>
+            <button type="button" class="menu-item" id="tab-chat" data-testid="tab-chat" aria-controls="chat-panel"><span>פתיחת הצ'אט</span></button>
+            <hr class="menu-sep" />
+            <div class="menu-static menu-contact" data-testid="menu-contact">
+              <span>צור קשר</span>
+              <b>אריאל קורן</b>
+              <a href="tel:+972584444548" dir="ltr" data-testid="contact-phone">058-444-4548</a>
+              <a class="btn btn--sm" href="https://wa.me/972584444548?text=%D7%A9%D7%9C%D7%95%D7%9D%2C%20%D7%90%D7%A0%D7%99%20%D7%A4%D7%95%D7%A0%D7%94%20%D7%9E-BanAI" target="_blank" rel="noopener noreferrer" data-testid="contact-whatsapp">פתיחה בוואטסאפ</a>
+            </div>
+          </div>
+        </details>
+        <details class="help menubar-menu" data-testid="menu-about">
+          <summary data-testid="menu-about-button">אודות</summary>
+          <div class="help__popover menubar__popover">
+            <button type="button" class="menu-item" id="open-about" data-testid="open-about"><span>אודות בוב</span></button>
+            <div class="menu-static" data-testid="menu-updates" aria-disabled="true"><span>בדיקת עדכונים</span><small>הגרסה שלכם מעודכנת (הדגמה)</small></div>
+            <div class="menu-static" data-testid="menu-version"><span>גרסה</span><small data-app-version dir="ltr"></small></div>
+            <div class="menu-static" data-testid="menu-copyright"><small>© 2026 אריאל קורן. כל הזכויות שמורות.</small></div>
+          </div>
+        </details>
+      </nav>
       <div class="topbar__actions">
         <div class="history" role="group" aria-label="היסטוריה">
           <button type="button" class="icon-tool" id="undo" data-testid="undo" aria-label="ביטול (Ctrl+Z)" title="ביטול · Ctrl+Z" disabled>
@@ -45,29 +113,6 @@
           </div>
         </details>
         <span class="topbar__units">יחידות: ס״מ</span>
-        <button type="button" class="btn btn--sm" id="open-about" data-testid="open-about">אודות בוב</button>
-        <button type="button" class="btn btn--sm" id="open-ai-settings" data-testid="open-ai-settings">הגדרות AI</button>
-        <details class="help video-menu dossier-menu" data-testid="dossier-menu">
-          <summary id="open-dossier" data-testid="open-dossier" title="תיק ייצור מפורט לנגר, בשפה שהנגר בוחר">תיק נגר</summary>
-          <div class="help__popover video-menu__popover" role="group" aria-label="שפת תיק הנגר">
-            <p class="menu-note" data-testid="dossier-customer-note" hidden>אין פרטי לקוח בתיק. אפשר להוסיף בכפתור "לקוח".</p>
-            <button type="button" class="menu-option" data-lang="he" data-testid="dossier-he"><b lang="he" dir="rtl">עברית</b><span>תיק הנגר בעברית</span></button>
-            <button type="button" class="menu-option" data-lang="en" data-testid="dossier-en"><b lang="en" dir="ltr">English</b><span>תיק הנגר באנגלית</span></button>
-            <button type="button" class="menu-option" data-lang="ru" data-testid="dossier-ru"><b lang="ru" dir="ltr">Русский</b><span>תיק הנגר ברוסית</span></button>
-            <button type="button" class="menu-option" data-lang="ar" data-testid="dossier-ar"><b lang="ar" dir="rtl">العربية</b><span>תיק הנגר בערבית</span></button>
-          </div>
-        </details>
-        <button type="button" class="btn btn--sm" id="open-render" data-testid="open-render">רינדור</button>
-        <details class="help video-menu" data-testid="video-menu">
-          <summary data-testid="open-video" title="סרטון המחשה: הדלתות נפתחות, המגירות נשלפות, והמצלמה מסתובבת">סרטון</summary>
-          <div class="help__popover video-menu__popover">
-            <button type="button" class="menu-option" data-video="quick" data-testid="video-quick"><b>מהיר</b><span>התצוגה החיה · כמה שניות</span></button>
-            <button type="button" class="menu-option" data-video="traced" data-testid="video-traced"><b>פוטוריאליסטי</b><span>path tracing לכל פריים · כמה דקות, עדיף עם כרטיס מסך</span></button>
-          </div>
-        </details>
-        <button type="button" class="btn btn--sm" id="new-project" data-testid="new-project" title="התחלה מחדש · Alt+N">חדש</button>
-        <button type="button" class="btn btn--sm" id="open-project" data-testid="open-project" title="פתיחת פרויקט שמור · Ctrl+O">פתיחה</button>
-        <button type="button" class="btn btn--sm" id="open-customer" data-testid="open-customer" title="פרטי הלקוח לתיק הנגר">לקוח</button>
         <button type="button" class="btn btn--sm btn--primary" id="open-save" data-testid="open-save" title="שמירה ופתיחה של פרויקטים · Ctrl+S">שמירה</button>
       </div>
     </header>
@@ -123,15 +168,17 @@
           <button type="button" class="btn btn--sm btn--primary" data-action="save" data-testid="render-save" hidden>שמירת תמונה</button>
           <button type="button" class="btn btn--sm" data-action="exit" data-testid="render-exit">חזרה לעריכה</button>
         </div>
+        <aside class="advice-float" id="advice-float" data-testid="advice-float" aria-label="ייעוץ" hidden>
+          <div class="advice-float__bar">
+            <strong>ייעוץ</strong>
+            <button type="button" class="btn btn--sm btn--ghost" id="advice-close" data-testid="advice-close">סגירה</button>
+          </div>
+          <section class="advice-view" id="advice-view" aria-label="ייעוץ" data-testid="advice-panel"></section>
+        </aside>
         <div class="viewer-loading" role="status">טוען את התכנון…</div>
       </section>
-      <aside class="panel panel--side" id="side-panel" aria-label="ייעוץ ושיחה">
-        <div class="side-tabs" role="tablist" aria-label="ייעוץ או שיחה">
-          <button type="button" class="side-tab" role="tab" id="tab-advice" data-testid="tab-advice" aria-controls="advice-view" aria-selected="true">ייעוץ<span class="tab-badge" id="advice-badge" hidden></span></button>
-          <button type="button" class="side-tab" role="tab" id="tab-chat" data-testid="tab-chat" aria-controls="chat-panel" aria-selected="false" tabindex="-1">שיחה</button>
-        </div>
-        <section class="advice-view" id="advice-view" role="tabpanel" aria-labelledby="tab-advice" data-testid="advice-panel"></section>
-        <section class="side-chat" id="chat-panel" role="tabpanel" aria-labelledby="tab-chat" hidden>
+      <aside class="panel panel--side" id="side-panel" aria-label="שיחה">
+        <section class="side-chat" id="chat-panel" aria-label="שיחה">
           <div class="chat__body" id="chat-body"></div>
         </section>
       </aside>

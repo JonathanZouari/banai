@@ -35,7 +35,7 @@ test('the session language: Russian from the start screen, then Arabic from the 
   await expect(page.getByTestId('chat-status')).toHaveText('Ключ подключён');
   // The workspace itself stays Hebrew.
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
-  await expect(page.getByTestId('open-dossier')).toHaveText('תיק נגר');
+  await expect(page.getByTestId('open-dossier')).toHaveText('הפקת תוכנית לנגר');
   await expect(page.getByTestId('dossier-ru')).toHaveAttribute('aria-current', 'true');
 
   await page.getByTestId('chat-input').fill('Какой шкаф лучше для спальни?');

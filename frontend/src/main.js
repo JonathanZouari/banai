@@ -3,7 +3,7 @@ import '@fontsource/assistant/500.css';
 import '@fontsource/assistant/600.css';
 import '@fontsource/assistant/700.css';
 import {
-  applyProposal, getAdvisories, getCatalog, getDefaultDesign, getDossier, sendChatMessage, synthesizeSpeech, transcribeAudio,
+  applyProposal, getAdvisories, getCatalog, getDefaultDesign, getDossier, getHealth, sendChatMessage, synthesizeSpeech, transcribeAudio,
   verifyAiKey,
 } from './api/client.js';
 import { applyOps } from './domain/apply.js';
@@ -34,6 +34,8 @@ import { createKeyStorage } from './settings/keyStorage.js';
 import { createAiSettingsModel } from './settings/aiSettingsModel.js';
 import { createAiSettingsDialog } from './settings/aiSettingsDialog.js';
 import { createToast } from './ui/toast.js';
+import { bindMenubar } from './ui/menubar.js';
+import { version } from '../package.json';
 
 const byId = (id) => document.getElementById(id);
 // Wired once the chat exists (later in boot): asking Bob from a warning, and resetting for a new project.
@@ -54,27 +56,26 @@ function showError(message) {
 
 byId('error-retry').addEventListener('click', () => location.reload());
 
-/** Advice | chat tabs in the side column (WAI-ARIA tabs: arrows move between them). */
-function bindSideTabs() {
-  const tabs = [byId('tab-advice'), byId('tab-chat')];
-  const select = (tab, focus = false) => {
-    tabs.forEach((candidate) => {
-      const on = candidate === tab;
-      candidate.setAttribute('aria-selected', String(on));
-      candidate.tabIndex = on ? 0 : -1;
-      byId(candidate.getAttribute('aria-controls')).hidden = !on;
-    });
-    if (focus) tab.focus();
+/**
+ * The chat stays in the side column, always visible. The advice opens from the Help menu as a panel over the
+ * 3D view ("ייעוץ"), and "פתיחת הצ'אט" puts the cursor in the chat.
+ */
+function bindSideViews() {
+  const float = byId('advice-float');
+  const toggle = byId('tab-advice');
+  const set = (on) => {
+    float.hidden = !on;
+    toggle.setAttribute('aria-pressed', String(on));
   };
-  tabs.forEach((tab, index) => {
-    tab.addEventListener('click', () => select(tab));
-    tab.addEventListener('keydown', (event) => {
-      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
-      event.preventDefault();
-      select(tabs[(index + 1) % tabs.length], true);
-    });
+  toggle.addEventListener('click', () => set(float.hidden));
+  byId('advice-close').addEventListener('click', () => set(false));
+  byId('tab-chat').addEventListener('click', () => document.querySelector('[data-testid="chat-input"]')?.focus());
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || float.hidden || event.defaultPrevented) return;
+    if (event.target instanceof Element && event.target.closest('input, select, textarea, details.help[open]')) return;
+    set(false);
   });
-  return { showChat: () => select(tabs[1]), showAdvice: () => select(tabs[0]) };
+  return { closeAdvice: () => set(false) };
 }
 
 // Arrow keys: the axis and the direction a selected part moves (physical left and right, also in RTL).
@@ -190,6 +191,7 @@ function bindCompare(store) {
 function bindAdvice(store, viewer) {
   const feed = createAdvisoryFeed({ fetchAdvisories: (design, { signal }) => getAdvisories(design, { signal }) });
   const badge = byId('advice-badge');
+  const helpBadge = byId('help-badge'); // the same count on the closed Help menu
   const onShow = (item) => {
     const compartment = item.targets.find((target) => target.startsWith('comp:'));
     const interior = Boolean(compartment);
@@ -210,6 +212,9 @@ function bindAdvice(store, viewer) {
     badge.hidden = critical + warn === 0;
     badge.textContent = String(critical + warn);
     badge.classList.toggle('tab-badge--critical', critical > 0);
+    helpBadge.hidden = badge.hidden;
+    helpBadge.textContent = badge.textContent;
+    helpBadge.classList.toggle('tab-badge--critical', critical > 0);
   });
   feed.update(store.getState().design);
   store.subscribe((state) => feed.update(state.design));
@@ -234,9 +239,7 @@ function bindRenderAndDossier(store, viewer, getCustomer = () => null) {
   // The dossier menu: the carpenter's language (ADR-029). Each option downloads the PDF in it.
   const menu = document.querySelector('.dossier-menu');
   const button = byId('open-dossier');
-  document.addEventListener('pointerdown', (event) => {
-    if (menu.open && !menu.contains(event.target)) menu.open = false;
-  });
+  const label = button.textContent;
   // Without the customer's details the dossier still works; the menu says where to add them.
   const customerNote = menu.querySelector('[data-testid="dossier-customer-note"]');
   menu.addEventListener('toggle', () => {
@@ -249,7 +252,7 @@ function bindRenderAndDossier(store, viewer, getCustomer = () => null) {
   async function download(language) {
     if (button.getAttribute('aria-busy') === 'true') return;
     button.setAttribute('aria-busy', 'true');
-    button.textContent = 'מכין תיק…';
+    button.textContent = 'מכין תוכנית…';
     const { design } = store.getState();
     const image = hud.latestImage();
     let withCover = Boolean(image);
@@ -275,7 +278,7 @@ function bindRenderAndDossier(store, viewer, getCustomer = () => null) {
       toast(error?.code === 'BUSY' ? 'השרת עסוק. נסו שוב בעוד רגע.' : 'לא הצלחנו להכין את תיק הנגר.');
     } finally {
       button.removeAttribute('aria-busy');
-      button.textContent = 'תיק נגר';
+      button.textContent = label;
     }
   }
   return hud;
@@ -315,7 +318,6 @@ async function previewProposal(signed, design, catalog) {
 
 /** Esc: close an open top-bar menu, leave a render, ignore form fields, otherwise clear the selection. */
 function bindEscape(getApp) {
-  const help = document.querySelector('details.help');
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape' || event.isComposing) return;
     const target = event.target instanceof Element ? event.target : null;
@@ -329,9 +331,6 @@ function bindEscape(getApp) {
     const app = getApp();
     if (app?.hud.isActive()) app.hud.stop();
     else if (app?.store.getState().selection) app.store.select(null);
-  });
-  document.addEventListener('pointerdown', (event) => {
-    if (help.open && !help.contains(event.target)) help.open = false;
   });
 }
 
@@ -348,8 +347,10 @@ function softwareRenderer() {
 }
 
 let app = null;
+bindMenubar();
+document.querySelectorAll('[data-app-version]').forEach((node) => { node.textContent = `${version} · bobHabanai`; });
 bindEscape(() => app);
-const tabs = bindSideTabs();
+const tabs = bindSideViews();
 
 async function boot() {
   let catalog;
@@ -471,6 +472,22 @@ async function boot() {
   const settingsDialog = createAiSettingsDialog(aiSettings, { speech });
   byId('open-ai-settings').addEventListener('click', settingsDialog.open);
   aiSettings.load();
+  // Tools · health check: the planning server, then the AI key (re-checked, as load() does).
+  const AI_STATUS_TEXT = {
+    connected: 'מפתח ה-AI תקין', not_configured: 'מפתח AI עדיין לא הוגדר', invalid_key: 'מפתח ה-AI לא תקין',
+    model_unavailable: 'מפתח ה-AI תקין אבל המודל לא זמין', unreachable: 'שירות ה-AI לא ענה',
+  };
+  byId('check-health').addEventListener('click', async () => {
+    toast('בודק את החיבור…');
+    try {
+      await getHealth();
+    } catch {
+      toast('אין חיבור לשרת התכנון. בדקו את החיבור לרשת.');
+      return;
+    }
+    await aiSettings.load();
+    toast(`השרת תקין · ${AI_STATUS_TEXT[aiSettings.getState().status] ?? 'מצב מפתח ה-AI לא ידוע'}`);
+  });
 
   // The agent sends the browser-held key with each turn; the server never stores it. It sees the
   // committed design and may return a signed proposal (ADR-020), shown as a card the customer confirms.
@@ -543,18 +560,18 @@ async function boot() {
     onChoose: (entry) => {
       // All three entry points open the same editor; the chat ones also open the chat tab.
       if (entry.id === 'basic') return;
-      tabs.showChat();
+      tabs.closeAdvice();
       chat.focus(entry.composerHint);
     },
   });
   hooks.askBob = (text) => {
-    tabs.showChat();
+    tabs.closeAdvice(); // the question is written into the chat, which is always there
     chat.draft(text);
   };
   hooks.onOpened = (kind) => {
     chatModel.clear();
     alerts.reset();
-    tabs.showAdvice();
+    tabs.closeAdvice();
     if (kind === 'new') showStart(); // a fresh start begins where a visit begins
     else toast('הפרויקט נפתח');
   };

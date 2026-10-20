@@ -1,4 +1,4 @@
-import { test, expect, openChat, openDesigner } from './fixtures.js';
+import { test, expect, openChat, openDesigner, reveal } from './fixtures.js';
 
 test.describe('start screen', () => {
   test('is shown first with three entry points and the manufacturing disclaimer', async ({ page }) => {
@@ -144,6 +144,7 @@ test.describe('save and render dialogs (backend phases not built yet)', () => {
       viewer.startRender = ({ onProgress }) => { onProgress(0, 400, true); return Promise.resolve(); };
       viewer.stopRender = () => {};
     });
+    await reveal(page, 'open-render');
     await page.getByTestId('open-render').click();
     const hud = page.getByTestId('render-hud');
     await expect(hud).toContainText('מכין את מנוע הרינדור');

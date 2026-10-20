@@ -5,7 +5,7 @@ import { test, expect, openDesigner } from './fixtures.js';
 const store = (page) => page.evaluate(() => window.__banai.store.getState());
 
 test('a child in the household: a figure at their height, the safety pop-up, and locks with an adult-height release', async ({ page }) => {
-  await openDesigner(page);
+  await openDesigner(page, { advice: true });
   await page.getByTestId('person-add-adult').click();
   await expect.poll(async () => (await store(page)).ui.showFigure).toBe(true); // a new person is seen at once
   await page.getByTestId('person-add-child').click();
@@ -30,7 +30,7 @@ test('a child in the household: a figure at their height, the safety pop-up, and
 });
 
 test('a name and a removal; adults only bring no child-safety advice', async ({ page }) => {
-  await openDesigner(page);
+  await openDesigner(page, { advice: true });
   await page.getByTestId('person-add-adult').click();
   const name = page.getByTestId('person-name-0');
   await name.fill('אבא');

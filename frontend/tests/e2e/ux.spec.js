@@ -131,24 +131,32 @@ test.describe('UX pass', () => {
       expect(await extent()).toBeGreaterThan(0.3);
     });
 
-    test('the side column still shows the advice and chat tabs', async ({ page }) => {
+    test('the chat stays visible and the advice opens from the Help menu', async ({ page }) => {
+      await expect(page.getByTestId('chat-input')).toBeVisible();
+      await expect(page.getByTestId('tab-advice')).toBeHidden(); // the menu is closed
+      await page.getByTestId('menu-help-button').click();
       await expect(page.getByTestId('tab-advice')).toBeVisible();
       await expect(page.getByTestId('tab-chat')).toBeVisible();
     });
   });
 
-  test('the side column switches between advice and chat as WAI-ARIA tabs', async ({ page }) => {
-    const advice = page.getByTestId('tab-advice');
-    const chat = page.getByTestId('tab-chat');
-    await expect(advice).toHaveAttribute('aria-selected', 'true');
-    await expect(page.getByTestId('advice-panel')).toBeVisible();
-    await chat.click();
-    await expect(chat).toHaveAttribute('aria-selected', 'true');
-    await expect(page.getByTestId('advice-panel')).toBeHidden();
+  test('the chat is always in the side column; the advice opens over the 3D view and closes again', async ({ page }) => {
     await expect(page.getByTestId('chat-input')).toBeVisible();
-    await chat.press('ArrowLeft');
-    await expect(advice).toBeFocused();
-    await expect(advice).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByTestId('advice-panel')).toBeHidden();
+    await page.getByTestId('menu-help-button').click();
+    await page.getByTestId('tab-advice').click();
+    await expect(page.getByTestId('menu-help')).not.toHaveAttribute('open', ''); // a chosen item closes the menu
+    await expect(page.getByTestId('advice-panel')).toBeVisible();
+    await expect(page.getByTestId('tab-advice')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('chat-input')).toBeVisible(); // the chat did not move
+    await page.getByTestId('advice-close').click();
+    await expect(page.getByTestId('advice-panel')).toBeHidden();
+    await page.getByTestId('menu-help-button').click();
+    await page.getByTestId('tab-chat').click();
+    await expect(page.getByTestId('chat-input')).toBeFocused();
+    const metrics = await page.evaluate(() => ({ height: document.scrollingElement.scrollHeight, top: document.scrollingElement.scrollTop, inner: innerHeight }));
+    expect(metrics.height).toBeLessThanOrEqual(metrics.inner);
+    expect(metrics.top).toBe(0);
   });
 
   test('hovering a part shows a pointer cursor; empty space does not', async ({ page }) => {

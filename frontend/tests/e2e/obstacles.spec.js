@@ -14,7 +14,7 @@ async function fill(page, testId, value) {
 
 test.describe('wall obstacles and the scale figure', () => {
   test.beforeEach(async ({ page }) => {
-    await openDesigner(page);
+    await openDesigner(page, { advice: true });
   });
 
   test('an AC unit behind the wardrobe: R23 warns, the outline is drawn, and the fix lowers the wardrobe', async ({ page }) => {

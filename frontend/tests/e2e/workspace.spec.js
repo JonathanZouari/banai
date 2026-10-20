@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { expect, openDesigner, test } from './fixtures.js';
+import { expect, openDesigner, test, reveal } from './fixtures.js';
 
 // bobHabanai Day 3: the Hebrew RTL workspace on schema v2 (advisories from /api/advisories,
 // interior presets and inserts, site, undo/redo, hold-to-compare).
@@ -10,7 +10,7 @@ const store = (page) => page.evaluate(() => {
 const advice = (page, id) => page.getByTestId(`advice-${id}`);
 
 test.describe('workspace (RTL, schema v2)', () => {
-  test.beforeEach(async ({ page }) => openDesigner(page));
+  test.beforeEach(async ({ page }) => openDesigner(page, { advice: true }));
 
   test('the page is Hebrew, right to left', async ({ page }) => {
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
@@ -145,6 +145,7 @@ test.describe('workspace (RTL, schema v2)', () => {
 
   test('the carpenter dossier downloads as a PDF built by the server (ADR-019)', async ({ page }) => {
     test.setTimeout(60_000); // Chromium renders the PDF on the server
+    await reveal(page, 'open-dossier');
     await page.getByTestId('open-dossier').click(); // a menu of the carpenter's language (ADR-029)
     await expect(page.getByTestId('dossier-ar')).toBeVisible();
     const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('dossier-he').click()]);
@@ -152,7 +153,7 @@ test.describe('workspace (RTL, schema v2)', () => {
     const pdf = await readFile(await download.path());
     expect(pdf.subarray(0, 5).toString('latin1')).toBe('%PDF-');
     expect(pdf.length).toBeGreaterThan(50_000);
-    await expect(page.getByTestId('open-dossier')).toHaveText('תיק נגר');
+    await expect(page.getByTestId('open-dossier')).toHaveText('הפקת תוכנית לנגר');
   });
 
   test('the dossier comes in the carpenter\'s language: Russian, left to right (ADR-029)', async ({ page }) => {
@@ -161,6 +162,7 @@ test.describe('workspace (RTL, schema v2)', () => {
     page.on('request', (request) => {
       if (request.url().endsWith('/api/dossier') && request.method() === 'POST') sent.push(request.postDataJSON());
     });
+    await reveal(page, 'open-dossier');
     await page.getByTestId('open-dossier').click();
     const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('dossier-ru').click()]);
     expect(download.suggestedFilename()).toBe('banai-dossier-ru.pdf');
@@ -199,6 +201,7 @@ test.describe('workspace (RTL, schema v2)', () => {
   });
 
   test('the video menu offers a fast and a photoreal video, and Esc closes it', async ({ page }) => {
+    await reveal(page, 'open-video');
     await page.getByTestId('open-video').click();
     await expect(page.getByTestId('video-quick')).toBeVisible();
     await expect(page.getByTestId('video-traced')).toContainText('פוטוריאליסטי');

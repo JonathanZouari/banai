@@ -60,34 +60,54 @@
 }
 .btn[aria-busy='true'] { opacity: 0.6; cursor: progress; }
 
-/* ---------- side tabs ---------- */
-.side-tabs {
+/* ---------- menu bar: File, Tools, Settings, Help, About ---------- */
+.menubar { display: flex; align-items: center; gap: var(--space-1); margin-inline: var(--space-5) auto; }
+.menubar-menu > summary { background: transparent; }
+.menubar-menu > summary .tab-badge { margin-inline-start: 6px; }
+.menubar-menu[aria-busy] > summary { background: var(--color-accent-soft); color: var(--color-accent-text); }
+.menubar__popover { inset-inline-start: 0; inset-inline-end: auto; width: 17rem; padding: 6px; display: flex; flex-direction: column; gap: 2px; }
+.menu-item {
   display: flex;
-  gap: 2px;
-  padding: 2px;
-  margin-bottom: var(--space-3);
-  border-radius: 9px;
-  background: var(--color-fill);
-}
-.side-tab {
-  flex: 1;
-  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  height: 28px;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  padding: 8px 10px;
   border: 0;
-  border-radius: 7px;
+  border-radius: 8px;
   background: transparent;
   color: var(--color-ink);
   font: inherit;
-  font-size: var(--text-sm);
-  font-weight: 500;
+  text-align: start;
   cursor: pointer;
-  transition: background-color 160ms ease, box-shadow 160ms ease;
 }
-.side-tab[aria-selected='true'] { background: var(--color-surface); font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 0 0 0.5px rgba(0, 0, 0, 0.04); }
-.side-tab:focus-visible { outline: var(--focus-outline); outline-offset: 1px; }
+.menu-item kbd { direction: ltr; unicode-bidi: isolate; color: var(--color-muted); font: inherit; font-size: 12px; }
+.menu-item small, .menu-static small { color: var(--color-muted); font-size: 12px; }
+.menu-item:focus-visible { outline: var(--focus-outline); outline-offset: 1px; }
+.menu-item:disabled { opacity: 0.4; cursor: default; }
+.menu-item[aria-pressed='true'] { font-weight: 600; background: var(--color-accent-soft); color: var(--color-accent-text); }
+.menu-sep { width: 100%; margin: 4px 0; border: 0; border-top: 1px solid var(--color-border); }
+.menu-static { display: grid; gap: 2px; padding: 8px 10px; color: var(--color-ink); cursor: default; user-select: text; }
+.menu-static[aria-disabled='true'] { color: var(--color-muted); }
+.menu-contact { gap: 4px; justify-items: start; }
+.menu-contact > span { color: var(--color-muted); font-size: 12px; }
+.menu-contact a:not(.btn) { color: var(--color-accent-text); font-variant-numeric: tabular-nums; }
+.menu-contact .btn { text-decoration: none; }
+/* A menu inside a menu (video, the carpenter's plan) opens in place, as a list under its row. */
+.menubar__popover > .help > summary { width: 100%; height: auto; padding: 8px 10px; border-radius: 8px; background: transparent; justify-content: space-between; gap: var(--space-3); }
+.menubar__popover > .help > summary::after { content: '▾'; color: var(--color-muted); font-size: 11px; }
+.menubar__popover > .help[open] > summary::after { content: '▴'; }
+.menubar__popover .help__popover { position: static; width: auto; padding: 0 0 0 4px; background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.menubar__popover .help[open] > .help__popover { animation: none; }
+@media (hover: hover) and (pointer: fine) {
+  .menu-item:hover:not(:disabled) { background: var(--color-fill-subtle); }
+  .menubar__popover > .help > summary:hover { background: var(--color-fill-subtle); }
+}
+@media (max-width: 900px) {
+  .menubar { margin-inline-start: var(--space-2); }
+  .brand__project { display: none; }
+}
+
 .tab-badge {
   min-width: 18px;
   height: 18px;
@@ -102,6 +122,27 @@
 }
 .tab-badge--critical { background: var(--color-crit-icon); }
 
+/* The advice panel: opened from the Help menu, over the 3D view, so the chat column stays in sight. */
+.advice-float {
+  position: absolute;
+  inset-block: 3.4rem 1rem;
+  inset-inline-start: 1rem;
+  z-index: 5; /* under the warning pop-up (6), which must stay reachable */
+  width: min(24rem, calc(100% - 2rem));
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--material-bg-thick);
+  -webkit-backdrop-filter: var(--material-filter-thick);
+  backdrop-filter: var(--material-filter-thick);
+  box-shadow: var(--material-highlight), var(--shadow-popover);
+  color: var(--color-ink);
+}
+.advice-float[hidden] { display: none; }
+/* With the advice open the warning pop-up would only repeat it (and cover it). */
+.viewer:has(.advice-float:not([hidden])) .alert-sheet { display: none; }
+.advice-float__bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-2); }
 .advice-view { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; padding-bottom: var(--space-3); scrollbar-width: thin; }
 .side-chat { flex: 1; min-height: 0; display: flex; flex-direction: column; margin-inline: calc(-1 * var(--space-3)); }
 .side-chat .panel--chat { flex: 1; min-height: 0; display: flex; flex-direction: column; background: transparent; border: 0; }

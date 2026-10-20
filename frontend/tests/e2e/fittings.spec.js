@@ -16,7 +16,7 @@ test('legs: chosen in the panel, the warning pops up, and its fix sets a 10 cm b
 });
 
 test('soft close is on by default; switching it off is explained, and its fix brings it back', async ({ page }) => {
-  await openDesigner(page);
+  await openDesigner(page, { advice: true });
   const toggle = page.getByTestId('soft-close');
   await expect(toggle).toBeChecked();
   await toggle.click({ force: true });

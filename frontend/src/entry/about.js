@@ -18,7 +18,6 @@ export const ABOUT = Object.freeze({
   ]),
   quote: '״אני לא מוכר ארונות. אני יוצר אומנות.״',
   text: 'בעיניי ארון הוא לא "פתרון אחסון". הוא יצירת אומנות פונקציונלית שחייבת להשתלב בהרמוניה עם החלל, עם האור ועם האופי הייחודי של הבית. אני לא מתפשר על מילימטר, על איכות הפרזול או על חומרי הגלם. רהיט טוב הוא כזה ששוכחים שהוא שם, עד שצריכים אותו.',
-  product: 'בנאי נולד כשבוב ישב עם צוות קטן ולימד אותו את מה שלקח לו שלושים שנה ללמוד: עשרים כללי ייעוץ מבוססי מחקר, שיטת בנייה אחת מוצהרת, ותיק נגר שאף נגר לא צריך לנחש ממנו.',
   stats: Object.freeze([
     Object.freeze({ value: 30, label: 'שנים בסדנה' }),
     Object.freeze({ value: 1284, label: 'ארונות בהתאמה' }),
@@ -97,7 +96,6 @@ export function buildAbout({ reducedMotion = false, headingId = 'about-title' } 
       ...ABOUT.story.map((text) => el('p', { className: 'about__text', text })),
       el('blockquote', { className: 'about__quote' }, [el('p', { text: ABOUT.quote })]),
       el('p', { className: 'about__text', text: ABOUT.text }),
-      el('p', { className: 'about__text', text: ABOUT.product }),
       el('dl', { className: 'about__stats' }, stats.map((s) => s.node)),
       el('h3', { className: 'about__heading', text: ABOUT.privateTitle }),
       projectCards(ABOUT.privateProjects),
