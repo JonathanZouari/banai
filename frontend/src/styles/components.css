@@ -257,3 +257,23 @@
 .chat__read-aloud[aria-pressed="true"] { background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); }
 @keyframes mic-pulse { 0% { box-shadow: 0 0 0 0 rgba(186, 26, 26, 0.45); } 80%, 100% { box-shadow: 0 0 0 10px rgba(186, 26, 26, 0); } }
 @media (prefers-reduced-motion: reduce) { .chat__mic--recording { animation: none; } }
+
+/* Finish design -> carpenter PDF (scope change 2026-10-20). */
+.chip--finished { border-color: transparent; background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
+.chip[hidden], .btn[hidden], .lock-note[hidden] { display: none; }
+.panel--locked { position: relative; }
+.panel--locked > *:not(.lock-note) { opacity: 0.55; }
+.lock-note {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--md-sys-shape-small);
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+  font: var(--md-sys-typescale-label-large);
+}
+.finish__summary { display: grid; gap: var(--space-1); margin: 0 0 var(--space-3); }
+.finish__row { display: flex; justify-content: space-between; gap: var(--space-4); padding: var(--space-2) var(--space-3); border-radius: var(--md-sys-shape-small); background: var(--md-sys-color-surface-container); }
+.finish__row dt { color: var(--md-sys-color-on-surface-variant); }
+.finish__row dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.finish__warning { margin: 0; padding: var(--space-2) var(--space-3); border-radius: var(--md-sys-shape-small); background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); }
+.finish__actions { display: flex; justify-content: flex-end; gap: var(--space-2); width: 100%; }

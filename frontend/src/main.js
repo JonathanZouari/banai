@@ -15,6 +15,7 @@ import { mountChat } from './chat/chatPanel.js';
 import { mountStartScreen } from './entry/startScreen.js';
 import { createSaveDialog } from './share/saveDialog.js';
 import { createRenderDialog } from './render/renderDialog.js';
+import { createFinishDialog } from './finish/finishDialog.js';
 import { createLogo } from './ui/logo.js';
 import { installRipple } from './ui/ripple.js';
 
@@ -35,6 +36,26 @@ function bindDialogs() {
   const render = createRenderDialog();
   document.getElementById('open-save').addEventListener('click', save.open);
   document.getElementById('open-render').addEventListener('click', render.open);
+}
+
+/** Finish design: locks editing (store + inert panels) and offers the carpenter PDF. */
+function bindFinish(store, canvas, language) {
+  const finishButton = document.getElementById('open-finish');
+  const pdfButton = document.getElementById('open-pdf');
+  const lock = () => {
+    finishButton.hidden = true;
+    document.getElementById('finished-chip').hidden = false;
+    pdfButton.hidden = false;
+    document.getElementById('properties-lock-note').hidden = false;
+    for (const id of ['chat-panel', 'properties-panel']) {
+      const panel = document.getElementById(id);
+      panel.inert = true;
+      panel.classList.add('panel--locked');
+    }
+  };
+  const dialog = createFinishDialog({ store, canvas, getLanguage: language.get, onFinished: lock });
+  finishButton.addEventListener('click', dialog.open);
+  pdfButton.addEventListener('click', dialog.open);
 }
 
 async function boot() {
@@ -67,6 +88,7 @@ async function boot() {
   const language = createLanguage();
   const chatModel = createChatModel({ getRevision: () => store.getState().revision, agent, getLanguage: language.get });
   const t = () => language.strings();
+  bindFinish(store, viewer.canvas, language);
 
   let applying = false;
   const confirmProposal = async (proposal) => {

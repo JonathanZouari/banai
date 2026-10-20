@@ -36,8 +36,15 @@ export function createStore({ design, revision = 1, catalog }) {
     throw new DomainError('SCHEMA_INVALID', 'revision', 'invalid revision');
   }
   let state = deepFreeze({
-    design: validDesign, revision, catalog: validCatalog, selection: null, ui: { doorsVisible: true },
+    design: validDesign,
+    revision,
+    catalog: validCatalog,
+    selection: null,
+    ui: { doorsVisible: true },
+    // { revision, at } once the customer finished the design; the design is then locked.
+    finalized: null,
   });
+  const locked = () => new DomainError('LOCKED', 'design', 'the design is finished and locked');
   const listeners = new Set();
 
   const commit = (patch) => {
@@ -55,6 +62,7 @@ export function createStore({ design, revision = 1, catalog }) {
 
     /** Apply domain ops atomically. Returns { ok: true } or { ok: false, error: DomainError }. */
     dispatch(ops) {
+      if (state.finalized) return { ok: false, error: locked() };
       let next;
       try {
         next = applyOps(state.design, ops, state.catalog);
@@ -78,12 +86,18 @@ export function createStore({ design, revision = 1, catalog }) {
      * initial design; invalid data throws and leaves the state untouched.
      */
     replaceDesign(design, revision) {
+      if (state.finalized) throw locked();
       const next = applyOps(design, [], state.catalog);
       if (!Number.isInteger(revision) || revision <= state.revision) {
         throw new DomainError('SCHEMA_INVALID', 'revision', 'invalid revision');
       }
       const selection = state.selection && resolveSelection(next, state.selection.id);
       commit({ design: next, revision, selection });
+    },
+
+    /** Finish the design: this revision becomes final and every later change is refused. */
+    finalize(now = new Date()) {
+      if (!state.finalized) commit({ finalized: { revision: state.revision, at: now.toISOString() } });
     },
 
     setDoorsVisible(doorsVisible) {
