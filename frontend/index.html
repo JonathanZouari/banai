@@ -17,6 +17,9 @@
         <span class="topbar__units">cm</span>
         <button type="button" class="btn btn--tonal" id="open-render" data-testid="open-render">Render</button>
         <button type="button" class="btn btn--primary" id="open-save" data-testid="open-save">Save</button>
+        <button type="button" class="btn btn--primary" id="open-finish" data-testid="open-finish">Finish design</button>
+        <span class="chip chip--finished" id="finished-chip" data-testid="finished-chip" hidden>Finished · locked</span>
+        <button type="button" class="btn btn--primary" id="open-pdf" data-testid="open-pdf" hidden>Carpenter PDF</button>
       </div>
     </header>
     <div class="banner banner--error" id="error-banner" role="alert" hidden></div>
@@ -25,6 +28,7 @@
       <section class="viewer" id="viewer" aria-label="3D viewer"></section>
       <aside class="panel panel--properties" id="properties-panel" aria-label="Properties">
         <h2 class="panel__title">Properties</h2>
+        <p class="lock-note" id="properties-lock-note" role="status" hidden>This design is finished and locked.</p>
         <p class="panel__hint">Click a component in the 3D view to edit it.</p>
         <div id="properties-content"></div>
       </aside>

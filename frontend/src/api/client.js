@@ -81,5 +81,28 @@ export async function fetchSpeech(payload, fetchImpl = fetch) {
   return response.blob();
 }
 
+/** Carpenter instructions for a finished design: { design, revision, language, images } -> PDF Blob. */
+export async function downloadCarpentryPdf(payload, fetchImpl = fetch) {
+  if (!API_BASE_URL) throw new Error('The API base URL is not configured');
+  let response;
+  try {
+    response = await fetchImpl(`${API_BASE_URL}/api/carpentry/pdf`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    throw new ApiError('Could not reach the design service.');
+  }
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new ApiError(body?.error?.message ?? `Request to /api/carpentry/pdf failed with status ${response.status}`, {
+      status: response.status,
+      code: body?.error?.code ?? 'HTTP_ERROR',
+    });
+  }
+  return response.blob();
+}
+
 /** Apply a signed proposal: { design, revision, proposal } -> { design, revision }. 409 = stale. */
 export const applyProposal = (payload, fetchImpl = fetch) => postJson('/api/proposals/apply', payload, fetchImpl);

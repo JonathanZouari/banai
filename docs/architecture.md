@@ -105,6 +105,7 @@ Voice was originally an excluded feature. It was added on request, following Ope
 | GET | `/api/designs/default` | basic wardrobe template |
 | POST | `/api/chat` | agent turn → reply + optional signed proposal |
 | POST | `/api/proposals/apply` | verify, check stale, apply → new design |
+| POST | `/api/carpentry/pdf` | finished design + 3D snapshots → carpenter instructions PDF (scope change 2026-10-20, see [carpentry.md](carpentry.md)); nothing stored |
 | POST | `/api/voice/transcribe` | raw audio (≤ 1 MB) → `{text}` |
 | POST | `/api/voice/speech` | `{text, language}` → `audio/mpeg` |
 | POST | `/api/designs/validate` | server validation of a manual design (used before save) |
