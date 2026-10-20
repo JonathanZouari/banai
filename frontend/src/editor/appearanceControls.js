@@ -2,21 +2,44 @@
 // Catalog values and customer-defined custom colours stay visibly distinct.
 import { button, el, segmented, selectField } from './fields.js';
 import { materialOps } from './opsFromForm.js';
+import { VENEER_MATERIAL_ID, WOOD_COLOR_IDS } from '../domain/catalog.js';
 
 const isCatalog = (ref, id) => !ref.custom && ref.catalogId === id;
 
-function swatches({ catalog, appearance, run, target }) {
-  const row = el('div', { className: 'swatches', attrs: { role: 'group', 'aria-label': 'Colour' } });
-  catalog.colors.forEach((color) => {
+const isDoorTarget = (target) => target === 'doors' || target.startsWith('dr_');
+
+function swatchRow({ colors, appearance, run, target, label, wood }) {
+  const row = el('div', { className: 'swatches', attrs: { role: 'group', 'aria-label': label } });
+  colors.forEach((color) => {
     const swatch = el('button', {
-      className: 'swatch',
+      className: `swatch${wood ? ' swatch--wood' : ''}`,
       attrs: { type: 'button', title: color.name, 'aria-label': color.name, 'aria-pressed': String(isCatalog(appearance.color, color.id)) },
     });
     swatch.style.backgroundColor = color.hex; // validated #rrggbb from the parsed catalog
-    swatch.addEventListener('click', () => run(materialOps(target, 'color', { catalogId: color.id })));
+    swatch.addEventListener('click', () => {
+      // A wood tone on a door is a veneered front: set the veneer material with the tone in one op.
+      const ops = wood && isDoorTarget(target)
+        ? [{ op: 'set_material', target, material: { catalogId: VENEER_MATERIAL_ID }, color: { catalogId: color.id } }]
+        : materialOps(target, 'color', { catalogId: color.id });
+      run(ops);
+    });
     row.append(swatch);
   });
   return row;
+}
+
+/** Solid colours and wood tones as two labelled rows (wood tones get a grain look in 3D). */
+function swatches({ catalog, appearance, run, target }) {
+  const solid = catalog.colors.filter((color) => !WOOD_COLOR_IDS.has(color.id));
+  const wood = catalog.colors.filter((color) => WOOD_COLOR_IDS.has(color.id));
+  return el('div', { className: 'swatch-groups' }, [
+    el('span', { className: 'swatch-groups__label', text: 'Solid' }),
+    swatchRow({ colors: solid, appearance, run, target, label: 'Solid colours', wood: false }),
+    ...(wood.length ? [
+      el('span', { className: 'swatch-groups__label', text: 'Wood' }),
+      swatchRow({ colors: wood, appearance, run, target, label: 'Wood tones', wood: true }),
+    ] : []),
+  ]);
 }
 
 function customColour({ appearance, run, target }) {

@@ -11,7 +11,11 @@
     { "id": "anthracite", "name": "Anthracite", "hex": "#3b3d40" },
     { "id": "black", "name": "Black", "hex": "#1d1d1f" },
     { "id": "natural_oak", "name": "Natural oak", "hex": "#c49a6c" },
-    { "id": "walnut", "name": "Walnut", "hex": "#6b4a32" }
+    { "id": "walnut", "name": "Walnut", "hex": "#6b4a32" },
+    { "id": "light_oak", "name": "Light oak", "hex": "#d8b88c" },
+    { "id": "smoked_oak", "name": "Smoked oak", "hex": "#8a6a4c" },
+    { "id": "teak", "name": "Teak", "hex": "#a8693b" },
+    { "id": "wenge", "name": "Wenge", "hex": "#3f2c22" }
   ],
   "finishes": [
     { "id": "matte", "name": "Matte" },
