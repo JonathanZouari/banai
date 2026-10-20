@@ -1,4 +1,4 @@
-import { test, expect, openDesigner } from './fixtures.js';
+import { test, expect, openDesigner, chooseSetting } from './fixtures.js';
 
 const ok = (data) => ({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data }) });
 const send = async (page, text) => { await page.getByTestId('chat-input').fill(text); await page.getByTestId('chat-send').click(); };
@@ -15,7 +15,7 @@ test.describe('assistant language switch', () => {
     await expect(panel).toHaveAttribute('dir', 'ltr');
     await expect(page.getByTestId('lang-en')).toHaveAttribute('aria-checked', 'true');
 
-    await page.getByTestId('lang-he').click();
+    await chooseSetting(page, 'lang-he');
     await expect(panel).toHaveAttribute('dir', 'rtl');
     await expect(page.getByTestId('chat-welcome')).toContainText('מה נעצב היום?');
     await expect(page.getByTestId('chat-input')).toHaveAttribute('placeholder', /תארו/);
@@ -37,8 +37,8 @@ test.describe('assistant language switch', () => {
       return route.fulfill(ok({ reply: 'Hello', proposal: null }));
     });
     await openDesigner(page);
-    await page.getByTestId('lang-he').click();
-    await page.getByTestId('lang-en').click();
+    await chooseSetting(page, 'lang-he');
+    await chooseSetting(page, 'lang-en');
     await expect(page.locator('#chat-panel')).toHaveAttribute('dir', 'ltr');
     await expect(page.getByTestId('chat-welcome')).toContainText('What shall we design today?');
     await send(page, 'hello');

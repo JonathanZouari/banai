@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 
 from app.domain import errors as codes
-from app.domain.catalog import catalog_ids
+from app.domain.catalog import catalog_ids, handle_ids
 from app.domain.defaults import LIMITS
 from app.domain.errors import DomainError
 from app.domain.geometry import interior_height, interior_width
@@ -199,4 +199,8 @@ def _check_catalog(design: dict, catalog: dict) -> list[DomainError]:
             if "catalogId" in ref and ref["catalogId"] not in known[field]:
                 issues.append(DomainError(codes.UNKNOWN_CATALOG_ID, f"{path}.{field}",
                                           f"unknown catalog {field}"))
+    handles, known_handles = design["doors"]["handles"], handle_ids(catalog)
+    for field in ("style", "finish"):
+        if handles[field] not in known_handles[field]:
+            issues.append(DomainError(codes.UNKNOWN_CATALOG_ID, f"doors.handles.{field}", f"unknown handle {field}"))
     return issues

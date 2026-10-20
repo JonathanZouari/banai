@@ -27,3 +27,5 @@ export const defaultAppearance = () => ({
   color: { catalogId: 'white' },
   finish: { catalogId: 'matte' },
 });
+
+export const defaultHandles = () => ({ style: 'bar', finish: 'black' });

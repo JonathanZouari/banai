@@ -1,4 +1,4 @@
-import { test, expect, openDesigner } from './fixtures.js';
+import { test, expect, openDesigner, chooseSetting } from './fixtures.js';
 
 // Voice endpoints are mocked: this suite checks the UI and safety rules, and costs nothing.
 // Chromium runs with a fake microphone (see playwright.config.js).
@@ -55,7 +55,7 @@ test.describe('voice', () => {
     await openDesigner(page);
     await expect(page.getByTestId('voice-toggle')).toHaveAttribute('aria-checked', 'false');
     await expect(page.getByTestId('voice-mic')).toBeHidden();
-    await expect(page.getByText('recording is sent to OpenAI')).toBeHidden();
+    await expect(page.getByText('recording is sent to OpenAI')).toBeVisible(); // the disclosure is always shown, so the layout never shifts
     await page.getByTestId('chat-input').fill('make it 240 wide');
     await page.getByTestId('chat-send').click();
     await expect(page.getByTestId('proposal-card')).toBeVisible();
@@ -99,6 +99,22 @@ test.describe('voice', () => {
     await mic.click();
     await expect(mic).toHaveAttribute('aria-label', 'Speak your message');
     await expect(mic).not.toHaveClass(/chat__mic--recording/);
+  });
+
+  test('the composer and toggle stay put when Voice is switched on and off', async ({ page }) => {
+    await mockVoice(page);
+    await openDesigner(page);
+    const spots = async () => ({
+      toggle: await page.getByTestId('voice-toggle').boundingBox(),
+      composer: await page.locator('.chat__composer').boundingBox(),
+    });
+    const off = await spots();
+    await voiceOn(page);
+    const on = await spots();
+    // A couple of pixels of slack: the toggle's pop animation may still be settling when it is measured.
+    expect(Math.abs(on.toggle.y - off.toggle.y)).toBeLessThan(2);
+    expect(Math.abs(on.composer.y - off.composer.y)).toBeLessThan(2);
+    expect(Math.abs(on.composer.height - off.composer.height)).toBeLessThan(2);
   });
 
   test('the Voice switch does not crowd the chat header: it has its own row above the composer', async ({ page }) => {
@@ -223,7 +239,7 @@ test.describe('voice', () => {
     await voiceOn(page);
     await speakIntoComposer(page);
     await expect(page.getByTestId('voice-status')).toContainText('Voice is paused for today');
-    await page.getByTestId('lang-he').click();
+    await chooseSetting(page, 'lang-he');
     await expect(page.getByTestId('voice-status')).toContainText('הקול מושהה להיום');
   });
 
@@ -231,7 +247,7 @@ test.describe('voice', () => {
     await mockVoice(page);
     await openDesigner(page);
     await voiceOn(page);
-    await page.getByTestId('lang-he').click();
+    await chooseSetting(page, 'lang-he');
     await expect(page.getByTestId('voice-toggle')).toContainText('קול');
     await expect(page.getByTestId('voice-toggle')).toContainText('פעיל');
     await expect(page.getByTestId('voice-mic')).toHaveAttribute('aria-label', 'הקלטת הודעה בקול');

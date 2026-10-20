@@ -1,4 +1,4 @@
-import { clickComponent, expect, openDesigner, paintedRatio, selection, test } from './fixtures.js';
+import { clickComponent, expect, openDesigner, paintedRatio, selection, test, showInterior } from './fixtures.js';
 
 test.describe('Phase 3: 3D viewer', () => {
   test.beforeEach(async ({ page }) => openDesigner(page));
@@ -23,12 +23,12 @@ test.describe('Phase 3: 3D viewer', () => {
 
   test('doors are shown by default and "Show interior" hides them', async ({ page }) => {
     expect(await page.evaluate(() => Boolean(window.__banai.viewer.meshOf('dr_left')))).toBe(true);
-    await page.getByLabel('Show interior').check();
+    await showInterior(page);
     await expect.poll(() => page.evaluate(() => Boolean(window.__banai.viewer.meshOf('dr_left')))).toBe(false);
   });
 
   test('clicking a shelf selects it, highlights it and shows its dimensions', async ({ page }) => {
-    await page.getByLabel('Show interior').check();
+    await showInterior(page);
     await clickComponent(page, 'shf_l2');
     expect(await selection(page)).toEqual({ id: 'shf_l2', kind: 'shelf' });
     await expect(page.getByTestId('selected-section')).toContainText('Selected · Shelf');

@@ -5,7 +5,7 @@
 import { z } from 'zod';
 import { DomainError, SCHEMA_INVALID } from './errors.js';
 import * as ids from './ids.js';
-import { int, list, ref, schemaError, typedId } from './schema.js';
+import { catalogId, int, list, ref, schemaError, typedId } from './schema.js';
 
 export const MAX_OPS = 100;
 
@@ -47,6 +47,8 @@ export const opSchema = z.discriminatedUnion('op', [
     material: opt(ref), color: opt(ref), finish: opt(ref),
     clear: z.boolean().default(false),
   }),
+  op('set_handles', { style: opt(catalogId()), finish: opt(catalogId()) }),
+  op('modify_door', { id: typedId(ids.DOOR), front: opt(z.enum(['panel', 'mirror'])) }),
   op('remove_component', { id: z.string().regex(ids.ANY_ID_PATTERN) }),
 ]);
 

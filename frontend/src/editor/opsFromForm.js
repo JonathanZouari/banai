@@ -1,6 +1,7 @@
 // Pure mapping from editor form input to domain ops. No DOM here, so every rule is
 // unit-tested. The domain engine remains the single authority on validity.
 import { interiorHeight } from '../domain/geometry.js';
+import { DOOR, newId } from '../domain/ids.js';
 import { formatLength, parseLength } from '../ui/units.js';
 import { t, tf } from '../i18n/strings.js';
 
@@ -19,6 +20,17 @@ export function doorTypeOps(type, count) {
   if (type === 'sliding') return [{ op: 'configure_doors', type, count: count ?? 2 }];
   return [{ op: 'configure_doors', type }];
 }
+
+/** A new sliding-panel count that keeps the existing panels (and their fronts) and adds or drops at the end. */
+export function slidingCountOps(design, count) {
+  const kept = design.doors.items.slice(0, count).map((door) => door.id);
+  const ids = [...kept, ...Array.from({ length: Math.max(0, count - kept.length) }, () => newId(DOOR))];
+  return [{ op: 'configure_doors', type: 'sliding', count, ids }];
+}
+
+export const handleOps = (field, id) => [{ op: 'set_handles', [field]: id }];
+
+export const doorFrontOps = (doorId, front) => [{ op: 'modify_door', id: doorId, front }];
 
 /** Change one hinged door's hinge side by re-stating every door (ids preserved). */
 export function doorHingeOps(design, doorId, hingeSide) {
@@ -78,6 +90,51 @@ export function addItemOps(design, compartmentId, kind) {
   }
   const y = Math.max(largest[0], largest[1] - NEW_ITEM.railBelowTop);
   return [{ op: 'add_rail', compartmentId, y }];
+}
+
+// ASSUMPTION: prototype quick-layout proportions (configurable defaults, not business rules).
+export const LAYOUT = Object.freeze({ topShelfGap: 300, railBelowShelf: 60, shelfSpacing: 350, drawerCount: 3 });
+export const LAYOUTS = Object.freeze(['hanging', 'shelves', 'drawers']);
+
+/** `count` shelves spread evenly between `from` and `to` (shelf tops never pass `to`). */
+function evenShelves(compartmentId, from, to, count) {
+  const thickness = NEW_ITEM.shelfThickness;
+  const step = (to - from) / (count + 1);
+  return Array.from({ length: count }, (_, i) => ({
+    op: 'add_shelf', compartmentId, y: Math.round(from + step * (i + 1) - thickness / 2), thickness,
+  }));
+}
+
+/**
+ * Replace a compartment's contents with a ready-made layout, in one change (one Undo):
+ * - hanging: a top shelf with a hanging rail under it
+ * - shelves: shelves spread evenly over the full height
+ * - drawers: a stack of drawers at the bottom, shelves above
+ */
+export function layoutOps(design, compartmentId, layout) {
+  const compartment = design.compartments.find((c) => c.id === compartmentId);
+  if (!compartment || !LAYOUTS.includes(layout)) return [];
+  const top = interiorHeight(design);
+  const thickness = NEW_ITEM.shelfThickness;
+  const clear = [...compartment.shelves, ...compartment.drawers, ...compartment.rails].map((item) => ({ op: 'remove_component', id: item.id }));
+  let add;
+  if (layout === 'hanging') {
+    const shelfY = Math.max(thickness, top - LAYOUT.topShelfGap - thickness);
+    add = [
+      { op: 'add_shelf', compartmentId, y: shelfY, thickness },
+      { op: 'add_rail', compartmentId, y: Math.max(0, shelfY - LAYOUT.railBelowShelf) },
+    ];
+  } else if (layout === 'shelves') {
+    add = evenShelves(compartmentId, 0, top, Math.max(1, Math.floor(top / LAYOUT.shelfSpacing) - 1));
+  } else {
+    const drawers = Math.max(1, Math.min(LAYOUT.drawerCount, Math.floor(top / 2 / NEW_ITEM.drawerHeight)));
+    const stack = drawers * NEW_ITEM.drawerHeight;
+    add = [
+      ...Array.from({ length: drawers }, (_, i) => ({ op: 'add_drawer', compartmentId, y: i * NEW_ITEM.drawerHeight, height: NEW_ITEM.drawerHeight })),
+      ...evenShelves(compartmentId, stack, top, Math.max(0, Math.floor((top - stack) / LAYOUT.shelfSpacing) - 1)),
+    ];
+  }
+  return [...clear, ...add];
 }
 
 const FRIENDLY = Object.freeze({

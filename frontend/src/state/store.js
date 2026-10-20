@@ -41,9 +41,15 @@ export function createStore({ design, revision = 1, catalog }) {
     design: validDesign, revision, catalog: validCatalog, selection: null, ui: { doorsVisible: true },
   });
   const listeners = new Set();
-  // Previous committed designs (newest last) for Undo. Not part of the design or the revision.
+  // Previous committed designs (newest last) for Undo, and undone designs for Redo. Not part of the
+  // design or the revision. Any new change clears the redo list.
   const history = [];
-  const remember = () => { history.push(state.design); if (history.length > MAX_HISTORY) history.shift(); };
+  const future = [];
+  const remember = () => {
+    history.push(state.design);
+    if (history.length > MAX_HISTORY) history.shift();
+    future.length = 0;
+  };
 
   const commit = (patch) => {
     state = deepFreeze({ ...state, ...patch });
@@ -87,8 +93,21 @@ export function createStore({ design, revision = 1, catalog }) {
     undo() {
       const previous = history.pop();
       if (!previous) return { ok: false };
+      future.push(state.design);
       const selection = state.selection && resolveSelection(previous, state.selection.id);
       commit({ design: previous, revision: state.revision + 1, selection });
+      return { ok: true };
+    },
+
+    canRedo: () => future.length > 0,
+
+    /** Re-apply the last undone design. Like Undo, the revision moves forward. */
+    redo() {
+      const next = future.pop();
+      if (!next) return { ok: false };
+      history.push(state.design);
+      const selection = state.selection && resolveSelection(next, state.selection.id);
+      commit({ design: next, revision: state.revision + 1, selection });
       return { ok: true };
     },
 

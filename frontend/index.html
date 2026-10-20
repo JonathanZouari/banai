@@ -10,22 +10,34 @@
     <header class="topbar">
       <h1 class="topbar__title" id="topbar-logo" aria-label="BanAI Wardrobe Designer"></h1>
       <div class="topbar__actions">
-        <label class="toggle">
-          <input type="checkbox" id="toggle-interior" />
-          <span data-i18n="uiShowInterior">Show interior</span>
-        </label>
-        <div class="lang-switch" id="lang-switch" role="radiogroup" aria-label="Assistant language" data-testid="lang-switch">
-          <button type="button" role="radio" class="lang-switch__btn" data-lang="en" data-testid="lang-en" lang="en">EN</button>
-          <button type="button" role="radio" class="lang-switch__btn" data-lang="he" data-testid="lang-he" lang="he">עברית</button>
+        <div class="topbar__group" role="group" aria-label="History" data-i18n-aria="uiHistoryAria">
+          <button type="button" class="icon-btn" id="undo" data-testid="undo" data-icon="undo" disabled aria-label="Undo last change" data-i18n-aria="uiUndoAria" data-i18n-title="uiUndoAria"></button>
+          <button type="button" class="icon-btn" id="redo" data-testid="redo" data-icon="redo" disabled aria-label="Redo" data-i18n-aria="uiRedoAria" data-i18n-title="uiRedoAria"></button>
         </div>
-        <div class="lang-switch" id="unit-switch" role="radiogroup" aria-label="Units" data-i18n-aria="uiUnitsAria" data-testid="unit-switch">
-          <button type="button" role="radio" class="lang-switch__btn" data-unit="mm" data-testid="unit-mm" title="Millimetres">mm</button>
-          <button type="button" role="radio" class="lang-switch__btn" data-unit="cm" data-testid="unit-cm" title="Centimetres">cm</button>
-          <button type="button" role="radio" class="lang-switch__btn" data-unit="in" data-testid="unit-in" title="Inches">in</button>
+        <span class="topbar__divider" aria-hidden="true"></span>
+        <button type="button" class="btn btn--primary" id="open-save" data-testid="open-save" data-icon="save"><span data-i18n="uiSave">Save</span></button>
+        <div class="topbar__menu">
+          <button type="button" class="icon-btn" id="more-menu" data-testid="more-menu" data-icon="more" aria-label="More actions" data-i18n-aria="uiMoreAria" data-i18n-title="uiMoreAria"></button>
+          <div class="menu" id="more-panel" data-testid="more-panel">
+            <button type="button" role="menuitem" class="menu__item" id="open-render" data-testid="open-render" data-icon="image"><span data-i18n="uiRenderPreview">Render preview</span></button>
+            <button type="button" role="menuitem" class="menu__item" id="copy-link" data-testid="menu-copy-link" data-icon="copy" disabled><span data-i18n="uiCopyLink">Copy share link</span></button>
+          </div>
         </div>
-        <button type="button" class="btn" id="undo" data-testid="undo" disabled aria-label="Undo last change" data-i18n="uiUndo" data-i18n-aria="uiUndoAria">Undo</button>
-        <button type="button" class="btn btn--tonal" id="open-render" data-testid="open-render" data-i18n="uiRender">Render</button>
-        <button type="button" class="btn btn--primary" id="open-save" data-testid="open-save" data-i18n="uiSave">Save</button>
+        <div class="topbar__menu">
+          <button type="button" class="icon-btn" id="settings-menu" data-testid="settings-menu" data-icon="settings" aria-label="Settings" data-i18n-aria="uiSettingsAria" data-i18n-title="uiSettingsAria"></button>
+          <div class="menu menu--settings" id="settings-panel" data-testid="settings-panel">
+            <p class="menu__label" id="lang-label" data-i18n="uiLanguage">Language</p>
+            <div class="lang-switch" id="lang-switch" role="radiogroup" aria-labelledby="lang-label" data-testid="lang-switch">
+              <button type="button" role="radio" class="lang-switch__btn" data-lang="en" data-testid="lang-en" lang="en">EN</button>
+              <button type="button" role="radio" class="lang-switch__btn" data-lang="he" data-testid="lang-he" lang="he">עברית</button>
+            </div>
+            <p class="menu__label" id="unit-label" data-i18n="uiUnitsAria">Units</p>
+            <div class="lang-switch" id="unit-switch" role="radiogroup" aria-labelledby="unit-label" data-testid="unit-switch">
+              <button type="button" role="radio" class="lang-switch__btn" data-unit="cm" data-testid="unit-cm" data-i18n-title="uiCentimetres">cm</button>
+              <button type="button" role="radio" class="lang-switch__btn" data-unit="in" data-testid="unit-in" data-i18n-title="uiInches">in</button>
+            </div>
+          </div>
+        </div>
       </div>
     </header>
     <div class="banner banner--error" id="error-banner" role="alert" hidden></div>

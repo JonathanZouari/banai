@@ -62,6 +62,14 @@ def test_valid_proposal_is_signed(make_client):
     assert data["proposal"]["ops"] == WIDTH_OPS["ops"]
 
 
+@pytest.mark.parametrize(("units", "expected"), [(None, "in cm, never in millimetres"), ("in", "in in, never in millimetres")])
+def test_agent_is_told_the_display_unit(make_client, units, expected):
+    fake = FakeClient(completion("Sure.", "propose_changes", WIDTH_OPS))
+    payload = body() if units is None else {**body(), "units": units}
+    assert make_client(fake).post("/api/chat", json=payload).status_code == 200
+    assert expected in fake.calls[0]["messages"][0]["content"]
+
+
 def test_invalid_ops_trigger_repair_then_succeed(make_client):
     bad = {"summary": "x", "ops": [{"op": "update_dimensions", "width": 99999}]}
     fake = FakeClient(completion(None, "propose_changes", bad), completion(None, "propose_changes", WIDTH_OPS))
@@ -97,6 +105,8 @@ def test_missing_key_is_503(make_client):
         {**body(), "messages": [{"role": "user", "content": "x" * 2001}]},
         {**body(), "messages": [{"role": "user", "content": "x"}] * 21},
         {**body(), "extra": 1},
+        {**body(), "units": "mm"},
+        {**body(), "units": "furlong"},
     ],
 )
 def test_bad_requests_rejected_without_echo(make_client, payload):
@@ -205,3 +215,39 @@ def test_unexpected_errors_use_the_envelope_without_details(make_client):
     response = http.post("/api/chat", json=body())
     assert response.status_code == 500 and "secret" not in response.text
     assert response.json()["error"]["code"] == "INTERNAL_ERROR"
+
+
+def test_prompt_lists_colours_per_material():
+    from app.ai.prompt import build_system_message, colours_by_material
+    from app.domain.catalog import load_catalog
+
+    catalog = load_catalog()
+    offered = colours_by_material(catalog)
+    assert offered["oak_veneer"] == ["natural_oak", "whitewashed_oak", "smoked_oak"]
+    assert "sage" in offered["lacquered_mdf"] and "sage" not in offered["melamine"]
+    assert set(offered) == {m["id"] for m in catalog["materials"]}
+    assert '"walnut_veneer":["walnut"]' in build_system_message(basic_wardrobe(), catalog)
+
+
+def test_every_catalog_colour_names_known_materials():
+    from app.domain.catalog import load_catalog
+
+    catalog = load_catalog()
+    materials = {m["id"] for m in catalog["materials"]}
+    for colour in catalog["colors"]:
+        assert colour["kind"] in {"solid", "wood"}
+        assert colour["materials"] and set(colour["materials"]) <= materials
+
+
+def test_agent_can_propose_handles_and_mirror_doors(make_client):
+    from app.ai.agent import _OP_DEFS
+
+    assert {"SetHandles", "ModifyDoor"} <= set(_OP_DEFS)
+    ops = {"summary": "Knobs and a mirror", "ops": [
+        {"op": "set_handles", "style": "knob", "finish": "brass"},
+        {"op": "modify_door", "id": "dr_middle", "front": "mirror"},
+    ]}
+    fake = FakeClient(completion("Done.", "propose_changes", ops))
+    data = make_client(fake).post("/api/chat", json=body("knobs and a mirror in the middle")).json()["data"]
+    assert data["proposal"]["ops"] == ops["ops"]
+    assert "set_handles" in fake.calls[0]["messages"][0]["content"]

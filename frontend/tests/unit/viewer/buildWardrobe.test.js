@@ -154,3 +154,56 @@ describe('material cache', () => {
     expect(materials.forAppearance(basic.carcass.appearance)).toBe(kept);
   });
 });
+
+describe('door handles and mirror fronts', () => {
+  const handlesOf = (group) => meshes(group).filter((m) => m.userData.part === 'handle');
+  const withHandles = (design, style, finish) => applyOps(design, [{ op: 'set_handles', style, ...(finish ? { finish } : {}) }], catalog);
+
+  it('draws one handle per door in each style, and none for style none', () => {
+    const lengths = {};
+    for (const style of ['bar', 'long_bar', 'knob', 'edge_pull']) {
+      const found = handlesOf(build(withHandles(basic, style)));
+      expect(found).toHaveLength(3);
+      found.forEach((h) => expect(h.userData.style).toBe(style));
+      lengths[style] = size(found[0]).y;
+    }
+    expect(lengths.long_bar).toBeGreaterThan(lengths.bar);
+    expect(lengths.edge_pull).toBeLessThan(lengths.bar);
+    expect(handlesOf(build(withHandles(basic, 'none')))).toHaveLength(0);
+    const sliding = applyOps(withHandles(basic, 'none'), [{ op: 'configure_doors', type: 'sliding', count: 2 }], catalog);
+    const parts = meshes(build(sliding)).filter((m) => m.userData.kind === 'hardware').map((m) => m.userData.part).sort();
+    expect(parts).toEqual(['rail-bottom', 'rail-top']); // the sliding rails stay
+  });
+
+  it('puts an edge pull right at the free edge, closer than a bar', () => {
+    const door = (group) => byId(group, 'dr_left')[0];
+    const gapToEdge = (group) => {
+      const right = door(group).position.x + size(door(group)).x / 2;
+      const h = handlesOf(group).find((m) => Math.abs(m.position.x - door(group).position.x) < size(door(group)).x / 2);
+      return right - h.position.x;
+    };
+    expect(gapToEdge(build(withHandles(basic, 'edge_pull')))).toBeLessThan(gapToEdge(build(basic)));
+  });
+
+  it('colours handles by finish from the catalog', () => {
+    const brass = handlesOf(build(withHandles(basic, 'bar', 'brass')))[0];
+    expect(brass.material.color.getHexString()).toBe('b8945a');
+    expect(brass.material.metalness).toBeCloseTo(0.85);
+  });
+
+  it('adds a selectable mirror pane only to mirror doors, hinged and sliding', () => {
+    const hinged = applyOps(basic, [{ op: 'modify_door', id: 'dr_middle', front: 'mirror' }], catalog);
+    const group = build(hinged);
+    const panes = meshes(group).filter((m) => m.userData.kind === 'mirror');
+    expect(panes.map((m) => m.userData.componentId)).toEqual(['dr_middle']);
+    const [door] = byId(group, 'dr_middle');
+    expect(size(panes[0]).x).toBeLessThan(size(door).x);
+    expect(panes[0].position.z).toBeGreaterThan(door.position.z);
+    expect(panes[0].material.metalness).toBe(1);
+    panes[0].updateMatrixWorld();
+    const raycaster = new THREE.Raycaster(new THREE.Vector3(panes[0].position.x, panes[0].position.y, 5), new THREE.Vector3(0, 0, -1));
+    expect(raycaster.intersectObject(panes[0]).length).toBeGreaterThan(0); // clicking the mirror selects its door
+    const sliding = applyOps(basic, [{ op: 'configure_doors', type: 'sliding', ids: ['dr_a', 'dr_b'] }, { op: 'modify_door', id: 'dr_b', front: 'mirror' }], catalog);
+    expect(meshes(build(sliding)).filter((m) => m.userData.kind === 'mirror').map((m) => m.userData.componentId)).toEqual(['dr_b']);
+  });
+});

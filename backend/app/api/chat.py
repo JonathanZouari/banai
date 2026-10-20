@@ -43,6 +43,7 @@ class ChatRequest(BaseModel):
     design: dict
     revision: int = Field(ge=0, le=1_000_000_000)
     language: Literal["en", "he"] = "en"
+    units: Literal["cm", "in"] = "cm"
 
 
 class Proposal(BaseModel):
@@ -117,6 +118,7 @@ def chat(
             revision=body.revision,
             catalog=catalog,
             language=body.language,
+            units=body.units,
         )
     except DomainError as error:
         raise _error(422, error.code, "The current design is not valid.") from None

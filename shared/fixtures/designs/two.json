@@ -35,8 +35,9 @@
       "finish": { "catalogId": "matte" }
     },
     "items": [
-      { "id": "dr_a", "compartmentIds": ["cmp_a"], "hingeSide": "left", "appearance": null },
-      { "id": "dr_b", "compartmentIds": ["cmp_b"], "hingeSide": "right", "appearance": null }
-    ]
+      { "id": "dr_a", "compartmentIds": ["cmp_a"], "hingeSide": "left", "appearance": null, "front": "panel" },
+      { "id": "dr_b", "compartmentIds": ["cmp_b"], "hingeSide": "right", "appearance": null, "front": "panel" }
+    ],
+    "handles": { "style": "bar", "finish": "black" }
   }
 }

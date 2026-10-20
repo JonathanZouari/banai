@@ -18,4 +18,13 @@ export const VISUAL = Object.freeze({
   handleLength: 400,
   handleHeightFromFloor: 1050,
   handleInset: 40,
+  longHandleLength: 1200,
+  knobRadius: 16,
+  knobDepth: 24,
+  edgePullLength: 220,
+  edgePullWidth: 10,
+  edgePullDepth: 22,
+  edgePullInset: 8,
+  mirrorInset: 30,
+  mirrorThickness: 4,
 });

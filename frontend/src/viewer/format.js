@@ -25,7 +25,8 @@ export function describeSelection(design, selection) {
   const door = design.doors.items.find((d) => d.id === id);
   if (door) {
     const side = door.hingeSide ? ` · ${tf('selHinge', { side: t(door.hingeSide === 'left' ? 'edLeft' : 'edRight').toLowerCase() })}` : '';
-    return `${t(design.doors.type === 'sliding' ? 'selSlidingDoor' : 'selHingedDoor')}${side}`;
+    const mirror = door.front === 'mirror' ? ` · ${t('selMirror')}` : '';
+    return `${t(design.doors.type === 'sliding' ? 'selSlidingDoor' : 'selHingedDoor')}${side}${mirror}`;
   }
   return kind;
 }
