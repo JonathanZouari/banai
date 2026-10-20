@@ -323,3 +323,5 @@
 .view-switch__btn[aria-checked='true'] { background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
 .view-switch__btn:focus-visible { outline: var(--focus-outline); outline-offset: 1px; }
 .viewer-toolbar__reset { width: 36px; height: 36px; }
+/* Undo/redo arrows point the other way right to left. */
+.topbar[dir='rtl'] #undo .icon, .topbar[dir='rtl'] #redo .icon { transform: scaleX(-1); }

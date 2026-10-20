@@ -33,6 +33,7 @@ body {
 
 /* Side sheets use tonal surface, with a hairline to the canvas. */
 .panel {
+  position: relative; /* keeps visually-hidden labels inside the scrolling panel, so the page never scrolls */
   display: flex;
   flex-direction: column;
   min-height: 0;

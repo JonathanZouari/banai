@@ -269,3 +269,11 @@ test.describe('lean header and 3D view toolbar', () => {
     await expect.poll(camera).toBe(start);
   });
 });
+
+test('the page itself never scrolls, even with a long properties panel', async ({ page }) => {
+  await openDesigner(page);
+  await page.getByTestId('view-interior').click();
+  await page.locator('#properties-panel').evaluate((panel) => { panel.scrollTop = panel.scrollHeight; });
+  const size = await page.evaluate(() => ({ scroll: document.scrollingElement.scrollHeight, view: window.innerHeight }));
+  expect(size.scroll).toBeLessThanOrEqual(size.view);
+});
