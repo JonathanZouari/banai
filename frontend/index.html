@@ -89,11 +89,14 @@
             <button type="button" class="segmented__option" data-view="side" data-testid="view-side" aria-pressed="false" disabled>צד</button>
           </div>
           <button type="button" class="btn btn--sm" id="view-fit" data-testid="view-fit" aria-label="התאמת הארון לתצוגה" disabled>התאם</button>
+          <button type="button" class="btn btn--sm" id="measure-toggle" data-testid="measure-toggle" aria-pressed="false" title="מדידה מנקודה לנקודה · M">מדידה</button>
+          <button type="button" class="btn btn--sm btn--ghost" id="measure-clear" data-testid="measure-clear" hidden>נקה מדידות</button>
           <label class="switch">
             <input type="checkbox" id="toggle-interior" disabled />
             <span>הצג פנים</span>
           </label>
         </div>
+        <p class="measure-hint" id="measure-hint" data-testid="measure-hint" role="status" hidden>לחצו על נקודה וגררו עד הנקודה השנייה. ליד פינה או קצה הנקודה נצמדת אליהם, ועם <kbd>Alt</kbd> בלי הצמדה. עם <kbd>Shift</kbd> הקו ישר בציר אחד. <kbd>Esc</kbd> מבטל.</p>
         <div class="compare-bar" role="group" aria-label="השוואת גרסאות">
           <button type="button" class="btn btn--sm" id="version-save" data-testid="version-save">שמירת גרסה</button>
           <div class="compare-bar__held" id="version-held" hidden>

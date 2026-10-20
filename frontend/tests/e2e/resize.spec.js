@@ -43,7 +43,10 @@ test.describe('stretch handles', () => {
 
   test('a drawer grows from its top edge, up to the shelf above', async ({ page }) => {
     await page.evaluate(() => window.__banai.store.select('drw_r2'));
-    await expect.poll(() => page.evaluate(() => window.__banai.viewer.settled), { timeout: 5000 }).toBe(true); // it slides out first
+    // It slides out first; drags wait until it is out and still (the motion may not have started yet).
+    await expect.poll(() => page.evaluate(() => (window.__banai.viewer.pullOutOpenness?.drw_r2 ?? 0) > 0.99 && window.__banai.viewer.settled),
+      { timeout: 6000 }).toBe(true);
+    await page.waitForTimeout(1500); // and the view's own easing after the selection ends before the test places its camera
     await page.evaluate(() => { // look at the drawer from above the toolbar that floats over the view's bottom
       const v = window.__banai.viewer;
       v.controls.target.set(1.6, 0.35, 0);

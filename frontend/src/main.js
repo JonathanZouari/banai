@@ -365,7 +365,14 @@ async function boot() {
   const viewer = createViewer(byId('viewer'), store, {
     onDimensionStep: (step) => stepDimension(store, step),
     onDragError: (error) => toast(`לא הוזז: ${friendlyError(error)}`), // the engine refused the drop; nothing changed
+    onMeasureChange: ({ active, count }) => { // the ruler's button, its hint and "נקה מדידות"
+      byId('measure-toggle').setAttribute('aria-pressed', String(active));
+      byId('measure-hint').hidden = !active;
+      byId('measure-clear').hidden = count === 0;
+    },
   });
+  byId('measure-toggle').addEventListener('click', () => viewer.setMeasuring(!viewer.measuring));
+  byId('measure-clear').addEventListener('click', () => viewer.clearMeasurements());
   bindInteriorToggle(store);
   bindViewToolbar(viewer);
   bindQuickControls(store, viewer, byId('viewer'));
@@ -385,7 +392,8 @@ async function boot() {
   // Projects in this browser. "חדש" (Alt+N) is "ניקוי מסך": start over, asking first about unsaved changes.
   // Not Alt+Shift: on Windows that switches the keyboard layout (Hebrew/English).
   const projects = createProjectsDialog({
-    store, toast, newDesign: () => initial.design, onOpened: (kind) => hooks.onOpened?.(kind),
+    store, toast, newDesign: () => initial.design,
+    onOpened: (kind) => { viewer.clearMeasurements(); hooks.onOpened?.(kind); }, // another project: its own measurements
   });
   byId('open-save').addEventListener('click', () => projects.open());
   byId('new-project').addEventListener('click', () => projects.startNew());
@@ -403,6 +411,9 @@ async function boot() {
     if (event.altKey && !event.shiftKey && !event.ctrlKey && !event.metaKey && event.code === 'KeyN' && !typing) {
       event.preventDefault();
       projects.startNew();
+    } else if (event.code === 'KeyM' && !event.repeat && !typing && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
+      event.preventDefault();
+      viewer.setMeasuring(!viewer.measuring); // the ruler on and off (ADR-040)
     } else if (NUDGE_KEYS[event.code] && !typing && !event.ctrlKey && !event.metaKey && !event.altKey && !event.defaultPrevented
       && !(event.target instanceof Element && event.target.closest('#properties-panel, #side-panel, [role="tab"], .topbar, header'))) {
       // The arrows move the selected part along its line (1 cm, Shift 10 cm), as a drag would (ADR-039); in the

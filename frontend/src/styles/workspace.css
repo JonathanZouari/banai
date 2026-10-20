@@ -391,3 +391,12 @@ body.is-capturing .viewer-toolbar { opacity: 0.45; pointer-events: none; transit
 
 /* Drag in 3D (ADR-039): the value beside the pointer while something moves. */
 .drag-label { position: fixed; z-index: 50; pointer-events: none; padding: 4px 10px; border-radius: 999px; background: rgba(29, 29, 31, 0.86); color: #fff; font-size: 12px; font-weight: 600; white-space: nowrap; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18); direction: rtl; }
+
+/* Measuring (ADR-040): the ruler's crosshair, its hint, and each line's distance. */
+canvas.is-measuring { cursor: crosshair !important; }
+#measure-toggle[aria-pressed="true"] { background: #d0451b; border-color: #d0451b; color: #fff; }
+.measure-hint { position: absolute; top: calc(var(--space-3) + 3.25rem); inset-inline-end: var(--space-3); z-index: var(--z-toolbar); max-width: min(30rem, calc(100% - 2 * var(--space-3))); margin: 0; padding: 0.4rem 0.75rem; border-radius: var(--radius-md); background: rgba(29, 29, 31, 0.82); color: #fff; font-size: 12px; line-height: 1.5; }
+.measure-hint kbd { unicode-bidi: isolate; direction: ltr; padding: 0 4px; border-radius: 4px; background: rgba(255, 255, 255, 0.18); font: inherit; font-weight: 600; }
+.measure-label { display: grid; gap: 1px; padding: 3px 9px; border-radius: 8px; background: #fff; border: 1.5px solid #d0451b; color: #1d1d1f; font-size: 12px; line-height: 1.35; text-align: center; white-space: nowrap; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); pointer-events: none; }
+.measure-label b { font-size: 13px; color: #a8350f; }
+.measure-label span { color: #5c544b; font-size: 11px; }

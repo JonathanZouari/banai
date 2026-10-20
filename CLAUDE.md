@@ -50,6 +50,13 @@ BanAI started as an MVP AI wardrobe designer for standard straight wardrobes. Th
   - **On release:** one op; the camera does not refit, and the scene stays still.
   - **What stays put when a wall moves:** the openings and the wardrobe measured from a corner that moved.
   - **Limits:** what the engine accepts: compartments at least 5 cm after scaling, the height above the highest item, walls never cutting off an opening or the wardrobe.
+- **Measuring** (ADR-040, 2026-10-20):
+  - **Code:** `viewer/measure.js` (pure: snapping, axis lock, labels) and `viewer/measureTool.js`.
+  - **Turning it on:** the "מדידה" toolbar button or M. While it is on, nothing is selected or dragged.
+  - **Drawing a line:** press and drag from point to point on any surface: the wardrobe, the room's walls, floor, obstacles and openings. Faded walls are looked through.
+  - **Snapping:** to the hit mesh's own corners and edges (`EdgesGeometry`, so a wall's inner corner and not its slab's box); Alt turns it off. Shift keeps the line on one axis.
+  - **What the label shows:** the distance in cm, plus its width, height and depth.
+  - **Lines:** up to 5 stay. Esc drops the line being drawn. Any design change or project change clears them. They are hidden in renders, video and compare.
 - **Customer details** (ADR-038, 2026-10-20):
   - **Fields:** name, phone, email, installation address, city, floor and lift, contact times, desired installation date, and notes. Every field is optional.
   - **Where they live:** with the project in this browser, outside the design. They are not in undo, not in a signed proposal, and Bob never sees them.

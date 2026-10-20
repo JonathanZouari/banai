@@ -25,6 +25,7 @@ import { createMotionDriver } from './motionDriver.js';
 import { createPathTracer } from './pathtrace.js';
 import { attachPicking } from './picking.js';
 import { attachDragging } from './dragTool.js';
+import { attachMeasuring } from './measureTool.js';
 import { createHandles } from './handles3d.js';
 import { handlesFor, roomShift } from './resizeRules.js';
 import { applyPullOuts } from './pullOuts.js';
@@ -103,7 +104,7 @@ export function shownState(state) {
     : { design: state.design, selection: state.selection ?? null, comparing };
 }
 
-export function createViewer(container, store, { onDimensionStep, onDragError } = {}) {
+export function createViewer(container, store, { onDimensionStep, onDragError, onMeasureChange } = {}) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -314,6 +315,7 @@ export function createViewer(container, store, { onDimensionStep, onDragError } 
     dimensions.setVisible(!on);
     room.setVisible(!on);
     handles.setVisible(!on);
+    measure.setVisible(!on);
     showFigure(!on && figureWanted);
     labels.domElement.classList.toggle('viewer-labels--hidden', on);
     renderer.domElement.style.cursor = '';
@@ -416,7 +418,24 @@ export function createViewer(container, store, { onDimensionStep, onDragError } 
   resize();
 
   // No picking while a render runs or a saved version is shown (its parts are not in the design).
-  const pickable = () => !isRendering() && !capture && !shown().comparing;
+  // Measuring (ADR-040): with the ruler on, a press draws a line; nothing is picked or dragged meanwhile.
+  const measure = attachMeasuring({
+    dom: renderer.domElement, camera, controls, scene,
+    getTargets: () => [group, room.group, floor].filter(Boolean),
+    isEnabled: () => !isRendering() && !capture && !shown().comparing,
+    onChange: (state) => onMeasureChange?.(state),
+  });
+  // Lines measure the design as it was: another design (an edit, an undo, a drag, a proposal) clears them, and a
+  // comparison hides them.
+  let measuredDesign = store.getState().design;
+  store.subscribe((state) => {
+    if (state.design !== measuredDesign) {
+      measuredDesign = state.design;
+      if (measure.lines.length || measure.drawing) measure.clear();
+    }
+    measure.setVisible(!shownState(state).comparing && !isRendering() && !capture);
+  });
+  const pickable = () => !isRendering() && !capture && !shown().comparing && !measure.active;
   // The room is drawn around the wardrobe: after the wardrobe moves `mm` along its wall the camera moves with the
   // room, so the room stays put on screen and the wardrobe is where it was dropped.
   const shiftCamera = (dxMm, dzMm = 0) => {
@@ -586,6 +605,7 @@ export function createViewer(container, store, { onDimensionStep, onDragError } 
       dimensions.setVisible(false);
       room.setVisible(false);
       handles.setVisible(false);
+      measure.setVisible(false);
       showFigure(false);
       labels.domElement.classList.add('viewer-labels--hidden');
       renderer.setPixelRatio(1);
@@ -673,6 +693,7 @@ export function createViewer(container, store, { onDimensionStep, onDragError } 
       room.setVisible(true);
       showFigure(figureWanted);
       updateHandles();
+      measure.setVisible(true);
       labels.domElement.classList.remove('viewer-labels--hidden');
       refreshOverlays();
     },
@@ -703,6 +724,17 @@ export function createViewer(container, store, { onDimensionStep, onDragError } 
     get settled() { return driver.settled; },
     /** Test hook: the stretch handles shown now (their keys). */
     get handleKeys() { return handles.group.children.map((c) => c.userData.handle?.key); },
+    /** Test hook: client coordinates of a point in the viewer's frame (mm). */
+    screenPointOfWorld([x, y, z]) {
+      const p = new THREE.Vector3(x / 1000, y / 1000, z / 1000).project(camera);
+      const rect = renderer.domElement.getBoundingClientRect();
+      return { x: rect.left + ((p.x + 1) / 2) * rect.width, y: rect.top + ((1 - p.y) / 2) * rect.height };
+    },
+    /** The ruler (ADR-040): on or off, the lines kept so far, and clearing them. */
+    setMeasuring: (on) => measure.setActive(on),
+    get measuring() { return measure.active; },
+    get measurements() { return measure.lines; },
+    clearMeasurements: () => measure.clear(),
     /** Test hook: whether a drag is moving something now. */
     get dragging() { return dragging.dragging; },
     /**
@@ -758,6 +790,7 @@ export function createViewer(container, store, { onDimensionStep, onDragError } 
       unsubscribe();
       dragging.dispose();
       handles.dispose();
+      measure.dispose();
       detachPicking();
       tracer.dispose();
       controls.removeEventListener('start', onControlsStart);
