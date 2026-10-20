@@ -1,4 +1,4 @@
-import { clickComponent, expect, openDesigner, test } from './fixtures.js';
+import { clickComponent, expect, openDesigner, test, showInterior } from './fixtures.js';
 
 const state = (page) => page.evaluate(() => {
   const { design, revision, selection } = window.__banai.store.getState();
@@ -15,7 +15,7 @@ test.describe('Phase 4: manual editing', () => {
   test.beforeEach(async ({ page }) => openDesigner(page));
 
   test('selecting a shelf in 3D shows its properties; editing its height moves the mesh', async ({ page }) => {
-    await page.getByLabel('Show interior').check();
+    await showInterior(page);
     await clickComponent(page, 'shf_l2');
     const shelfY = page.getByTestId('shelf-y');
     await expect(shelfY).toHaveValue('80.0');
@@ -38,7 +38,7 @@ test.describe('Phase 4: manual editing', () => {
     const { revision } = await state(page);
     await commit(page.getByTestId('dim-height'), 'abc');
     await expect(page.getByText('Enter a number in cm, e.g. 64.5')).toBeVisible();
-    await page.getByLabel('Show interior').check();
+    await showInterior(page);
     await clickComponent(page, 'shf_l1');
     await commit(page.getByTestId('shelf-y'), '81');
     await expect(page.getByText('That would overlap another shelf or drawer. Choose a different position.')).toBeVisible();
@@ -73,7 +73,7 @@ test.describe('Phase 4: manual editing', () => {
   });
 
   test('deleting the selected shelf removes it and clears the selection', async ({ page }) => {
-    await page.getByLabel('Show interior').check();
+    await showInterior(page);
     await clickComponent(page, 'shf_r1');
     await page.getByTestId('delete-selected').click();
     await expect.poll(async () => (await state(page)).design.compartments[2].shelves.length).toBe(1);

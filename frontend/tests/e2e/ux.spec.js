@@ -1,4 +1,4 @@
-import { test, expect, openDesigner } from './fixtures.js';
+import { test, expect, openDesigner, openRender } from './fixtures.js';
 
 test.describe('start screen', () => {
   test('is shown first with three entry points and the manufacturing disclaimer', async ({ page }) => {
@@ -174,11 +174,98 @@ test.describe('save and render dialogs (backend phases not built yet)', () => {
 
   test('Render opens a dialog labelled as illustrative, with generation disabled', async ({ page }) => {
     await openDesigner(page);
-    await page.getByTestId('open-render').click();
+    await openRender(page);
     const dialog = page.getByTestId('render-dialog');
     await expect(dialog).toContainText('Illustrative image, not the accurate 3D model');
     await expect(page.getByTestId('render-generate')).toBeDisabled();
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
+  });
+});
+
+test.describe('lean header and 3D view toolbar', () => {
+  test('the header shows only history icons, Save and two menus', async ({ page }) => {
+    await openDesigner(page);
+    const actions = page.locator('.topbar__actions');
+    await expect(actions.getByTestId('undo')).toBeVisible();
+    await expect(actions.getByTestId('redo')).toBeVisible();
+    await expect(actions.getByTestId('open-save')).toBeVisible();
+    await expect(page.getByTestId('open-render')).toBeHidden(); // inside the overflow menu
+    await expect(page.getByTestId('lang-switch')).toBeHidden(); // inside the settings menu
+    await expect(page.getByTestId('unit-switch')).toBeHidden();
+  });
+
+  test('the overflow menu opens, moves focus to its first item, and closes on Escape or a click outside', async ({ page }) => {
+    await openDesigner(page);
+    const trigger = page.getByTestId('more-menu');
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    await trigger.click();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByTestId('more-panel')).toHaveAttribute('role', 'menu');
+    await expect(page.getByTestId('open-render')).toBeFocused();
+    await expect(page.getByTestId('menu-copy-link')).toBeDisabled();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('more-panel')).toBeHidden();
+    await expect(trigger).toBeFocused();
+    await trigger.click();
+    await page.mouse.click(700, 500); // the 3D view
+    await expect(page.getByTestId('more-panel')).toBeHidden();
+  });
+
+  test('the settings menu holds language and units, and stays open while choosing', async ({ page }) => {
+    await openDesigner(page);
+    await page.getByTestId('settings-menu').click();
+    await page.getByTestId('unit-in').click();
+    await expect(page.getByTestId('settings-panel')).toBeVisible();
+    await expect(page.getByTestId('unit-in')).toHaveAttribute('aria-checked', 'true');
+    await page.getByTestId('lang-he').click();
+    await expect(page.getByTestId('settings-panel')).toBeVisible();
+    await expect(page.locator('.topbar')).toHaveAttribute('dir', 'rtl');
+    await expect(page.getByTestId('unit-in')).toHaveAttribute('title', 'אינצ׳ים');
+  });
+
+  test('redo restores an undone change, from the button and the keyboard', async ({ page }) => {
+    await openDesigner(page);
+    const width = () => page.evaluate(() => window.__banai.store.getState().design.dimensions.width);
+    await expect(page.getByTestId('redo')).toBeDisabled();
+    await page.evaluate(() => window.__banai.store.dispatch([{ op: 'update_dimensions', width: 2400 }, { op: 'modify_compartment', compartmentId: 'cmp_right', width: 1032 }]));
+    await page.getByTestId('undo').click();
+    expect(await width()).toBe(2000);
+    await page.getByTestId('redo').click();
+    expect(await width()).toBe(2400);
+    await page.locator('#viewer canvas').click({ position: { x: 5, y: 5 } }); // focus outside any input
+    await page.keyboard.press('ControlOrMeta+z');
+    await expect.poll(width).toBe(2000);
+    await page.keyboard.press('ControlOrMeta+Shift+z');
+    await expect.poll(width).toBe(2400);
+    await expect(page.getByTestId('redo')).toBeDisabled();
+  });
+
+  test('Ctrl+Z inside a field edits the text, not the design', async ({ page }) => {
+    await openDesigner(page);
+    await page.evaluate(() => window.__banai.store.dispatch([{ op: 'modify_shelf', id: 'shf_l1', y: 450 }]));
+    await page.getByTestId('dim-width').click();
+    await page.keyboard.press('ControlOrMeta+z');
+    expect(await page.evaluate(() => window.__banai.store.getState().design.compartments[0].shelves[0].y)).toBe(450);
+  });
+
+  test('the toolbar switches between doors and interior and resets the camera', async ({ page }) => {
+    await openDesigner(page);
+    await expect(page.getByTestId('view-doors')).toHaveAttribute('aria-checked', 'true');
+    await page.getByTestId('view-interior').click();
+    await expect(page.getByTestId('view-interior')).toHaveAttribute('aria-checked', 'true');
+    await expect.poll(() => page.evaluate(() => Boolean(window.__banai.viewer.meshOf('dr_left')))).toBe(false);
+    await page.getByTestId('view-doors').click();
+    await expect.poll(() => page.evaluate(() => Boolean(window.__banai.viewer.meshOf('dr_left')))).toBe(true);
+    const camera = () => page.evaluate(() => window.__banai.viewer.camera.position.toArray().map((v) => v.toFixed(3)).join());
+    const start = await camera();
+    const box = await page.locator('#viewer canvas').boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + 200, box.y + box.height / 2, { steps: 8 });
+    await page.mouse.up();
+    await expect.poll(camera).not.toBe(start);
+    await page.getByTestId('reset-view').click();
+    await expect.poll(camera).toBe(start);
   });
 });

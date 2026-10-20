@@ -135,6 +135,15 @@ export function createViewer(container, store) {
     camera,
     controls,
     canvas: renderer.domElement,
+    /** Back to the default front view of the whole wardrobe. */
+    resetView() {
+      // Without damping, update() applies and then clears any leftover drag momentum; fitting
+      // afterwards makes the view land exactly on the default.
+      controls.enableDamping = false;
+      controls.update();
+      fitCamera(store.getState().design);
+      controls.enableDamping = true;
+    },
     meshOf: (componentId) => group?.children.find((mesh) => mesh.userData.componentId === componentId) ?? null,
     /** Client (page) coordinates of a component's centre, for tests and tooling. */
     screenPointOf(componentId) {

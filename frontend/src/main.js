@@ -22,6 +22,9 @@ import { createRenderDialog } from './render/renderDialog.js';
 import { createLogo } from './ui/logo.js';
 import { units } from './ui/units.js';
 import { installRipple } from './ui/ripple.js';
+import { icon } from './ui/icons.js';
+import { attachPopover } from './ui/menu.js';
+import { mountViewerToolbar } from './viewer/toolbar.js';
 
 function showError(message) {
   const banner = document.getElementById('error-banner');
@@ -29,10 +32,21 @@ function showError(message) {
   banner.hidden = false;
 }
 
-function bindInteriorToggle(store) {
-  const toggle = document.getElementById('toggle-interior');
-  toggle.addEventListener('change', () => store.setDoorsVisible(!toggle.checked));
-  store.subscribe((state) => { toggle.checked = !state.ui.doorsVisible; });
+/** Static buttons in index.html name their icon with data-icon. */
+function addStaticIcons() {
+  document.querySelectorAll('[data-icon]').forEach((node) => node.prepend(icon(node.dataset.icon)));
+}
+
+function bindHeaderMenus() {
+  const more = attachPopover(document.getElementById('more-menu'), document.getElementById('more-panel'), { role: 'menu' });
+  const settings = attachPopover(document.getElementById('settings-menu'), document.getElementById('settings-panel'), { role: 'dialog' });
+  const relabel = () => {
+    document.getElementById('more-panel').setAttribute('aria-label', language.t('uiMoreAria'));
+    document.getElementById('settings-panel').setAttribute('aria-label', language.t('uiSettingsAria'));
+  };
+  language.subscribe(relabel);
+  relabel();
+  return { more, settings };
 }
 
 function bindLanguageSwitch(language) {
@@ -48,6 +62,8 @@ function bindStaticLanguage() {
   const apply = () => {
     document.querySelectorAll('[data-i18n]').forEach((node) => { node.textContent = language.t(node.dataset.i18n); });
     document.querySelectorAll('[data-i18n-aria]').forEach((node) => { node.setAttribute('aria-label', language.t(node.dataset.i18nAria)); });
+    document.querySelectorAll('[data-i18n-title]').forEach((node) => { node.title = language.t(node.dataset.i18nTitle); });
+    document.querySelector('.topbar').dir = language.dir();
     const properties = document.getElementById('properties-panel');
     properties.lang = language.get();
     properties.dir = language.dir();
@@ -64,11 +80,25 @@ function bindUnitSwitch() {
   sync();
 }
 
-function bindUndo(store, chatModel, language) {
-  const button = document.getElementById('undo');
-  const sync = () => { button.disabled = !store.canUndo(); };
-  button.addEventListener('click', () => {
-    if (store.undo().ok) chatModel.note(language.t('undone'));
+const isTyping = (target) => target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
+
+function bindHistory(store, chatModel, language) {
+  const undoButton = document.getElementById('undo');
+  const redoButton = document.getElementById('redo');
+  const undo = () => { if (store.undo().ok) chatModel.note(language.t('undone')); };
+  const redo = () => { if (store.redo().ok) chatModel.note(language.t('redone')); };
+  const sync = () => {
+    undoButton.disabled = !store.canUndo();
+    redoButton.disabled = !store.canRedo();
+  };
+  undoButton.addEventListener('click', undo);
+  redoButton.addEventListener('click', redo);
+  // Ctrl/Cmd+Z and Shift+Ctrl/Cmd+Z (or Ctrl+Y), except while typing, where they edit the text.
+  document.addEventListener('keydown', (event) => {
+    if (!(event.ctrlKey || event.metaKey) || event.altKey || isTyping(event.target)) return;
+    const key = event.key.toLowerCase();
+    if (key === 'z' && !event.shiftKey) { event.preventDefault(); undo(); }
+    else if ((key === 'z' && event.shiftKey) || key === 'y') { event.preventDefault(); redo(); }
   });
   store.subscribe(sync);
   sync();
@@ -83,7 +113,9 @@ function bindDialogs() {
 
 async function boot() {
   document.getElementById('topbar-logo').append(createLogo({ size: 34, tagline: 'Wardrobe Designer' }));
+  addStaticIcons();
   installRipple();
+  bindHeaderMenus();
   bindLanguageSwitch(language);
   bindStaticLanguage();
   bindUnitSwitch();
@@ -98,7 +130,7 @@ async function boot() {
   // Validates the server data before anything is rendered (throws on invalid data).
   const store = createStore({ design: initial.design, revision: initial.revision, catalog });
   const viewer = createViewer(document.getElementById('viewer'), store);
-  bindInteriorToggle(store);
+  mountViewerToolbar(document.getElementById('viewer'), store, viewer);
   mountPanel(document.getElementById('properties-content'), store);
   bindDialogs();
 
@@ -155,7 +187,7 @@ async function boot() {
       }
     },
   });
-  bindUndo(store, chatModel, language);
+  bindHistory(store, chatModel, language);
   // A manual edit changes the revision, which may turn a pending proposal stale.
   store.subscribe(() => chat.refresh());
   units.subscribe(() => chat.refresh());

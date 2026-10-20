@@ -138,4 +138,29 @@ describe('store undo', () => {
     while (store.undo().ok) undone += 1;
     expect(undone).toBe(50);
   });
+
+  it('redo re-applies undone changes in order, and a new change clears the redo list', () => {
+    const store = makeStore();
+    const y = () => store.getState().design.compartments[0].shelves[0].y;
+    const start = y();
+    expect(store.canRedo()).toBe(false);
+    expect(store.redo().ok).toBe(false);
+    store.dispatch([{ op: 'modify_shelf', id: 'shf_l1', y: 450 }]);
+    store.dispatch([{ op: 'modify_shelf', id: 'shf_l1', y: 460 }]);
+    store.undo();
+    store.undo();
+    expect(y()).toBe(start);
+    expect(store.canRedo()).toBe(true);
+    const revision = store.getState().revision;
+    expect(store.redo().ok).toBe(true);
+    expect(y()).toBe(450);
+    expect(store.getState().revision).toBe(revision + 1);
+    expect(store.canUndo()).toBe(true);
+    store.dispatch([{ op: 'modify_shelf', id: 'shf_l1', y: 470 }]);
+    expect(store.canRedo()).toBe(false);
+    store.undo();
+    expect(y()).toBe(450);
+    store.replace(store.getState().design, 99); // an applied proposal is a new change too
+    expect(store.canRedo()).toBe(false);
+  });
 });

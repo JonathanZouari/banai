@@ -1,4 +1,4 @@
-import { test, expect, openDesigner } from './fixtures.js';
+import { test, expect, openDesigner, chooseSetting } from './fixtures.js';
 
 // Voice endpoints are mocked: this suite checks the UI and safety rules, and costs nothing.
 // Chromium runs with a fake microphone (see playwright.config.js).
@@ -223,7 +223,7 @@ test.describe('voice', () => {
     await voiceOn(page);
     await speakIntoComposer(page);
     await expect(page.getByTestId('voice-status')).toContainText('Voice is paused for today');
-    await page.getByTestId('lang-he').click();
+    await chooseSetting(page, 'lang-he');
     await expect(page.getByTestId('voice-status')).toContainText('הקול מושהה להיום');
   });
 
@@ -231,7 +231,7 @@ test.describe('voice', () => {
     await mockVoice(page);
     await openDesigner(page);
     await voiceOn(page);
-    await page.getByTestId('lang-he').click();
+    await chooseSetting(page, 'lang-he');
     await expect(page.getByTestId('voice-toggle')).toContainText('קול');
     await expect(page.getByTestId('voice-toggle')).toContainText('פעיל');
     await expect(page.getByTestId('voice-mic')).toHaveAttribute('aria-label', 'הקלטת הודעה בקול');

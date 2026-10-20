@@ -54,3 +54,21 @@ export const paintedRatio = (page) => page.evaluate(() => {
   }
   return painted / (data.length / 4);
 });
+
+/** Language and units live in the header's settings menu: open it, choose, close it again. */
+export async function chooseSetting(page, testId) {
+  const panel = page.getByTestId('settings-panel');
+  if (!(await panel.isVisible())) await page.getByTestId('settings-menu').click();
+  await page.getByTestId(testId).click();
+  await page.keyboard.press('Escape');
+  await expect(panel).toBeHidden();
+}
+
+/** Render preview lives in the header's overflow (kebab) menu. */
+export async function openRender(page) {
+  await page.getByTestId('more-menu').click();
+  await page.getByTestId('open-render').click();
+}
+
+/** Switch the 3D view to the interior (doors hidden). */
+export const showInterior = (page) => page.getByTestId('view-interior').click();
