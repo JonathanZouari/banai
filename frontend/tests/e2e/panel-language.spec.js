@@ -12,9 +12,7 @@ test.describe('the language switch also translates the properties panel and the 
     await expect(page.getByTestId('undo')).toHaveAttribute('aria-label', 'ביטול השינוי האחרון');
     await expect(page.getByTestId('settings-menu')).toHaveAttribute('aria-label', 'הגדרות');
     await expect(page.locator('.topbar')).toHaveAttribute('dir', 'ltr');
-    await page.getByTestId('more-menu').click();
     await expect(page.getByTestId('open-render')).toHaveText('הדמיה');
-    await page.keyboard.press('Escape');
     await expect(page.getByTestId('view-interior')).toHaveText('פנים');
     await expect(page.locator('#properties-content').getByText('רוחב').first()).toBeVisible();
     await expect(page.locator('#properties-content').getByText('גובה').first()).toBeVisible();

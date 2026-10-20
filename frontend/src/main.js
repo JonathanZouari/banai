@@ -18,6 +18,8 @@ import { createChatModel } from './chat/chatModel.js';
 import { mountChat } from './chat/chatPanel.js';
 import { mountStartScreen } from './entry/startScreen.js';
 import { createSaveDialog } from './share/saveDialog.js';
+import { createShareMenu } from './share/shareMenu.js';
+import { createExportDialog } from './export/exportDialog.js';
 import { createRenderDialog } from './render/renderDialog.js';
 import { createLogo } from './ui/logo.js';
 import { units } from './ui/units.js';
@@ -38,15 +40,13 @@ function addStaticIcons() {
 }
 
 function bindHeaderMenus() {
-  const more = attachPopover(document.getElementById('more-menu'), document.getElementById('more-panel'), { role: 'menu' });
   const settings = attachPopover(document.getElementById('settings-menu'), document.getElementById('settings-panel'), { role: 'dialog' });
   const relabel = () => {
-    document.getElementById('more-panel').setAttribute('aria-label', language.t('uiMoreAria'));
     document.getElementById('settings-panel').setAttribute('aria-label', language.t('uiSettingsAria'));
   };
   language.subscribe(relabel);
   relabel();
-  return { more, settings };
+  return { settings };
 }
 
 function bindLanguageSwitch(language) {
@@ -106,11 +106,15 @@ function bindHistory(store, chatModel, language) {
   sync();
 }
 
-function bindDialogs() {
+function bindDialogs({ store, viewer }) {
   const save = createSaveDialog();
   const render = createRenderDialog();
+  const exporter = createExportDialog({ store, viewer });
   document.getElementById('open-save').addEventListener('click', save.open);
+  document.getElementById('open-export').addEventListener('click', exporter.open);
   document.getElementById('open-render').addEventListener('click', render.open);
+  // Sharing needs a saved design's private link; saving arrives with Phase 7 and will call setLink().
+  return createShareMenu({ trigger: document.getElementById('share-menu'), panel: document.getElementById('share-panel') });
 }
 
 async function boot() {
@@ -134,7 +138,7 @@ async function boot() {
   const viewer = createViewer(document.getElementById('viewer'), store);
   mountViewerToolbar(document.getElementById('viewer'), store, viewer);
   mountPanel(document.getElementById('properties-content'), store);
-  bindDialogs();
+  const shareMenu = bindDialogs({ store, viewer });
 
   // The agent only proposes. The server signs proposals, and Confirm sends the signed proposal back
   // to be verified and applied; the committed design never changes until then.
@@ -195,7 +199,7 @@ async function boot() {
   units.subscribe(() => chat.refresh());
 
   if (import.meta.env.DEV) {
-    window.__banai = Object.freeze({ store, viewer, chat: chatModel });
+    window.__banai = Object.freeze({ store, viewer, chat: chatModel, share: shareMenu });
   }
 
   mountStartScreen({

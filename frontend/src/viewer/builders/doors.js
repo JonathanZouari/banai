@@ -28,7 +28,7 @@ function outline(panel, materials) {
 }
 
 // Grip length per style (mm); the panel's share caps it on short doors.
-const HANDLE_LENGTH = Object.freeze({ bar: [VISUAL.handleLength, 0.4], long_bar: [VISUAL.longHandleLength, 0.7], edge_pull: [VISUAL.edgePullLength, 0.3] });
+export const HANDLE_LENGTH = Object.freeze({ bar: [VISUAL.handleLength, 0.4], long_bar: [VISUAL.longHandleLength, 0.7], edge_pull: [VISUAL.edgePullLength, 0.3] });
 
 /** How far a style's handle sits from the panel's free edge. */
 export const handleInset = (style) => (style === 'edge_pull' ? VISUAL.edgePullInset : VISUAL.handleInset);

@@ -64,9 +64,8 @@ export async function chooseSetting(page, testId) {
   await expect(panel).toBeHidden();
 }
 
-/** Render preview lives in the header's overflow (kebab) menu. */
+/** Render preview is a header button. */
 export async function openRender(page) {
-  await page.getByTestId('more-menu').click();
   await page.getByTestId('open-render').click();
 }
 

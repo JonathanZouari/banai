@@ -270,24 +270,31 @@
 .topbar__divider { width: 1px; height: 24px; background: var(--md-sys-color-outline-variant); }
 .topbar .icon-btn:disabled { opacity: 0.38; cursor: default; background: transparent; }
 .topbar .btn--primary .icon { margin: 0; }
-/* Save: a prominent pill with a soft gradient and lift, the one call to action in the header. */
-.topbar #open-save {
+/* Save, Export and Share are equals: three matching tonal pills, none louder than the others. */
+.topbar__actions-main { gap: var(--space-2); }
+.topbar__action {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   height: 40px;
-  padding: 0 20px 0 16px;
+  padding: 0 18px 0 14px;
   border-radius: var(--md-sys-shape-full);
-  border-color: transparent;
-  background: linear-gradient(135deg, #c8643a, #a8481f);
-  color: #fff;
+  border: 1px solid transparent;
+  background: var(--md-sys-color-secondary-container, #ffdbd0);
+  color: var(--md-sys-color-on-secondary-container, #3b1306);
   font-weight: 600;
   letter-spacing: 0.01em;
-  box-shadow: 0 1px 2px rgba(143, 58, 23, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transition: background-color 120ms, box-shadow 120ms, transform 120ms;
 }
-.topbar #open-save:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(180, 83, 42, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.18); }
-.topbar #open-save:active:not(:disabled) { transform: scale(0.97); box-shadow: 0 1px 2px rgba(143, 58, 23, 0.4); }
-.topbar #open-save:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
+.topbar__action .icon { margin: 0; }
+.topbar__action:hover:not(:disabled) { background: color-mix(in srgb, var(--md-sys-color-secondary-container, #ffdbd0) 82%, #a8481f); box-shadow: 0 2px 8px rgba(143, 58, 23, 0.22); }
+.topbar__action:active:not(:disabled) { transform: scale(0.97); }
+.topbar__action:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
+.topbar__action[aria-expanded='true'] { background: color-mix(in srgb, var(--md-sys-color-secondary-container, #ffdbd0) 70%, #a8481f); }
+.menu__note { margin: 0; padding: var(--space-3) var(--space-4); max-width: 260px; color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-small, 0.8125rem/1.35 inherit); }
+.menu__note[hidden] { display: none; }
+.dialog__note, .dialog__status { overflow-wrap: anywhere; }
+.dialog__status:empty { display: none; }
 .popover-host { position: relative; display: inline-flex; }
 .popover {
   position: absolute;
@@ -301,6 +308,9 @@
   box-shadow: var(--md-sys-elevation-3);
   color: var(--md-sys-color-on-surface);
 }
+/* The header is always left to right, so its menus anchor to the trigger's right edge physically. Their own
+   direction (Hebrew) only changes how the content reads; it must not flip which edge they hang from. */
+.topbar .popover { inset-inline-end: auto; left: auto; right: 0; }
 .menu__item {
   display: flex;
   align-items: center;

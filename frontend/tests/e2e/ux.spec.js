@@ -165,7 +165,7 @@ test.describe('save and render dialogs (backend phases not built yet)', () => {
     await page.getByTestId('open-save').click();
     const dialog = page.getByTestId('save-dialog');
     await expect(dialog).toBeVisible();
-    await expect(dialog).toContainText('Saving is not available yet');
+    await expect(dialog).toContainText('Saving and private links are coming soon');
     await expect(page.getByTestId('share-link')).toHaveValue('');
     await expect(page.getByTestId('save-confirm')).toBeDisabled();
     await page.getByTestId('save-close').click();
@@ -184,32 +184,48 @@ test.describe('save and render dialogs (backend phases not built yet)', () => {
 });
 
 test.describe('lean header and 3D view toolbar', () => {
-  test('the header shows only history icons, Save and two menus', async ({ page }) => {
+  test('the header shows history icons, Save, Export, Render, Share and the settings menu', async ({ page }) => {
     await openDesigner(page);
     const actions = page.locator('.topbar__actions');
     await expect(actions.getByTestId('undo')).toBeVisible();
     await expect(actions.getByTestId('redo')).toBeVisible();
     await expect(actions.getByTestId('open-save')).toBeVisible();
-    await expect(page.getByTestId('open-render')).toBeHidden(); // inside the overflow menu
+    await expect(actions.getByTestId('open-export')).toBeVisible();
+    await expect(actions.getByTestId('share-menu')).toBeVisible();
+    await expect(actions.getByTestId('open-render')).toBeVisible();
     await expect(page.getByTestId('lang-switch')).toBeHidden(); // inside the settings menu
     await expect(page.getByTestId('unit-switch')).toBeHidden();
   });
 
-  test('the overflow menu opens, moves focus to its first item, and closes on Escape or a click outside', async ({ page }) => {
+  test('the Share menu opens, and closes on Escape or a click outside', async ({ page }) => {
     await openDesigner(page);
-    const trigger = page.getByTestId('more-menu');
+    const trigger = page.getByTestId('share-menu');
     await expect(trigger).toHaveAttribute('aria-expanded', 'false');
     await trigger.click();
     await expect(trigger).toHaveAttribute('aria-expanded', 'true');
-    await expect(page.getByTestId('more-panel')).toHaveAttribute('role', 'menu');
-    await expect(page.getByTestId('open-render')).toBeFocused();
-    await expect(page.getByTestId('menu-copy-link')).toBeDisabled();
+    await expect(page.getByTestId('share-panel')).toHaveAttribute('role', 'menu');
     await page.keyboard.press('Escape');
-    await expect(page.getByTestId('more-panel')).toBeHidden();
+    await expect(page.getByTestId('share-panel')).toBeHidden();
     await expect(trigger).toBeFocused();
     await trigger.click();
     await page.mouse.click(700, 500); // the 3D view
-    await expect(page.getByTestId('more-panel')).toBeHidden();
+    await expect(page.getByTestId('share-panel')).toBeHidden();
+  });
+
+  test('header menus stay on screen and under their button after switching to Hebrew', async ({ page }) => {
+    await openDesigner(page);
+    await page.getByTestId('settings-menu').click();
+    await page.getByTestId('lang-he').click();
+    for (const [trigger, panel] of [['settings-menu', 'settings-panel'], ['share-menu', 'share-panel']]) {
+      if (trigger === 'share-menu') await page.getByTestId(trigger).click();
+      const box = await page.getByTestId(panel).boundingBox();
+      const button = await page.getByTestId(trigger).boundingBox();
+      const viewport = page.viewportSize();
+      expect(box.x, `${panel} left edge`).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width, `${panel} right edge`).toBeLessThanOrEqual(viewport.width);
+      expect(Math.abs(box.x + box.width - (button.x + button.width)), `${panel} hangs from the button's right edge`).toBeLessThan(2);
+      await page.keyboard.press('Escape');
+    }
   });
 
   test('the settings menu holds language and units, and stays open while choosing', async ({ page }) => {
