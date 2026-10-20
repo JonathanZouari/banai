@@ -20,6 +20,7 @@ from app.domain.defaults import (CHILD_HEIGHT, SHOE_TIER, largest_screen, releas
 from app.domain.errors import DomainError
 from app.domain.layout import SLIDE_OVERLAP, SLIDE_TRACK_DEPTH, Layout, layout
 from app.domain.room import effective_clearance, fits, side_gap, walls
+from app.domain.room_plan import WALKWAY, blocked as opening_blocked, conflicts as opening_conflicts
 from app.i18n import tr
 
 LEVEL_ORDER = {"critical": 0, "warn": 1, "info": 2}
@@ -339,6 +340,90 @@ def _room(design: dict, lay: Layout, out: _Collector) -> None:
                 tr("{g} ס״מ בין הארון לקיר. ליד קיר, דלת ציר או מגירה צריכות פס מילוי של כ-{f} ס״מ, "
                    "כדי שהדלת תיפתח עד הסוף והידית לא תפגע בקיר.", g=cm(gap), f=cm(FILLER)),
                 "כלל אצבע", "פרקטיקה מקובלת", ["carcass"], fix)
+    _openings(design, lay, out, needs)
+
+
+# The places along its wall a quick fix tries for the wardrobe: every 10 cm, then the nearest 1 cm step of the
+# clear stretch it found. Bounded: at most ~150 + 9 tries on a 15 m wall, each stopping at its first conflict.
+SPOT_STEP, SPOT_REFINE = 100, 10
+
+
+def _front_reach(design: dict, lay: Layout) -> int:
+    """How far the wardrobe's open hinged doors and pulled-out drawers reach in front of it (mm), as R21 counts."""
+    doors = max((d.width for d in lay.doors), default=0) if design["doors"]["type"] == "hinged" else 0
+    drawers = max(0, lay.shelf_depth - (lay.depth - lay.shelf_depth)) if any(c["drawers"] for c in design["compartments"]) else 0
+    return max(doors, drawers)
+
+
+def _clear_at(design: dict, offset: int, reach: int, needs: dict) -> bool:
+    """Whether the wardrobe at `offset` on its wall is in no opening's way, fits the room and needs no filler it lacks."""
+    trial = {**design, "room": {**design["room"], "offset": offset}}
+    if opening_blocked(trial, reach) or not fits(trial):
+        return False
+    return not any(needs[side] and (gap := side_gap(trial, side)) is not None and gap < FILLER for side in needs)
+
+
+def _clear_spot(design: dict, reach: int, needs: dict) -> int | None:
+    """A clear place on its wall near the wardrobe's own (see _clear_at); None when there is none."""
+    room = design["room"]
+    width, length = design["dimensions"]["width"], walls(room["shape"])[room["wall"]]["length"]
+    if width > length:
+        return None
+    here = room["offset"]
+    for offset in sorted({*range(0, length - width + 1, SPOT_STEP), length - width}, key=lambda o: (abs(o - here), o)):
+        if offset == here or not _clear_at(design, offset, reach, needs):
+            continue
+        toward = 1 if offset < here else -1  # back toward the wardrobe's place, while it stays clear
+        for _ in range(SPOT_STEP // SPOT_REFINE - 1):
+            nearer = offset + toward * SPOT_REFINE
+            if (nearer - here) * (offset - here) <= 0 or not _clear_at(design, nearer, reach, needs):
+                break
+            offset = nearer
+        return offset
+    return None
+
+
+def _openings(design: dict, lay: Layout, out: _Collector, needs: dict) -> None:
+    """R27, openings: a door whose leaf swings into the wardrobe or its open doors, and an opening the wardrobe
+    stands against or crowds. The fix moves the wardrobe along its wall, to the nearest place clear of them all."""
+    reach = _front_reach(design, lay)
+    found = opening_conflicts(design, reach)
+    if not found:
+        return
+    room = design["room"]
+    spot = _clear_spot(design, reach, needs)
+    fix = out.fix(tr("הזז את הארון ל-{o} ס״מ מהקצה השמאלי", o=cm(spot)), [{"op": "set_room", "offset": spot}]) if spot is not None else None
+    for i, what in found:
+        o = room["openings"][i]
+        k, n, w = i + 1, o["wall"] + 1, cm(o["width"])
+        if what == "swing":
+            out.add(f"r27-door-{k}", "warn", tr("הדלת נפתחת לתוך הארון"),
+                    tr("הדלת (פתח {k}, קיר {n}) נפתחת פנימה, והכנף שלה ברוחב {w} ס״מ פוגעת בארון. מזיזים את הארון לאורך "
+                       "הקיר, או תולים את הדלת כך שתיפתח החוצה או מהצד השני.", k=k, n=n, w=w),
+                    "חישוב", "תוכנית החדר", ["carcass"], fix)
+        elif what == "swing-open":
+            out.add(f"r27-door-{k}", "warn", tr("הדלת נתקלת בדלתות הארון"),
+                    tr("הדלת (פתח {k}, קיר {n}) נפתחת פנימה ברוחב {w} ס״מ, דרך המקום שדלתות הארון ומגירותיו נפתחות "
+                       "אליו ({r} ס״מ מחזיתו). כששתיהן פתוחות הן נתקלות זו בזו.", k=k, n=n, w=w, r=cm(reach)),
+                    "חישוב", "תוכנית החדר", ["carcass"], fix)
+        elif what == "covered" and o["type"] == "window":
+            out.add(f"r27-block-{k}", "warn", tr("הארון מסתיר חלון"),
+                    tr("החלון (פתח {k}, קיר {n}) מתחיל {s} ס״מ מהרצפה, והארון בגובה {h} ס״מ עומד מולו: הוא מסתיר את "
+                       "האור, וקשה לפתוח את החלון ולנקות אותו.", k=k, n=n, s=cm(o["sill"]), h=cm(design["dimensions"]["height"])),
+                    "חישוב", "תוכנית החדר", ["carcass"], fix)
+        elif what == "covered":
+            body = (tr("הארון עומד מול הדלת (פתח {k}, קיר {n}) וחוסם אותה. מזיזים את הארון לאורך הקיר או בוחרים קיר אחר.", k=k, n=n)
+                    if o["type"] == "door" else
+                    tr("הארון עומד מול המעבר (פתח {k}, קיר {n}) וחוסם אותו. מזיזים את הארון לאורך הקיר או בוחרים קיר אחר.", k=k, n=n))
+            out.add(f"r27-block-{k}", "critical", tr("הארון חוסם דלת") if o["type"] == "door" else tr("הארון חוסם מעבר"),
+                    body, "חישוב", "תוכנית החדר", ["carcass"], fix)
+        else:
+            body = (tr("פחות מ-{p} ס״מ בין הארון לבין הדלת (פתח {k}, קיר {n}). מקובל להשאיר לפחות {p} ס״מ פנויים כדי לעבור.",
+                       k=k, n=n, p=cm(WALKWAY))
+                    if o["type"] == "door" else
+                    tr("פחות מ-{p} ס״מ בין הארון לבין המעבר (פתח {k}, קיר {n}). מקובל להשאיר לפחות {p} ס״מ פנויים כדי לעבור.",
+                       k=k, n=n, p=cm(WALKWAY)))
+            out.add(f"r27-block-{k}", "warn", tr("מעבר צר בפתח"), body, "כלל אצבע", "[99]", ["carcass"], fix)
 
 
 def _clearance(design: dict, lay: Layout, out: _Collector) -> None:

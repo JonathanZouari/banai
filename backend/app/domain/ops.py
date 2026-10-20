@@ -29,6 +29,8 @@ from app.domain.schema import (
     RailId,
     Ref,
     ShelfId,
+    MAX_OPENINGS,
+    Opening,
     RoomShape,
     StrictModel,
     schema_error,
@@ -256,13 +258,15 @@ class SetHousehold(StrictModel):
 
 class SetRoom(StrictModel):
     """The room (ADR-037): `shape` makes a new one (the wardrobe goes on its default wall, centred); `wall` moves
-    the wardrobe to another wall (centred unless `offset` is given); `offset` places it along its wall; `clear`
-    removes the room."""
+    the wardrobe to another wall (centred unless `offset` is given); `offset` places it along its wall;
+    `openings` replaces the doors, windows and passages (a new shape of another kind drops them, since its walls
+    are numbered anew); `clear` removes the room."""
 
     op: Literal["set_room"]
     shape: RoomShape | None = None
     wall: Int | None = None
     offset: Int | None = None
+    openings: Annotated[list[Opening], Field(max_length=MAX_OPENINGS)] | None = None
     clear: bool = False
 
 

@@ -1,0 +1,18 @@
+    <p class="lead">{{ p.lead }}</p>
+    <figure class="fig" style="flex: 1">
+      <div class="fig-art">{{ p.svg }}</div>
+      <figcaption>{{ t("קירות בעובי 10 ס״מ, לשרטוט בלבד. הארון על הקיר שלו, עם המרחק מהקצה השמאלי של הקיר ורוחבו.") }}</figcaption>
+    </figure>
+{% if p.rows %}    <div>
+      <h3>{{ t("פתחים בחדר") }}</h3>
+      <table>
+        <thead><tr><th class="n">#</th><th>{{ t("סוג") }}</th><th class="n">{{ t("קיר") }}</th><th class="n">{{ t("מהקצה השמאלי (ס״מ)") }}</th><th class="n">{{ t("רוחב × גובה (ס״מ)") }}</th><th class="n">{{ t("אדן (ס״מ)") }}</th><th>{{ t("פתיחה") }}</th></tr></thead>
+        <tbody>
+{% for row in p.rows %}
+          <tr><td class="n">{{ row.no }}</td><td>{{ row.kind }}</td><td class="n">{{ row.wall }}</td><td class="n">{{ row.at }}</td><td class="n">{{ num(row.size) }}</td><td class="n">{{ row.sill }}</td><td>{{ row.opens }}</td></tr>
+{% endfor %}
+        </tbody>
+      </table>
+    </div>
+{% else %}    <p class="lead">{{ t("לא סומנו פתחים בחדר.") }}</p>
+{% endif %}

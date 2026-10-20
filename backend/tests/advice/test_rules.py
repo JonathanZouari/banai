@@ -35,6 +35,10 @@ def by_id(design: dict) -> dict:
     return {a["id"]: a for a in advisories(design, CATALOG)}
 
 
+# A 3.5 x 4 m room (the 180 cm wardrobe centred on wall 0, 85 cm from its left end) and an 80 cm door.
+ROOM = {"op": "set_room", "shape": {"kind": "rect", "width": 3500, "depth": 4000}}
+DOOR = {"type": "door", "wall": 1, "at": 300, "width": 800, "height": 2100}
+
 # Designs that, between them, trigger every rule that offers a fix.
 SAMPLES = {
     "basic": basic_wardrobe(),
@@ -70,6 +74,11 @@ SAMPLES = {
     # R27: past the end of a 3 m wall (the fix centres it), and tight in a corner with hinged doors (50 mm filler).
     "room-past": make(hinged(), {"op": "set_room", "shape": {"kind": "rect", "width": 3000, "depth": 3500}, "offset": 2000}),
     "room-corner": make(hinged(), {"op": "set_room", "shape": {"kind": "rect", "width": 3000, "depth": 3500}, "offset": 0}),
+    # R27 openings: a door beside the wardrobe on its wall, opening into it (the fix moves the wardrobe clear of it),
+    # and a door in the left wall right where the wardrobe stands in the corner.
+    "room-door": make(hinged(), ROOM, {"op": "set_room", "openings": [DOOR | {"wall": 0, "at": 400, "hinge": "right"}]}),
+    "room-side-door": make(hinged(), ROOM, {"op": "set_room", "offset": 300,
+                                            "openings": [DOOR | {"wall": 3, "at": 2800, "swing": "out"}]}),
     # R23: a socket, an AC unit low enough to lower under, pipes and skirting behind; a window past the side.
     "obstacles": make(hinged(), {"op": "set_site", "obstacles": [{"type": "socket", "x": 300, "y": 300, "width": 80, "height": 80}, {"type": "ac", "x": 200, "y": 2000, "width": 900, "height": 300}, {"type": "pipe", "x": 1200, "y": 200, "width": 60, "height": 400}, {"type": "panel", "x": -200, "y": 0, "width": 2400, "height": 80}, {"type": "window", "x": 3000, "y": 900, "width": 1200, "height": 1300}]}),
 }
@@ -101,7 +110,7 @@ def test_the_samples_cover_every_fix():
              for d in SAMPLES.values() for a in advisories(d, CATALOG) if "fix" in a}
     assert fixed == {"r1-over", "r1-lift", "niche-over", "r12-filler", "r3-wide", "r6-mirror", "r5-depth", "r7-sag",
                      "r8-rail", "r16-high", "r16-width", "r21-swing", "r23", "r24-legs", "r24-soft", "r25-wide-tv", "r26-lock", "r26-release",
-                     "r27-past", "r27-left"}
+                     "r27-past", "r27-left", "r27-door", "r27-block"}
 
 
 def test_child_safety():
@@ -424,3 +433,59 @@ def test_a_filler_only_beside_a_door_or_drawers_at_that_end():
     middle = make({"op": "configure_doors", "type": "hinged", "doors": [{"compartmentIds": ["cmp_b"], "hingeSide": "left"}]},
                   {"op": "set_room", "shape": {"kind": "rect", "width": 3000, "depth": 3500}, "offset": 0}, count=3)
     assert not {i for i in by_id(middle) if i.startswith("r27")}
+
+
+def openings(*items: dict, offset: int | None = None, ops: tuple = ()) -> dict:
+    """The sample wardrobe with hinged doors in the 3.5 x 4 m room, with these openings."""
+    extra = {"offset": offset} if offset is not None else {}
+    return make(hinged(), *ops, ROOM, {"op": "set_room", "openings": list(items), **extra})
+
+
+def test_a_door_swinging_into_the_wardrobe():
+    # In the right wall, hinged 30 cm from its start: the leaf sweeps into the wardrobe's right end.
+    door = by_id(openings(DOOR | {"width": 900}))
+    assert door["r27-door-1"]["level"] == "warn" and "נפתחת פנימה" in door["r27-door-1"]["body"]
+    assert door["r27-door-1"]["fix"]["ops"] == [{"op": "set_room", "offset": 800}]
+    assert "r27-door-1" not in by_id(openings(DOOR | {"width": 900, "swing": "out"}))  # opening out of the room
+    far = by_id(openings(DOOR | {"width": 900, "hinge": "right"}))  # hinged at its far end: it misses the carcass
+    assert far["r27-door-1"]["title"] == "הדלת נתקלת בדלתות הארון"
+    near = by_id(make(hinged(), {"op": "set_room", "shape": {"kind": "rect", "width": 3500, "depth": 4000}, "offset": 0,
+                                 "openings": [DOOR | {"wall": 0, "at": 2600, "hinge": "right"}]}))
+    assert "r27-door-1" not in near and "r27-block-1" not in near  # beside the wardrobe, swinging away from it
+
+
+def test_a_door_hitting_the_open_doors():
+    # Hinged 70 cm along the right wall: it clears the carcass but crosses where the wardrobe's doors open.
+    door = by_id(openings(DOOR | {"at": 700, "width": 900}))
+    assert door["r27-door-1"]["title"] == "הדלת נתקלת בדלתות הארון" and "fix" in door["r27-door-1"]
+    calm = by_id(openings(DOOR | {"at": 700, "width": 900}, ops=(sliding(),)))
+    assert "r27-door-1" not in calm  # sliding doors and no drawers reach nothing in front
+
+
+def test_an_opening_the_wardrobe_stands_against():
+    covered = by_id(openings(DOOR | {"wall": 0, "at": 1500}))
+    assert covered["r27-block-1"]["level"] == "critical" and covered["r27-block-1"]["title"] == "הארון חוסם דלת"
+    assert "fix" not in covered["r27-block-1"]  # 150 cm left of the door and 120 cm right of it: never 180 cm
+    passage = by_id(openings({"type": "passage", "wall": 0, "at": 1500, "width": 800, "height": 2100}))
+    assert passage["r27-block-1"]["title"] == "הארון חוסם מעבר"
+    window = by_id(openings({"type": "window", "wall": 0, "at": 1500, "width": 800, "height": 400}))
+    assert window["r27-block-1"]["level"] == "warn" and "90 ס״מ מהרצפה" in window["r27-block-1"]["body"]
+    high = by_id(openings({"type": "window", "wall": 0, "at": 1500, "width": 800, "height": 400, "sill": 2400}))
+    assert "r27-block-1" not in high  # above the wardrobe's top: nothing hidden
+
+
+def test_a_wardrobe_crowding_a_door_in_a_side_wall():
+    side = by_id(SAMPLES["room-side-door"])
+    assert side["r27-block-1"]["level"] == "warn" and "60 ס״מ" in side["r27-block-1"]["body"]
+    assert side["r27-block-1"]["fix"]["ops"] == [{"op": "set_room", "offset": 600}]
+    assert "r27-door-1" not in side  # it opens out of the room
+    flush = by_id(openings(DOOR | {"wall": 3, "at": 2800, "swing": "out"}, offset=0))
+    assert flush["r27-block-1"]["level"] == "critical"  # in the corner, the wardrobe stands against the door
+
+
+def test_the_opening_fix_needs_no_new_filler():
+    # The door overlaps the wardrobe's left end: the fix moves it right, past the door, still clear of the right wall.
+    door = by_id(SAMPLES["room-door"])
+    assert door["r27-block-1"]["fix"] == door["r27-door-1"]["fix"]
+    after = apply_ops(SAMPLES["room-door"], door["r27-block-1"]["fix"]["ops"], CATALOG)
+    assert not {i for i in by_id(after) if i.startswith("r27")}

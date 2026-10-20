@@ -15,7 +15,7 @@ from app.domain.defaults import (DEFAULT_SHOE_TIERS, DEFAULT_TROUSER_HEIGHT, OBS
 from app.domain.errors import INVALID_OP, OUT_OF_RANGE, DomainError
 from app.domain.geometry import interior_height
 from app.domain.lookup import compartment_index, find_door, find_insert, require_range
-from app.domain.room import DEFAULT_WALL, centred, walls
+from app.domain.room import DEFAULT_OPENING, DEFAULT_WALL, OPENING_ONLY, centred, walls
 
 # Which optional fields each insert type takes. Everything else must be absent.
 INSERT_FIELDS = {"shoes": ("y", "tiers"), "trousers": ("y", "height"), "pulldown": ("y",), "led": (), "tv": ("y", "height")}
@@ -354,19 +354,35 @@ def set_household(draft: dict, op: op_types.SetHousehold, path: str) -> dict:
     return draft
 
 
+def _opening(item, path: str) -> dict:
+    """One opening as stored: a window's sill and a door's hinge and swing filled in, nothing a type does not take."""
+    opening = item.model_dump()
+    for field, kind in OPENING_ONLY.items():
+        if opening["type"] == kind:
+            if opening[field] is None:
+                opening[field] = DEFAULT_OPENING[field]
+        elif opening[field] is not None:
+            raise DomainError(INVALID_OP, f"{path}.{field}", f"only a {kind} has {field}")
+    return opening
+
+
 def set_room(draft: dict, op: op_types.SetRoom, path: str) -> dict:
-    """A new room, another wall or another place along it; or no room. Ranges are checked in validation."""
-    given = [f for f in ("shape", "wall", "offset") if getattr(op, f) is not None]
+    """A new room, another wall or another place along it, its openings; or no room. Ranges are checked in
+    validation."""
+    given = [f for f in ("shape", "wall", "offset", "openings") if getattr(op, f) is not None]
     if op.clear:
         if given:
             raise DomainError(INVALID_OP, path, "clear cannot be combined with new values")
         draft["room"] = None
         return draft
     if not given:
-        raise DomainError(INVALID_OP, path, "give shape, wall or offset, or clear")
+        raise DomainError(INVALID_OP, path, "give shape, wall, offset or openings, or clear")
     if op.shape is not None:
         shape = op.shape.model_dump(by_alias=True)
-        room, recentre = {"shape": shape, "wall": DEFAULT_WALL[shape["kind"]], "offset": 0}, True
+        old = draft.get("room")
+        # The same template at another size keeps its walls' numbers, so its openings stay.
+        kept = copy.deepcopy(old.get("openings", [])) if old and old["shape"]["kind"] == shape["kind"] else []
+        room, recentre = {"shape": shape, "wall": DEFAULT_WALL[shape["kind"]], "offset": 0, "openings": kept}, True
     elif draft.get("room"):
         room, recentre = copy.deepcopy(draft["room"]), False
     else:
@@ -380,6 +396,8 @@ def set_room(draft: dict, op: op_types.SetRoom, path: str) -> dict:
         room["offset"], recentre = op.offset, False
     if recentre:
         room["offset"] = centred(room["shape"], room["wall"], draft["dimensions"]["width"])
+    if op.openings is not None:
+        room["openings"] = [_opening(item, f"{path}.openings[{i}]") for i, item in enumerate(op.openings)]
     draft["room"] = room
     return draft
 

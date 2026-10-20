@@ -5,7 +5,7 @@
 
 import { z } from 'zod';
 import { DomainError, SCHEMA_INVALID } from './errors.js';
-import { defaultHandles, INSERT_TYPES, MAX_OBSTACLES } from './defaults.js';
+import { defaultHandles, INSERT_TYPES, MAX_OBSTACLES, MAX_OPENINGS } from './defaults.js';
 import * as ids from './ids.js';
 import { isPlainObject, sum } from './util.js';
 
@@ -98,7 +98,18 @@ export const roomShape = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('l'), width: int(), depth: int(), cutWidth: int(), cutDepth: int() }),
   z.strictObject({ kind: z.literal('recess'), width: int(), depth: int(), recessX: int(), recessWidth: int(), recessDepth: int() }),
 ]);
-const room = z.strictObject({ shape: roomShape, wall: int(), offset: int() });
+// A door, a window or an open passage in a wall of the room (mm): `at` from the wall's left end facing it from
+// inside, a window's sill, a door's hinge side (seen from inside) and swing. Which fields each type takes, the
+// ranges and the fit in the wall are checked in validation (room.js openingIssues). Mirrors backend Opening.
+export const opening = z.strictObject({
+  type: z.enum(['door', 'window', 'passage']),
+  wall: int(), at: int(), width: int(), height: int(),
+  sill: int().nullable().default(null),
+  hinge: z.enum(['left', 'right']).nullable().default(null),
+  swing: z.enum(['in', 'out']).nullable().default(null),
+});
+export const MAX_ROOM_OPENINGS = MAX_OPENINGS;
+const room = z.strictObject({ shape: roomShape, wall: int(), offset: int(), openings: z.array(opening).max(MAX_OPENINGS).default([]) });
 const site = z.strictObject({
   ceiling: int().nullable().default(null),
   niche: int().nullable().default(null),

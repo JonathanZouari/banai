@@ -173,6 +173,8 @@ def _build(design: dict, catalog: dict, render_png: bytes | None, today: date | 
 
     # Site checks, then the advisories with the closing declaration.
     pages.append(_site(design, lay, prod))
+    if design["room"]:
+        pages.append(_room_page(design))
     pages += _pages(tr("הערות הייעוץ"), list(batched(adv, ADVICE_PER_PAGE)) or [()], "advice")
     pages[-1]["last"] = True
 
@@ -245,6 +247,23 @@ def _customer_rows(customer: dict | None) -> list[tuple[str, str]]:
             (tr("כתובת להתקנה"), place or None), (tr("קומה ומעלית"), floor), (tr("זמני התקשרות"), c.get("contact_times")),
             (tr("מועד התקנה רצוי"), when)]
     return [(label, value) for label, value in rows if value]
+
+
+def _room_page(design: dict) -> dict:
+    """The room's floor plan to scale (ADR-037), and its openings in a table."""
+    kinds = {"door": tr("דלת"), "window": tr("חלון"), "passage": tr("מעבר")}
+    rows = []
+    for k, o in enumerate(design["room"]["openings"], 1):
+        opens = "—"
+        if o["type"] == "door":
+            opens = (tr("צירים משמאל") if o["hinge"] == "left" else tr("צירים מימין")) + " · " + (
+                tr("נפתחת פנימה") if o["swing"] == "in" else tr("נפתחת החוצה"))
+        rows.append({"no": k, "kind": kinds[o["type"]], "wall": o["wall"] + 1, "at": cm(o["at"]),
+                     "size": f"{cm(o['width'])}×{cm(o['height'])}", "sill": cm(o["sill"]) if o["sill"] is not None else "—",
+                     "opens": opens})
+    return {"kind": "room", "title": tr("תוכנית החדר"), "toc": True, "svg": drawings.room_plan(design), "rows": rows,
+            "lead": tr("מבט מלמעלה, בקנה מידה. המידות בשרטוט במילימטרים, ומספרי הקירות כמו באפליקציה. צד הצירים של "
+                       "דלת ומרחק פתח מקצה הקיר נקבעים כשעומדים בחדר מול הקיר.")}
 
 
 def _room_lines(design: dict) -> list[str]:

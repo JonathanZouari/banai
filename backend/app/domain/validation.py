@@ -16,7 +16,7 @@ from app.domain.catalog import catalog_ids
 from app.domain.defaults import LIMITS, OBSTACLE_LIMITS, SHOE_TIER
 from app.domain.errors import DomainError
 from app.domain.geometry import interior_height, interior_width
-from app.domain.room import SHAPE_LIMITS, shape_issues, walls
+from app.domain.room import OPENING_LIMITS, SHAPE_LIMITS, opening_issues, shape_issues, walls
 from app.domain.schema import parse_design
 
 # The raw readings and the governing value each one sets (the smallest known reading).
@@ -127,11 +127,17 @@ def _check_ranges(design: dict) -> list[DomainError]:
         for field, limit in SHAPE_LIMITS[room["shape"]["kind"]].items():
             checks.append((room["shape"][field], limit, f"room.shape.{field}"))
         checks.append((room["offset"], "roomOffset", "room.offset"))
+        for oi, opening in enumerate(room["openings"]):
+            for key, limit in OPENING_LIMITS.items():
+                if opening[key] is not None:
+                    checks.append((opening[key], limit, f"room.openings[{oi}].{key}"))
     issues = [issue for v, limit, path in checks if (issue := range_issue(v, limit, path))]
     if room:
         issues += [DomainError(codes.OUT_OF_BOUNDS, f"room.shape.{field}", message) for field, message in shape_issues(room["shape"])]
         if not 0 <= room["wall"] < len(walls(room["shape"])):
             issues.append(DomainError(codes.OUT_OF_RANGE, "room.wall", f"the room has walls 0..{len(walls(room['shape'])) - 1}"))
+        ceiling = (design["site"] or {}).get("ceiling")
+        issues += [DomainError(getattr(codes, code), path, message) for code, path, message in opening_issues(room, ceiling)]
     for oi, o in enumerate((design["site"] or {}).get("obstacles") or []):
         if o["type"] == "other" and not o.get("name"):
             issues.append(DomainError(codes.SCHEMA_INVALID, f"site.obstacles[{oi}].name", "an \"other\" obstacle needs a name"))

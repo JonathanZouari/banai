@@ -5,6 +5,9 @@ The plan is in mm, x to the right and y down, as seen from above. Corners run cl
 wall's inside is on the right of its direction, and facing a wall from inside the room its start is on the
 left. The wardrobe's back stands against wall `room.wall`, its left outer face `room.offset` mm from that
 wall's start. Templates keep every wall axis-aligned, so all distances are whole millimetres.
+
+Openings (doors, windows, passages) are placed the same way: `at` mm from their wall's start, facing it from
+inside the room, and a door's hinge side is seen from there too.
 """
 
 from __future__ import annotations
@@ -188,3 +191,49 @@ def effective_clearance(design: dict) -> int | None:
     """The free floor in front of the wardrobe: the customer's measurement, else the room's."""
     measured = (design.get("site") or {}).get("clearance")
     return measured if measured is not None else front_clearance(design)
+
+
+# ---------- openings (ADR-037 stage 3) ----------
+
+OPENING_TYPES = ("door", "window", "passage")
+# The fields only one type takes, and the value a new opening of that type gets.
+OPENING_ONLY = {"sill": "window", "hinge": "door", "swing": "door"}
+DEFAULT_OPENING = {"sill": 900, "hinge": "left", "swing": "in"}
+# Which limit each opening field takes (defaults.LIMITS).
+OPENING_LIMITS = {"at": "openingAt", "width": "openingWidth", "height": "openingHeight", "sill": "openingSill"}
+
+
+def opening_bottom(opening: dict) -> int:
+    """Where the opening starts above the floor: a window's sill, else the floor."""
+    return opening["sill"] or 0
+
+
+def _overlap(a: dict, b: dict) -> bool:
+    """Whether two openings in one wall share any of it (along it and in height)."""
+    along = a["at"] < b["at"] + b["width"] and b["at"] < a["at"] + a["width"]
+    ya, yb = opening_bottom(a), opening_bottom(b)
+    return along and ya < yb + b["height"] and yb < ya + a["height"]
+
+
+def opening_issues(room: dict, ceiling: int | None) -> list[tuple[str, str, str]]:
+    """What makes the room's openings impossible: [(error code, path, message)]. Ranges are checked separately."""
+    lengths = [w["length"] for w in walls(room["shape"])]
+    issues = []
+    for i, opening in enumerate(room["openings"]):
+        path = f"room.openings[{i}]"
+        for field, kind in OPENING_ONLY.items():
+            if (opening["type"] == kind) != (opening[field] is not None):
+                message = f"a {kind} needs {field}" if opening["type"] == kind else f"only a {kind} has {field}"
+                issues.append(("SCHEMA_INVALID", f"{path}.{field}", message))
+        if not 0 <= opening["wall"] < len(lengths):
+            issues.append(("OUT_OF_RANGE", f"{path}.wall", f"the room has walls 0..{len(lengths) - 1}"))
+            continue
+        if opening["at"] + opening["width"] > lengths[opening["wall"]]:
+            issues.append(("OUT_OF_BOUNDS", f"{path}.width", f"the opening runs past the end of wall {opening['wall']}"))
+        if ceiling is not None and opening_bottom(opening) + opening["height"] > ceiling:
+            issues.append(("OUT_OF_BOUNDS", f"{path}.height", "the opening goes above the ceiling"))
+        clash = next((j for j, other in enumerate(room["openings"][:i])
+                      if other["wall"] == opening["wall"] and _overlap(other, opening)), None)
+        if clash is not None:
+            issues.append(("OUT_OF_BOUNDS", f"{path}.at", f"the opening overlaps opening {clash}"))
+    return issues

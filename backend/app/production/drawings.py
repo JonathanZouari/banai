@@ -18,6 +18,8 @@ from markupsafe import Markup, escape
 
 from app.domain.defaults import SHOE_TIER
 from app.domain.layout import DOOR_GAP, SLIDE_TOP_TRACK, DoorLayout, Layout
+from app.domain.room import corners, walls
+from app.domain.room_plan import WALL_THICKNESS, hinge_point, wall_frame, wall_pieces, wardrobe_box
 from app.i18n import tr
 from app.production.boards import Board, board_for, handle_of, resolve
 from app.production.nesting import SHEET, Sheet
@@ -463,6 +465,95 @@ def plan_view(design: dict, lay: Layout, catalog: dict, partition_depth: int, ui
         svg.add(line(-gap, D + P + max_door, W + gap, D + P + max_door, "ln-dash"))
         cv.dim(svg, -gap, D, -gap, D + max_door, swing, fs * 0.8, offset=-fs * 1.6)
         svg.add(text(W / 2, D + max_door + fs * 1.6, tr("מרחב פתיחה נדרש מול הארון: {mm} מ״מ", mm=swing), font_size=fs * 0.8, class_="note"))
+    return cv.markup()
+
+
+# ---------- the room's floor plan (ADR-037) ----------
+
+def _points(poly: Iterable[tuple[float, float]]) -> str:
+    return " ".join(f"{_num(round(x, 1))},{_num(round(y, 1))}" for x, y in poly)
+
+
+def room_plan(design: dict, uid: str = "rp") -> Markup:
+    """The room from above, to scale: the walls cut through with their openings, each wall's number and length,
+    the doors' swings, and the wardrobe on its wall with its distance from the wall's left end (mm)."""
+    room = design["room"]
+    shape, t = room["shape"], WALL_THICKNESS
+    pieces = wall_pieces(shape, room["openings"])
+    outline = [p for slab in pieces for poly in slab for p in poly] + [(float(x), float(y)) for x, y in corners(shape)]
+    x0, x1 = min(p[0] for p in outline), max(p[0] for p in outline)
+    y0, y1 = min(p[1] for p in outline), max(p[1] for p in outline)
+    fs = max(x1 - x0, y1 - y0) / 38
+    pad = fs * 4.5
+    cv = Canvas(uid, x0 - pad, y0 - pad, x1 - x0 + 2 * pad, y1 - y0 + 2 * pad + fs * 2, fs)
+    svg = cv.svg
+    svg.attrs["class"] = "drawing room-plan"  # a room is drawn smaller than a wardrobe: heavier lines (dossier.css)
+    svg.add(El("polygon", {"points": _points(corners(shape)), "class": "floor"}))
+    for slab in pieces:
+        for poly in slab:
+            svg.add(El("polygon", {"points": _points(poly), "class": "cut", "fill": cv.url("hatch")}))
+
+    def at(frame, along: float, into: float) -> tuple[float, float]:
+        (sx, sy), u, n = frame
+        return sx + u[0] * along + n[0] * into, sy + u[1] * along + n[1] * into
+
+    for k, o in enumerate(room["openings"], 1):
+        frame = wall_frame(shape, o["wall"])
+        _, u, n = frame
+        a0, a1 = o["at"], o["at"] + o["width"]
+        if o["type"] == "door":
+            (hx, hy), along = hinge_point(shape, o)
+            out = o["swing"] == "out"
+            normal = (-n[0], -n[1]) if out else n
+            bx, by = (hx - n[0] * t, hy - n[1] * t) if out else (hx, hy)  # an outward door hangs on the outer face
+            w = o["width"]
+            closed, opened = (bx + along[0] * w, by + along[1] * w), (bx + normal[0] * w, by + normal[1] * w)
+            sweep = 1 if along[0] * normal[1] - along[1] * normal[0] > 0 else 0  # clockwise on screen (y down)
+            svg.add(line(bx, by, *opened, "ln-heavy"),
+                    El("path", {"d": f"M {_num(round(closed[0], 1))} {_num(round(closed[1], 1))} A {w} {w} 0 0 {sweep} "
+                                     f"{_num(round(opened[0], 1))} {_num(round(opened[1], 1))}", "class": "ln-swing"}))
+        elif o["type"] == "window":
+            for into in (0, -t / 2, -t):
+                svg.add(line(*at(frame, a0, into), *at(frame, a1, into), "ln-thin"))
+        else:
+            svg.add(line(*at(frame, a0, 0), *at(frame, a1, 0), "ln-dash"))
+        tx, ty = at(frame, (a0 + a1) / 2, -t - fs * 1.1)
+        svg.add(El("circle", {"cx": round(tx, 1), "cy": round(ty, 1), "r": round(fs * 0.75, 1), "class": "room-tag"}),
+                text(round(tx, 1), round(ty + fs * 0.33, 1), k, font_size=fs * 0.9, class_="room-tag-no", direction="ltr"))
+
+    for i, wall in enumerate(walls(shape)):
+        frame = wall_frame(shape, i)
+        u = frame[1]
+        mx, my = at(frame, wall["length"] / 2, -t - fs * (2.6 if any(o["wall"] == i for o in room["openings"]) else 1.1))
+        angle = round(math.degrees(math.atan2(u[1], u[0])))
+        if angle > 90 or angle <= -90:  # never upside down
+            angle += 180
+        mx, my = round(mx, 1), round(my, 1)
+        svg.add(text(mx, my + fs * 0.35, tr("קיר {n} · {l}", n=i + 1, l=wall["length"]), font_size=fs * 0.85, class_="note",
+                     transform=f"rotate({angle} {_num(mx)} {_num(my)})"))
+
+    body = wardrobe_box(design)
+    svg.add(El("polygon", {"points": _points(body), "class": "body wardrobe"}))
+    cx, cy = sum(p[0] for p in body) / 4, sum(p[1] for p in body) / 4
+    svg.add(text(round(cx, 1), round(cy + fs * 0.35, 1), tr("ארון"), font_size=fs, class_="note"))
+    # Where the wardrobe stands: its left end's distance from the wall's start, and its width (axis-aligned walls).
+    frame = wall_frame(shape, room["wall"])
+    _, u, n = frame
+    d, w, off = design["dimensions"]["depth"], design["dimensions"]["width"], room["offset"]
+    for a, b in ((0, off), (off, off + w)):
+        if b - a < 1:
+            continue
+        (px, py), (qx, qy) = at(frame, a, 0), at(frame, b, 0)
+        if abs(u[1]) < 1e-9:
+            cv.dim(svg, px, py, qx, qy, b - a, fs * 0.8, offset=n[1] * (d + fs * 1.6))
+        elif abs(u[0]) < 1e-9:
+            cv.dim(svg, px, py, qx, qy, b - a, fs * 0.8, offset=n[0] * (d + fs * 1.6))
+
+    # A metre to scale.
+    sx, sy = x0, y1 + pad * 0.75
+    svg.add(line(sx, sy, sx + 1000, sy, "ln-heavy"), line(sx, sy - fs * 0.4, sx, sy + fs * 0.4, "ln-thin"),
+            line(sx + 1000, sy - fs * 0.4, sx + 1000, sy + fs * 0.4, "ln-thin"),
+            text(sx + 1000 + fs * 0.6, sy + fs * 0.3, tr("1 מ׳"), font_size=fs * 0.8, class_="note", text_anchor="start"))
     return cv.markup()
 
 

@@ -2,7 +2,9 @@
 import { describe, expect, it } from 'vitest';
 import { applyOps } from '../../../src/domain/apply.js';
 import { sideGap } from '../../../src/domain/room.js';
-import { newRoomShape, roomSizeOps, roomTemplateOps } from '../../../src/editor/roomSection.js';
+import {
+  addOpeningOps, newOpening, newRoomShape, removeOpeningOps, roomSizeOps, roomTemplateOps, updateOpeningOps,
+} from '../../../src/editor/roomSection.js';
 import { diffDesigns } from '../../../src/state/diff.js';
 import { loadCatalog, loadDesign } from '../domain/helpers.js';
 
@@ -40,5 +42,41 @@ describe('the room panel', () => {
     expect(diffDesigns(basic, room)).toContain('חדר: נוסף');
     expect(diffDesigns(room, apply(room, [{ op: 'set_room', wall: 1 }]))).toContain('חדר: עודכן');
     expect(diffDesigns(room, basic)).toContain('חדר: הוסר');
+  });
+});
+
+describe("the room's openings", () => {
+  const room = apply(basic, roomTemplateOps(basic, 'rect')); // 3500 x 4000, the wardrobe on wall 0
+
+  it('adds a door in the middle of the longest other wall, and removes it', () => {
+    expect(newOpening(room)).toEqual({ type: 'door', wall: 1, at: 1550, width: 900, height: 2100 });
+    const one = apply(room, addOpeningOps(room, newOpening(room)));
+    expect(one.room.openings[0]).toMatchObject({ type: 'door', hinge: 'left', swing: 'in', sill: null });
+    expect(apply(one, removeOpeningOps(one, 0)).room.openings).toEqual([]);
+    expect(addOpeningOps(basic, newOpening(room))).toBeNull(); // no room, no openings
+  });
+
+  it('a new type takes its own fields and height, another wall keeps it inside', () => {
+    const one = apply(room, addOpeningOps(room, newOpening(room)));
+    const window_ = apply(one, updateOpeningOps(one, 0, { type: 'window' }));
+    expect(window_.room.openings[0]).toMatchObject({ type: 'window', sill: 900, hinge: null, swing: null, height: 1200 });
+    const passage = apply(window_, updateOpeningOps(window_, 0, { type: 'passage' }));
+    expect(passage.room.openings[0]).toMatchObject({ sill: null, height: 2100 });
+    const far = apply(one, updateOpeningOps(one, 0, { at: 3000 }));
+    expect(apply(far, updateOpeningOps(far, 0, { wall: 0 })).room.openings[0]).toMatchObject({ wall: 0, at: 2600 });
+    expect(updateOpeningOps(one, 3, { at: 0 })).toBeNull();
+  });
+
+  it('stops at eight', () => {
+    let design = room;
+    for (let i = 0; i < 8; i += 1) design = apply(design, addOpeningOps(design, { type: 'window', wall: 2, at: i * 400, width: 300, height: 300 }));
+    expect(design.room.openings).toHaveLength(8);
+    expect(addOpeningOps(design, newOpening(design))).toBeNull();
+  });
+
+  it('the proposal card names the openings apart from the room', () => {
+    const one = apply(room, addOpeningOps(room, newOpening(room)));
+    expect(diffDesigns(room, one)).toEqual(['פתחים בחדר: 0 ← 1']);
+    expect(diffDesigns(one, apply(one, updateOpeningOps(one, 0, { at: 100 })))).toEqual(['פתחים בחדר: עודכנו']);
   });
 });

@@ -152,3 +152,28 @@ def test_the_site_page_lists_the_wall_obstacles():
     assert "Кондиционер: 20 см от левого края шкафа" in russian
     assert "<dt>מכשולים בקיר</dt>" not in render_html(build(make(), CATALOG, None, date(2026, 10, 19)))
 
+
+
+def test_the_room_plan_page():
+    room = {"op": "set_room", "shape": {"kind": "rect", "width": 3500, "depth": 4000}, "offset": 300, "openings": [
+        {"type": "door", "wall": 1, "at": 300, "width": 900, "height": 2100, "hinge": "right"},
+        {"type": "window", "wall": 0, "at": 2500, "width": 800, "height": 1200, "sill": 1000},
+        {"type": "passage", "wall": 2, "at": 1000, "width": 900, "height": 2100}]}
+    ctx = build(make(hinged(), room), CATALOG, None, date(2026, 10, 20))
+    kinds = [p["kind"] for p in ctx["pages"]]
+    assert kinds[kinds.index("site") + 1] == "room" and "תוכנית החדר" in [title for title, _ in ctx["toc"]]
+    page = ctx["pages"][kinds.index("room")]
+    assert [r["kind"] for r in page["rows"]] == ["דלת", "חלון", "מעבר"]
+    assert page["rows"][0]["opens"] == "צירים מימין · נפתחת פנימה" and page["rows"][1]["sill"] == "100"
+    svg = str(page["svg"])
+    # The walls are cut where the openings are: 4 walls, 3 of them with one opening, so 7 pieces of wall.
+    assert svg.count('class="cut"') == 7 and svg.count('class="ln-swing"') == 1
+    assert "קיר 1 · 3500" in svg and "קיר 2 · 4000" in svg and ">ארון<" in svg
+    html = render_html(ctx)
+    assert "<h3>פתחים בחדר</h3>" in html
+    english = render_html(build(make(hinged(), room), CATALOG, None, date(2026, 10, 20), "en"))
+    assert "Room plan" in english and "hinges on the right · opens in" in english
+    # No room, no plan; a room without openings says so.
+    assert "room" not in [p["kind"] for p in build(make(hinged()), CATALOG)["pages"]]
+    bare = render_html(build(make(hinged(), {"op": "set_room", "shape": {"kind": "rect", "width": 3500, "depth": 4000}}), CATALOG))
+    assert "לא סומנו פתחים בחדר." in bare

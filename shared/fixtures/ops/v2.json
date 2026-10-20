@@ -2623,5 +2623,756 @@
         "path": "room.shape.width"
       }
     }
+  },
+  {
+    "name": "set_room openings: a door opens in on its left hinge and a window sits 90 cm up by default",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "door",
+            "wall": 2,
+            "at": 500,
+            "width": 900,
+            "height": 2100
+          },
+          {
+            "type": "window",
+            "wall": 1,
+            "at": 1000,
+            "width": 1200,
+            "height": 1300
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "room": {
+          "wall": 0,
+          "offset": 1250,
+          "openings": [
+            {
+              "type": "door",
+              "wall": 2,
+              "at": 500,
+              "width": 900,
+              "height": 2100,
+              "sill": null,
+              "hinge": "left",
+              "swing": "in"
+            },
+            {
+              "type": "window",
+              "wall": 1,
+              "at": 1000,
+              "width": 1200,
+              "height": 1300,
+              "sill": 900,
+              "hinge": null,
+              "swing": null
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "a door keeps the hinge and swing it is given, a window its sill",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "door",
+            "wall": 2,
+            "at": 500,
+            "width": 900,
+            "height": 2100,
+            "hinge": "right",
+            "swing": "out"
+          },
+          {
+            "type": "window",
+            "wall": 1,
+            "at": 1000,
+            "width": 1200,
+            "height": 1300,
+            "sill": 0
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "room": {
+          "openings": [
+            {
+              "type": "door",
+              "wall": 2,
+              "at": 500,
+              "width": 900,
+              "height": 2100,
+              "sill": null,
+              "hinge": "right",
+              "swing": "out"
+            },
+            {
+              "type": "window",
+              "wall": 1,
+              "at": 1000,
+              "width": 1200,
+              "height": 1300,
+              "sill": 0,
+              "hinge": null,
+              "swing": null
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "a passage takes no hinge",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "passage",
+            "wall": 3,
+            "at": 1000,
+            "width": 1000,
+            "height": 2100,
+            "hinge": "right"
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[1].openings[0].hinge"
+      }
+    }
+  },
+  {
+    "name": "a door takes no sill",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "door",
+            "wall": 2,
+            "at": 500,
+            "width": 900,
+            "height": 2100,
+            "sill": 100
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[1].openings[0].sill"
+      }
+    }
+  },
+  {
+    "name": "an opening must end inside its wall",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "window",
+            "wall": 0,
+            "at": 3000,
+            "width": 1000,
+            "height": 1000
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_BOUNDS",
+        "path": "room.openings[0].width"
+      }
+    }
+  },
+  {
+    "name": "an opening's wall must exist",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "door",
+            "wall": 4,
+            "at": 500,
+            "width": 900,
+            "height": 2100
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_RANGE",
+        "path": "room.openings[0].wall"
+      }
+    }
+  },
+  {
+    "name": "two openings in one wall must not overlap",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "window",
+            "wall": 1,
+            "at": 500,
+            "width": 1000,
+            "height": 1300
+          },
+          {
+            "type": "window",
+            "wall": 1,
+            "at": 1200,
+            "width": 800,
+            "height": 1300
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_BOUNDS",
+        "path": "room.openings[1].at"
+      }
+    }
+  },
+  {
+    "name": "a window above a door in the same wall is fine",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "door",
+            "wall": 1,
+            "at": 500,
+            "width": 900,
+            "height": 2000
+          },
+          {
+            "type": "window",
+            "wall": 1,
+            "at": 500,
+            "width": 900,
+            "height": 400,
+            "sill": 2100
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "room": {
+          "openings": [
+            {
+              "wall": 1,
+              "at": 500
+            },
+            {
+              "wall": 1,
+              "sill": 2100
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "an opening narrower than 30 cm is out of range",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "door",
+            "wall": 2,
+            "at": 500,
+            "width": 200,
+            "height": 2100
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_RANGE",
+        "path": "room.openings[0].width"
+      }
+    }
+  },
+  {
+    "name": "an opening cannot go above the measured ceiling",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "ceiling": 2400
+      },
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "window",
+            "wall": 1,
+            "at": 1000,
+            "width": 1200,
+            "height": 1300,
+            "sill": 1200
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_BOUNDS",
+        "path": "room.openings[0].height"
+      }
+    }
+  },
+  {
+    "name": "a room takes at most 8 openings",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "window",
+            "wall": 0,
+            "at": 0,
+            "width": 300,
+            "height": 300
+          },
+          {
+            "type": "window",
+            "wall": 0,
+            "at": 400,
+            "width": 300,
+            "height": 300
+          },
+          {
+            "type": "window",
+            "wall": 0,
+            "at": 800,
+            "width": 300,
+            "height": 300
+          },
+          {
+            "type": "window",
+            "wall": 0,
+            "at": 1200,
+            "width": 300,
+            "height": 300
+          },
+          {
+            "type": "window",
+            "wall": 0,
+            "at": 1600,
+            "width": 300,
+            "height": 300
+          },
+          {
+            "type": "window",
+            "wall": 0,
+            "at": 2000,
+            "width": 300,
+            "height": 300
+          },
+          {
+            "type": "window",
+            "wall": 0,
+            "at": 2400,
+            "width": 300,
+            "height": 300
+          },
+          {
+            "type": "window",
+            "wall": 0,
+            "at": 2800,
+            "width": 300,
+            "height": 300
+          },
+          {
+            "type": "window",
+            "wall": 0,
+            "at": 3200,
+            "width": 300,
+            "height": 300
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "SCHEMA_INVALID"
+      }
+    }
+  },
+  {
+    "name": "the same template at another size keeps the openings",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "door",
+            "wall": 2,
+            "at": 500,
+            "width": 900,
+            "height": 2100
+          }
+        ]
+      },
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3600,
+          "depth": 4200
+        },
+        "wall": 0,
+        "offset": 1250
+      }
+    ],
+    "expect": {
+      "match": {
+        "room": {
+          "shape": {
+            "width": 3600
+          },
+          "offset": 1250,
+          "openings": [
+            {
+              "type": "door",
+              "wall": 2,
+              "at": 500,
+              "width": 900,
+              "height": 2100,
+              "sill": null,
+              "hinge": "left",
+              "swing": "in"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "another template drops the openings: its walls are numbered anew",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "door",
+            "wall": 2,
+            "at": 500,
+            "width": 900,
+            "height": 2100
+          }
+        ]
+      },
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "l",
+          "width": 4500,
+          "depth": 4000,
+          "cutWidth": 1500,
+          "cutDepth": 1500
+        }
+      }
+    ],
+    "expect": {
+      "match": {
+        "room": {
+          "shape": {
+            "kind": "l"
+          },
+          "openings": []
+        }
+      }
+    }
+  },
+  {
+    "name": "a smaller room that leaves an opening past its wall is refused",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "door",
+            "wall": 0,
+            "at": 2400,
+            "width": 900,
+            "height": 2100
+          }
+        ]
+      },
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3000,
+          "depth": 4000
+        },
+        "wall": 0,
+        "offset": 1000
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_BOUNDS",
+        "path": "room.openings[0].width"
+      }
+    }
+  },
+  {
+    "name": "an empty list removes the openings",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "door",
+            "wall": 2,
+            "at": 500,
+            "width": 900,
+            "height": 2100
+          }
+        ]
+      },
+      {
+        "op": "set_room",
+        "openings": []
+      }
+    ],
+    "expect": {
+      "match": {
+        "room": {
+          "openings": []
+        }
+      }
+    }
+  },
+  {
+    "name": "openings alone need a room",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "door",
+            "wall": 2,
+            "at": 500,
+            "width": 900,
+            "height": 2100
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[0]"
+      }
+    }
+  },
+  {
+    "name": "a stored window without a sill is refused",
+    "base": "two",
+    "mutate": [
+      {
+        "path": [
+          "room"
+        ],
+        "value": {
+          "shape": {
+            "kind": "rect",
+            "width": 3500,
+            "depth": 4000
+          },
+          "wall": 0,
+          "offset": 1250,
+          "openings": [
+            {
+              "type": "window",
+              "wall": 1,
+              "at": 1000,
+              "width": 1200,
+              "height": 1300,
+              "sill": null
+            }
+          ]
+        }
+      }
+    ],
+    "ops": [
+      {
+        "op": "set_room",
+        "offset": 1000
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "SCHEMA_INVALID",
+        "path": "room.openings[0].sill"
+      }
+    }
   }
 ]

@@ -35,12 +35,18 @@ LIMITS: dict[str, tuple[int, int]] = {
     "roomSize": (1000, 15000),
     "roomPart": (300, 14700),
     "roomOffset": (0, 15000),
+    # openings in the room's walls: from the wall's left end, their size, and a window's sill above the floor
+    "openingAt": (0, 15000),
+    "openingWidth": (300, 5000),
+    "openingHeight": (300, 3000),
+    "openingSill": (0, 2500),
     "shoeTiers": (1, 6),
     "insertHeight": (200, 1500),
     "zones": (1, 4),
 }
 
 MAX_OBSTACLES = 8  # wall obstacles in one site
+MAX_OPENINGS = 8  # doors, windows and passages in one room (ADR-037)
 # Which limit each obstacle field takes.
 OBSTACLE_LIMITS = {"x": "obstacleX", "y": "obstacleY", "width": "obstacleSize", "height": "obstacleSize"}
 

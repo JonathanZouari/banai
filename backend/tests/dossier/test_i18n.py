@@ -55,6 +55,19 @@ VARIANTS = {
     "room-obstacle-other": lambda: make(hinged(2), {"op": "set_site", "obstacles": [{"type": "other", "name": "Radiator", "x": 300, "y": 150, "width": 800, "height": 600}]}),
     "room-l": lambda: make(hinged(2), {"op": "set_room", "shape": {"kind": "l", "width": 4500, "depth": 4000, "cutWidth": 1500, "cutDepth": 1500}, "wall": 0, "offset": 0}),
     "room-recess": lambda: make(hinged(2), {"op": "set_room", "shape": {"kind": "recess", "width": 4000, "depth": 3500, "recessX": 1000, "recessWidth": 2000, "recessDepth": 700}}),
+    # Openings (ADR-037 stage 3): the floor-plan page with every kind of opening, and every R27 opening advisory.
+    "room-openings": lambda: make(hinged(2), {"op": "set_room", "shape": {"kind": "rect", "width": 3500, "depth": 4000}, "offset": 300, "openings": [
+        {"type": "door", "wall": 3, "at": 3300, "width": 500, "height": 2100, "swing": "out"},
+        {"type": "window", "wall": 0, "at": 1000, "width": 800, "height": 400},
+        {"type": "door", "wall": 3, "at": 2400, "width": 800, "height": 2100},
+        {"type": "passage", "wall": 2, "at": 1000, "width": 900, "height": 2100}]}),
+    "room-openings-blocked": lambda: make(hinged(2), {"op": "set_room", "shape": {"kind": "rect", "width": 3500, "depth": 4000}, "offset": 0, "openings": [
+        {"type": "door", "wall": 0, "at": 1500, "width": 800, "height": 2100},
+        {"type": "passage", "wall": 3, "at": 3300, "width": 700, "height": 2100},
+        {"type": "door", "wall": 1, "at": 300, "width": 900, "height": 2100}]}),
+    "room-openings-pass": lambda: make(hinged(2), {"op": "set_room", "shape": {"kind": "l", "width": 4500, "depth": 4000, "cutWidth": 1500, "cutDepth": 1500}, "wall": 5, "offset": 1900, "openings": [
+        {"type": "passage", "wall": 0, "at": 0, "width": 800, "height": 2100},
+        {"type": "window", "wall": 3, "at": 500, "width": 1200, "height": 1300, "sill": 600}]}),
     "pulldown-wide": lambda: make({"op": "add_insert", "compartmentId": "cmp_a", "type": "pulldown", "id": "ins_pw"}, count=1, width=1400),
     "led-many": lambda: make({"op": "add_insert", "compartmentId": "cmp_a", "type": "led", "id": "ins_l1"},
                              {"op": "add_insert", "compartmentId": "cmp_b", "type": "led", "id": "ins_l2"}),

@@ -10,7 +10,7 @@ BanAI started as an MVP AI wardrobe designer for standard straight wardrobes. Th
 
 - **Hebrew RTL workspace** (Apple-style): inspector on the right, 3D in the centre, advice and chat on the left. `<html lang="he" dir="rtl">`, Assistant font.
 - **Schema v2:** site (ceiling, niche), plinth, presets, inserts (pull-down rail, shoe shelves, trouser rack, LED), split doors, and **zones** (2–4 per column, each with its own door or none and its own preset; ADR-027).
-- **Advisories** R1–R26 (`/api/advisories`): research-backed, non-blocking, each with an evidence grade, a source and, where possible, a one-click fix dry-run through the engine. The customer decides; advice never restricts a choice ("capabilities, not taste").
+- **Advisories** R1–R27 (`/api/advisories`): research-backed, non-blocking, each with an evidence grade, a source and, where possible, a one-click fix dry-run through the engine. The customer decides; advice never restricts a choice ("capabilities, not taste").
 - **Carpenter dossier PDF** (`/api/dossier`): drawings, cut list, sheet nesting, hardware, estimate and advisories, rendered by headless Chromium.
 - **Render and video:** a WebGL path tracer for a near-photoreal still (the dossier cover), and an MP4 demo of the doors, drawers and pull-down opening, live or path-traced.
 - **Undo/redo** and hold-to-compare against a saved version.
@@ -35,7 +35,7 @@ BanAI started as an MVP AI wardrobe designer for standard straight wardrobes. Th
   - **Code:** `share/customer.js` checks them, mirrored by `app/dossier/customer.py`. The "לקוח" dialog is in the top bar.
   - **Project lifecycle:** they are saved and opened with the project. A new project clears them. An exported file includes them, with a warning.
   - **Dossier:** they go with the dossier request only, and appear on its site page under "פרטי לקוח" in 4 languages. If they are missing, the dossier menu says so.
-- **Room editor** (ADR-037, stages 1–2; 2026-10-19):
+- **Room editor** (ADR-037, stages 1–3; 2026-10-19/20):
   - **Data:** `room: {shape, wall, offset}` from a template: rectangle, L, or a room with a recess (a niche). `set_room` on both engines. The geometry is in `domain/room.py` and `room.js`, with shared cases in `shared/fixtures/room_geometry.json`.
   - **3D:** `viewer/walls3d.js` builds the floor and mitred 10 cm walls in the wardrobe's frame. A wall between the camera and the room fades (the cut-away, done per wall in `onBeforeRender`).
   - **Panel ("החדר"):** template, sizes, and a clickable SVG plan with the walls numbered from 1. Then the wall list, the distance from the wall's left end, and "מרכז על הקיר".
@@ -44,7 +44,20 @@ BanAI started as an MVP AI wardrobe designer for standard straight wardrobes. Th
     - Advisory R27: the wardrobe past its wall, a wardrobe that crosses a wall or leaves the room (`fits()`; it then has no computed clearance), and 5 cm filler strips beside a side wall at an end with a door or drawers.
     - A "החדר" row in the dossier.
     - ROOM in Bob's design context: wall lengths and the space around the wardrobe.
-  - **Not built yet (stages 3–4):** openings (an entry door, windows), a floor-plan page in the dossier, and free-form drawing.
+  - **Openings (stage 3):** `room.openings`, up to 8 doors, windows and passages (`set_room openings` replaces the list; see
+    `docs/schema.md`). Each sits `at` mm from its wall's left end, seen from inside, like a door's hinge side.
+    - **3D:** each wall is built in pieces around its openings and merged into its one mesh, so the mitres and the
+      cut-away are unchanged. A door gets a leaf ajar, a window a frame and a pane, and they fade with their wall.
+    - **Panel:** "פתחים בחדר" under the plan, and the plan marks each opening (a gap, a pane, a leaf with its swing).
+      The proposal card has its own "פתחים בחדר" line.
+    - **R27:** `r27-door-<n>` (a door's swing hits the carcass or its open doors) and `r27-block-<n>` (the wardrobe
+      against a door or passage, a window below its top, or under 60 cm in front of a door). The fix moves the
+      wardrobe along its wall to the nearest clear place. The geometry is in `backend/app/domain/room_plan.py`
+      (backend only: convex clipping).
+    - **Dossier:** a "תוכנית החדר" page after the site page: the plan to scale (`drawings.room_plan`) and a table of
+      openings, in 4 languages.
+    - **Bob:** `openings` in the OPS lines, and the ROOM line lists them by index.
+  - **Not built yet (stage 4):** free-form drawing.
 - **Household and child safety** (2026-10-19):
   - **Household:** `household.people`, up to 6, each with an optional name and a height, set through `set_household`. They appear as scale figures at their heights beside the wardrobe, with labels, and the views frame them.
   - **R26:** anyone under 140 cm is a child, which raises:

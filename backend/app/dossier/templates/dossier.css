@@ -100,6 +100,21 @@ h3 { margin: 0 0 2mm; font-size: 10.5pt; font-weight: 700; }
 .drawing .dim-text { fill: var(--accent); text-anchor: middle; font-weight: 600; font-variant-numeric: tabular-nums; }
 .drawing .dim-text--side { text-anchor: start; }
 .drawing .note { fill: var(--ink-2); text-anchor: middle; }
+/* the room's floor plan (ADR-037) */
+.drawing .floor { fill: #f6f3ee; stroke: none; }
+.drawing .wardrobe { fill: #e8eef5; }
+.drawing .room-tag { fill: #ffffff; stroke: var(--ink-2); stroke-width: 1.2; }
+.drawing .room-tag-no { fill: var(--ink); text-anchor: middle; font-weight: 600; }
+.room-plan .cut { stroke-width: 3.5; }
+.room-plan .hatch-line { stroke-width: 4; }
+.room-plan .body { stroke-width: 5; }
+.room-plan .ln-heavy { stroke-width: 9; }
+.room-plan .ln-thin { stroke-width: 3.5; }
+.room-plan .ln-dash { stroke-width: 4; stroke-dasharray: 45 30; }
+.room-plan .ln-swing { stroke-width: 3.5; stroke-dasharray: 36 22; }
+.room-plan .room-tag { stroke-width: 3; }
+.room-plan .dim line { stroke-width: 3; }
+.room-plan .dim .ext { stroke-width: 2; }
 .drawing .comp-no { fill: #c7c7cc; text-anchor: middle; font-weight: 700; }
 .drawing .iso-face { stroke: #2c2c2e; stroke-width: 1.2; stroke-linejoin: round; }
 .drawing .balloon { fill: #ffffff; stroke: var(--ink); stroke-width: 1.4; }

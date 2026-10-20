@@ -8,7 +8,7 @@ import {
   screenHeight,
 } from './defaults.js';
 import { DomainError, INVALID_OP, OUT_OF_RANGE } from './errors.js';
-import { DEFAULT_WALL, centred, roomWalls } from './room.js';
+import { DEFAULT_OPENING, DEFAULT_WALL, OPENING_ONLY, centred, roomWalls } from './room.js';
 import { interiorHeight } from './geometry.js';
 import { compartmentIndex, findDoor, findInsert, requireRange } from './lookup.js';
 import { isSet } from './util.js';
@@ -332,19 +332,36 @@ function setHousehold(draft, op, path) {
   return draft;
 }
 
-/** A new room, another wall or another place along it; or no room. Ranges are checked in validation. */
+/** One opening as stored: a window's sill and a door's hinge and swing filled in, nothing a type does not take. */
+function roomOpening(item, path) {
+  const result = { ...item };
+  for (const [field, kind] of Object.entries(OPENING_ONLY)) {
+    if (result.type === kind) {
+      if (!isSet(result[field])) result[field] = DEFAULT_OPENING[field];
+    } else if (isSet(result[field])) {
+      throw new DomainError(INVALID_OP, `${path}.${field}`, `only a ${kind} has ${field}`);
+    } else {
+      result[field] = null;
+    }
+  }
+  return result;
+}
+
+/** A new room, another wall or another place along it, its openings; or no room. Ranges are checked in validation. */
 function setRoom(draft, op, path) {
-  const given = ['shape', 'wall', 'offset'].filter((f) => isSet(op[f]));
+  const given = ['shape', 'wall', 'offset', 'openings'].filter((f) => isSet(op[f]));
   if (op.clear) {
     if (given.length) throw new DomainError(INVALID_OP, path, 'clear cannot be combined with new values');
     draft.room = null;
     return draft;
   }
-  if (!given.length) throw new DomainError(INVALID_OP, path, 'give shape, wall or offset, or clear');
+  if (!given.length) throw new DomainError(INVALID_OP, path, 'give shape, wall, offset or openings, or clear');
   let room;
   let recentre;
   if (isSet(op.shape)) {
-    room = { shape: { ...op.shape }, wall: DEFAULT_WALL[op.shape.kind], offset: 0 };
+    // The same template at another size keeps its walls' numbers, so its openings stay.
+    const kept = draft.room && draft.room.shape.kind === op.shape.kind ? structuredClone(draft.room.openings ?? []) : [];
+    room = { shape: { ...op.shape }, wall: DEFAULT_WALL[op.shape.kind], offset: 0, openings: kept };
     recentre = true;
   } else if (draft.room) {
     room = structuredClone(draft.room);
@@ -363,6 +380,7 @@ function setRoom(draft, op, path) {
     recentre = false;
   }
   if (recentre) room.offset = centred(room.shape, room.wall, draft.dimensions.width);
+  if (isSet(op.openings)) room.openings = op.openings.map((item, i) => roomOpening(item, `${path}.openings[${i}]`));
   draft.room = room;
   return draft;
 }

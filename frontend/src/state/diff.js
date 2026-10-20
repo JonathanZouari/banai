@@ -61,7 +61,14 @@ export function diffDesigns(a, b) {
   // set_site replaces the whole obstacle list: a proposal that drops one must say so on its card.
   // The room plan (ADR-037): added, removed, or changed (its shape, wall or place along it).
   if (Boolean(a.room) !== Boolean(b.room)) out.push(b.room ? 'חדר: נוסף' : 'חדר: הוסר');
-  else if (a.room && JSON.stringify(a.room) !== JSON.stringify(b.room)) out.push('חדר: עודכן');
+  else if (a.room) {
+    // Its openings get their own line; the rest of the room (shape, wall, place) the general one.
+    const { openings: before = [], ...restA } = a.room;
+    const { openings: after = [], ...restB } = b.room;
+    if (JSON.stringify(restA) !== JSON.stringify(restB)) out.push('חדר: עודכן');
+    if (before.length !== after.length) out.push(`פתחים בחדר: ${before.length} ← ${after.length}`);
+    else if (JSON.stringify(before) !== JSON.stringify(after)) out.push('פתחים בחדר: עודכנו');
+  }
   const obstacles = (d) => d.site?.obstacles ?? [];
   if (obstacles(a).length !== obstacles(b).length) out.push(`מכשולים בקיר: ${obstacles(a).length} ← ${obstacles(b).length}`);
   else if (JSON.stringify(obstacles(a)) !== JSON.stringify(obstacles(b))) out.push('מכשולים בקיר: עודכנו');

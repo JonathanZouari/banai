@@ -5,6 +5,9 @@
 // wall's inside is on the right of its direction, and facing a wall from inside the room its start is on the
 // left. The wardrobe's back stands against wall `room.wall`, its left outer face `room.offset` mm from that
 // wall's start. Templates keep every wall axis-aligned, so all distances are whole millimetres.
+//
+// Openings (doors, windows, passages) are placed the same way: `at` mm from their wall's start, facing it from
+// inside the room, and a door's hinge side is seen from there too.
 
 export const ROOM_KINDS = Object.freeze(['rect', 'l', 'recess']);
 export const MIN_WALL = 300; // mm: every wall of a template is at least this long
@@ -177,4 +180,46 @@ export function sideGap(design, side) {
 export function effectiveClearance(design) {
   const measured = design.site?.clearance;
   return measured !== null && measured !== undefined ? measured : frontClearance(design);
+}
+
+// ---------- openings (ADR-037 stage 3) ----------
+
+export const OPENING_TYPES = Object.freeze(['door', 'window', 'passage']);
+// The fields only one type takes, and the value a new opening of that type gets.
+export const OPENING_ONLY = Object.freeze({ sill: 'window', hinge: 'door', swing: 'door' });
+export const DEFAULT_OPENING = Object.freeze({ sill: 900, hinge: 'left', swing: 'in' });
+// Which limit each opening field takes (defaults LIMITS).
+export const OPENING_LIMITS = Object.freeze({ at: 'openingAt', width: 'openingWidth', height: 'openingHeight', sill: 'openingSill' });
+
+/** Where the opening starts above the floor: a window's sill, else the floor. */
+export const openingBottom = (opening) => opening.sill ?? 0;
+
+/** Whether two openings in one wall share any of it (along it and in height). */
+function overlap(a, b) {
+  const along = a.at < b.at + b.width && b.at < a.at + a.width;
+  const [ya, yb] = [openingBottom(a), openingBottom(b)];
+  return along && ya < yb + b.height && yb < ya + a.height;
+}
+
+/** What makes the room's openings impossible: [[error code, path, message]]. Ranges are checked separately. */
+export function openingIssues(room, ceiling) {
+  const lengths = roomWalls(room.shape).map((w) => w.length);
+  const issues = [];
+  room.openings.forEach((item, i) => {
+    const path = `room.openings[${i}]`;
+    for (const [field, kind] of Object.entries(OPENING_ONLY)) {
+      if ((item.type === kind) !== (item[field] !== null)) {
+        issues.push(['SCHEMA_INVALID', `${path}.${field}`, item.type === kind ? `a ${kind} needs ${field}` : `only a ${kind} has ${field}`]);
+      }
+    }
+    if (item.wall < 0 || item.wall >= lengths.length) {
+      issues.push(['OUT_OF_RANGE', `${path}.wall`, `the room has walls 0..${lengths.length - 1}`]);
+      return;
+    }
+    if (item.at + item.width > lengths[item.wall]) issues.push(['OUT_OF_BOUNDS', `${path}.width`, `the opening runs past the end of wall ${item.wall}`]);
+    if (ceiling !== null && openingBottom(item) + item.height > ceiling) issues.push(['OUT_OF_BOUNDS', `${path}.height`, 'the opening goes above the ceiling']);
+    const clash = room.openings.slice(0, i).findIndex((other) => other.wall === item.wall && overlap(other, item));
+    if (clash >= 0) issues.push(['OUT_OF_BOUNDS', `${path}.at`, `the opening overlaps opening ${clash}`]);
+  });
+  return issues;
 }

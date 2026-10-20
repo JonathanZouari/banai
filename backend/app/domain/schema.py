@@ -27,7 +27,7 @@ from pydantic import (
 from pydantic.alias_generators import to_camel
 
 from app.domain import ids
-from app.domain.defaults import MAX_OBSTACLES, default_handles
+from app.domain.defaults import MAX_OBSTACLES, MAX_OPENINGS, default_handles
 from app.domain.errors import SCHEMA_INVALID, DomainError
 
 # Hard structural bounds (anti-abuse). Kept small: every op re-validates the whole
@@ -280,6 +280,23 @@ class RecessRoom(StrictModel):
 
 
 RoomShape = Annotated[RectRoom | LRoom | RecessRoom, Field(discriminator="kind")]
+OpeningType = Literal["door", "window", "passage"]
+
+
+class Opening(StrictModel):
+    """A door, a window or an open passage in a wall of the room (mm): `wall` (0-based), `at` from the wall's
+    left end facing it from inside the room, its size, a window's `sill` above the floor, and a door's `hinge`
+    side (seen from inside) and `swing` (into the room or out of it). Which fields each type takes, the ranges
+    and the fit in the wall are checked in validation (room.opening_issues)."""
+
+    type: OpeningType
+    wall: Int
+    at: Int
+    width: Int
+    height: Int
+    sill: Int | None = None
+    hinge: Literal["left", "right"] | None = None
+    swing: Literal["in", "out"] | None = None
 
 
 class Room(StrictModel):
@@ -290,6 +307,7 @@ class Room(StrictModel):
     shape: RoomShape
     wall: Int
     offset: Int
+    openings: Annotated[list[Opening], Field(max_length=MAX_OPENINGS)] = Field(default_factory=list)
 
 
 class Compartment(StrictModel):

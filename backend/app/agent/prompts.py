@@ -96,7 +96,7 @@ OPS (units: mm; interior y is measured up from the top face of the bottom panel)
 - set_household {people: [{name?, height}]}   (the household, up to 6; replaces the list; under 1400 mm is a child)
   Names in the design are withheld from you (null). Keep each existing person at their position with name null:
   the app keeps their names. Add a name only for a new person, if the customer gives it.
-- set_room {shape?, wall?, offset?, clear?}   (the room around the wardrobe, a floor plan in mm)
+- set_room {shape?, wall?, offset?, openings?, clear?}   (the room around the wardrobe, a floor plan in mm)
   shape: {kind: "rect", width, depth} | {kind: "l", width, depth, cutWidth, cutDepth} (its top-right corner
   cut away) | {kind: "recess", width, depth, recessX, recessWidth, recessDepth} (a niche going out of the top
   wall, recessX from the left). Walls are numbered clockwise from the top-left corner seen from above; the
@@ -105,6 +105,14 @@ OPS (units: mm; interior y is measured up from the top face of the bottom panel)
   to another wall, centred; offset is mm from the wall's left end, facing it from inside the room. The room
   is the customer's estimate: ask its size when you need it. ROOM in the design context gives the walls and
   the space around the wardrobe.
+  openings: the room's doors, windows and passages, up to 8; the list replaces the old one, so send every
+  opening you keep. Each {type: "door"|"window"|"passage", wall, at, width, height, sill?, hinge?, swing?}:
+  at is mm from the wall's left end facing it from inside the room, like offset; sill is a window's height above
+  the floor (window only, default 900); hinge "left"|"right" is the side of a door's hinges seen from inside
+  the room (door only, default "left"), and swing "in" opens it into the room, "out" out of it (door only,
+  default "in"). An opening lies inside its wall, two in one wall never overlap, and a new shape of another kind
+  drops them (its walls are numbered anew). The customer numbers them from 1 ("פתח 1" is openings[0]). The
+  advisories warn when a door swings into the wardrobe or its open doors, or the wardrobe blocks an opening.
 - set_fittings {softClose?: true|false, base?: "plinth"|"legs", childLock?: true|false, releaseHeight?}   (soft-close hinges and runners; legs stand plinthHeight tall, 90-170 mm)
 - configure_doors {type: "hinged"|"sliding"|"none", doors?: [{id?, compartmentIds, hingeSide: "left"|"right"}], count?, ids?}
 - modify_door {id, hingeSide?, mirror?}; split_door {id}
@@ -152,6 +160,19 @@ def private_view(design: dict) -> dict:
     return {**design, "household": {**design["household"], "people": [{**p, "name": None} for p in people]}}
 
 
+def _openings(openings: list[dict]) -> str:
+    """The room's openings in words, by index (the customer's number is index + 1)."""
+    lines = []
+    for i, o in enumerate(openings):
+        line = f"{i} {o['type']} on wall {o['wall']} at {o['at']}, {o['width']} wide, {o['height']} high"
+        if o["type"] == "window":
+            line += f", sill {o['sill']}"
+        if o["type"] == "door":
+            line += f", hinge {o['hinge']}, opens {o['swing']}"
+        lines.append(line)
+    return "; ".join(lines) or "none"
+
+
 def design_context(design: dict, revision: int, advisories: list[dict], catalog: dict) -> str:
     """The developer message sent with each turn: the current design, its advisories and the catalog ids."""
     design = private_view(design)
@@ -163,7 +184,8 @@ def design_context(design: dict, revision: int, advisories: list[dict], catalog:
         lengths = ", ".join(f"wall {i} = {w['length']}" for i, w in enumerate(walls(design["room"]["shape"])))
         room = (f"ROOM (mm): {lengths}. The wardrobe is on wall {design['room']['wall']}, {design['room']['offset']} from "
                 f"its left end; free floor in front {front_clearance(design)}, to the wall on the left "
-                f"{side_gap(design, 'left')}, on the right {side_gap(design, 'right')}.\n\n")
+                f"{side_gap(design, 'left')}, on the right {side_gap(design, 'right')}. "
+                f"Openings: {_openings(design['room']['openings'])}.\n\n")
     return (
         f"CURRENT DESIGN (revision {revision}; JSON, mm):\n{json.dumps(design, ensure_ascii=False, separators=(',', ':'))}\n\n"
         f"{room}ADVISORIES (non-blocking, research-backed):\n{json.dumps(advice, ensure_ascii=False)}\n\n"
