@@ -15,6 +15,8 @@ import { mountChat } from './chat/chatPanel.js';
 import { mountStartScreen } from './entry/startScreen.js';
 import { createSaveDialog } from './share/saveDialog.js';
 import { createRenderDialog } from './render/renderDialog.js';
+import { createOrderFlow } from './orders/orderFlow.js';
+import { downloadCarpenterPdf } from './pdf/buildPdf.js';
 import { createLogo } from './ui/logo.js';
 import { installRipple } from './ui/ripple.js';
 
@@ -56,6 +58,8 @@ async function boot() {
   bindInteriorToggle(store);
   mountPanel(document.getElementById('properties-content'), store);
   bindDialogs();
+  const order = createOrderFlow({ store, viewer, downloadPdf: downloadCarpenterPdf });
+  document.getElementById('open-order').addEventListener('click', order.open);
 
   // The agent is optional: without an OpenAI key on the server the panel says so honestly.
   const agent = health?.data.agent === true

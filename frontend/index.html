@@ -15,11 +15,13 @@
           <span>Show interior</span>
         </label>
         <span class="topbar__units">cm</span>
+        <button type="button" class="btn btn--tonal" id="open-order" data-testid="open-order">Confirm order</button>
         <button type="button" class="btn btn--tonal" id="open-render" data-testid="open-render">Render</button>
         <button type="button" class="btn btn--primary" id="open-save" data-testid="open-save">Save</button>
       </div>
     </header>
     <div class="banner banner--error" id="error-banner" role="alert" hidden></div>
+    <div class="banner banner--order" id="order-banner" data-testid="order-banner" hidden></div>
     <main class="workspace">
       <aside class="panel" id="chat-panel" aria-label="מעצב AI"></aside>
       <section class="viewer" id="viewer" aria-label="3D viewer"></section>
