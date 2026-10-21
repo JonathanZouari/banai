@@ -39,6 +39,9 @@ export function createOrderFlow({ store, viewer, downloadPdf }) {
   async function runDownload() {
     pdfButton.disabled = true;
     banner.dataset.status = 'working';
+    // Open the tab inside the click (before any await) so the browser does not treat it as a blocked popup.
+    const tab = window.open('', '_blank');
+    if (tab) tab.document.body.textContent = 'Creating your PDF…';
     try {
       const { design, catalog } = store.getState();
       const saved = await downloadPdf({ design, catalog, imageDataUrl: viewer.captureImage() });
@@ -46,8 +49,12 @@ export function createOrderFlow({ store, viewer, downloadPdf }) {
       openUrl = saved.url;
       openLink.href = saved.url;
       openLink.hidden = false;
-      bannerMessage.textContent = `Saved ${saved.name} to your Downloads folder. You can also open it here.`;
+      if (tab) tab.location.href = saved.url;
+      bannerMessage.textContent = tab
+        ? `${saved.name} is open in a new tab and saved to your Downloads folder.`
+        : `${saved.name} was created. Your browser blocked the new tab, so use Open PDF.`;
     } catch {
+      tab?.close();
       bannerMessage.textContent = 'The PDF could not be created. Please try again.';
     } finally {
       pdfButton.disabled = false;

@@ -25,7 +25,10 @@ test.describe('confirm order and carpenter PDF', () => {
     expect(locked).toEqual({ ok: false, code: 'ORDER_LOCKED', width: 2000 });
     await expect(page.locator('#properties-panel')).toHaveAttribute('inert', '');
 
-    const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('download-pdf').click()]);
+    const [download, popup] = await Promise.all([page.waitForEvent('download'), page.waitForEvent('popup'), page.getByTestId('download-pdf').click()]);
+    // Headless Chromium has no PDF viewer, so the new tab turns the blob into a download; a real browser shows it.
+    expect(popup).toBeTruthy();
+    await expect(page.getByTestId('open-pdf')).toHaveAttribute('href', /^blob:/);
     await expect(page.getByTestId('open-pdf')).toBeVisible();
     expect(download.suggestedFilename()).toMatch(/^banai-wardrobe-\d{4}-\d{2}-\d{2}\.pdf$/);
     const stream = await download.createReadStream();
