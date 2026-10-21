@@ -18,3 +18,15 @@ describe('buildCarpenterPdf', () => {
     expect(doc.getNumberOfPages()).toBeGreaterThanOrEqual(3);
   });
 });
+
+describe('buildCarpenterPdf in Hebrew', () => {
+  it('embeds the Hebrew font only for Hebrew (page counts may differ with text length)', async () => {
+    const he = await buildCarpenterPdf({ design, catalog, language: 'he' });
+    const en = await buildCarpenterPdf({ design, catalog, language: 'en' });
+    const bytes = Buffer.from(he.output('arraybuffer')).toString('latin1');
+    expect(bytes).toMatch(/Heebo/);
+    expect(he.getNumberOfPages()).toBeGreaterThanOrEqual(3);
+    expect(en.getNumberOfPages()).toBeGreaterThanOrEqual(3);
+    expect(Buffer.from(en.output('arraybuffer')).toString('latin1')).not.toMatch(/Heebo/);
+  });
+});

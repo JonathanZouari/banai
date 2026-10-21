@@ -58,8 +58,6 @@ async function boot() {
   bindInteriorToggle(store);
   mountPanel(document.getElementById('properties-content'), store);
   bindDialogs();
-  const order = createOrderFlow({ store, viewer, downloadPdf: downloadCarpenterPdf });
-  document.getElementById('open-order').addEventListener('click', order.open);
 
   // The agent is optional: without an OpenAI key on the server the panel says so honestly.
   const agent = health?.data.agent === true
@@ -69,6 +67,9 @@ async function boot() {
     }
     : null;
   const language = createLanguage();
+  // The PDF follows the language chosen in the chat (Hebrew or English) at the moment of download.
+  const order = createOrderFlow({ store, viewer, downloadPdf: downloadCarpenterPdf, getLanguage: language.get });
+  document.getElementById('open-order').addEventListener('click', order.open);
   const chatModel = createChatModel({ getRevision: () => store.getState().revision, agent, getLanguage: language.get });
   const t = () => language.strings();
 

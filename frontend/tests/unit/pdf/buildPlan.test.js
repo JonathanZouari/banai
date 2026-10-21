@@ -46,3 +46,33 @@ describe('buildPlan', () => {
     expect(pdfText('Sage שלום')).toBe('Sage ????');
   });
 });
+
+describe('buildPlan languages', () => {
+  const numbers = (plan) => plan.parts.map(({ key, qty, length, width, thickness }) => [key, qty, length, width, thickness]);
+
+  it('prints identical sizes and quantities in Hebrew and English', () => {
+    const he = buildPlan(design, catalog, 'he');
+    const en = buildPlan(design, catalog, 'en');
+    expect(numbers(he)).toEqual(numbers(en));
+    expect(he.steps).toHaveLength(en.steps.length);
+    expect(he.overall).toEqual(en.overall);
+  });
+
+  it('uses Hebrew words, including Hebrew catalog names, and no question-mark replacements', () => {
+    const he = buildPlan(design, catalog, 'he');
+    expect(he.parts[0].part).toBe('דופן צד');
+    expect(he.carcassLook).toBe('לוח מלמין, לבן, מט');
+    expect(JSON.stringify(he)).not.toContain('?');
+    expect(he.steps.at(-1)).toMatch(/בדיקה סופית/);
+  });
+
+  it('keeps a custom colour name as typed and falls back to the English catalog name for unknown ids', () => {
+    const custom = structuredClone(design);
+    custom.carcass.appearance.color = { custom: true, name: 'ירוק מרווה', hex: '#9caf88' };
+    expect(buildPlan(custom, catalog, 'he').carcassLook).toContain('ירוק מרווה (מותאם אישית)');
+    const extended = { ...catalog, colors: [...catalog.colors, { id: 'teal', name: 'Teal', hex: '#008080' }] };
+    const teal = structuredClone(design);
+    teal.carcass.appearance.color = { catalogId: 'teal' };
+    expect(buildPlan(teal, extended, 'he').carcassLook).toContain('Teal');
+  });
+});

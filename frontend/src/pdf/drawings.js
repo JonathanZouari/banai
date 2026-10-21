@@ -33,7 +33,7 @@ function dimension(doc, [x1, y1], [x2, y2], label, { offset = 0, vertical = fals
 }
 
 /** Front elevation with doors drawn dashed over the interior, so the layout stays readable. */
-export function drawFront(doc, design, box) {
+export function drawFront(doc, design, box, fmt = (n) => `${n} mm`) {
   const { width: W, height: H } = design.dimensions;
   const t = design.carcass.panelThickness;
   const s = Math.min(box.w / W, box.h / H);
@@ -95,12 +95,12 @@ export function drawFront(doc, design, box) {
   }
   doc.setLineDashPattern([], 0);
   doc.setDrawColor(...INK);
-  dimension(doc, [x0, Y(0)], [x0 + W * s, Y(0)], `${W} mm`, { offset: -8 });
-  dimension(doc, [x0, Y(0)], [x0, Y(H)], `${H} mm`, { offset: -8, vertical: true });
+  dimension(doc, [x0, Y(0)], [x0 + W * s, Y(0)], fmt(W), { offset: -8 });
+  dimension(doc, [x0, Y(0)], [x0, Y(H)], fmt(H), { offset: -8, vertical: true });
 }
 
 /** Top view (width x depth) and side view (depth x height). */
-export function drawTopAndSide(doc, design, topBox, sideBox) {
+export function drawTopAndSide(doc, design, topBox, sideBox, fmt = (n) => `${n} mm`) {
   const { width: W, height: H, depth: D } = design.dimensions;
   const t = design.carcass.panelThickness;
   const ranges = compartmentXRanges(design);
@@ -116,8 +116,8 @@ export function drawTopAndSide(doc, design, topBox, sideBox) {
   doc.rect(tx + t * st, ty, (W - 2 * t) * st, D * st, 'FD');
   doc.setFillColor(...FILL_PANEL);
   design.partitions.forEach((p, i) => doc.rect(tx + (t + ranges[i][1]) * st, ty, p.thickness * st, D * st, 'FD'));
-  dimension(doc, [tx, ty], [tx + W * st, ty], `${W} mm`, { offset: -5 });
-  dimension(doc, [tx + W * st, ty], [tx + W * st, ty + D * st], `${D} mm`, { offset: 6, vertical: true });
+  dimension(doc, [tx, ty], [tx + W * st, ty], fmt(W), { offset: -5 });
+  dimension(doc, [tx + W * st, ty], [tx + W * st, ty + D * st], fmt(D), { offset: 6, vertical: true });
 
   const ss = Math.min(sideBox.w / D, sideBox.h / H);
   const sx = sideBox.x + (sideBox.w - D * ss) / 2;
@@ -126,6 +126,6 @@ export function drawTopAndSide(doc, design, topBox, sideBox) {
   doc.rect(sx, sy, D * ss, H * ss, 'FD');
   doc.setFillColor(255, 255, 255);
   doc.rect(sx, sy + t * ss, D * ss, (H - 2 * t) * ss, 'FD');
-  dimension(doc, [sx, sy], [sx + D * ss, sy], `${D} mm`, { offset: -5 });
-  dimension(doc, [sx + D * ss, sy], [sx + D * ss, sy + H * ss], `${H} mm`, { offset: 6, vertical: true });
+  dimension(doc, [sx, sy], [sx + D * ss, sy], fmt(D), { offset: -5 });
+  dimension(doc, [sx + D * ss, sy], [sx + D * ss, sy + H * ss], fmt(H), { offset: 6, vertical: true });
 }

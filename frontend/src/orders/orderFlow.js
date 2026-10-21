@@ -18,7 +18,7 @@ export function summaryLines(design, catalog) {
   ];
 }
 
-export function createOrderFlow({ store, viewer, downloadPdf }) {
+export function createOrderFlow({ store, viewer, downloadPdf, getLanguage = () => 'en' }) {
   const summary = el('ul', { className: 'order__summary' });
   summary.dataset.testid = 'order-summary';
   const preview = el('img', { className: 'order__preview', attrs: { alt: 'Current 3D view of your wardrobe' } });
@@ -44,7 +44,7 @@ export function createOrderFlow({ store, viewer, downloadPdf }) {
     if (tab) tab.document.body.textContent = 'Creating your PDF…';
     try {
       const { design, catalog } = store.getState();
-      const saved = await downloadPdf({ design, catalog, imageDataUrl: viewer.captureImage() });
+      const saved = await downloadPdf({ design, catalog, imageDataUrl: viewer.captureImage(), language: getLanguage() });
       if (openUrl) URL.revokeObjectURL(openUrl);
       openUrl = saved.url;
       openLink.href = saved.url;
