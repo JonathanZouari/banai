@@ -4,7 +4,7 @@ An MVP for designing standard straight wardrobes with three synchronized parts: 
 
 > Branch `bobHabanai` (fork `ariel-korenn/banai`) grows this into a custom-wardrobe designer with a Hebrew start screen, advisories, a carpenter dossier PDF and "Bob the Builder", a fictional master carpenter who is the chat agent (the About page tells his story and says it is fictional). See `CLAUDE.md` for the full feature list.
 
-> Status: **Phase 1 (Foundations & Infrastructure)**. See `docs/architecture.md` for the full plan and phase breakdown.
+> Status (2026-10-21): the custom-wardrobe designer on `bobHabanai` is feature-complete for its MVP: the start screen, the room editor, drag and stretch in 3D, measuring, advisories, Bob's chat and voice, the carpenter dossier PDF, and projects shared by a link (Supabase). See `CLAUDE.md` for the feature list and `docs/architecture.md` for the design.
 
 ## Repository layout
 

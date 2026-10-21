@@ -255,6 +255,11 @@ class FakePostgrest:
             return httpx2.Response(201, json=[row])
         if request.method == "GET" and params.get("select") == "id" and "id" not in params:
             return httpx2.Response(200, json=list(self.rows.values())[:1], headers={"content-range": f"0-0/{len(self.rows)}"})
+        if request.method == "DELETE" and "updated_at" in params:  # the purge
+            cutoff = params["updated_at"].removeprefix("lt.")
+            for key in [k for k, r in self.rows.items() if r.get("updated_at", "9") < cutoff]:
+                del self.rows[key]
+            return httpx2.Response(204)
         wanted = params["id"].removeprefix("eq.")
         row = self.rows.get(wanted)
         if request.method == "GET":
@@ -390,3 +395,76 @@ def test_a_reply_without_a_revision_is_a_storage_error_not_a_crash(supa, monkeyp
     monkeypatch.setattr(repo, "_call", lambda *args, **kwargs: httpx2.Response(200, json=[{"id": "x"}]))
     with pytest.raises(StorageError):
         repo.update("x", 1, name="n", design={}, customer=None)
+
+
+# ---- expiry: 180 days after the last save ------------------------------------------------------------------
+
+
+def _later(monkeypatch, days):
+    from datetime import UTC, datetime, timedelta
+
+    from app import store
+
+    now = datetime.now(UTC) + timedelta(days=days)  # from the real clock, so two calls do not add up
+    monkeypatch.setattr(store, "utcnow", lambda: now)
+    monkeypatch.setattr(projects, "utcnow", lambda: now)
+
+
+def test_a_project_not_saved_for_180_days_opens_like_an_unknown_link(monkeypatch):
+    made = create().json()["data"]
+    auth = {"Authorization": f"Bearer {made['token']}"}
+    _later(monkeypatch, 179)
+    assert client.get(f"/api/projects/{made['id']}", headers=auth).status_code == 200
+    _later(monkeypatch, 181)
+    gone = client.get(f"/api/projects/{made['id']}", headers=auth)
+    assert gone.status_code == 404 and gone.json()["error"]["code"] == "NOT_FOUND"
+
+
+def test_a_save_restarts_the_180_days(monkeypatch):
+    made = create().json()["data"]
+    auth = {"Authorization": f"Bearer {made['token']}"}
+    _later(monkeypatch, 170)
+    saved = client.put(f"/api/projects/{made['id']}", headers={**auth, "If-Match": "1"},
+                       json={"name": "n", "design": basic_wardrobe()})
+    assert saved.status_code == 200
+    _later(monkeypatch, 300)  # 130 days after the save
+    assert client.get(f"/api/projects/{made['id']}", headers=auth).status_code == 200
+
+
+def test_a_new_project_purges_the_expired_ones(monkeypatch):
+    from app import store
+
+    old = create().json()["data"]
+    _later(monkeypatch, 200)
+    create()
+    assert store._memory.get(old["id"]) is None and store._memory.count() == 1
+
+
+def test_the_supabase_repo_purges_by_the_last_save(supa):
+    from datetime import UTC, datetime
+
+    repo, fake = supa
+    fake.rows["old"] = {"id": "old", "revision": 1, "updated_at": "2026-01-01T00:00:00+00:00"}
+    fake.rows["new"] = {"id": "new", "revision": 1, "updated_at": "2026-09-01T00:00:00+00:00"}
+    repo.purge(datetime(2026, 4, 1, tzinfo=UTC))
+    call = [c for c in fake.calls if c.method == "DELETE"][-1]
+    assert call.url.params["updated_at"] == "lt.2026-04-01T00:00:00Z"
+    assert set(fake.rows) == {"new"}
+
+
+def test_a_row_without_a_readable_time_has_not_expired():
+    from app.store import expired
+
+    assert not expired({}) and not expired({"updated_at": "not a time"})
+    assert expired({"updated_at": "2020-01-01T00:00:00+00:00"})
+
+
+def test_a_failed_purge_does_not_block_a_new_project(monkeypatch):
+    from app import store
+
+    def broken(_before):
+        raise StorageError("status 500")
+
+    monkeypatch.setattr(store._memory, "purge", broken)
+    assert create().status_code == 201
+

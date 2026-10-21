@@ -72,6 +72,7 @@ test('deleting from the server stops the link, and a dead link falls back to the
   await openDesigner(page);
   await page.getByTestId('open-save').click();
   await page.getByTestId('share-save').click();
+  await expect(page.getByTestId('share-link')).toHaveValue(LINK); // the save has answered: the link is there to copy
   const link = await page.getByTestId('share-link').inputValue();
   await page.getByTestId('share-delete').click();
   await page.getByTestId('share-delete-confirm').click();

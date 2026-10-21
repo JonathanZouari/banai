@@ -180,7 +180,7 @@ export function createProjectsDialog({ store, newDesign, onOpened, toast, projec
   // Projects on the server, shared by a link (ADR-042). The customer's details go there too, but never to Bob.
   const SHARE_ERRORS = Object.freeze({
     STALE: 'הפרויקט נשמר ממקום אחר מאז שפתחתם אותו, ולכן לא דרסנו אותו. אפשר לשמור את מה שיש לכם כפרויקט חדש בשרת.',
-    NOT_FOUND: 'הפרויקט כבר לא קיים בשרת, או שהקישור לא נכון.',
+    NOT_FOUND: 'הפרויקט כבר לא קיים בשרת (פרויקט שלא נשמר 180 יום נמחק), או שהקישור לא נכון.',
     STORAGE_OFF: 'השרת הזה לא מוגדר לשמור פרויקטים.',
     STORAGE_UNAVAILABLE: 'מאגר הפרויקטים לא ענה. נסו שוב בעוד רגע.',
     STORAGE_FULL: 'השרת לא יכול לשמור עוד פרויקטים כרגע.',
@@ -266,8 +266,8 @@ export function createProjectsDialog({ store, newDesign, onOpened, toast, projec
       nameInput.value = name;
       save(); // the local list keeps the same project, with its link
       shareStatus.textContent = customer
-        ? 'נשמר בשרת. כל מי שיש לו את הקישור יכול לפתוח ולערוך, כולל פרטי הלקוח. שלחו אותו רק למי שצריך.'
-        : 'נשמר בשרת. כל מי שיש לו את הקישור יכול לפתוח ולערוך. שלחו אותו רק למי שצריך.';
+        ? 'נשמר בשרת. כל מי שיש לו את הקישור יכול לפתוח ולערוך, כולל פרטי הלקוח. שלחו אותו רק למי שצריך. פרויקט שלא נשמר 180 יום נמחק מהשרת.'
+        : 'נשמר בשרת. כל מי שיש לו את הקישור יכול לפתוח ולערוך. שלחו אותו רק למי שצריך. פרויקט שלא נשמר 180 יום נמחק מהשרת.';
     } catch (error) {
       if (error?.code === 'NOT_FOUND') current = { ...current, remote: null };
       shareSaveNew.hidden = error?.code !== 'STALE';

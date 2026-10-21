@@ -1,0 +1,10 @@
+# Never in the image: secrets, local environments, tests, caches.
+.env
+.env.*
+.venv/
+tests/
+**/__pycache__/
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/

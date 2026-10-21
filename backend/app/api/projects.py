@@ -6,7 +6,8 @@
     DELETE /api/projects/{id}   Authorization                        -> {deleted: true}
 
 The token is 256 random bits; only its SHA-256 is stored and it is compared in constant time. An unknown id and a
-wrong token are the same 404, so the answer says nothing about which ids exist. The design goes through the same
+wrong token are the same 404, so the answer says nothing about which ids exist. A project not saved for 180 days
+has expired: the same 404, and the next create purges it (app.store.RETENTION). The design goes through the same
 engine checks as everywhere else and the customer's details through the same model as the dossier's. Request
 bodies keep the 1 MiB cap. Nothing from a request (design, customer, token) is echoed back or logged.
 """
@@ -33,7 +34,7 @@ from app.domain.schema import SAFE_TEXT_PATTERN, parse_design
 from app.domain.validation import validate_canonical
 from app.config import get_settings
 from app.dossier.customer import Customer
-from app.store import MAX_STORED_DESIGNS, ProjectRepo, StorageError, StorageOff, get_repo
+from app.store import MAX_STORED_DESIGNS, RETENTION, ProjectRepo, StorageError, StorageOff, expired, get_repo, utcnow
 
 router = APIRouter(prefix="/api")
 log = logging.getLogger(__name__)
@@ -181,6 +182,10 @@ def create_project(body: ProjectBody, request: Request):
     token = secrets.token_urlsafe(32)
 
     def run(repo: ProjectRepo):
+        try:
+            repo.purge(utcnow() - RETENTION)  # expired projects make room before the ceiling is checked
+        except StorageError as error:
+            log.warning("project purge failed: %s", error)  # housekeeping: a failed purge never blocks a save
         if repo.count() >= MAX_STORED_DESIGNS:
             return _error(503, "STORAGE_FULL", "The server cannot keep more projects right now.")
         row = repo.create(token_hash=_hash(token), name=body.name.strip() or "ארון", design=design, customer=customer)
@@ -193,6 +198,8 @@ def _owned(repo: ProjectRepo, project_id: str, authorization: str | None) -> dic
     """The row, when the token is the right one; otherwise None (the same answer as for an unknown id)."""
     token = _bearer(authorization)
     row = repo.get(project_id)
+    if row is not None and expired(row):
+        row = None  # an expired project is gone, whatever the token
     if row is None or token is None:
         # Compare against something either way, so a missing row takes as long as a wrong token.
         hmac.compare_digest(_hash(token or "x"), "0" * 64)

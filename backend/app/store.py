@@ -2,6 +2,9 @@
 Supabase and reached by a link that carries a secret token: no accounts. Only this backend talks to the table
 (`designs`, RLS on with no policies); the service key never leaves the server.
 
+A project that has not been saved for RETENTION (180 days) has expired: it opens like an unknown link, and the
+next new project purges every expired row, so nothing stays on the server for ever.
+
 `ProjectRepo` is the small interface the API uses. `SupabaseRepo` speaks PostgREST; `MemoryRepo` keeps rows in
 this process (tests and the E2E server). Nothing here logs a design, a customer or a token.
 """
@@ -11,7 +14,7 @@ from __future__ import annotations
 import copy
 import threading
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 
 import httpx2
@@ -20,6 +23,27 @@ from app.config import Settings, get_settings
 
 TIMEOUT_SECONDS = 8.0
 MAX_STORED_DESIGNS = 5000  # a ceiling for an unauthenticated create endpoint (a LOW in the security review)
+RETENTION = timedelta(days=180)  # since the last save
+
+
+def utcnow() -> datetime:
+    """The clock (tests move it)."""
+    return datetime.now(UTC)
+
+
+def expired(row: dict[str, Any], now: datetime | None = None) -> bool:
+    """Whether the row was last saved more than RETENTION ago. A row without a readable time has not expired."""
+    stamp = row.get("updated_at")
+    if isinstance(stamp, str):
+        try:
+            stamp = datetime.fromisoformat(stamp)
+        except ValueError:
+            return False
+    if not isinstance(stamp, datetime):
+        return False
+    if stamp.tzinfo is None:
+        stamp = stamp.replace(tzinfo=UTC)
+    return (now or utcnow()) - stamp > RETENTION
 
 
 class StorageError(RuntimeError):
@@ -37,12 +61,15 @@ class ProjectRepo(Protocol):
         """Store a project at revision 1. Returns its row: id, name, revision."""
 
     def get(self, project_id: str) -> dict[str, Any] | None:
-        """The row (id, token_hash, name, design, customer, revision), or None."""
+        """The row (id, token_hash, name, design, customer, revision, updated_at), or None."""
 
     def update(self, project_id: str, revision: int, *, name: str, design: dict, customer: dict | None) -> int | None:
         """Save over `revision`. Returns the new revision, or None when the stored revision is no longer that one."""
 
     def delete(self, project_id: str) -> bool: ...
+
+    def purge(self, before: datetime) -> None:
+        """Delete every row last saved before `before`."""
 
 
 class MemoryRepo:
@@ -58,7 +85,7 @@ class MemoryRepo:
 
     def create(self, *, token_hash: str, name: str, design: dict, customer: dict | None) -> dict[str, Any]:
         row = {"id": str(uuid.uuid4()), "token_hash": token_hash, "name": name, "design": copy.deepcopy(design),
-               "customer": copy.deepcopy(customer), "revision": 1}
+               "customer": copy.deepcopy(customer), "revision": 1, "updated_at": utcnow()}
         with self._lock:
             self._rows[row["id"]] = row
         return {"id": row["id"], "name": name, "revision": 1}
@@ -73,12 +100,18 @@ class MemoryRepo:
             row = self._rows.get(project_id)
             if row is None or row["revision"] != revision:
                 return None
-            row.update(name=name, design=copy.deepcopy(design), customer=copy.deepcopy(customer), revision=revision + 1)
+            row.update(name=name, design=copy.deepcopy(design), customer=copy.deepcopy(customer), revision=revision + 1,
+                       updated_at=utcnow())
             return row["revision"]
 
     def delete(self, project_id: str) -> bool:
         with self._lock:
             return self._rows.pop(project_id, None) is not None
+
+    def purge(self, before: datetime) -> None:
+        with self._lock:
+            for key in [k for k, row in self._rows.items() if row["updated_at"] < before]:
+                del self._rows[key]
 
 
 class SupabaseRepo:
@@ -130,7 +163,7 @@ class SupabaseRepo:
     def get(self, project_id: str) -> dict[str, Any] | None:
         response = self._call(
             "GET", "/designs",
-            params={"id": f"eq.{project_id}", "select": "id,token_hash,name,design,customer,revision", "limit": "1"},
+            params={"id": f"eq.{project_id}", "select": "id,token_hash,name,design,customer,revision,updated_at", "limit": "1"},
         )
         rows = self._rows(response)
         return rows[0] if rows else None
@@ -141,7 +174,7 @@ class SupabaseRepo:
             params={"id": f"eq.{project_id}", "revision": f"eq.{revision}"},
             headers={"Prefer": "return=representation"},
             json={"name": name, "design": design, "customer": customer, "revision": revision + 1,
-                  "updated_at": datetime.now(UTC).isoformat()},
+                  "updated_at": utcnow().isoformat()},
         )
         rows = self._rows(response)  # empty: someone saved first (or it is gone)
         if not rows:
@@ -154,6 +187,10 @@ class SupabaseRepo:
     def delete(self, project_id: str) -> bool:
         response = self._call("DELETE", "/designs", params={"id": f"eq.{project_id}"}, headers={"Prefer": "return=representation"})
         return bool(self._rows(response))
+
+    def purge(self, before: datetime) -> None:
+        stamp = before.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        self._call("DELETE", "/designs", params={"updated_at": f"lt.{stamp}"}, headers={"Prefer": "return=minimal"})
 
 
 _memory = MemoryRepo()
