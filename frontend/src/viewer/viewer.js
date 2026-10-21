@@ -41,6 +41,8 @@ function componentAt(hit, design) {
   return index >= 0 ? design.compartments[index].id : componentId;
 }
 
+export const CAPTURE_ASPECT = 1.4; // width / height of the picture used in the carpenter PDF
+
 export function createViewer(container, store) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -126,6 +128,22 @@ export function createViewer(container, store) {
     camera,
     controls,
     canvas: renderer.domElement,
+    /** A JPEG (aspect CAPTURE_ASPECT) of the whole current 3D view, letterboxed, for the carpenter PDF. */
+    captureImage() {
+      renderer.render(scene, camera);
+      const source = renderer.domElement;
+      const out = document.createElement('canvas');
+      out.width = 1400;
+      out.height = Math.round(1400 / CAPTURE_ASPECT);
+      const context = out.getContext('2d');
+      context.fillStyle = '#eceeec';
+      context.fillRect(0, 0, out.width, out.height);
+      const scale = Math.min(out.width / source.width, out.height / source.height);
+      const w = source.width * scale;
+      const h = source.height * scale;
+      context.drawImage(source, (out.width - w) / 2, (out.height - h) / 2, w, h);
+      return out.toDataURL('image/jpeg', 0.92);
+    },
     meshOf: (componentId) => group?.children.find((mesh) => mesh.userData.componentId === componentId) ?? null,
     /** Client (page) coordinates of a component's centre, for tests and tooling. */
     screenPointOf(componentId) {

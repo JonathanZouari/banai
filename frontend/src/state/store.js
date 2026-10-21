@@ -8,6 +8,8 @@ import { DomainError } from '../domain/errors.js';
 import { locate } from '../domain/lookup.js';
 import { deepFreeze } from '../domain/util.js';
 
+export const ORDER_LOCKED = 'ORDER_LOCKED';
+
 const KIND_BY_LOCATION = Object.freeze({
   compartment: 'compartment',
   partition: 'partition',
@@ -36,7 +38,7 @@ export function createStore({ design, revision = 1, catalog }) {
     throw new DomainError('SCHEMA_INVALID', 'revision', 'invalid revision');
   }
   let state = deepFreeze({
-    design: validDesign, revision, catalog: validCatalog, selection: null, ui: { doorsVisible: true },
+    design: validDesign, revision, catalog: validCatalog, selection: null, ui: { doorsVisible: true }, order: { confirmed: false },
   });
   const listeners = new Set();
 
@@ -55,6 +57,7 @@ export function createStore({ design, revision = 1, catalog }) {
 
     /** Apply domain ops atomically. Returns { ok: true } or { ok: false, error: DomainError }. */
     dispatch(ops) {
+      if (state.order.confirmed) return { ok: false, error: new DomainError(ORDER_LOCKED, 'order', 'the design is locked after order confirmation') };
       let next;
       try {
         next = applyOps(state.design, ops, state.catalog);
@@ -78,12 +81,22 @@ export function createStore({ design, revision = 1, catalog }) {
      * initial design; invalid data throws and leaves the state untouched.
      */
     replaceDesign(design, revision) {
+      if (state.order.confirmed) throw new DomainError(ORDER_LOCKED, 'order', 'the design is locked after order confirmation');
       const next = applyOps(design, [], state.catalog);
       if (!Number.isInteger(revision) || revision <= state.revision) {
         throw new DomainError('SCHEMA_INVALID', 'revision', 'invalid revision');
       }
       const selection = state.selection && resolveSelection(next, state.selection.id);
       commit({ design: next, revision, selection });
+    },
+
+    /** Order confirmation (no payment, no backend record): locks the design until unlockOrder(). */
+    confirmOrder() {
+      commit({ order: { confirmed: true } });
+    },
+
+    unlockOrder() {
+      commit({ order: { confirmed: false } });
     },
 
     setDoorsVisible(doorsVisible) {

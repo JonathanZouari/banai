@@ -15,6 +15,8 @@ import { mountChat } from './chat/chatPanel.js';
 import { mountStartScreen } from './entry/startScreen.js';
 import { createSaveDialog } from './share/saveDialog.js';
 import { createRenderDialog } from './render/renderDialog.js';
+import { createOrderFlow } from './orders/orderFlow.js';
+import { downloadCarpenterPdf } from './pdf/buildPdf.js';
 import { createLogo } from './ui/logo.js';
 import { installRipple } from './ui/ripple.js';
 
@@ -65,6 +67,9 @@ async function boot() {
     }
     : null;
   const language = createLanguage();
+  // The PDF follows the language chosen in the chat (Hebrew or English) at the moment of download.
+  const order = createOrderFlow({ store, viewer, downloadPdf: downloadCarpenterPdf, getLanguage: language.get });
+  document.getElementById('open-order').addEventListener('click', order.open);
   const chatModel = createChatModel({ getRevision: () => store.getState().revision, agent, getLanguage: language.get });
   const t = () => language.strings();
 

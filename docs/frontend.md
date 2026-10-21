@@ -63,6 +63,12 @@ Styles follow Material Design 3 (`styles/tokens.css` holds the `--md-sys-*` toke
 Door hardware (handles, sliding rails, outlines) is built in `viewer/builders/doors.js` as non-selectable `kind: 'hardware'` objects. Picking refreshes world matrices before raycasting, so a click is correct even if it lands before the next rendered frame.
 In dev builds `window.__banai.chat` exposes the chat model, so a proposal can be shown for visual checks (`chat.setProposal({...})`).
 
+## Order confirmation and carpenter PDF (`src/orders/`, `src/pdf/`)
+- The top-bar **Confirm order** opens a summary dialog. **Confirm and lock** sets `store.order.confirmed`: `dispatch` returns `ORDER_LOCKED`, `replaceDesign` throws, the chat and properties panels are `inert`. **Edit again** unlocks and hides the PDF button.
+- **Download carpenter PDF** builds an A4 PDF in the browser with jsPDF (lazy-loaded): cover with a 3D picture (`viewer.captureImage()`), front/top/side drawings (`pdf/drawings.js`), a cutting list and numbered assembly steps (`pdf/buildPlan.js`, pure and unit-tested).
+- The PDF follows the chat language: Hebrew (right-to-left, Heebo font embedded, ordering in `pdf/bidi.js`, words in `pdf/strings.js`) or English. Sizes are identical in both. English text is Latin-1 only (`pdfText` replaces other characters with `?`). The footer disclaimer is on every page.
+- Font: Heebo, SIL Open Font License 1.1 (`@fontsource/heebo`). Regenerate `src/pdf/fonts/heebo.js` with `python3 scripts/build-pdf-font.py` (needs `fonttools`).
+
 ## Testing
 - **Unit:** `npm test` (vitest). This covers the domain engine and parity fixtures, the store, the API client, and the builders.
 - **E2E:** `npm run test:e2e` (Playwright, Chromium with SwiftShader WebGL). It starts uvicorn on :8010 and Vite on :5183. `window.__banai` exists only in dev builds (`import.meta.env.DEV`) and is stripped from production bundles.
