@@ -7,7 +7,7 @@ describe('api client', () => {
   it('returns the health payload', async () => {
     const fetchImpl = okResponse({ success: true, data: { status: 'ok' } });
     await expect(getHealth(fetchImpl)).resolves.toEqual({ success: true, data: { status: 'ok' } });
-    expect(fetchImpl).toHaveBeenCalledWith('http://localhost:8000/api/health');
+    expect(fetchImpl).toHaveBeenCalledWith('http://localhost:8001/api/health');
   });
 
   it('unwraps the envelope for catalog and default design', async () => {
@@ -28,7 +28,7 @@ describe('agent api', () => {
     const payload = { messages: [{ role: 'user', text: 'hello' }], design: {}, revision: 1 };
     await expect(sendChat(payload, fetchImpl)).resolves.toEqual({ reply: 'hi', proposal: null });
     const [url, init] = fetchImpl.mock.calls[0];
-    expect(url).toBe('http://localhost:8000/api/chat');
+    expect(url).toBe('http://localhost:8001/api/chat');
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body)).toEqual(payload);
   });

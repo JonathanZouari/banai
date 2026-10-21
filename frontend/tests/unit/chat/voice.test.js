@@ -66,7 +66,7 @@ describe('voice api', () => {
     const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true, data: { text: 'hi' } }) });
     await expect(transcribe(new Blob(['x'], { type: 'audio/webm;codecs=opus' }), 'en', fetchImpl)).resolves.toEqual({ text: 'hi' });
     const [url, init] = fetchImpl.mock.calls[0];
-    expect(url).toBe('http://localhost:8000/api/voice/transcribe?language=en');
+    expect(url).toBe('http://localhost:8001/api/voice/transcribe?language=en');
     expect(init.headers['Content-Type']).toBe('audio/webm');
   });
 

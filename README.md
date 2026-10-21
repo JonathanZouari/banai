@@ -83,11 +83,11 @@ All three edit **one canonical design state** through the same typed operations.
 Prerequisites: Python 3.13, [uv](https://docs.astral.sh/uv/), Node 22+.
 
 ```bash
-# Backend (http://localhost:8000)
+# Backend (http://localhost:8001)
 cd backend
 cp .env.example .env        # add OPENAI_API_KEY to enable the AI Designer
 uv sync
-uv run uvicorn app.main:app --reload --port 8000
+uv run uvicorn app.main:app --reload --port 8001
 
 # Frontend (http://localhost:5173)
 cd frontend

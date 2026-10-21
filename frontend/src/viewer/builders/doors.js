@@ -16,6 +16,12 @@ function hardware(args, part) {
   return mesh;
 }
 
+/** Tag a door's panel, outline and handle so they can swing or slide together. */
+function withDoorId(door, parts) {
+  parts.forEach((part) => { part.userData.doorId = door.id; });
+  return parts;
+}
+
 /** A thin outline around a door panel. Not selectable; only there to separate panels. */
 function outline(panel, materials) {
   const lines = new THREE.LineSegments(new THREE.EdgesGeometry(panel.geometry), materials.doorEdge);
@@ -51,7 +57,7 @@ function buildHinged(design, frame, materials, { t, gap, y, height, materialOf }
     });
     // The handle sits on the free edge, opposite the hinge.
     const freeEdgeX = door.hingeSide === 'right' ? x0 + gap + VISUAL.handleInset : x1 - gap - VISUAL.handleInset;
-    return [panel, outline(panel, materials), handle(freeEdgeX, t, y, height, materials)];
+    return withDoorId(door, [panel, outline(panel, materials), handle(freeEdgeX, t, y, height, materials)]);
   });
 }
 
@@ -81,7 +87,7 @@ function buildSliding(design, frame, materials, { t, gap, y, height, materialOf 
     if (count === 1) handleX = x0 + panelWidth - inset;
     else if (isLast) handleX = x0 + (onFront ? 0 : overlap) + inset;
     else handleX = x0 + panelWidth - (onFront ? 0 : overlap) - inset;
-    return [panel, outline(panel, materials), handle(handleX, z + t / 2, y, height, materials)];
+    return withDoorId(door, [panel, outline(panel, materials), handle(handleX, z + t / 2, y, height, materials)]);
   });
 
   // Top and bottom rails span both tracks, like the aluminium frame of a sliding wardrobe.

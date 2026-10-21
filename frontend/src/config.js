@@ -3,4 +3,4 @@
 // production. When it is missing, API calls fail and the UI shows its error banner.
 const configured = import.meta.env.VITE_API_BASE_URL;
 
-export const API_BASE_URL = configured ?? (import.meta.env.PROD ? null : 'http://localhost:8000');
+export const API_BASE_URL = configured ?? (import.meta.env.PROD ? null : 'http://localhost:8001');

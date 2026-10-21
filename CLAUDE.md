@@ -49,7 +49,7 @@ The backend uses uv (Python 3.13). The frontend needs Node 22+.
 ```bash
 # Backend (from backend/)
 uv sync
-uv run uvicorn app.main:app --reload --port 8000
+uv run uvicorn app.main:app --reload --port 8001
 uv run pytest                                  # all tests
 uv run pytest tests/test_health.py::test_health_returns_ok   # single test
 uv run pytest --cov=app                        # coverage
@@ -63,7 +63,7 @@ npm run build                                  # vite build -> dist/
 ```
 
 - Copy `.env.example` to `.env` in each service directory.
-- The frontend reads the backend URL from `VITE_API_BASE_URL` at build time; it defaults to `http://localhost:8000`.
+- The frontend reads the backend URL from `VITE_API_BASE_URL` at build time; it defaults to `http://localhost:8001`.
 - The backend's CORS origins come from `CORS_ORIGINS`.
 
 ## Architecture (target design; implemented incrementally by phase)

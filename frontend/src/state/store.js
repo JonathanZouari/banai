@@ -36,8 +36,10 @@ export function createStore({ design, revision = 1, catalog }) {
     throw new DomainError('SCHEMA_INVALID', 'revision', 'invalid revision');
   }
   let state = deepFreeze({
-    design: validDesign, revision, catalog: validCatalog, selection: null, ui: { doorsVisible: true },
+    design: validDesign, revision, catalog: validCatalog, selection: null, ui: { doorsVisible: true, selectiveOpen: false }, canUndo: false,
   });
+  // Previous committed designs (newest last); undo steps back exactly one version.
+  const history = [];
   const listeners = new Set();
 
   const commit = (patch) => {
@@ -63,8 +65,21 @@ export function createStore({ design, revision = 1, catalog }) {
         throw error;
       }
       const selection = state.selection && resolveSelection(next, state.selection.id);
-      commit({ design: next, revision: state.revision + 1, selection });
+      history.push(state.design);
+      commit({ design: next, revision: state.revision + 1, selection, canUndo: true });
       return { ok: true };
+    },
+
+    /**
+     * Restore the previous design. The revision still moves forward so a pending (signed)
+     * proposal made against the undone design is rejected as stale. Returns false when empty.
+     */
+    undo() {
+      if (history.length === 0) return false;
+      const previous = history.pop();
+      const selection = state.selection && resolveSelection(previous, state.selection.id);
+      commit({ design: previous, revision: state.revision + 1, selection, canUndo: history.length > 0 });
+      return true;
     },
 
     select(id) {
@@ -83,11 +98,17 @@ export function createStore({ design, revision = 1, catalog }) {
         throw new DomainError('SCHEMA_INVALID', 'revision', 'invalid revision');
       }
       const selection = state.selection && resolveSelection(next, state.selection.id);
-      commit({ design: next, revision, selection });
+      history.push(state.design);
+      commit({ design: next, revision, selection, canUndo: true });
     },
 
     setDoorsVisible(doorsVisible) {
       commit({ ui: { ...state.ui, doorsVisible } });
+    },
+
+    /** Click-to-open mode: clicking a door or drawer in the viewer animates it open or closed. */
+    setSelectiveOpen(selectiveOpen) {
+      commit({ ui: { ...state.ui, selectiveOpen } });
     },
   };
 }
