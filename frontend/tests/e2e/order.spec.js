@@ -26,6 +26,7 @@ test.describe('confirm order and carpenter PDF', () => {
     await expect(page.locator('#properties-panel')).toHaveAttribute('inert', '');
 
     const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('download-pdf').click()]);
+    await expect(page.getByTestId('open-pdf')).toBeVisible();
     expect(download.suggestedFilename()).toMatch(/^banai-wardrobe-\d{4}-\d{2}-\d{2}\.pdf$/);
     const stream = await download.createReadStream();
     const chunks = [];

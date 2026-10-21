@@ -128,10 +128,12 @@ export async function buildCarpenterPdf({ design, catalog, imageDataUrl = null, 
   return doc;
 }
 
+/** Saves the PDF (browser download) and returns a blob URL so the page can also offer "Open PDF". */
 export async function downloadCarpenterPdf(options) {
   const doc = await buildCarpenterPdf(options);
-  doc.save(pdfFileName(options.date));
-  return doc;
+  const name = pdfFileName(options.date);
+  doc.save(name);
+  return { name, url: URL.createObjectURL(doc.output('blob')) };
 }
 
 export { appearanceLabel };

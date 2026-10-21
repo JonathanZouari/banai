@@ -128,16 +128,20 @@ export function createViewer(container, store) {
     camera,
     controls,
     canvas: renderer.domElement,
-    /** A JPEG (aspect CAPTURE_ASPECT, centred crop) of the current 3D view, for the carpenter PDF. */
+    /** A JPEG (aspect CAPTURE_ASPECT) of the whole current 3D view, letterboxed, for the carpenter PDF. */
     captureImage() {
       renderer.render(scene, camera);
       const source = renderer.domElement;
-      const cropW = Math.min(source.width, Math.round(source.height * CAPTURE_ASPECT));
-      const cropH = Math.round(cropW / CAPTURE_ASPECT);
       const out = document.createElement('canvas');
-      out.width = cropW;
-      out.height = cropH;
-      out.getContext('2d').drawImage(source, (source.width - cropW) / 2, (source.height - cropH) / 2, cropW, cropH, 0, 0, cropW, cropH);
+      out.width = 1400;
+      out.height = Math.round(1400 / CAPTURE_ASPECT);
+      const context = out.getContext('2d');
+      context.fillStyle = '#eceeec';
+      context.fillRect(0, 0, out.width, out.height);
+      const scale = Math.min(out.width / source.width, out.height / source.height);
+      const w = source.width * scale;
+      const h = source.height * scale;
+      context.drawImage(source, (out.width - w) / 2, (out.height - h) / 2, w, h);
       return out.toDataURL('image/jpeg', 0.92);
     },
     meshOf: (componentId) => group?.children.find((mesh) => mesh.userData.componentId === componentId) ?? null,

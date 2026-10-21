@@ -30,16 +30,23 @@ export function createOrderFlow({ store, viewer, downloadPdf }) {
   const bannerMessage = el('span', { text: 'Order confirmed. The design is locked.' });
   const bannerText = el('span', { className: 'order-banner__text' }, [icon('check', { size: 18 }), bannerMessage]);
   const pdfButton = button('Download carpenter PDF', () => runDownload(), { variant: 'primary', testId: 'download-pdf' });
+  const openLink = el('a', { className: 'btn btn--tonal', text: 'Open PDF', attrs: { target: '_blank', rel: 'noopener', hidden: '' } });
+  openLink.dataset.testid = 'open-pdf';
   const editAgain = button('Edit again', () => store.unlockOrder(), { variant: 'ghost', testId: 'order-edit-again' });
-  banner.append(bannerText, el('div', { className: 'order-banner__actions' }, [pdfButton, editAgain]));
+  banner.append(bannerText, el('div', { className: 'order-banner__actions' }, [pdfButton, openLink, editAgain]));
 
+  let openUrl = null;
   async function runDownload() {
     pdfButton.disabled = true;
     banner.dataset.status = 'working';
     try {
       const { design, catalog } = store.getState();
-      await downloadPdf({ design, catalog, imageDataUrl: viewer.captureImage() });
-      bannerMessage.textContent = 'Order confirmed. The PDF was created.';
+      const saved = await downloadPdf({ design, catalog, imageDataUrl: viewer.captureImage() });
+      if (openUrl) URL.revokeObjectURL(openUrl);
+      openUrl = saved.url;
+      openLink.href = saved.url;
+      openLink.hidden = false;
+      bannerMessage.textContent = `Saved ${saved.name} to your Downloads folder. You can also open it here.`;
     } catch {
       bannerMessage.textContent = 'The PDF could not be created. Please try again.';
     } finally {
@@ -72,6 +79,7 @@ export function createOrderFlow({ store, viewer, downloadPdf }) {
     document.body.classList.toggle('order-locked', confirmed);
     document.getElementById('open-order').hidden = confirmed;
     if (confirmed) bannerMessage.textContent = 'Order confirmed. The design is locked.';
+    if (!confirmed) openLink.hidden = true;
   };
   let wasConfirmed = false;
   store.subscribe((state) => {
