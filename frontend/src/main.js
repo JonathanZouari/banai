@@ -15,7 +15,9 @@ import { mountChat } from './chat/chatPanel.js';
 import { mountStartScreen } from './entry/startScreen.js';
 import { createSaveDialog } from './share/saveDialog.js';
 import { createRenderDialog } from './render/renderDialog.js';
+import { createHomeDialog } from './ui/homeDialog.js';
 import { createLogo } from './ui/logo.js';
+import { createOpenGuide } from './ui/openGuide.js';
 import { installRipple } from './ui/ripple.js';
 
 function showError(message) {
@@ -28,6 +30,22 @@ function bindInteriorToggle(store) {
   const toggle = document.getElementById('toggle-interior');
   toggle.addEventListener('change', () => store.setDoorsVisible(!toggle.checked));
   store.subscribe((state) => { toggle.checked = !state.ui.doorsVisible; });
+}
+
+function bindOpenToggle(store) {
+  const toggle = document.getElementById('toggle-open');
+  const guide = createOpenGuide(toggle.closest('.toggle'));
+  toggle.addEventListener('change', () => {
+    store.setSelectiveOpen(toggle.checked);
+    if (toggle.checked) guide.show();
+    else guide.hide();
+  });
+}
+
+function bindUndo(store) {
+  const button = document.getElementById('undo');
+  button.addEventListener('click', () => store.undo());
+  store.subscribe((state) => { button.disabled = !state.canUndo; });
 }
 
 function bindDialogs() {
@@ -54,6 +72,8 @@ async function boot() {
   const store = createStore({ design: initial.design, revision: initial.revision, catalog });
   const viewer = createViewer(document.getElementById('viewer'), store);
   bindInteriorToggle(store);
+  bindUndo(store);
+  bindOpenToggle(store);
   mountPanel(document.getElementById('properties-content'), store);
   bindDialogs();
 
@@ -94,6 +114,11 @@ async function boot() {
   if (import.meta.env.DEV) {
     window.__banai = Object.freeze({ store, viewer, chat: chatModel });
   }
+
+  // Home asks first, then reloads: a reload shows the start screen with a fresh default design,
+  // which is exactly what the warning promises (nothing is stored until the user saves).
+  const homeDialog = createHomeDialog({ onConfirm: () => window.location.reload() });
+  document.getElementById('go-home').addEventListener('click', homeDialog.open);
 
   mountStartScreen({
     onChoose: (entry) => {

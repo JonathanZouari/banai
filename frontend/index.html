@@ -8,14 +8,22 @@
   </head>
   <body>
     <header class="topbar">
-      <h1 class="topbar__title" id="topbar-logo" aria-label="BanAI Wardrobe Designer"></h1>
+      <div class="topbar__start">
+        <h1 class="topbar__title" id="topbar-logo" aria-label="BanAI Wardrobe Designer"></h1>
+        <button type="button" class="btn btn--tonal" id="go-home" data-testid="go-home">Home</button>
+      </div>
       <div class="topbar__actions">
         <label class="toggle">
           <input type="checkbox" id="toggle-interior" />
           <span>Show interior</span>
         </label>
+        <label class="toggle">
+          <input type="checkbox" id="toggle-open" data-testid="toggle-open" />
+          <span>Tap to open</span>
+        </label>
         <span class="topbar__units">cm</span>
         <button type="button" class="btn btn--tonal" id="open-render" data-testid="open-render">Render</button>
+        <button type="button" class="btn btn--tonal" id="undo" data-testid="undo" disabled>Undo</button>
         <button type="button" class="btn btn--primary" id="open-save" data-testid="open-save">Save</button>
       </div>
     </header>

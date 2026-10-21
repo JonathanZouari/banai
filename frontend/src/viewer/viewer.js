@@ -9,6 +9,7 @@ import { frameOf } from './builders/frame.js';
 import { createDimensions } from './dimensions.js';
 import { createHighlighter } from './highlight.js';
 import { createMaterials } from './materials.js';
+import { createOpener } from './openState.js';
 import { attachPicking } from './picking.js';
 import { toM } from './units.js';
 
@@ -60,8 +61,9 @@ export function createViewer(container, store) {
   const materials = createMaterials(store.getState().catalog);
   const highlighter = createHighlighter(scene);
   const dimensions = createDimensions(scene);
+  const opener = createOpener();
   let group = null;
-  let rendered = { design: null, doorsVisible: null, selection: undefined, dimsKey: null };
+  let rendered = { design: null, doorsVisible: null, selection: undefined, dimsKey: null, selectiveOpen: false };
 
   const fitCamera = (design) => {
     const { width, height, depth } = design.dimensions;
@@ -82,6 +84,7 @@ export function createViewer(container, store) {
       }
       group = buildWardrobe(design, materials, { doorsVisible: ui.doorsVisible });
       scene.add(group);
+      opener.attach(group, design);
       materials.retainOnly(new Set(group.children.map((mesh) => mesh.material)));
       const { width, height, depth } = design.dimensions;
       const dimsKey = `${width}x${height}x${depth}`;
@@ -93,6 +96,9 @@ export function createViewer(container, store) {
       dimensions.update(group, design, selection);
       rendered = { ...rendered, selection };
     }
+    // Leaving click-to-open mode closes everything that was opened.
+    if (!ui.selectiveOpen && rendered.selectiveOpen) opener.closeAll();
+    rendered = { ...rendered, selectiveOpen: ui.selectiveOpen };
   };
 
   const resize = () => {
@@ -110,13 +116,25 @@ export function createViewer(container, store) {
     dom: renderer.domElement,
     camera,
     getTargets: () => (group ? group.children : []),
-    onPick: (hit) => store.select(componentAt(hit, store.getState().design)),
+    onPick: (hit) => {
+      const id = componentAt(hit, store.getState().design);
+      store.select(id);
+      if (id && store.getState().ui.selectiveOpen) opener.toggle(id);
+    },
     onHover: (hit) => { renderer.domElement.style.cursor = hit?.object.userData.componentId ? 'pointer' : ''; },
   });
   const unsubscribe = store.subscribe(sync);
   sync(store.getState());
 
-  renderer.setAnimationLoop(() => {
+  let lastFrame = performance.now();
+  renderer.setAnimationLoop((now) => {
+    const seconds = Math.min((now - lastFrame) / 1000, 0.1);
+    lastFrame = now;
+    // The selection outline follows a door or drawer while it moves.
+    if (opener.step(seconds)) {
+      const { design, selection } = store.getState();
+      if (selection) highlighter.update(group, design, selection);
+    }
     controls.update();
     renderer.render(scene, camera);
     labels.render(scene, camera);

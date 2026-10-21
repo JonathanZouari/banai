@@ -248,3 +248,66 @@
 /* Composer footer: keyboard hint on one side, the chat language switch on the other. */
 .chat__footer-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .chat__footer-row .chat__hint { margin: 0; }
+
+/* "Tap to open" guide: a ~1s looping demo of a click opening a door and a drawer. */
+.toggle { position: relative; }
+.open-guide {
+  position: absolute;
+  top: calc(100% + var(--space-3));
+  right: 0;
+  z-index: 20;
+  width: 240px;
+  padding: var(--space-3);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-medium, 12px);
+  background: var(--md-sys-color-surface-container-lowest);
+  box-shadow: 0 8px 24px rgba(35, 25, 23, 0.18);
+  cursor: pointer;
+}
+.open-guide__text { margin: var(--space-2) 0 0; color: var(--md-sys-color-on-surface); font: var(--md-sys-typescale-body-small, 12px/16px sans-serif); font-weight: 400; }
+.open-guide__demo { position: relative; height: 96px; background: var(--md-sys-color-viewer); border-radius: 8px; perspective: 400px; }
+.open-guide__cabinet { position: absolute; inset: 14px 60px 14px 60px; border: 2px solid var(--md-sys-color-outline); background: var(--md-sys-color-surface-container-high); }
+.open-guide__door {
+  position: absolute;
+  inset: 0 0 34px 0;
+  background: var(--md-sys-color-primary);
+  transform-origin: left center;
+  animation: guide-door 2s ease-in-out infinite;
+}
+.open-guide__drawer {
+  position: absolute;
+  inset: auto 4px 4px 4px;
+  height: 24px;
+  background: var(--md-sys-color-secondary);
+  animation: guide-drawer 2s ease-in-out infinite;
+}
+.open-guide__cursor {
+  position: absolute;
+  left: 92px;
+  top: 40px;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--md-sys-color-on-surface);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.7);
+  animation: guide-click 2s ease-in-out infinite;
+}
+@keyframes guide-door {
+  0%, 20% { transform: rotateY(0); }
+  45%, 85% { transform: rotateY(-75deg); }
+  100% { transform: rotateY(0); }
+}
+@keyframes guide-drawer {
+  0%, 55% { transform: translateY(0) scaleY(1); }
+  75%, 90% { transform: translateY(8px) scale(1.12); }
+  100% { transform: translateY(0) scaleY(1); }
+}
+@keyframes guide-click {
+  0%, 12% { transform: scale(1); opacity: 0; }
+  18% { transform: scale(1); opacity: 1; }
+  26% { transform: scale(0.7); opacity: 1; }
+  34%, 100% { transform: scale(1); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .open-guide__door, .open-guide__drawer, .open-guide__cursor { animation: none; }
+}

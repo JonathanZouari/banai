@@ -12,9 +12,10 @@ export function createHighlighter(scene) {
   scene.add(layer);
   const material = new THREE.LineBasicMaterial({ color: ACCENT, depthTest: false, transparent: true });
 
-  const outline = (geometry, position) => {
+  const outline = (geometry, position, quaternion) => {
     const lines = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), material);
     lines.position.copy(position);
+    if (quaternion) lines.quaternion.copy(quaternion);
     lines.renderOrder = 10;
     layer.add(lines);
   };
@@ -39,7 +40,7 @@ export function createHighlighter(scene) {
       }
       group.children
         .filter((mesh) => mesh.userData.componentId === selection.id)
-        .forEach((mesh) => outline(mesh.geometry, mesh.position));
+        .forEach((mesh) => outline(mesh.geometry, mesh.position, mesh.quaternion));
     },
     dispose() {
       clear();

@@ -25,6 +25,19 @@ describe('store', () => {
     expect(listener).toHaveBeenCalledTimes(1);
   });
 
+  it('undoes one version at a time and moves the revision forward', () => {
+    const store = makeStore();
+    const original = store.getState().design;
+    expect(store.getState().canUndo).toBe(false);
+    expect(store.undo()).toBe(false);
+    store.dispatch([{ op: 'modify_shelf', id: 'shf_l1', y: 450 }]);
+    expect(store.getState().canUndo).toBe(true);
+    expect(store.undo()).toBe(true);
+    expect(store.getState().design).toBe(original);
+    expect(store.getState().revision).toBe(3);
+    expect(store.getState().canUndo).toBe(false);
+  });
+
   it('leaves state untouched and does not notify on a domain error', () => {
     const store = makeStore();
     const before = store.getState();
