@@ -560,13 +560,23 @@ async function boot() {
   }
 
   byId('open-about')?.addEventListener('click', () => openAboutDialog({ reducedMotion: reducedMotion() }));
+  // A press in the 3D view is work in the 3D view: focus leaves the panels, as a click elsewhere would. The drag
+  // tool's preventDefault keeps the browser from doing it, and the arrows only nudge outside the panels.
+  byId('viewer').addEventListener('pointerdown', () => {
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && active.closest('#properties-panel, #side-panel')) active.blur();
+  }, true);
   const showStart = () => mountStartScreen({
     reducedMotion: reducedMotion(),
     // A software renderer draws the start screen's wardrobe once instead of animating it.
     still: softwareRenderer(),
     onChoose: (entry) => {
-      // All three entry points open the same editor; the chat ones also open the chat tab.
-      if (entry.id === 'basic') return;
+      // All three entry points open the same editor; the chat ones focus the composer, the basic one the design
+      // panel, so keyboard focus never falls out of the page when the start screen closes (from dev's 8fc092d).
+      if (entry.id === 'basic') {
+        byId('properties-panel').focus({ preventScroll: true }); // the layout must not move under the 3D view
+        return;
+      }
       tabs.closeAdvice();
       chat.focus(entry.composerHint);
     },

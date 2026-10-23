@@ -31,6 +31,7 @@ BanAI started as an MVP AI wardrobe designer for standard straight wardrobes. Th
 - **Accessibility** (2026-10-23, ported from dev's fd5b146; IS 5568 = WCAG 2.1 AA):
   - **Keyboard:** a skip link (`.skip-link`, to `#properties-panel`; it moves focus without touching the hash, which may hold a project link) and "כל החלקים" (`editor/partsSection.js`): every part as a button, so anything the 3D view selects can be selected without a pointer.
   - **Screen readers:** the canvas is `role="img"` and its label points to that list.
+  - **Focus** (dev's 8fc092d): choosing the basic wardrobe focuses `#properties-panel` with `preventScroll` (a plain `focus()` scrolled the layout under the 3D view and broke drags). A press in the 3D view blurs whatever in the panels has focus, because the drag tool's `preventDefault` stops the browser from doing it, and the arrows nudge only outside the panels.
   - **Statement:** `frontend/accessibility.html` (a second Vite entry), linked from Help and the start screen.
   - **Test:** `tests/e2e/a11y.spec.js` runs axe (`@axe-core/playwright`) on the start screen, the editor and two dialogs, with `#viewer` excluded (WebGL). It found `--color-muted` at 4.39:1 on the warm paper, now `#636366`.
 - **Menu bar** (2026-10-20, the user's layout; `frontend/src/ui/menubar.js`, markup in `index.html`):

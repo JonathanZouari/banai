@@ -21,6 +21,7 @@ from app.main import app
 
 from tests.production.samples import CATALOG as DESIGN_CATALOG
 from tests.production.samples import DESIGNS, hinged, make, sliding
+from tests.chromium import requires_chromium
 
 # More variants: every handle style, a heavy mirror door, painted MDF, veneer, 18 mm, site checks, inserts.
 VARIANTS = {
@@ -150,6 +151,7 @@ def test_the_api_takes_the_language_and_names_the_file_after_it():
     assert refused.status_code == 422 and refused.json()["error"]["code"] == "INVALID_REQUEST"
 
 
+@requires_chromium
 def test_an_arabic_pdf_renders_in_chromium():
     pdf = html_to_pdf(render_html(build(DESIGNS["rich"](), DESIGN_CATALOG, None, date(2026, 10, 17), "ar")))
     assert pdf.startswith(b"%PDF-") and len(pdf) > 50_000

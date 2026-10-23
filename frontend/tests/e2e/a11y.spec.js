@@ -55,6 +55,8 @@ test.describe('accessibility (axe, WCAG 2.1 AA)', () => {
 });
 
 test.describe('keyboard only', () => {
+  test.slow(); // two full page loads in some tests
+
   test('a shelf can be selected without the mouse', async ({ page }) => {
     await openDesigner(page);
     const shelf = page.locator('[data-testid^="part-shf_"]').first();
@@ -63,6 +65,13 @@ test.describe('keyboard only', () => {
     await page.keyboard.press('Enter');
     expect(await selection(page)).toEqual({ id, kind: 'shelf' });
     await expect(page.getByTestId(`part-${id}`)).toHaveAttribute('aria-current', 'true');
+  });
+
+  test('choosing the basic wardrobe moves focus into the design panel', async ({ page }) => {
+    await openDesigner(page);
+    await expect(page.locator('#properties-panel')).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.locator('#properties-panel :focus')).toHaveCount(1); // the next stop is inside the panel
   });
 
   test('the skip link moves focus to the design panel and keeps the address', async ({ page }) => {

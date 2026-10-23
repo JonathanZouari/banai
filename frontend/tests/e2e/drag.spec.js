@@ -89,6 +89,9 @@ test.describe('drag in 3D', () => {
   });
 
   test('the arrows nudge the selected part: 1 cm, Shift 10 cm', async ({ page }) => {
+    // Entering takes focus to the design panel, where the arrows keep their own meaning; working in the 3D view
+    // (a press there) moves focus out. A programmatic select does not, so leave the panel as that press would.
+    await page.evaluate(() => document.activeElement?.blur());
     await page.evaluate(() => window.__banai.store.select('shf_l2'));
     await page.keyboard.press('ArrowUp');
     expect((await state(page)).design.compartments[0].shelves[1].y).toBe(810);

@@ -18,6 +18,7 @@ from app.domain.defaults import basic_wardrobe
 from app.dossier.render import RenderError
 from app.main import app
 from tests.production.samples import png
+from tests.chromium import requires_chromium
 
 client = TestClient(app)
 PNG = base64.b64encode(png(4, 3)).decode()
@@ -39,6 +40,7 @@ def post(design=None, render_png=None):
     return client.post("/api/dossier", json=body)
 
 
+@requires_chromium
 def test_returns_a_pdf():
     response = post(render_png=PNG)
     assert response.status_code == 200

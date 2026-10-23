@@ -11,6 +11,7 @@ from app.domain.defaults import basic_wardrobe
 from app.dossier.render import RenderError, build, html_to_pdf, render_html, render_pdf, row_pages
 from app.i18n import long_date
 from tests.production.samples import CATALOG, DESIGNS, hinged, make, png
+from tests.chromium import requires_chromium
 
 KINDS = ["cover", "front", "interior", "exploded", "materials", "estimate", "cutlist", "nesting", "site", "advice"]
 
@@ -58,6 +59,7 @@ def test_the_html_references_nothing_outside_the_page():
     assert "<script" not in html and "<link" not in html and "@import" not in html
 
 
+@requires_chromium
 def test_pdf_smoke():
     ctx = build(basic_wardrobe(), CATALOG, today=date(2026, 10, 17))
     seen: list[tuple[str, bool]] = []
@@ -72,11 +74,13 @@ def test_pdf_smoke():
     assert all(allowed for _, allowed in seen)  # nothing outside the page was even attempted
 
 
+@requires_chromium
 def test_render_pdf_with_a_cover_image():
     pdf = render_pdf(DESIGNS["rich"](), CATALOG, png(8, 6))
     assert pdf.startswith(b"%PDF") and len(PdfReader(io.BytesIO(pdf)).pages) >= 10
 
 
+@requires_chromium
 def test_chromium_blocks_every_request_that_leaves_the_page():
     html = ('<!doctype html><html dir="rtl"><head><meta charset="utf-8">'
             '<link rel="stylesheet" href="https://example.invalid/a.css">'
@@ -101,6 +105,7 @@ def test_a_render_over_the_deadline_fails_cleanly(timeout):
         html_to_pdf(html, timeout=timeout)
 
 
+@requires_chromium
 def test_a_zoned_dossier():
     """Left in thirds (a door, a pair, an open zone), right in halves: the zones reach every section."""
     ctx = build(DESIGNS["zones"](), CATALOG, today=date(2026, 10, 17))
