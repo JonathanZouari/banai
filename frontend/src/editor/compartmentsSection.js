@@ -2,7 +2,7 @@
 import { actionResult, button, cmField, el, section } from './fields.js';
 import { addCompartmentOps, removeOps } from './opsFromForm.js';
 
-export function compartmentsSection({ design, selection, run, select, onExport }) {
+export function compartmentsSection({ design, selection, run, select, onExport, unit = 'cm' }) {
   const list = el('ol', { className: 'compartment-list' });
   const single = design.compartments.length === 1;
   design.compartments.forEach((compartment, index) => {
@@ -11,7 +11,7 @@ export function compartmentsSection({ design, selection, run, select, onExport }
     row.append(
       button(`Compartment ${index + 1}`, () => select(compartment.id), { variant: 'link', testId: `select-${compartment.id}` }),
       cmField({
-        label: 'Width', mm: compartment.width, testId: `width-${compartment.id}`,
+        label: 'Width', mm: compartment.width, testId: `width-${compartment.id}`, unit,
         onCommit: (mm) => run([{ op: 'modify_compartment', compartmentId: compartment.id, width: mm }]),
       }),
       button('Remove', () => actionResult(row, run(removeOps(compartment.id))), {
