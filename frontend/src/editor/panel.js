@@ -4,6 +4,7 @@
 import { compartmentsSection } from './compartmentsSection.js';
 import { componentSection } from './componentSection.js';
 import { partsSection } from './partsSection.js';
+import { summarySection } from './summarySection.js';
 import { wardrobeSection } from './wardrobeSection.js';
 
 export function mountPanel(root, store, { onExport } = {}) {
@@ -27,6 +28,7 @@ export function mountPanel(root, store, { onExport } = {}) {
       ...(state.selection ? [componentSection(context)] : []),
       ...wardrobeSection(context),
       compartmentsSection(context),
+      summarySection(context),
       partsSection(context),
     );
     if (focused) root.querySelector(`[data-testid="${CSS.escape(focused)}"]`)?.focus();

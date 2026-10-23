@@ -80,3 +80,26 @@ test.describe('Phase 4: manual editing', () => {
     expect((await state(page)).selection).toBeNull();
   });
 });
+
+test('the summary card updates right after a manual edit and after an applied AI design', async ({ page }) => {
+  await openDesigner(page);
+  await expect(page.getByTestId('summary-drawers')).toHaveText('2');
+  await expect(page.getByTestId('summary-volume')).toHaveText('2,735 L');
+  await expect(page.getByTestId('summary-hanging')).toHaveText('64.3 cm');
+
+  await page.getByTestId('select-cmp_middle').click();
+  await page.getByTestId('add-drawer').click();
+  await expect(page.getByTestId('summary-drawers')).toHaveText('3');
+
+  // An applied AI proposal reaches the store as a server design; the card follows it too.
+  await page.evaluate(() => {
+    const { store } = window.__banai;
+    const { design, revision } = store.getState();
+    const next = structuredClone(design);
+    next.compartments[0].shelves = [];
+    store.replaceDesign(next, revision + 1);
+  });
+  await expect(page.getByTestId('summary-shelves')).toHaveText('3');
+  const text = (await page.locator('.summary-list').innerText()).toLowerCase();
+  expect(text).not.toMatch(/price|₪|\$|manufactur/);
+});
