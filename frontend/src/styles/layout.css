@@ -66,6 +66,31 @@ body {
 .viewer canvas { display: block; }
 .viewer-labels { position: absolute; inset: 0; pointer-events: none; }
 
+.cam-toolbar {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  display: flex;
+  gap: 4px;
+  z-index: 10;
+}
+
+.cam-btn {
+  padding: 4px 10px;
+  border: 1px solid rgba(255,255,255,0.35);
+  border-radius: 6px;
+  background: rgba(30,25,22,0.55);
+  color: #fff;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: background 140ms ease;
+}
+.cam-btn:hover { background: rgba(30,25,22,0.8); }
+.cam-btn:focus-visible { outline: var(--focus-outline, 2px solid #fff); outline-offset: 2px; }
+.cam-btn:active { transform: scale(0.95); }
+
 .dim-label {
   padding: 2px var(--space-2);
   border: 1px solid var(--md-sys-color-outline-variant);
