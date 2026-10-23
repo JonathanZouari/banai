@@ -178,3 +178,5 @@ select.field__input {
 .skip-link { position: absolute; left: var(--space-3); top: -100px; z-index: 100; padding: var(--space-2) var(--space-3); border-radius: var(--md-sys-shape-medium); background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); }
 .skip-link:focus { top: var(--space-2); outline: var(--focus-outline); outline-offset: 2px; }
 #properties-panel:focus { outline: none; }
+.toggle--disabled { cursor: not-allowed; opacity: 0.5; }
+.toggle--disabled input { cursor: not-allowed; }

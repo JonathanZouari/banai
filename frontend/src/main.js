@@ -44,6 +44,20 @@ function bindInteriorToggle(store) {
   store.subscribe((state) => { toggle.checked = !state.ui.doorsVisible; });
 }
 
+/** "Doors open": swings hinged doors out (or slides sliding panels aside). View state only. */
+function bindDoorsOpenToggle(store) {
+  const toggle = document.getElementById('toggle-doors-open');
+  const label = document.getElementById('doors-open-label');
+  toggle.addEventListener('change', () => store.setDoorsOpen(toggle.checked));
+  store.subscribe(({ ui, design }) => {
+    const noDoors = design.doors.type === 'none';
+    toggle.checked = ui.doorsOpen;
+    toggle.disabled = noDoors || !ui.doorsVisible;
+    label.classList.toggle('toggle--disabled', toggle.disabled);
+    label.title = noDoors ? 'This design has no doors.' : !ui.doorsVisible ? 'Turn off "Show interior" to see the doors.' : '';
+  });
+}
+
 /**
  * The design to open: the saved one when the page was opened from its private link, else the basic
  * wardrobe. `session` ({ designId, token, revision }) is what the next save writes over.
@@ -105,6 +119,7 @@ async function boot() {
   const store = createStore({ design: initial.design, revision: initial.revision, catalog });
   const viewer = createViewer(document.getElementById('viewer'), store);
   bindInteriorToggle(store);
+  bindDoorsOpenToggle(store);
   bindSkipLink();
   const exporter = createExportDialog({
     getDesign: () => store.getState().design,
