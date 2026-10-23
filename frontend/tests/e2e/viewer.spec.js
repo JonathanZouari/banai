@@ -87,12 +87,12 @@ test.describe('camera angle buttons', () => {
     return window.__banai.viewer.camera.position.toArray();
   }, view);
 
-  test('shows the four buttons as one labelled group', async ({ page }) => {
+  test('shows the camera buttons as one labelled group', async ({ page }) => {
     const group = page.getByRole('group', { name: 'זווית מצלמה' });
-    for (const label of ['חזית', 'צד', '3/4', 'איפוס']) await expect(group.getByRole('button', { name: label, exact: true })).toBeVisible();
+    for (const label of ['חזית', 'צד ימין', 'צד שמאל', '3/4', 'איפוס']) await expect(group.getByRole('button', { name: label, exact: true })).toBeVisible();
   });
 
-  for (const [label, view] of [['חזית', 'front'], ['צד', 'side'], ['3/4', 'threeQuarter']]) {
+  for (const [label, view] of [['חזית', 'front'], ['צד ימין', 'side'], ['צד שמאל', 'sideLeft'], ['3/4', 'threeQuarter']]) {
     test(`"${label}" flies the camera to the ${view} view`, async ({ page }) => {
       const expected = await expectedPose(page, view);
       await page.getByRole('button', { name: label, exact: true }).click();
@@ -140,7 +140,7 @@ test.describe('camera angle buttons', () => {
       return JSON.stringify({ design, revision, selection, ui });
     });
     const before = await snapshot();
-    for (const label of ['חזית', 'צד', '3/4', 'איפוס']) await page.getByRole('button', { name: label, exact: true }).click();
+    for (const label of ['חזית', 'צד ימין', 'צד שמאל', '3/4', 'איפוס']) await page.getByRole('button', { name: label, exact: true }).click();
     await page.waitForTimeout(800);
     expect(await snapshot()).toBe(before);
   });

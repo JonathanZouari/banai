@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { VIEWS, cameraPose, easeInOutCubic, interpolatePose } from '../../../src/viewer/cameraViews.js';
 
@@ -29,6 +30,15 @@ describe('cameraPose', () => {
     expect(z).toBeCloseTo(0, 9);
   });
 
+  it('left side mirrors the right side', () => {
+    const [rx, ry, rz] = offsetOf(cameraPose('side', basic, FOV));
+    const [lx, ly, lz] = offsetOf(cameraPose('sideLeft', basic, FOV));
+    expect(lx).toBeCloseTo(-rx, 9);
+    expect(ly).toBeCloseTo(ry, 9);
+    expect(lz).toBeCloseTo(rz, 9);
+    expect(lx).toBeLessThan(0);
+  });
+
   it('3/4 sits halfway between front and side, higher up', () => {
     const pose = cameraPose('threeQuarter', basic, FOV);
     const [x, , z] = offsetOf(pose);
@@ -43,6 +53,24 @@ describe('cameraPose', () => {
 
   it('keeps every view above the orbit limit, so the controls never clamp it', () => {
     for (const view of VIEWS) expect(polarOf(cameraPose(view, basic, FOV))).toBeLessThan(MAX_POLAR);
+  });
+
+  it('keeps the whole wardrobe in frame from every preset', () => {
+    for (const dimensions of [basic, { width: 4000, height: 2400, depth: 600 }, { width: 600, height: 2600, depth: 650 }]) {
+      const { width, height, depth } = dimensions;
+      const corners = [0, width].flatMap((x) => [0, height].flatMap((y) => [0, -depth].map((z) => new THREE.Vector3(x, y, z).multiplyScalar(0.001))));
+      for (const view of VIEWS) {
+        const pose = cameraPose(view, dimensions, FOV);
+        const camera = new THREE.PerspectiveCamera(FOV, 1, 0.05, 60);
+        camera.position.fromArray(pose.position);
+        camera.lookAt(new THREE.Vector3().fromArray(pose.target));
+        camera.updateMatrixWorld();
+        for (const corner of corners) {
+          const { x, y } = corner.clone().project(camera);
+          expect(Math.max(Math.abs(x), Math.abs(y)), `${view} ${width}x${height}x${depth}`).toBeLessThanOrEqual(1);
+        }
+      }
+    }
   });
 
   it('backs off further for a bigger wardrobe', () => {
@@ -81,6 +109,15 @@ describe('interpolatePose', () => {
     expect(radius(middle)).toBeGreaterThanOrEqual(Math.min(radius(front), radius(side)) - 1e-9);
     const [x, , z] = offsetOf(middle);
     expect(Math.atan2(x, z)).toBeCloseTo(Math.PI / 4, 9);
+  });
+
+  it('swings from one side to the other past the front, never behind the wardrobe', () => {
+    const left = cameraPose('sideLeft', basic, FOV);
+    for (const [from, to] of [[side, left], [left, side]]) {
+      const [x, , z] = offsetOf(interpolatePose(from, to, 0.5));
+      expect(z).toBeGreaterThan(0);
+      expect(Math.abs(x)).toBeLessThan(1e-6);
+    }
   });
 
   it('turns the short way round', () => {
