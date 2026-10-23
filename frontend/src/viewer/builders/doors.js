@@ -5,7 +5,8 @@
 //   between a top and a bottom rail, each with a vertical pull handle.
 // Handles and rails are visual hardware only: they are not selectable, and never part of the design.
 import * as THREE from 'three';
-import { VISUAL } from '../units.js';
+import { VISUAL, toM } from '../units.js';
+import { markSwing } from '../swing.js';
 import { box } from './frame.js';
 
 const noRaycast = () => {};
@@ -51,7 +52,10 @@ function buildHinged(design, frame, materials, { t, gap, y, height, materialOf }
     });
     // The handle sits on the free edge, opposite the hinge.
     const freeEdgeX = door.hingeSide === 'right' ? x0 + gap + VISUAL.handleInset : x1 - gap - VISUAL.handleInset;
-    return [panel, outline(panel, materials), handle(freeEdgeX, t, y, height, materials)];
+    const parts = [panel, outline(panel, materials), handle(freeEdgeX, t, y, height, materials)];
+    const hingeX = door.hingeSide === 'right' ? x1 - gap : x0 + gap;
+    parts.forEach((part) => markSwing(part, { pivotX: toM(hingeX), pivotZ: toM(t / 2), side: door.hingeSide }));
+    return parts;
   });
 }
 
