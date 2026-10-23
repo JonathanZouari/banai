@@ -58,6 +58,42 @@ test.describe('Phase 4: manual editing', () => {
     await expect.poll(() => page.evaluate(() => window.__banai.viewer.meshOf('carcass').material.color.getHexString())).toBe('6b4a32');
   });
 
+  test('the new olive green catalog colour is offered and recolours the carcass', async ({ page }) => {
+    await page.getByRole('button', { name: 'Olive green' }).first().click();
+    await expect.poll(async () => (await state(page)).design.carcass.appearance.color).toEqual({ catalogId: 'olive_green' });
+    await expect.poll(() => page.evaluate(() => window.__banai.viewer.meshOf('carcass').material.color.getHexString())).toBe('6b6f45');
+  });
+
+  test('each wardrobe part has its own labelled materials card with a summary of the current choice', async ({ page }) => {
+    const carcass = page.getByTestId('appearance-carcass');
+    const doors = page.getByTestId('appearance-doors');
+    // Each card is a group named by its own heading.
+    await expect(carcass).toHaveAttribute('role', 'group');
+    await expect(carcass).toHaveAccessibleName('Carcass & interior');
+    await expect(doors).toHaveAccessibleName('Doors');
+    await expect(carcass.getByRole('heading', { level: 4, name: 'Carcass & interior' })).toBeVisible();
+    await expect(doors.getByRole('heading', { level: 4, name: 'Doors' })).toBeVisible();
+    // Distinct accessible names for the two colour groups.
+    await expect(page.getByRole('group', { name: 'Carcass & interior colour' })).toHaveCount(1);
+    await expect(page.getByRole('group', { name: 'Doors colour' })).toHaveCount(1);
+    await expect(doors).toContainText('Melamine board · White · Matte');
+    await doors.getByRole('button', { name: 'Navy blue' }).click();
+    await expect(page.getByTestId('appearance-doors')).toContainText('Colour: Navy blue');
+    await expect(page.getByTestId('appearance-doors')).toContainText('Melamine board · Navy blue · Matte');
+    await expect(page.getByTestId('appearance-carcass')).toContainText('Colour: White');
+  });
+
+  test('keyboard focus stays on the swatch or finish option that was just chosen', async ({ page }) => {
+    await page.getByTestId('swatch-doors-terracotta').focus();
+    await page.keyboard.press('Enter');
+    await expect.poll(async () => (await state(page)).design.doors.appearance.color).toEqual({ catalogId: 'terracotta' });
+    await expect(page.getByTestId('swatch-doors-terracotta')).toBeFocused();
+    await page.getByTestId('finish-carcass-gloss').focus();
+    await page.keyboard.press('Space');
+    await expect.poll(async () => (await state(page)).design.carcass.appearance.finish).toEqual({ catalogId: 'gloss' });
+    await expect(page.getByTestId('finish-carcass-gloss')).toBeFocused();
+  });
+
   test('switching to sliding doors rebuilds the doors', async ({ page }) => {
     await page.getByTestId('door-type').getByRole('button', { name: 'Sliding' }).click();
     await expect.poll(async () => (await state(page)).design.doors.type).toBe('sliding');
