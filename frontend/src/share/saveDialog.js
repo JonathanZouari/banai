@@ -6,6 +6,10 @@ import { createDialog } from '../ui/dialog.js';
 const UNAVAILABLE = 'Saving is not available on this server.';
 const READY = 'Save to get your private link.';
 const SAVED = 'Saved. Use this link to reopen and keep editing.';
+// Accounts PROTOTYPE: an account link (/#my=<id>) opens only for its owner, after signing in.
+const noteFor = (link) => (/#my=/.test(link)
+  ? 'This link opens the design only for you, after you sign in.'
+  : 'Anyone with this link can edit the design, so keep it private.');
 
 /**
  * `available`: whether the server can store designs. `onSave()` saves the current design and resolves
@@ -17,6 +21,7 @@ export function createSaveDialog({ available, onSave, link = '' }) {
   linkField.value = link;
   const status = el('p', { className: 'dialog__status', text: available ? READY : UNAVAILABLE, attrs: { role: 'status' } });
   status.dataset.testid = 'save-status';
+  const note = el('p', { className: 'dialog__note', text: noteFor(link) });
 
   const copy = button('Copy link', async () => {
     try {
@@ -33,6 +38,7 @@ export function createSaveDialog({ available, onSave, link = '' }) {
     status.textContent = 'Saving…';
     try {
       linkField.value = await onSave();
+      note.textContent = noteFor(linkField.value);
       copy.disabled = false;
       status.textContent = SAVED;
     } catch (error) {
@@ -52,7 +58,7 @@ export function createSaveDialog({ available, onSave, link = '' }) {
         el('label', { className: 'field__label', text: 'Private link', attrs: { for: 'share-link' } }),
         linkField,
       ]),
-      el('p', { className: 'dialog__note', text: 'Anyone with this link can edit the design, so keep it private.' }),
+      note,
       status,
     ],
     actions: [copy, save, button('Close', () => dialog.close(), { variant: 'ghost', testId: 'save-close' })],

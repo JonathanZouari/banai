@@ -24,10 +24,16 @@ class Settings(BaseSettings):
     # Saved designs (Phase 7). Only the backend holds the secret key; the browser never talks to Supabase.
     supabase_url: str = ""
     supabase_secret_key: str = ""
+    # Accounts PROTOTYPE: the backend calls Supabase Auth with the publishable key; the browser never does.
+    supabase_publishable_key: str = ""
 
     @property
     def storage_enabled(self) -> bool:
         return bool(self.supabase_url.strip() and self.supabase_secret_key.strip())
+
+    @property
+    def accounts_enabled(self) -> bool:
+        return bool(self.supabase_url.strip() and self.supabase_publishable_key.strip())
 
     @property
     def cors_origin_list(self) -> list[str]:
