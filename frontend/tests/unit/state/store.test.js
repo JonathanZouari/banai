@@ -14,6 +14,16 @@ describe('store', () => {
     expect(Object.isFrozen(state.design.compartments[0])).toBe(true);
   });
 
+  it('opens the doors as a view setting only: no revision bump, design untouched', () => {
+    const store = makeStore();
+    const { design } = store.getState();
+    expect(store.getState().ui.doorsOpen).toBe(false);
+    store.setDoorsOpen(true);
+    expect(store.getState().ui.doorsOpen).toBe(true);
+    expect(store.getState().revision).toBe(1);
+    expect(store.getState().design).toBe(design);
+  });
+
   it('applies ops, bumps the revision and notifies subscribers', () => {
     const store = makeStore();
     const listener = vi.fn();

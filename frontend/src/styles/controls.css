@@ -128,6 +128,9 @@ select.field__input {
 .toggle input:checked { border-color: var(--md-sys-color-primary); background: var(--md-sys-color-primary); }
 .toggle input:checked::before { left: 22px; width: 24px; height: 24px; background: var(--md-sys-color-on-primary); }
 
+.toggle:has(input:disabled) { cursor: not-allowed; opacity: 0.5; }
+.toggle input:disabled { cursor: not-allowed; }
+
 .appearance { margin-bottom: var(--space-4); }
 .appearance__label { margin: 0 0 var(--space-2); font: var(--md-sys-typescale-title-small); }
 .swatches { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-2); }

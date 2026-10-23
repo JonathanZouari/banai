@@ -9,6 +9,7 @@ import { applyProposal, getCatalog, getDefaultDesign, getHealth, sendChat } from
 import { createStore } from './state/store.js';
 import { mountPanel } from './editor/panel.js';
 import { createViewer } from './viewer/viewer.js';
+import { hasHingedDoors } from './viewer/swing.js';
 import { createChatModel } from './chat/chatModel.js';
 import { createLanguage } from './chat/i18n.js';
 import { mountChat } from './chat/chatPanel.js';
@@ -29,6 +30,18 @@ function bindInteriorToggle(store) {
   const toggle = document.getElementById('toggle-interior');
   toggle.addEventListener('change', () => store.setDoorsVisible(!toggle.checked));
   store.subscribe((state) => { toggle.checked = !state.ui.doorsVisible; });
+}
+
+/** Open/closed hinged doors. Only meaningful for hinged doors, so it is disabled otherwise (sliding, none, hidden). */
+function bindDoorsOpenToggle(store) {
+  const toggle = document.getElementById('toggle-doors-open');
+  toggle.addEventListener('change', () => store.setDoorsOpen(toggle.checked));
+  store.subscribe(({ design, ui }) => {
+    toggle.checked = ui.doorsOpen;
+    toggle.disabled = !hasHingedDoors(design) || !ui.doorsVisible;
+  });
+  const { design, ui } = store.getState();
+  toggle.disabled = !hasHingedDoors(design) || !ui.doorsVisible;
 }
 
 function bindDialogs() {
@@ -55,6 +68,7 @@ async function boot() {
   const store = createStore({ design: initial.design, revision: initial.revision, catalog });
   const viewer = createViewer(document.getElementById('viewer'), store);
   bindInteriorToggle(store);
+  bindDoorsOpenToggle(store);
   mountPanel(document.getElementById('properties-content'), store);
   bindDialogs();
   bindPdfExport({ button: document.getElementById('export-pdf'), store, onError: showError });
