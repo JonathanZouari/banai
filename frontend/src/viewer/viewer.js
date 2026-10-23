@@ -5,12 +5,12 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { buildWardrobe, disposeWardrobe } from './buildWardrobe.js';
+import { CAMERA, createTransition, viewPose } from './cameraViews.js';
 import { frameOf } from './builders/frame.js';
 import { createDimensions } from './dimensions.js';
 import { createHighlighter } from './highlight.js';
 import { createMaterials } from './materials.js';
 import { attachPicking } from './picking.js';
-import { toM } from './units.js';
 
 const BACKGROUND = '#eceeec';
 
@@ -54,9 +54,9 @@ export function createViewer(container, store) {
   container.appendChild(labels.domElement);
 
   const scene = createScene();
-  const camera = new THREE.PerspectiveCamera(40, 1, 0.05, 60);
+  const camera = new THREE.PerspectiveCamera(CAMERA.fov, 1, 0.05, 60);
   const controls = new OrbitControls(camera, renderer.domElement);
-  Object.assign(controls, { enableDamping: true, minDistance: 0.6, maxDistance: 14, maxPolarAngle: Math.PI / 2 - 0.02 });
+  Object.assign(controls, { enableDamping: true, minDistance: CAMERA.minDistance, maxDistance: CAMERA.maxDistance, maxPolarAngle: CAMERA.maxPolarAngle });
 
   const materials = createMaterials(store.getState().catalog);
   const highlighter = createHighlighter(scene);
@@ -64,13 +64,34 @@ export function createViewer(container, store) {
   let group = null;
   let rendered = { design: null, doorsVisible: null, selection: undefined, dimsKey: null };
 
-  const fitCamera = (design) => {
-    const { width, height, depth } = design.dimensions;
-    const center = new THREE.Vector3(toM(width / 2), toM(height / 2), toM(-depth / 2));
-    const distance = (toM(Math.max(width, height)) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)))) * 1.35;
-    camera.position.set(center.x + distance * 0.35, center.y + distance * 0.12, distance);
-    controls.target.copy(center);
+  // Camera moves are view state only: they never touch the store (the canonical design state).
+  let transition = null;
+  const applyPose = ({ position, target }) => {
+    camera.position.set(...position);
+    controls.target.set(...target);
     controls.update();
+  };
+  const cancelTransition = () => {
+    transition = null;
+    controls.enableDamping = true;
+  };
+  controls.addEventListener('start', cancelTransition); // the user took over (drag, wheel, touch)
+
+  const fitCamera = (design) => {
+    cancelTransition();
+    applyPose(viewPose('reset', design.dimensions));
+  };
+
+  /** Move the camera to a standard view ('front' | 'side' | 'threeQuarter' | 'reset'), smoothly unless reduced motion is on. */
+  const setView = (name, { animate = true } = {}) => {
+    const { design } = store.getState();
+    const to = viewPose(name, design.dimensions, { aspect: camera.aspect });
+    const reduceMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const from = { position: camera.position.toArray(), target: controls.target.toArray() };
+    // Damping keeps a little leftover rotation after a drag; flush it so it cannot push the camera off the pose.
+    controls.enableDamping = false;
+    controls.update();
+    transition = createTransition({ from, to, startedAt: performance.now(), duration: animate && !reduceMotion ? undefined : 0 });
   };
 
   const sync = (state) => {
@@ -117,7 +138,12 @@ export function createViewer(container, store) {
   const unsubscribe = store.subscribe(sync);
   sync(store.getState());
 
-  renderer.setAnimationLoop(() => {
+  renderer.setAnimationLoop((now) => {
+    if (transition) {
+      const { pose, done } = transition.sample(now ?? performance.now());
+      applyPose(pose);
+      if (done) cancelTransition();
+    }
     controls.update();
     renderer.render(scene, camera);
     labels.render(scene, camera);
@@ -126,6 +152,7 @@ export function createViewer(container, store) {
   return {
     camera,
     controls,
+    setView,
     canvas: renderer.domElement,
     meshOf: (componentId) => group?.children.find((mesh) => mesh.userData.componentId === componentId) ?? null,
     /** Client (page) coordinates of a component's centre, for tests and tooling. */
@@ -138,6 +165,7 @@ export function createViewer(container, store) {
     },
     dispose() {
       renderer.setAnimationLoop(null);
+      cancelTransition();
       unsubscribe();
       detachPicking();
       resizeObserver.disconnect();
