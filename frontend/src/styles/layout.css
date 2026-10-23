@@ -65,6 +65,9 @@ body {
 .viewer { position: relative; min-width: 0; overflow: hidden; background: var(--md-sys-color-viewer); }
 .viewer canvas { display: block; }
 .viewer-labels { position: absolute; inset: 0; pointer-events: none; }
+.view-buttons { position: absolute; z-index: 1; top: var(--space-3); inset-inline-end: var(--space-3); display: flex; gap: var(--space-1); }
+.view-buttons__button { min-height: 32px; padding: 4px var(--space-3); }
+.view-buttons__button[aria-pressed="true"] { background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); }
 
 .dim-label {
   padding: 2px var(--space-2);
