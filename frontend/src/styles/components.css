@@ -261,3 +261,7 @@
 /* The pinned "design ready" note in the chat, with Generate Style Profile. */
 .chat__built-body { display: flex; flex-direction: column; gap: var(--space-2); }
 .chat__built .button-row { margin-top: 0; }
+
+/* Camera angle buttons, floating at the top centre of the 3D viewer. */
+.viewer-views { position: absolute; top: var(--space-3); left: 50%; transform: translateX(-50%); z-index: 2; display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); max-width: calc(100% - var(--space-5, 20px)); padding: var(--space-2); border-radius: var(--md-sys-shape-full); background: rgba(255, 255, 255, 0.78); backdrop-filter: blur(6px); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12); }
+.btn--small { min-height: 32px; padding: 4px 14px; font-size: 0.875rem; }
