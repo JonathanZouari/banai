@@ -57,6 +57,15 @@ describe('fromDisplay', () => {
     expect(fromDisplay('', 'cm').ok).toBe(false);
     expect(fromDisplay('1 2', 'cm').ok).toBe(false);
   });
+
+  it('cap is checked on mm not on the typed value (in: limit is ~39370 in, not 1000000)', () => {
+    // 1,000,001 mm typed as mm → rejected
+    expect(fromDisplay('1000001', 'mm').ok).toBe(false);
+    // 39371 inches → round(39371*25.4) = 1,000,023 mm → rejected
+    expect(fromDisplay('39371', 'in').ok).toBe(false);
+    // 39370 inches → round(39370*25.4) = 999,998 mm → accepted (under cap)
+    expect(fromDisplay('39370', 'in').ok).toBe(true);
+  });
 });
 
 describe('fromDisplay edge cases', () => {
@@ -67,20 +76,22 @@ describe('fromDisplay edge cases', () => {
 });
 
 describe('round-trip: toDisplay → fromDisplay', () => {
-  const cases = [
-    { mm: 640, unit: 'mm' },
-    { mm: 640, unit: 'cm' },
-    { mm: 645, unit: 'cm' },
-    { mm: 254, unit: 'in' },  // exact inch
-    { mm: 600, unit: 'in' },  // round-trips within 1 mm due to inch conversion
-  ];
+  it('recovers exact mm for mm and cm units across wardrobe range', () => {
+    for (let mm = 10; mm <= 3000; mm += 5) {
+      for (const unit of ['mm', 'cm']) {
+        const result = fromDisplay(toDisplay(mm, unit), unit);
+        expect(result.ok).toBe(true);
+        expect(result.mm).toBe(mm);
+      }
+    }
+  });
 
-  it('recovers original mm within 1 mm for all units', () => {
-    for (const { mm, unit } of cases) {
-      const text = toDisplay(mm, unit);
-      const result = fromDisplay(text, unit);
+  it('recovers exact mm for specific inch values', () => {
+    // Two decimal places at 1/25.4 ≈ 0.04mm resolution; typical wardrobe dims all round-trip exactly
+    for (const mm of [127, 254, 508, 600, 640, 1000, 1200, 2000, 2400]) {
+      const result = fromDisplay(toDisplay(mm, 'in'), 'in');
       expect(result.ok).toBe(true);
-      expect(Math.abs(result.mm - mm)).toBeLessThanOrEqual(1);
+      expect(result.mm).toBe(mm);
     }
   });
 });

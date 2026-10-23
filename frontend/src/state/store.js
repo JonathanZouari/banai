@@ -8,6 +8,8 @@ import { DomainError } from '../domain/errors.js';
 import { locate } from '../domain/lookup.js';
 import { deepFreeze } from '../domain/util.js';
 
+const VALID_UNITS = new Set(['mm', 'cm', 'in']);
+
 const KIND_BY_LOCATION = Object.freeze({
   compartment: 'compartment',
   partition: 'partition',
@@ -91,6 +93,7 @@ export function createStore({ design, revision = 1, catalog }) {
     },
 
     setUnit(unit) {
+      if (!VALID_UNITS.has(unit)) return;
       commit({ ui: { ...state.ui, unit } });
     },
   };

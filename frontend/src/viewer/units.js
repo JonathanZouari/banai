@@ -23,13 +23,12 @@ export function fromDisplay(text, unit) {
     return { ok: false, message: `Enter a number in ${unit}, e.g. ${unit === 'in' ? '24.00' : unit === 'cm' ? '64.5' : '640'}` };
   }
   const value = Number(trimmed);
-  if (!Number.isFinite(value) || Math.abs(value) > 1_000_000) {
-    return { ok: false, message: 'That value is too large' };
-  }
+  if (!Number.isFinite(value)) return { ok: false, message: 'That value is too large' };
   let mm;
   if (unit === 'mm') mm = Math.round(value);
   else if (unit === 'cm') mm = Math.round(value * 10);
   else mm = Math.round(value * 25.4); // inches
+  if (Math.abs(mm) > 1_000_000) return { ok: false, message: 'That value is too large' };
   return { ok: true, mm };
 }
 
