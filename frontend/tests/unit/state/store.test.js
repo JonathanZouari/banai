@@ -74,6 +74,18 @@ describe('store', () => {
     store.setDoorsVisible(true);
     expect(listener).toHaveBeenCalledTimes(1);
   });
+
+  it('starts with unit cm and switches unit without affecting the design', () => {
+    const store = makeStore();
+    expect(store.getState().ui.unit).toBe('cm');
+    const listener = vi.fn();
+    store.subscribe(listener);
+    const designBefore = store.getState().design;
+    store.setUnit('in');
+    expect(store.getState().ui.unit).toBe('in');
+    expect(store.getState().design).toBe(designBefore); // same reference — design untouched
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('store input validation (Phase 3 security review M1)', () => {

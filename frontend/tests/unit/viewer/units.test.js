@@ -59,6 +59,13 @@ describe('fromDisplay', () => {
   });
 });
 
+describe('fromDisplay edge cases', () => {
+  it('mm: fractional input rounds to nearest integer mm', () => {
+    expect(fromDisplay('10.5', 'mm')).toEqual({ ok: true, mm: 11 });
+    expect(fromDisplay('10.4', 'mm')).toEqual({ ok: true, mm: 10 });
+  });
+});
+
 describe('round-trip: toDisplay → fromDisplay', () => {
   const cases = [
     { mm: 640, unit: 'mm' },
