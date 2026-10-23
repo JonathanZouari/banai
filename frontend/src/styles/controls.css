@@ -187,7 +187,7 @@ select.field__input {
   border-radius: var(--md-sys-shape-medium);
   background: var(--md-sys-color-surface-container-low);
 }
-.summary-list { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2) var(--space-4); margin: 0; }
+.summary-list { display: grid; gap: var(--space-2); margin: 0; }
 .summary-list__row { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2); min-width: 0; }
 .summary-list__label { color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-small); }
 .summary-list__value { margin: 0; color: var(--md-sys-color-on-surface); font: var(--md-sys-typescale-label-large); font-variant-numeric: tabular-nums; white-space: nowrap; }
