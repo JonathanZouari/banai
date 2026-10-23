@@ -1,300 +1,240 @@
-// Left column: header (with a Hebrew/English switch), a welcome with starter prompts, the
-// conversation, the proposal card and the composer. This panel never changes the design by
-// itself: the agent only proposes, and the host applies a proposal when the customer confirms it.
-// Switching the language rebuilds the panel's chrome; the conversation and the draft stay.
+// Chat tab: header, a short welcome, the conversation, the proposal card and the composer. No
+// starter chips or multiple choice (ADR-025): the customer just talks. The agent answers in text only, so
+// this panel never changes the design by itself. The header chip mirrors the OpenAI key status from AI
+// settings. The column speaks the session language (ADR-029): its texts and direction follow it.
 import { el } from '../editor/fields.js';
 import { icon } from '../ui/icons.js';
 import { MAX_MESSAGE_LENGTH } from './chatModel.js';
-import { createLanguage, detectLanguage, LANGUAGES, STRINGS, stringsFor } from './i18n.js';
 import { renderProposalCard } from './proposalCard.js';
-import { canRecord, createSpeaker, readAloudPreference, startRecording } from './voice.js';
-import { transcribe } from '../api/client.js';
 
-const LANGUAGE_NAMES = Object.freeze({ he: 'עב', en: 'EN' });
-
-function languageSwitch(language, t) {
-  const group = el('div', { className: 'lang-switch', attrs: { role: 'group', 'aria-label': t.switchLabel } });
-  group.dataset.testid = 'chat-language';
-  LANGUAGES.forEach((code) => {
-    const option = el('button', {
-      className: 'lang-switch__option',
-      text: LANGUAGE_NAMES[code],
-      attrs: { type: 'button', lang: code, 'aria-pressed': String(code === language.get()), title: code === 'he' ? 'עברית' : 'English' },
-    });
-    option.dataset.testid = `chat-language-${code}`;
-    option.addEventListener('click', () => language.set(code));
-    group.append(option);
+/** The web pages Bob's reply cites (already checked by safeSources): links that open in a new tab. */
+function sourcesList(sources) {
+  const list = el('ul', { className: 'chat__sources-list' });
+  sources.forEach(({ title, url, host }) => {
+    const link = el('a', { text: title, attrs: { href: url, target: '_blank', rel: 'noopener noreferrer', dir: 'auto', title: url } });
+    list.append(el('li', {}, [link, el('span', { className: 'chat__source-host', text: host, attrs: { dir: 'ltr' } })]));
   });
-  return group;
+  const box = el('div', { className: 'chat__sources' }, [el('span', { className: 'chat__sources-title', text: ct('מקורות') }), list]);
+  box.dataset.testid = 'chat-sources';
+  return box;
 }
+import { STATUS_LABELS } from '../settings/aiSettingsModel.js';
+import { AGENT_NAME, AI_VOICE_DISCLOSURE } from './speech.js';
+import {
+  CHAT_LANGUAGES, LANGUAGE_NAMES, ct, getChatLanguage, isRtl, onChatLanguage, setChatLanguage,
+} from './chatI18n.js';
 
-/** onExport() opens the carpenter PDF dialog (Generate Style Profile); without it no note is shown. */
-export function mountChat(container, {
-  model, onConfirm, language = createLanguage(), speaker = createSpeaker(), readAloud = readAloudPreference(),
-  onExport = null,
-}) {
+const COMPOSER_PLACEHOLDER = 'כתבו לבוב…';
+
+/**
+ * `voice` (optional): (micButton, { input, send(text) }) => void wires push-to-talk to the mic button;
+ * without it the button stays hidden.
+ * `speech` (optional, ADR-028): { prefs, speaker } from chat/speech.js. Adds the speaker toggle in the
+ * header and a "speaking" pill above the composer; replies to spoken messages are read aloud.
+ */
+export function mountChat(container, { model, onConfirm, aiSettings, onOpenSettings, voice = null, speech = null }) {
   container.classList.add('panel--chat');
-  let draft = '';
-  let hintKey = null; // a localized placeholder chosen on the start screen
-  let view = null;
-  // Voice state outlives a rebuild (language switch). status: null | 'recording' | 'transcribing'.
-  const voice = { recording: null, status: null, notice: null };
-  let spokenCount = model.getMessages().length; // replies already present are never read aloud
 
-  const showVoiceState = () => {
-    const { t, hint, mic } = view;
-    hint.textContent = voice.notice ?? (voice.status ? t[voice.status] : t.hint);
-    if (!mic) return;
-    const recording = voice.status === 'recording';
-    mic.classList.toggle('chat__mic--recording', recording);
-    mic.setAttribute('aria-pressed', String(recording));
-    mic.setAttribute('aria-label', recording ? t.micStop : t.mic);
-    mic.replaceChildren(icon(recording ? 'stop' : 'mic'));
-    mic.disabled = voice.status === 'transcribing' || (!recording && model.isBusy());
+  // Shows the OpenAI key status (kept in sync with AI settings); clicking it opens the settings.
+  const statusChip = el('button', { className: 'status-chip chat__status', attrs: { type: 'button' } });
+  statusChip.dataset.testid = 'chat-status';
+  statusChip.addEventListener('click', () => onOpenSettings?.());
+  const connectLabel = el('span');
+  const connectButton = el('button', { className: 'btn btn--tonal chat__connect', attrs: { type: 'button' } }, [icon('key', { size: 18 }), connectLabel]);
+  connectButton.dataset.testid = 'chat-connect-key';
+  connectButton.addEventListener('click', () => onOpenSettings?.());
+  let keyState = aiSettings.getState();
+  const renderKeyStatus = (state) => {
+    keyState = state;
+    statusChip.textContent = ct(STATUS_LABELS[state.status]);
+    statusChip.dataset.status = state.status;
+    connectButton.hidden = state.status === 'connected' || state.status === 'checking';
   };
 
-  async function toggleMic() {
-    if (voice.recording) {
-      voice.recording.stop();
-      return;
-    }
-    voice.notice = null;
-    try {
-      voice.recording = await startRecording();
-    } catch {
-      voice.notice = view.t.micDenied;
-      showVoiceState();
-      return;
-    }
-    voice.status = 'recording';
-    showVoiceState();
-    const blob = await voice.recording.done;
-    voice.recording = null;
-    voice.status = 'transcribing';
-    showVoiceState();
-    try {
-      const { text } = await transcribe(blob, language.get());
-      view.input.value = text;
-      draft = text;
-      voice.status = null;
-      showVoiceState();
-      view.submit(); // the normal send path: language detection, then a proposal to confirm
-    } catch (error) {
-      voice.notice = error?.status ? error.message : view.t.voiceError;
-    } finally {
-      voice.status = null;
-      showVoiceState();
-    }
-  }
+  // The session language (ADR-029): a compact picker; the choice is saved by the host.
+  const languagePicker = el('select', { className: 'chat__language' }, CHAT_LANGUAGES.map((lang) => {
+    const option = el('option', { text: LANGUAGE_NAMES[lang], attrs: { value: lang, lang } });
+    option.selected = lang === getChatLanguage();
+    return option;
+  }));
+  languagePicker.dataset.testid = 'chat-language';
+  languagePicker.addEventListener('change', () => setChatLanguage(languagePicker.value));
 
-  function readAloudToggle(t) {
-    const button = el('button', {
-      className: 'icon-btn chat__read-aloud',
-      attrs: { type: 'button', 'aria-pressed': String(readAloud.get()), 'aria-label': t.readAloud, title: t.readAloud },
-    }, [icon('volume', { size: 18 })]);
-    button.dataset.testid = 'chat-read-aloud';
-    button.addEventListener('click', () => {
-      readAloud.set(!readAloud.get());
-      button.setAttribute('aria-pressed', String(readAloud.get()));
-      if (!readAloud.get()) speaker.stop();
-      voice.notice = readAloud.get() ? view.t.readAloudOn : null; // the AI-voice disclosure
-      showVoiceState();
+  // Spoken replies: a mute toggle in the header, and a pill that says an AI voice is talking.
+  const speakerToggle = speech ? el('button', { className: 'icon-btn chat__speaker', attrs: { type: 'button' } }) : null;
+  const speaking = speech ? el('button', { className: 'chat__speaking', attrs: { type: 'button' } }) : null;
+  const renderToggle = () => {
+    const on = speech.prefs.isEnabled();
+    speakerToggle.replaceChildren(icon(on ? 'volume' : 'volumeOff'));
+    speakerToggle.setAttribute('aria-pressed', String(on));
+    const label = on ? ct('תשובות לשאלות בקול מוקראות ({ai}). לחצו להשתקה', { ai: ct(AI_VOICE_DISCLOSURE) })
+      : ct('הקראת תשובות כבויה. לחצו להפעלה');
+    speakerToggle.setAttribute('aria-label', label);
+    speakerToggle.title = label;
+  };
+  const renderSpeaking = (state) => {
+    speaking.hidden = state === 'idle';
+    speaking.dataset.state = state;
+    const ai = ct(AI_VOICE_DISCLOSURE);
+    speaking.replaceChildren(icon('volume', { size: 16 }), el('span', {
+      text: state === 'loading' ? ct('בוב מכין תשובה קולית · {ai}', { ai }) : ct('בוב מדבר · {ai} · עצירה', { ai }),
+    }));
+  };
+  if (speech) {
+    speakerToggle.dataset.testid = 'chat-speaker';
+    speaking.dataset.testid = 'chat-speaking';
+    speaking.hidden = true;
+    speakerToggle.addEventListener('click', () => {
+      speech.prefs.setEnabled(!speech.prefs.isEnabled());
+      if (!speech.prefs.isEnabled()) speech.speaker.stop();
     });
-    return button;
+    speaking.addEventListener('click', () => speech.speaker.stop());
+    speech.prefs.subscribe(renderToggle);
+    speech.speaker.subscribe(renderSpeaking);
   }
 
-  /** The final step: one pinned note with Generate Style Profile (the carpenter PDF). */
-  function profileNote(code) {
-    const s = stringsFor(code);
-    const profile = el('button', { className: 'btn btn--primary', text: s.generateProfile, attrs: { type: 'button' } });
-    profile.dataset.testid = 'chat-export';
-    profile.addEventListener('click', () => onExport());
-    const note = el('div', { className: 'chat__bubble chat__bubble--system chat__built', attrs: { dir: s.dir, lang: code } }, [
-      icon('check', { size: 16 }),
-      el('div', { className: 'chat__built-body' }, [
-        el('span', { text: s.readyForProfile }),
-        el('div', { className: 'button-row' }, [profile]),
-      ]),
-    ]);
-    note.dataset.testid = 'profile-note';
-    return note;
-  }
+  const title = el('h2', { className: 'chat__title' });
+  const subtitle = el('p', { className: 'chat__subtitle' });
+  const header = el('header', { className: 'chat__header' }, [
+    el('span', { className: 'chat__avatar' }, [icon('sparkle', { size: 22 })]),
+    el('div', { className: 'chat__heading' }, [title, subtitle]),
+    // The controls drop to a second row when the column is narrow, instead of squeezing the title.
+    el('div', { className: 'chat__tools' }, [languagePicker, ...(speakerToggle ? [speakerToggle] : []), statusChip]),
+  ]);
 
-  function build() {
-    const t = language.strings();
-    container.setAttribute('dir', t.dir);
-    container.setAttribute('lang', language.get());
+  const input = el('textarea', { className: 'chat__input', attrs: { dir: 'auto', rows: '2', maxlength: String(MAX_MESSAGE_LENGTH) } });
+  input.dataset.testid = 'chat-input';
+  const sendButton = el('button', { className: 'icon-btn icon-btn--filled chat__send', attrs: { type: 'submit' } }, [icon('send')]);
+  sendButton.dataset.testid = 'chat-send';
+  const mic = el('button', { className: 'icon-btn chat__mic', attrs: { type: 'button' } }, [icon('mic')]);
+  mic.dataset.testid = 'chat-mic';
+  mic.hidden = !voice;
+  const composer = el('form', { className: 'chat__composer' }, [input, mic, sendButton]);
+  const hint = el('p', { className: 'chat__hint' });
 
-    const header = el('header', { className: 'chat__header' }, [
-      el('span', { className: 'chat__avatar' }, [icon('sparkle', { size: 22 })]),
-      el('div', { className: 'chat__heading' }, [
-        el('h2', { className: 'chat__title', text: t.title }),
-        el('p', { className: 'chat__subtitle', text: t.subtitle }),
-      ]),
-      model.isConnected()
-        ? el('span', { className: 'chat__status chat__status--online', text: t.online, attrs: { title: t.onlineTitle } })
-        : el('span', { className: 'chat__status', text: t.comingSoon, attrs: { title: t.comingSoonTitle } }),
-    ]);
+  const welcomeTitle = el('h3', { className: 'welcome__title' });
+  const welcomeText = el('p', { className: 'welcome__text' });
+  const welcome = el('section', { className: 'welcome' }, [welcomeTitle, welcomeText, connectButton]);
+  welcome.dataset.testid = 'chat-welcome';
 
-    const input = el('textarea', { className: 'chat__input', attrs: { rows: '2', maxlength: String(MAX_MESSAGE_LENGTH), placeholder: (hintKey && t.composerHints[hintKey]) || t.placeholder, dir: 'auto', 'aria-label': t.inputLabel } });
-    input.dataset.testid = 'chat-input';
-    input.value = draft;
-    input.addEventListener('input', () => { draft = input.value; });
-    const sendButton = el('button', { className: 'icon-btn icon-btn--filled chat__send', attrs: { type: 'submit', 'aria-label': t.send } }, [icon('send')]);
-    sendButton.dataset.testid = 'chat-send';
-    const voiceReady = model.isConnected() && canRecord();
-    const mic = voiceReady ? el('button', { className: 'icon-btn chat__mic', attrs: { type: 'button' } }) : null;
-    if (mic) {
-      mic.dataset.testid = 'chat-mic';
-      mic.addEventListener('click', toggleMic);
+  const list = el('div', { className: 'chat__messages', attrs: { role: 'log', 'aria-live': 'polite' } });
+  list.dataset.testid = 'chat-messages';
+  const typing = el('div', { className: 'chat__bubble chat__bubble--assistant chat__typing' }, [el('span'), el('span'), el('span')]);
+  typing.dataset.testid = 'chat-typing';
+  const proposalSlot = el('div', { className: 'chat__proposal' });
+  let customPlaceholder = null;
+
+  /** Every fixed text of the column, in the session language, and the column's direction. */
+  function applyLanguage() {
+    const lang = getChatLanguage();
+    container.lang = lang;
+    container.dir = isRtl(lang) ? 'rtl' : 'ltr';
+    languagePicker.value = lang;
+    languagePicker.setAttribute('aria-label', ct('שפת השיחה'));
+    languagePicker.title = ct('שפת השיחה');
+    title.textContent = ct(AGENT_NAME);
+    subtitle.textContent = ct('רואה את התכנון · מציע, ואתם מאשרים');
+    statusChip.title = ct('הגדרות AI');
+    connectLabel.textContent = ct('חיבור מפתח OpenAI');
+    // A start-screen hint is Hebrew; in another language the composer shows its own placeholder.
+    input.placeholder = (lang === 'he' && customPlaceholder) || ct(COMPOSER_PLACEHOLDER);
+    input.setAttribute('aria-label', ct('הודעה לבוב הבנאי'));
+    sendButton.setAttribute('aria-label', ct('שליחה'));
+    mic.setAttribute('aria-label', ct('החזיקו כדי לדבר'));
+    mic.title = ct('החזיקו כדי לדבר · שחררו לשליחה');
+    hint.textContent = ct('Enter לשליחה · Shift+Enter לשורה חדשה');
+    welcome.setAttribute('aria-label', ct('פתיחה'));
+    welcomeTitle.textContent = ct('מה מתכננים היום?');
+    welcomeText.textContent = ct('ספרו במילים שלכם מה חשוב לכם בארון, מה צריך להיכנס אליו או מה מפריע לכם בתכנון. כל שינוי מגיע כהצעה, ושום דבר לא משתנה בלי אישור שלכם.');
+    list.setAttribute('aria-label', ct('שיחה'));
+    typing.setAttribute('aria-label', ct('בוב כותב'));
+    renderKeyStatus(keyState);
+    if (speech) {
+      renderToggle();
+      renderSpeaking(speech.speaker.getState());
     }
-    const composer = el('form', { className: 'chat__composer' }, mic ? [input, mic, sendButton] : [input, sendButton]);
-    const hint = el('p', { className: 'chat__hint', text: t.hint, attrs: { 'aria-live': 'polite' } });
-    hint.dataset.testid = 'chat-hint';
+    renderedProposalKey = ''; // the card is rebuilt in the new language
+    render();
+  }
 
-    const chips = t.suggestions.map((text) => {
-      const chip = el('button', { className: 'suggestion', attrs: { type: 'button' } }, [icon('sparkle', { size: 16 }), el('span', { text })]);
-      chip.dataset.testid = 'suggestion';
-      chip.addEventListener('click', () => {
-        input.value = text; // only fills the composer: nothing is sent until the customer presses send
-        draft = text;
-        input.focus();
-      });
-      return chip;
-    });
-    const welcome = el('section', { className: 'welcome', attrs: { 'aria-label': t.welcomeLabel } }, [
-      el('h3', { className: 'welcome__title', text: t.welcomeTitle }),
-      el('p', { className: 'welcome__text', text: t.welcomeText }),
-      el('div', { className: 'welcome__chips' }, chips),
-    ]);
-    welcome.dataset.testid = 'chat-welcome';
-
-    const builtSlot = el('div', { className: 'chat__built-slot' });
-    const list = el('div', { className: 'chat__messages', attrs: { role: 'log', 'aria-live': 'polite', 'aria-label': t.conversation } });
-    list.dataset.testid = 'chat-messages';
-    const proposalSlot = el('div', { className: 'chat__proposal' });
-    const typing = el('div', { className: 'chat__bubble chat__bubble--assistant chat__typing', attrs: { role: 'status', 'aria-label': t.thinking } }, [
-      el('span', { className: 'chat__dot' }), el('span', { className: 'chat__dot' }), el('span', { className: 'chat__dot' }),
-    ]);
-    typing.dataset.testid = 'chat-typing';
-    typing.hidden = true;
-
-    const submit = () => {
-      if (model.isBusy() || !input.value.trim()) return;
-      voice.notice = null; // a new message clears an old mic/read-aloud notice
-      // Writing in Hebrew or English switches the chat to that language first, so the reply (and
-      // the UI) come back only in the language the customer wrote in.
-      const written = detectLanguage(input.value);
-      if (written && written !== language.get()) {
-        draft = input.value;
-        language.set(written); // rebuilds the panel; the draft is carried over
-        view.submit();
-        return;
-      }
-      if (model.send(input.value).ok) {
-        input.value = '';
-        draft = '';
-      }
-    };
-    composer.addEventListener('submit', (event) => {
+  const submit = () => {
+    if (model.send(input.value).ok) input.value = '';
+  };
+  composer.addEventListener('submit', (event) => {
+    event.preventDefault();
+    submit();
+  });
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       submit();
-    });
-    input.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' && !event.shiftKey) {
-        event.preventDefault();
-        submit();
-      }
-    });
+    }
+  });
 
-    const controls = model.isConnected() ? [readAloudToggle(t), languageSwitch(language, t)] : [languageSwitch(language, t)];
-    const footerRow = el('div', { className: 'chat__footer-row' }, [hint, el('div', { className: 'chat__footer-controls' }, controls)]);
-    container.replaceChildren(header, el('div', { className: 'chat__body' }, [welcome, list, builtSlot, proposalSlot]), el('div', { className: 'chat__footer' }, [composer, footerRow]));
-    view = { t, input, sendButton, composer, welcome, list, proposalSlot, typing, submit, hint, mic, renderedCount: 0, renderedProposalKey: null, builtSlot, renderedBuiltKey: null };
-    showVoiceState();
-  }
-
-  function speakNewReplies(messages) {
-    const reply = messages.slice(spokenCount).filter((message) => message.role === 'assistant').at(-1);
-    spokenCount = messages.length;
-    if (!reply || !readAloud.get()) return;
-    speaker.speak(reply.text, reply.language, reply.signature).catch(() => {
-      voice.notice = view.t.voiceError;
-      showVoiceState();
-    });
-  }
-
+  let renderedCount = 0;
+  let renderedProposalKey = '';
   function render() {
-    const { t, sendButton, composer, welcome, list, proposalSlot, typing } = view;
     const messages = model.getMessages();
-    welcome.hidden = messages.length > 0 || model.getProposal() !== null || model.getBuilt() !== null;
+    welcome.hidden = messages.length > 0 || model.getProposal() !== null;
     list.hidden = messages.length === 0;
     // Only newly added bubbles are created (and animate in); existing ones stay untouched.
-    if (messages.length < view.renderedCount) {
+    if (messages.length < renderedCount) {
       list.replaceChildren();
-      view.renderedCount = 0;
+      renderedCount = 0;
     }
-    messages.slice(view.renderedCount).forEach((message) => {
-      // Designer and system bubbles keep the language (and direction) they were written in; the
-      // customer's own text takes its direction from its content. Switching language changes neither.
-      const written = message.role !== 'user' && STRINGS[message.language];
-      const bubble = el('div', {
-        className: `chat__bubble chat__bubble--${message.role}`,
-        attrs: written ? { dir: written.dir, lang: message.language } : { dir: 'auto' },
-      });
+    messages.slice(renderedCount).forEach((message) => {
+      const bubble = el('div', { className: `chat__bubble chat__bubble--${message.role}` });
       if (message.role === 'system') bubble.append(icon('info', { size: 16 }));
-      bubble.append(el('span', { text: message.text }));
+      bubble.append(el('span', { text: message.text, attrs: { dir: 'auto' } }));
+      if (message.sources?.length) bubble.append(sourcesList(message.sources));
+      bubble.dataset.testid = `chat-bubble-${message.role}`;
       list.append(bubble);
     });
-    view.renderedCount = messages.length;
-    // One pinned note offering the PDF step: replaced, never added, so it never piles up.
-    const built = model.getBuilt();
-    const builtKey = built && onExport ? built.language : '';
-    if (builtKey !== view.renderedBuiltKey) {
-      view.renderedBuiltKey = builtKey;
-      view.builtSlot.replaceChildren(...(builtKey ? [profileNote(built.language)] : []));
-    }
-    const busy = model.isBusy();
-    typing.hidden = !busy;
-    if (busy) list.append(typing); // keep the indicator last, under the newest message
-    sendButton.disabled = busy;
-    composer.setAttribute('aria-busy', String(busy));
+    renderedCount = messages.length;
+    typing.hidden = !model.isThinking();
+    if (!typing.hidden) list.hidden = false;
+    list.append(typing);
+    sendButton.disabled = model.isThinking();
     list.scrollTop = list.scrollHeight;
-    showVoiceState();
-    speakNewReplies(messages);
 
     // Re-render the card only when the proposal or its status changed (keeps its entrance animation calm).
     const proposal = model.getProposal();
     const status = model.getProposalStatus();
     const key = proposal ? `${proposal.id}:${status}` : '';
-    if (key === view.renderedProposalKey) return;
-    view.renderedProposalKey = key;
+    if (key === renderedProposalKey) return;
+    renderedProposalKey = key;
     proposalSlot.replaceChildren();
     if (proposal) {
       proposalSlot.append(renderProposalCard(proposal, status, {
         onConfirm,
         onCancel: () => model.cancelProposal(),
-        strings: proposal.language ? stringsFor(proposal.language) : t, // the card stays in its own language
       }));
     }
   }
 
-  build();
+  container.replaceChildren(header, el('div', { className: 'chat__body' }, [welcome, list, proposalSlot]), el('div', { className: 'chat__footer' }, [...(speaking ? [speaking] : []), composer, hint]));
+  // A voice message goes through the same path as a typed one; the customer still confirms any change.
+  // It is marked as spoken, so the reply is written for the ear and read aloud (ADR-028).
+  voice?.(mic, { input, send: (text) => model.send(text, { spoken: true }) });
   model.subscribe(render);
-  render();
-  language.subscribe(() => {
-    const hadFocus = document.activeElement === view.input;
-    build();
-    render();
-    if (hadFocus) view.input.focus();
-  });
+  aiSettings.subscribe(renderKeyStatus);
+  onChatLanguage(applyLanguage);
+  applyLanguage();
 
   return {
-    /** Focus the composer. `hintKey` picks a localized placeholder ('guided' | 'freeText'). */
-    focus: (key) => {
-      hintKey = key ?? null;
-      view.input.placeholder = (hintKey && view.t.composerHints[hintKey]) || view.t.placeholder;
-      view.input.focus();
+    focus: (placeholder) => {
+      if (placeholder) {
+        customPlaceholder = placeholder;
+        input.placeholder = placeholder;
+      }
+      input.focus();
+    },
+    /** Write `text` into the composer for the customer to edit and send (never sent from here). */
+    draft(text) {
+      input.value = String(text ?? '').slice(0, MAX_MESSAGE_LENGTH);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
     },
     /** Re-render, e.g. after the design revision changed (a pending proposal may now be stale). */
     refresh: render,

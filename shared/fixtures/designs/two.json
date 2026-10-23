@@ -1,42 +1,124 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "units": "mm",
-  "dimensions": { "width": 1000, "height": 2000, "depth": 500 },
+  "dimensions": {
+    "width": 1000,
+    "height": 2000,
+    "depth": 500
+  },
   "carcass": {
     "panelThickness": 20,
     "appearance": {
-      "material": { "catalogId": "melamine" },
-      "color": { "catalogId": "white" },
-      "finish": { "catalogId": "matte" }
-    }
+      "material": {
+        "catalogId": "melamine"
+      },
+      "color": {
+        "catalogId": "white"
+      },
+      "finish": {
+        "catalogId": "matte"
+      }
+    },
+    "plinthHeight": 0,
+    "base": "plinth"
   },
   "compartments": [
     {
       "id": "cmp_a",
       "width": 470,
-      "shelves": [{ "id": "shf_1", "y": 500, "thickness": 20, "appearance": null }],
-      "drawers": [{ "id": "drw_1", "y": 0, "height": 200, "appearance": null }],
-      "rails": []
+      "shelves": [
+        {
+          "id": "shf_1",
+          "y": 500,
+          "thickness": 20,
+          "appearance": null,
+          "fixed": false
+        }
+      ],
+      "drawers": [
+        {
+          "id": "drw_1",
+          "y": 0,
+          "height": 200,
+          "appearance": null,
+          "handle": null
+        }
+      ],
+      "rails": [],
+      "inserts": []
     },
     {
       "id": "cmp_b",
       "width": 470,
       "shelves": [],
       "drawers": [],
-      "rails": [{ "id": "rail_1", "y": 1700 }]
+      "rails": [
+        {
+          "id": "rail_1",
+          "y": 1700
+        }
+      ],
+      "inserts": []
     }
   ],
-  "partitions": [{ "id": "prt_ab", "thickness": 20 }],
+  "partitions": [
+    {
+      "id": "prt_ab",
+      "thickness": 20
+    }
+  ],
   "doors": {
     "type": "hinged",
     "appearance": {
-      "material": { "catalogId": "melamine" },
-      "color": { "catalogId": "white" },
-      "finish": { "catalogId": "matte" }
+      "material": {
+        "catalogId": "melamine"
+      },
+      "color": {
+        "catalogId": "white"
+      },
+      "finish": {
+        "catalogId": "matte"
+      }
     },
     "items": [
-      { "id": "dr_a", "compartmentIds": ["cmp_a"], "hingeSide": "left", "appearance": null },
-      { "id": "dr_b", "compartmentIds": ["cmp_b"], "hingeSide": "right", "appearance": null }
+      {
+        "id": "dr_a",
+        "compartmentIds": [
+          "cmp_a"
+        ],
+        "hingeSide": "left",
+        "appearance": null,
+        "handle": null,
+        "mirror": false,
+        "bottomShelfId": null,
+        "topShelfId": null
+      },
+      {
+        "id": "dr_b",
+        "compartmentIds": [
+          "cmp_b"
+        ],
+        "hingeSide": "right",
+        "appearance": null,
+        "handle": null,
+        "mirror": false,
+        "bottomShelfId": null,
+        "topShelfId": null
+      }
     ]
-  }
+  },
+  "handles": {
+    "style": "bar",
+    "finish": "steel"
+  },
+  "site": null,
+  "fittings": {
+    "softClose": true,
+    "childLock": false,
+    "releaseHeight": null
+  },
+  "household": {
+    "people": []
+  },
+  "room": null
 }

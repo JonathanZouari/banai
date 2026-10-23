@@ -1,0 +1,19 @@
+{% set est = p.est %}
+    <p class="lead">{{ t("אומדן חומרים בלבד, לפי כמויות רשימת החיתוך והשיבוץ. לא כולל עבודה, הובלה, התקנה ופינוי.") }}</p>
+    <div>
+      <h3>{{ t("אומדן עלות חומרים (₪, לפני מע״מ)") }}</h3>
+      <table>
+        <thead><tr><th>{{ t("פריט") }}</th><th class="n">{{ t("כמות") }}</th><th class="n">{{ t("מ-") }}</th><th class="n">{{ t("עד") }}</th><th>{{ t("מקור") }}</th></tr></thead>
+        <tbody>
+{% for line in est.lines %}
+          <tr><td>{{ line.name | ltr }}</td><td class="n">{{ line.qty }} {{ line.unit }}</td><td class="n">{{ line.lo | shekel }}</td><td class="n">{{ line.hi | shekel }}</td><td class="muted">{{ num(line.src) }}{% if line.note %} · {{ line.note }}{% endif %}</td></tr>
+{% endfor %}
+        </tbody>
+        <tfoot>
+          <tr><td>{{ t("סה״כ לפני מע״מ") }}</td><td></td><td class="n">{{ est.lo | shekel }}</td><td class="n">{{ est.hi | shekel }}</td><td></td></tr>
+          <tr><td>{{ t("כולל מע״מ {vat}%", vat=p.vat) }}</td><td></td><td class="n">{{ est.lo_vat | shekel }}</td><td class="n">{{ est.hi_vat | shekel }}</td><td class="muted">{{ num("[73]") }}</td></tr>
+        </tfoot>
+      </table>
+      <p class="lead muted" style="margin-top: 1.5mm">{{ t("מחירים אינדיקטיביים מטבלת המחקר ({ref}). ללא עבודה, הובלה והתקנה.", ref=num("§4.2")) }}
+{% if est.unpriced %} {{ t("לא תומחר, כי אין מחיר במחקר:") }} {% for name in est.unpriced %}{{ name | ltr }}{{ "; " if not loop.last else "." }}{% endfor %}{% endif %}</p>
+    </div>

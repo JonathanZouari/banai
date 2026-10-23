@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "units": "mm",
   "dimensions": {
     "width": 2000,
@@ -18,7 +18,9 @@
       "finish": {
         "catalogId": "matte"
       }
-    }
+    },
+    "plinthHeight": 0,
+    "base": "plinth"
   },
   "compartments": [
     {
@@ -29,29 +31,34 @@
           "id": "shf_l1",
           "y": 400,
           "thickness": 18,
-          "appearance": null
+          "appearance": null,
+          "fixed": false
         },
         {
           "id": "shf_l2",
           "y": 800,
           "thickness": 18,
-          "appearance": null
+          "appearance": null,
+          "fixed": false
         },
         {
           "id": "shf_l3",
           "y": 1200,
           "thickness": 18,
-          "appearance": null
+          "appearance": null,
+          "fixed": false
         },
         {
           "id": "shf_l4",
           "y": 1600,
           "thickness": 18,
-          "appearance": null
+          "appearance": null,
+          "fixed": false
         }
       ],
       "drawers": [],
-      "rails": []
+      "rails": [],
+      "inserts": []
     },
     {
       "id": "cmp_middle",
@@ -61,7 +68,8 @@
           "id": "shf_m1",
           "y": 2000,
           "thickness": 18,
-          "appearance": null
+          "appearance": null,
+          "fixed": false
         }
       ],
       "drawers": [],
@@ -70,7 +78,8 @@
           "id": "rail_m1",
           "y": 1900
         }
-      ]
+      ],
+      "inserts": []
     },
     {
       "id": "cmp_right",
@@ -80,13 +89,15 @@
           "id": "shf_r1",
           "y": 800,
           "thickness": 18,
-          "appearance": null
+          "appearance": null,
+          "fixed": false
         },
         {
           "id": "shf_r2",
           "y": 1400,
           "thickness": 18,
-          "appearance": null
+          "appearance": null,
+          "fixed": false
         }
       ],
       "drawers": [
@@ -94,16 +105,19 @@
           "id": "drw_r1",
           "y": 0,
           "height": 200,
-          "appearance": null
+          "appearance": null,
+          "handle": null
         },
         {
           "id": "drw_r2",
           "y": 200,
           "height": 200,
-          "appearance": null
+          "appearance": null,
+          "handle": null
         }
       ],
-      "rails": []
+      "rails": [],
+      "inserts": []
     }
   ],
   "partitions": [
@@ -136,7 +150,11 @@
           "cmp_left"
         ],
         "hingeSide": "left",
-        "appearance": null
+        "appearance": null,
+        "handle": null,
+        "mirror": false,
+        "bottomShelfId": null,
+        "topShelfId": null
       },
       {
         "id": "dr_middle",
@@ -144,7 +162,11 @@
           "cmp_middle"
         ],
         "hingeSide": "right",
-        "appearance": null
+        "appearance": null,
+        "handle": null,
+        "mirror": false,
+        "bottomShelfId": null,
+        "topShelfId": null
       },
       {
         "id": "dr_right",
@@ -152,8 +174,26 @@
           "cmp_right"
         ],
         "hingeSide": "left",
-        "appearance": null
+        "appearance": null,
+        "handle": null,
+        "mirror": false,
+        "bottomShelfId": null,
+        "topShelfId": null
       }
     ]
-  }
+  },
+  "handles": {
+    "style": "bar",
+    "finish": "steel"
+  },
+  "site": null,
+  "fittings": {
+    "softClose": true,
+    "childLock": false,
+    "releaseHeight": null
+  },
+  "household": {
+    "people": []
+  },
+  "room": null
 }

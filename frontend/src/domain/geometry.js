@@ -5,7 +5,8 @@
 import { sum } from './util.js';
 
 export const interiorWidth = (d) => d.dimensions.width - 2 * d.carcass.panelThickness;
-export const interiorHeight = (d) => d.dimensions.height - 2 * d.carcass.panelThickness;
+// `?? 0`: geometry also runs on hand-built v1 objects (no plinth key) before parseDesign upgrades them.
+export const interiorHeight = (d) => d.dimensions.height - 2 * d.carcass.panelThickness - (d.carcass.plinthHeight ?? 0);
 
 
 /** Interior x of the left face of partitions[index]. */

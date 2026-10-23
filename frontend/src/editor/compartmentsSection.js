@@ -1,30 +1,36 @@
-// Compartment list: widths, selection, add and remove, plus the carpenter PDF export.
-import { actionResult, button, cmField, el, section } from './fields.js';
+// Compartment list: widths, selection, add and remove.
+import { actionResult, button, cmFieldParts, collapsibleSection, el } from './fields.js';
 import { addCompartmentOps, removeOps } from './opsFromForm.js';
+import { describeSelection } from './selectionContext.js';
+import { compartmentWidthRange } from './sliderRanges.js';
 
-export function compartmentsSection({ design, selection, run, select, onExport }) {
+export function compartmentsSection({ design, selection, run, select }) {
   const list = el('ol', { className: 'compartment-list' });
   const single = design.compartments.length === 1;
+  // The compartment the selected part belongs to (or the selected compartment itself) is marked
+  // aria-current and gets a quieter version of the selected-row styling.
+  const { compartmentId: contextId } = describeSelection(design, selection);
   design.compartments.forEach((compartment, index) => {
     const selected = selection?.id === compartment.id;
-    const row = el('li', { className: `compartment-row${selected ? ' is-selected' : ''}` });
+    const inContext = contextId === compartment.id;
+    const row = el('li', { className: `compartment-row${selected ? ' is-selected' : ''}${inContext ? ' compartment-row--context' : ''}` });
+    if (inContext) row.setAttribute('aria-current', 'true');
+    // The slider is the row's last child: it spans the full width on a line of its own (CSS).
+    const { field, slider } = cmFieldParts({
+      label: 'רוחב', mm: compartment.width, testId: `width-${compartment.id}`, range: compartmentWidthRange(design, compartment.id),
+      onCommit: (mm) => run([{ op: 'modify_compartment', compartmentId: compartment.id, width: mm }]),
+    });
     row.append(
-      button(`Compartment ${index + 1}`, () => select(compartment.id), { variant: 'link', testId: `select-${compartment.id}` }),
-      cmField({
-        label: 'Width', mm: compartment.width, testId: `width-${compartment.id}`,
-        onCommit: (mm) => run([{ op: 'modify_compartment', compartmentId: compartment.id, width: mm }]),
+      button(`תא ${index + 1}`, () => select(compartment.id), { variant: 'link', testId: `select-${compartment.id}` }),
+      field,
+      button('הסרה', () => actionResult(row, run(removeOps(compartment.id))), {
+        variant: 'danger-quiet', disabled: single, testId: `remove-${compartment.id}`,
       }),
-      button('Remove', () => actionResult(row, run(removeOps(compartment.id))), {
-        variant: 'ghost', disabled: single, testId: `remove-${compartment.id}`,
-      }),
+      ...(slider ? [slider] : []),
     );
     list.append(row);
   });
-  const container = section('Compartments', [list]);
-  const actions = el('div', { className: onExport ? 'button-row button-row--pair' : 'button-row' }, [
-    button('+ Add compartment', () => actionResult(container, run(addCompartmentOps(design))), { variant: 'secondary', testId: 'add-compartment' }),
-  ]);
-  if (onExport) actions.append(button('Generate Style Profile', onExport, { variant: 'primary', testId: 'open-export' }));
-  container.append(actions);
+  const container = collapsibleSection('compartments', 'תאים', [list]);
+  container.append(button('+ הוספת תא', () => actionResult(container, run(addCompartmentOps(design))), { variant: 'secondary', testId: 'add-compartment' }));
   return container;
 }

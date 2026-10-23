@@ -10,24 +10,38 @@ from typing import Annotated, Literal
 
 from pydantic import Field, TypeAdapter, ValidationError
 
+from app.domain.defaults import MAX_FURNITURE
 from app.domain.errors import SCHEMA_INVALID, DomainError
 from app.domain.schema import (
+    Person,
     MAX_LIST,
+    MAX_OBSTACLES,
+    Obstacle,
     AnyId,
     CompartmentId,
     DoorId,
     DrawerId,
+    InsertId,
+    InsertType,
+    HandleFinish,
+    HandleStyle,
     Int,
     PartitionId,
     RailId,
     Ref,
     ShelfId,
+    MAX_OPENINGS,
+    Furniture,
+    Opening,
+    RoomShape,
     StrictModel,
     schema_error,
 )
 
 MAX_OPS = 100
 Target = Annotated[str, Field(pattern=r"^(carcass|doors|(cmp|prt|shf|drw|rail|dr)_[A-Za-z0-9_-]{1,40})$")]
+# `all` addresses the design-wide handles; ids are checked for shape only (the handler rejects kinds without handles).
+HandlesTarget = Annotated[str, Field(pattern=r"^(all|(cmp|prt|shf|drw|rail|dr)_[A-Za-z0-9_-]{1,40})$")]
 
 
 class CreateWardrobe(StrictModel):
@@ -38,6 +52,7 @@ class CreateWardrobe(StrictModel):
     compartment_count: Int
     panel_thickness: Int | None = None
     partition_thickness: Int | None = None
+    plinth_height: Int | None = None
     compartment_ids: Annotated[list[CompartmentId], Field(max_length=MAX_LIST)] | None = None
     partition_ids: Annotated[list[PartitionId], Field(max_length=MAX_LIST)] | None = None
 
@@ -47,6 +62,7 @@ class UpdateDimensions(StrictModel):
     width: Int | None = None
     height: Int | None = None
     depth: Int | None = None
+    plinth_height: Int | None = None
 
 
 class DoorSpec(StrictModel):
@@ -61,6 +77,13 @@ class ConfigureDoors(StrictModel):
     doors: Annotated[list[DoorSpec], Field(max_length=MAX_LIST)] | None = None
     count: Int | None = None
     ids: Annotated[list[DoorId], Field(max_length=MAX_LIST)] | None = None
+
+
+class ModifyDoor(StrictModel):
+    op: Literal["modify_door"]
+    id: DoorId
+    hinge_side: Literal["left", "right"] | None = None
+    mirror: bool | None = None
 
 
 class AddCompartment(StrictModel):
@@ -146,15 +169,121 @@ class SetMaterial(StrictModel):
     clear: bool = False
 
 
+class SetHandles(StrictModel):
+    op: Literal["set_handles"]
+    target: HandlesTarget
+    style: HandleStyle | None = None
+    finish: HandleFinish | None = None
+    clear: bool = False
+
+
 class RemoveComponent(StrictModel):
     op: Literal["remove_component"]
     id: AnyId
 
 
+# ---- schema v2 ----
+SiteField = Literal["ceiling", "niche", "heights", "widths", "clearance", "obstacles"]
+
+
+class SetSite(StrictModel):
+    """Merge site measurements. `heights`/`widths` are three readings (null = unknown) and set
+    `ceiling`/`niche` to the smallest; a single `ceiling`/`niche` replaces the readings. `unset` drops
+    fields (unsetting niche or ceiling drops their readings too); `clear` drops the whole site."""
+
+    op: Literal["set_site"]
+    ceiling: Int | None = None
+    niche: Int | None = None
+    heights: Annotated[list[Int | None], Field(min_length=3, max_length=3)] | None = None
+    widths: Annotated[list[Int | None], Field(min_length=3, max_length=3)] | None = None
+    clearance: Int | None = None
+    obstacles: Annotated[list[Obstacle], Field(max_length=MAX_OBSTACLES)] | None = None  # replaces the list; [] clears it
+    unset: list[SiteField] = Field(default_factory=list, max_length=6)
+    clear: bool = False
+
+
+class ApplyPreset(StrictModel):
+    op: Literal["apply_preset"]
+    compartment_id: CompartmentId
+    preset: Literal["long", "double", "shelves", "drawers"]
+    zone: Int | None = None
+
+
+class SetZones(StrictModel):
+    op: Literal["set_zones"]
+    compartment_id: CompartmentId
+    count: Int
+
+
+class SetZoneDoor(StrictModel):
+    op: Literal["set_zone_door"]
+    compartment_id: CompartmentId
+    zone: Int
+    leaves: Literal[0, 1, 2]
+    hinge_side: Literal["left", "right"] | None = None
+
+
+class AddInsert(StrictModel):
+    op: Literal["add_insert"]
+    compartment_id: CompartmentId
+    type: InsertType
+    y: Int | None = None
+    tiers: Int | None = None
+    height: Int | None = None
+    id: InsertId | None = None
+
+
+class ModifyInsert(StrictModel):
+    op: Literal["modify_insert"]
+    id: InsertId
+    y: Int | None = None
+    tiers: Int | None = None
+    height: Int | None = None
+
+
+class SetFittings(StrictModel):
+    """Soft close on or off, and what the carcass stands on (a plinth or adjustable legs)."""
+
+    op: Literal["set_fittings"]
+    soft_close: bool | None = None
+    base: Literal["plinth", "legs"] | None = None
+    child_lock: bool | None = None
+    release_height: Int | None = None
+
+
+class SetHousehold(StrictModel):
+    """The people who live with the wardrobe (replaces the list; [] clears it)."""
+
+    op: Literal["set_household"]
+    people: list[Person] = Field(max_length=6)
+
+
+class SetRoom(StrictModel):
+    """The room (ADR-037): `shape` makes a new one (the wardrobe goes on its default wall, centred); `wall` moves
+    the wardrobe to another wall (centred unless `offset` is given); `offset` places it along its wall;
+    `openings` replaces the doors, windows and passages (a new shape of another kind drops them, since its walls
+    are numbered anew); `clear` removes the room."""
+
+    op: Literal["set_room"]
+    shape: RoomShape | None = None
+    wall: Int | None = None
+    offset: Int | None = None
+    openings: Annotated[list[Opening], Field(max_length=MAX_OPENINGS)] | None = None
+    furniture: Annotated[list[Furniture], Field(max_length=MAX_FURNITURE)] | None = None  # replaces the list (ADR-041)
+    clear: bool = False
+
+
+class SplitDoor(StrictModel):
+    op: Literal["split_door"]
+    id: DoorId
+    new_id: DoorId | None = None
+
+
 Op = Annotated[
-    CreateWardrobe | UpdateDimensions | ConfigureDoors | AddCompartment | ModifyCompartment
+    CreateWardrobe | UpdateDimensions | ConfigureDoors | ModifyDoor | AddCompartment | ModifyCompartment
     | AddPartition | ModifyPartition | AddShelf | ModifyShelf | AddDrawer | ModifyDrawer
-    | AddRail | ModifyRail | SetMaterial | RemoveComponent,
+    | AddRail | ModifyRail | SetMaterial | SetHandles | RemoveComponent
+    | SetSite | SetFittings | SetHousehold | SetRoom | ApplyPreset | AddInsert | ModifyInsert | SplitDoor | SetZones | SetZoneDoor,
     Field(discriminator="op"),
 ]
 

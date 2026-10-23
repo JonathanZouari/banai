@@ -1,0 +1,8 @@
+{#- The customer's details (ADR-038): as the customer wrote them, for reaching them and for the installation. -#}
+    <p class="muted">{{ t("פרטים מפי הלקוח, לתיאום ההתקנה. לשימוש הנגר בלבד.") }}</p>
+{% if p.rows %}    <dl class="kv kv--two" data-section="customer">
+{% for label, value in p.rows %}      <div><dt>{{ label }}</dt><dd dir="auto">{{ value }}</dd></div>
+{% endfor %}    </dl>
+{% endif %}{% if p.notes %}    <h3>{{ t("הערות") }}</h3>
+    <p class="customer-notes" dir="auto">{{ p.notes }}</p>
+{% endif %}

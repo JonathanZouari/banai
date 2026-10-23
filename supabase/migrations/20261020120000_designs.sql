@@ -16,7 +16,6 @@ create table public.designs (
 );
 
 alter table public.designs enable row level security;
-
 revoke all on table public.designs from anon, authenticated;
 
 create index designs_updated_at_idx on public.designs (updated_at);

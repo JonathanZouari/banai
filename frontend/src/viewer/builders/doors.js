@@ -1,112 +1,161 @@
-// Door panels in front of the carcass (z > 0).
-// - Hinged doors span the x-range of the compartments they cover, with a handle on the
-//   side opposite the hinge.
-// - Sliding panels overlap their neighbours and alternate between two tracks (back, front),
-//   between a top and a bottom rail, each with a vertical pull handle.
-// Handles and rails are visual hardware only: they are not selectable, and never part of the design.
-import * as THREE from 'three';
-import { VISUAL } from '../units.js';
+// Door panels, laid out exactly like the backend's manufacturing layout (backend/app/domain/
+// layout.py), so the advisories and the carpenter PDF describe the doors drawn here:
+// - hinged: on the carcass front (z > 0), full overlay. An end door's outer edge is the carcass
+//   outer edge; between neighbours the edge is the middle of the partition. A DOOR_JOINT joint
+//   (each edge inset by half of it); height H - plinth - joint from y = plinth + joint / 2. Two
+//   leaves over one compartment are a split pair: the first in doors.items order takes the left half.
+// - zones (docs/schema.md): a door anchored to dividers (bottomShelfId / topShelfId, fixed shelves of its
+//   one compartment) spans from the centre line of its bottom anchor (else the plinth) to the centre line
+//   of its top anchor (else the carcass top), less the same joint. Leaves pair up only within one zone.
+// - sliding: inside the carcass, between the side panels: (W - 2 panel + (n - 1) overlap) / n wide,
+//   panel i at x = panel + i (width - overlap), standing on a 12 mm bottom guide over the bottom
+//   panel and 4 mm under a 40 mm top track; odd panels run on the front track. The tracks are
+//   drawn too (buildSlidingTracks), and the dossier's track depths (z) are used.
+// Each door remembers what door motion needs (userData.closed, .hinge or .slide; metres).
+// slide.width is the travel: one panel width minus the overlap, so an open panel sits exactly over its neighbour.
+import { VISUAL, toM } from '../units.js';
 import { box } from './frame.js';
 
-const noRaycast = () => {};
+export const DOOR_JOINT = 3; // mm, layout.py DOOR_GAP
+export const SLIDING_OVERLAP = 20; // mm, layout.py SLIDE_OVERLAP: neighbouring panels overlap so no gap shows [research 14]
+export const SLIDE_TOP_TRACK = 40; // layout.py: top track under the top panel
+export const SLIDE_BOTTOM_TRACK = 12; // layout.py: bottom guide over the bottom panel
+export const SLIDE_CLEARANCE = 4; // layout.py: lift-out play between the panel and the tracks
+const SLIDE_TRACK_BACK = { front: -30, back: -60 }; // dossier: back face of a panel on each track
+const TRACK_PROFILE = { depth: 78, z: -43 }; // P1: one profile holding both tracks, 4 mm behind the front
 
-function hardware(args, part) {
-  const mesh = box({ ...args, userData: { kind: 'hardware', part } });
-  mesh.raycast = noRaycast; // clicks pass through to the door behind
+const sameCompartment = (a, b) => a.compartmentIds.length === 1 && b.compartmentIds.length === 1 && a.compartmentIds[0] === b.compartmentIds[0];
+// The zone fields may be missing from older (and not yet migrated) designs: missing = null.
+const anchorsOf = (door) => [door.bottomShelfId ?? null, door.topShelfId ?? null];
+const sameZone = (a, b) => {
+  const [[aBottom, aTop], [bBottom, bTop]] = [anchorsOf(a), anchorsOf(b)];
+  return sameCompartment(a, b) && aBottom === bBottom && aTop === bTop;
+};
+
+/**
+ * Vertical span [bottom, top] of a hinged door in mm above the floor, before the joint: from the
+ * centre line of its bottom anchor (else the plinth) to the centre line of its top anchor (else the
+ * carcass top). Null when an anchor is not a shelf of the door's compartment (never drawn from invalid data).
+ */
+export function hingedDoorSpan(design, frame, door) {
+  const [bottomId, topId] = anchorsOf(door);
+  if (bottomId === null && topId === null) return [frame.plinth, frame.height];
+  const shelves = design.compartments.find((c) => c.id === door.compartmentIds[0])?.shelves ?? [];
+  const centreLine = (id) => {
+    const shelf = shelves.find((s) => s.id === id);
+    return shelf ? frame.baseY + shelf.y + shelf.thickness / 2 : null;
+  };
+  const bottom = bottomId === null ? frame.plinth : centreLine(bottomId);
+  const top = topId === null ? frame.height : centreLine(topId);
+  if (bottom === null || top === null || top <= bottom) return null;
+  return [bottom, top];
+}
+
+/** Hinged door rectangles in mm: [{ door, x0, width, y0, height, z0, leaf }], leaf = 'left' | 'right' | null, z0 = back face. */
+export function hingedDoorRects(design, frame) {
+  const { compartments, partitions, doors } = design;
+  const indexOf = new Map(compartments.map((compartment, i) => [compartment.id, i]));
+  const last = compartments.length - 1;
+  return doors.items.flatMap((door) => {
+    const covered = door.compartmentIds.map((id) => indexOf.get(id));
+    if (!covered.length || covered.some((i) => i === undefined)) return []; // never drawn from invalid data
+    const span = hingedDoorSpan(design, frame, door);
+    if (!span) return [];
+    const [first, end] = [covered[0], covered.at(-1)];
+    let left = first === 0 ? 0 : frame.ranges[first][0] - partitions[first - 1].thickness / 2;
+    let right = end === last ? frame.width : frame.ranges[end][1] + partitions[end].thickness / 2;
+    let leaf = null;
+    const leaves = covered.length === 1 ? doors.items.filter((other) => sameZone(other, door)) : [];
+    if (leaves.length === 2) {
+      const middle = (left + right) / 2;
+      leaf = leaves[0] === door ? 'left' : 'right';
+      [left, right] = leaf === 'left' ? [left, middle] : [middle, right];
+    }
+    return [{
+      door, leaf,
+      x0: left + DOOR_JOINT / 2,
+      width: right - left - DOOR_JOINT,
+      y0: span[0] + DOOR_JOINT / 2,
+      height: span[1] - span[0] - DOOR_JOINT,
+      z0: 0, // on the carcass front
+    }];
+  });
+}
+
+/** Sliding panel rectangles in mm: [{ door, index, track, x0, width, y0, height, z0 }], z0 = back face. */
+export function slidingDoorRects(design, frame) {
+  const { items } = design.doors;
+  const n = items.length;
+  const width = (frame.width - 2 * frame.panel + (n - 1) * SLIDING_OVERLAP) / n;
+  const y0 = frame.baseY + SLIDE_BOTTOM_TRACK;
+  const height = frame.height - frame.panel - SLIDE_TOP_TRACK - y0 - SLIDE_CLEARANCE;
+  return items.map((door, index) => {
+    const track = index % 2 === 1 ? 'front' : 'back'; // as layout.py, also for three panels (the middle one in front)
+    return {
+      door, index, track, width, y0, height,
+      x0: frame.panel + index * (width - SLIDING_OVERLAP),
+      z0: SLIDE_TRACK_BACK[track],
+    };
+  });
+}
+
+/** The sliding system's top track and bottom guide (carcass parts, drawn with or without the doors). */
+export function buildSlidingTracks(design, frame, materials) {
+  if (design.doors.type !== 'sliding') return [];
+  const width = frame.width - 2 * frame.panel;
+  const track = (part, height, y) => box({
+    size: [width, height, TRACK_PROFILE.depth],
+    center: [frame.width / 2, y, TRACK_PROFILE.z],
+    material: materials.metal,
+    userData: { componentId: 'carcass', kind: 'carcass', part },
+  });
+  return [
+    track('track-top', SLIDE_TOP_TRACK, frame.height - frame.panel - SLIDE_TOP_TRACK / 2),
+    track('track-bottom', SLIDE_BOTTOM_TRACK, frame.baseY + SLIDE_BOTTOM_TRACK / 2),
+  ];
+}
+
+/** Door rectangles (mm) for the design's door type; [] without doors. */
+export function doorRects(design, frame) {
+  if (design.doors.type === 'hinged') return hingedDoorRects(design, frame);
+  if (design.doors.type === 'sliding' && design.doors.items.length) return slidingDoorRects(design, frame);
+  return [];
+}
+
+function withMotion(mesh, extra) {
+  mesh.userData.closed = { position: mesh.position.toArray(), rotationY: 0 };
+  Object.assign(mesh.userData, extra);
   return mesh;
-}
-
-/** A thin outline around a door panel. Not selectable; only there to separate panels. */
-function outline(panel, materials) {
-  const lines = new THREE.LineSegments(new THREE.EdgesGeometry(panel.geometry), materials.doorEdge);
-  lines.position.copy(panel.position);
-  lines.userData = { kind: 'hardware', part: 'edge' };
-  lines.raycast = noRaycast;
-  return lines;
-}
-
-/** A vertical handle with its centre x, on a panel whose front face is at frontZ. */
-function handle(x, frontZ, panelY, panelHeight, materials) {
-  const length = Math.min(VISUAL.handleLength, panelHeight * 0.4);
-  const halfSpan = panelHeight / 2 - length / 2 - 20;
-  // Aim for the usual grip height; stay inside the panel for short wardrobes.
-  const y = Math.min(Math.max(VISUAL.handleHeightFromFloor, panelY - halfSpan), panelY + halfSpan);
-  return hardware({
-    size: [VISUAL.handleWidth, length, VISUAL.handleDepth],
-    center: [x, y, frontZ + VISUAL.handleDepth / 2],
-    material: materials.hardware,
-  }, 'handle');
-}
-
-function buildHinged(design, frame, materials, { t, gap, y, height, materialOf }) {
-  const rangeOf = new Map(design.compartments.map((c, i) => [c.id, frame.ranges[i]]));
-  return design.doors.items.flatMap((door) => {
-    const x0 = rangeOf.get(door.compartmentIds[0])[0];
-    const x1 = rangeOf.get(door.compartmentIds.at(-1))[1];
-    const panel = box({
-      size: [x1 - x0 - 2 * gap, height, t],
-      center: [(x0 + x1) / 2, y, t / 2],
-      material: materialOf(door),
-      userData: { componentId: door.id, kind: 'door', hingeSide: door.hingeSide },
-    });
-    // The handle sits on the free edge, opposite the hinge.
-    const freeEdgeX = door.hingeSide === 'right' ? x0 + gap + VISUAL.handleInset : x1 - gap - VISUAL.handleInset;
-    return [panel, outline(panel, materials), handle(freeEdgeX, t, y, height, materials)];
-  });
-}
-
-function buildSliding(design, frame, materials, { t, gap, y, height, materialOf }) {
-  const count = design.doors.items.length;
-  const overlap = count > 1 ? VISUAL.slidingOverlap : 0;
-  const panelWidth = (frame.innerWidth + (count - 1) * overlap) / count;
-  const step = panelWidth - overlap;
-  const backZ = t / 2;
-  const frontZ = t * 1.5 + VISUAL.slidingTrackGap;
-  const inset = VISUAL.handleInset;
-
-  const parts = design.doors.items.flatMap((door, i) => {
-    const x0 = frame.panel + i * step;
-    const onFront = i % 2 === 1;
-    const z = onFront ? frontZ : backZ;
-    const panel = box({
-      size: [panelWidth, height, t],
-      center: [x0 + panelWidth / 2, y, z],
-      material: materialOf(door),
-      userData: { componentId: door.id, kind: 'door' },
-    });
-    // The handle sits where it is not hidden by a panel in front. The last panel (and, for a
-    // single panel, none) has its handle on the side facing the neighbour it slides over.
-    const isLast = i === count - 1;
-    let handleX;
-    if (count === 1) handleX = x0 + panelWidth - inset;
-    else if (isLast) handleX = x0 + (onFront ? 0 : overlap) + inset;
-    else handleX = x0 + panelWidth - (onFront ? 0 : overlap) - inset;
-    return [panel, outline(panel, materials), handle(handleX, z + t / 2, y, height, materials)];
-  });
-
-  // Top and bottom rails span both tracks, like the aluminium frame of a sliding wardrobe.
-  const railDepth = frontZ + t / 2 + 4;
-  const railHeight = VISUAL.slidingRailHeight;
-  const railBox = (railY, part) => hardware({
-    size: [frame.innerWidth, railHeight, railDepth],
-    center: [frame.panel + frame.innerWidth / 2, railY, railDepth / 2 - 2],
-    material: materials.hardware,
-  }, part);
-  const top = frame.panel + frame.innerHeight - railHeight / 2;
-  const bottom = frame.panel + railHeight / 2;
-  return [...parts, railBox(top, 'rail-top'), railBox(bottom, 'rail-bottom')];
 }
 
 export function buildDoors(design, frame, materials) {
   const { doors } = design;
-  const context = {
-    t: VISUAL.doorThickness,
-    gap: VISUAL.doorGap,
-    y: frame.panel + frame.innerHeight / 2,
-    height: frame.innerHeight - 2 * VISUAL.doorGap,
-    materialOf: (door) => materials.forAppearance(door.appearance ?? doors.appearance),
-  };
-  if (doors.type === 'hinged') return buildHinged(design, frame, materials, context);
-  if (doors.type === 'sliding') return buildSliding(design, frame, materials, context);
+  const t = VISUAL.doorThickness;
+  const materialOf = (door) => materials.forAppearance(door.appearance ?? doors.appearance);
+
+  if (doors.type === 'hinged') {
+    return hingedDoorRects(design, frame).map(({ door, leaf, x0, width, y0, height, z0 }) => {
+      const mesh = box({
+        size: [width, height, t],
+        center: [x0 + width / 2, y0 + height / 2, z0 + t / 2],
+        material: materialOf(door),
+        userData: { componentId: door.id, kind: 'door', hingeSide: door.hingeSide, leaf },
+      });
+      // The hinge line is the back edge on the hinge side; door motion swings the leaf about it.
+      const hingeX = toM(door.hingeSide === 'right' ? x0 + width : x0);
+      return withMotion(mesh, { hinge: { x: hingeX, z: toM(z0) } });
+    });
+  }
+
+  if (doors.type === 'sliding') {
+    const rects = slidingDoorRects(design, frame);
+    return rects.map(({ door, index, track, x0, width, y0, height, z0 }) => withMotion(box({
+      size: [width, height, t],
+      center: [x0 + width / 2, y0 + height / 2, z0 + t / 2],
+      material: materialOf(door),
+      userData: { componentId: door.id, kind: 'door', track },
+    }), { slide: { index, count: rects.length, width: toM(width - (rects.length > 1 ? SLIDING_OVERLAP : 0)) } }));
+  }
+
   return [];
 }

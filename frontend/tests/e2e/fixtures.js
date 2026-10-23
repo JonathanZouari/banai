@@ -1,9 +1,10 @@
 import { test as base, expect } from '@playwright/test';
 
-// Every E2E test fails on uncaught page errors or console errors. A test that provokes an
-// expected HTTP error can allow exactly that console line via `test.use({ allowedConsoleErrors })`.
+// Every E2E test fails on uncaught page errors or console errors. A test that expects a refused request
+// (the browser logs it as a console error) names it with allowConsoleErrors(/pattern/).
 export const test = base.extend({
-  allowedConsoleErrors: [[], { option: true }],
+  allowedConsoleErrors: async ({}, use) => use([]),
+  allowConsoleErrors: async ({ allowedConsoleErrors }, use) => use((pattern) => allowedConsoleErrors.push(pattern)),
   page: async ({ page, allowedConsoleErrors }, use) => {
     const problems = [];
     page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`));
@@ -19,11 +20,40 @@ export const test = base.extend({
 
 export { expect };
 
-export async function openDesigner(page) {
+export async function openDesigner(page, { advice = false } = {}) {
   await page.goto('/');
   // The start screen is modal: choose the basic wardrobe to reach the editor.
   await page.getByTestId('entry-basic').click();
   await page.waitForFunction(() => window.__banai?.viewer.meshOf('shf_l1'));
+  if (advice) await openAdvice(page);
+}
+
+/** The advice opens from the Help menu as a panel over the 3D view. */
+export async function openAdvice(page) {
+  if (await page.getByTestId('advice-panel').isVisible()) return;
+  await page.getByTestId('menu-help-button').click();
+  await page.getByTestId('tab-advice').click();
+  await expect(page.getByTestId('advice-panel')).toBeVisible();
+}
+
+/** Opens, by clicking their summaries as a user would, the menus above a control in the top menu bar. */
+export async function reveal(page, testId) {
+  const closed = await page.evaluate((id) => {
+    const target = document.querySelector(`[data-testid="${id}"]`);
+    // A summary's own <details> is what a click on it opens: only the menus above that one are opened here.
+    const all = [...document.querySelectorAll('details')];
+    const found = [];
+    for (let node = target?.tagName === 'SUMMARY' ? target.parentElement?.parentElement : target?.parentElement; node; node = node.parentElement) {
+      if (node.tagName === 'DETAILS' && !node.open) found.unshift(all.indexOf(node));
+    }
+    return found;
+  }, testId);
+  for (const index of closed) await page.locator('details').nth(index).locator(':scope > summary').click();
+}
+
+/** The chat is always in the side column. */
+export async function openChat(page) {
+  await expect(page.getByTestId('chat-input')).toBeVisible();
 }
 
 export const selection = (page) => page.evaluate(() => window.__banai.store.getState().selection);

@@ -1,0 +1,31 @@
+{#- The carpenter's dossier: one A4 <section> per page (port of prototypes/p2-dossier). Autoescaped.
+    Texts go through t() (escaped, translated; ADR-029) and the direction follows the language. -#}
+{% macro badge(no) %}<span class="part-badge">{{ no }}</span>{% endmacro %}
+{% macro num(value) %}<span class="num">{{ value }}</span>{% endmacro %}
+<!doctype html>
+<html lang="{{ lang }}" dir="{{ dir }}">
+<head>
+<meta charset="utf-8">
+<title>{{ t("תיק נגר · בנאי · {id}", id=meta.id) }}</title>
+<style>{{ css }}</style>
+</head>
+<body>
+<main class="pages">
+{% for p in pages %}
+<section class="page {{ p.cls | default('') }}">
+{% if p.kind != "cover" %}
+  <header class="page-head"><h2>{{ p.title }}</h2><span class="ph-meta">{{ meta.project }} · {{ num(meta.id) }}</span></header>
+{% endif %}
+  <div class="page-body">
+{% include "pages/" ~ p.kind ~ ".html.j2" %}
+  </div>
+  <footer class="page-foot">
+    <span>{{ t("הנחיה כללית, לא אישור הנדסי. כל מידה נבדקת באתר על ידי הנגר.") }}</span>
+    <span>{{ meta.rev }} · {{ meta.date }}</span>
+    <span class="pf-no">{{ t("עמוד {no} מתוך {total}", no=p.no, total=pages | length) }}</span>
+  </footer>
+</section>
+{% endfor %}
+</main>
+</body>
+</html>

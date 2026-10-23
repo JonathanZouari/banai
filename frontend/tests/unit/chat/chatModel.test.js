@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-  AGENT_ERROR_MESSAGE, createChatModel, MAX_MESSAGE_LENGTH, NOT_CONNECTED_MESSAGE, proposalStatus, SUGGESTIONS,
+  AGENT_ERROR_MESSAGE, createChatModel, MAX_MESSAGE_LENGTH, MAX_SOURCES, NOT_CONNECTED_MESSAGE, proposalStatus, safeSources,
 } from '../../../src/chat/chatModel.js';
-import { STRINGS } from '../../../src/chat/i18n.js';
 
 const proposal = (baseRevision = 1) => ({
   id: 'p1',
@@ -66,7 +65,7 @@ describe('chat model', () => {
     model.setProposal(proposal());
     expect(model.cancelProposal()).toBe(true);
     expect(model.getProposal()).toBeNull();
-    expect(model.getMessages().at(-1).text).toMatch(/לא בוצע שום שינוי/);
+    expect(model.getMessages().at(-1).text).toMatch(/התכנון לא השתנה/);
   });
 
   it('resolveProposal clears the proposal and optionally posts a message', () => {
@@ -81,136 +80,94 @@ describe('chat model', () => {
   });
 });
 
-describe('suggestions', () => {
-  it('offers a few short, immutable starter prompts that fit the message limit', () => {
-    expect(SUGGESTIONS.length).toBeGreaterThanOrEqual(3);
-    expect(Object.isFrozen(SUGGESTIONS)).toBe(true);
-    SUGGESTIONS.forEach((text) => {
-      expect(text.trim()).toBe(text);
-      expect(text.length).toBeLessThan(MAX_MESSAGE_LENGTH);
-    });
-    expect(new Set(SUGGESTIONS).size).toBe(SUGGESTIONS.length);
-  });
-});
+describe('chat model with the agent', () => {
+  const readyAgent = (reply) => ({ isReady: () => true, reply: vi.fn(reply) });
 
-describe('chat model with a connected agent', () => {
-  const deferred = () => {
-    let resolve;
-    let reject;
-    const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
-    return { promise, resolve, reject };
-  };
-  const signed = { proposalId: 'prp_0123456789abcdef', baseRevision: 3, summary: 'Adds a shelf', changes: [{ title: 'Shelf', detail: '100 cm' }], ops: [], signature: 'x' };
-
-  it('sends the dialogue history, shows a busy state, then the reply and the proposal', async () => {
-    const pending = deferred();
-    const agent = vi.fn(() => pending.promise);
-    const model = createChatModel({ getRevision: () => 3, agent });
-    expect(model.isConnected()).toBe(true);
-    expect(model.send('add a shelf')).toEqual({ ok: true });
-    expect(model.isBusy()).toBe(true);
-    expect(model.send('another')).toEqual({ ok: false, reason: 'busy' });
-    expect(agent).toHaveBeenCalledWith({ messages: [{ role: 'user', text: 'add a shelf' }], language: 'he' });
-    pending.resolve({ reply: 'Here you go', proposal: signed });
-    await vi.waitFor(() => expect(model.isBusy()).toBe(false));
-    expect(model.getMessages().map((m) => [m.role, m.text])).toEqual([['user', 'add a shelf'], ['assistant', 'Here you go']]);
-    expect(model.getProposal()).toEqual({ id: signed.proposalId, baseRevision: 3, summary: 'Adds a shelf', changes: signed.changes, language: 'he', signed });
-    expect(model.getProposalStatus()).toBe('pending');
-  });
-
-  it('keeps system notes out of the history sent to the agent', async () => {
-    const agent = vi.fn(async () => ({ reply: 'ok', proposal: signed }));
-    const model = createChatModel({ getRevision: () => 3, agent });
-    model.send('first');
-    await vi.waitFor(() => expect(model.isBusy()).toBe(false));
-    model.cancelProposal();
-    model.send('second');
-    await vi.waitFor(() => expect(agent).toHaveBeenCalledTimes(2));
-    expect(agent.mock.calls[1][0].messages).toEqual([
-      { role: 'user', text: 'first' }, { role: 'assistant', text: 'ok' }, { role: 'user', text: 'second' },
-    ]);
-  });
-
-  it('shows a friendly note when the agent fails, and recovers', async () => {
-    const agent = vi.fn().mockRejectedValueOnce(new TypeError('boom')).mockResolvedValueOnce({ reply: 'back', proposal: null });
+  it('sends the conversation (user and assistant only) and adds the reply', async () => {
+    const agent = readyAgent(async () => 'שלום! איך אפשר לעזור?');
     const model = createChatModel({ getRevision: () => 1, agent });
-    model.send('hi');
-    await vi.waitFor(() => expect(model.isBusy()).toBe(false));
-    expect(model.getMessages().at(-1)).toMatchObject({ role: 'system', text: AGENT_ERROR_MESSAGE });
-    model.send('again');
-    await vi.waitFor(() => expect(model.getMessages().at(-1)).toMatchObject({ role: 'assistant', text: 'back' }));
+    const { done } = model.send('היי');
+    expect(model.isThinking()).toBe(true);
+    await done;
+    expect(model.isThinking()).toBe(false);
+    expect(agent.reply).toHaveBeenCalledWith([{ role: 'user', content: 'היי' }], { spoken: false });
+    expect(model.getMessages().map((m) => [m.role, m.text])).toEqual([['user', 'היי'], ['assistant', 'שלום! איך אפשר לעזור?']]);
+
+    await model.send('3 shelves').done;
+    expect(agent.reply).toHaveBeenLastCalledWith([
+      { role: 'user', content: 'היי' }, { role: 'assistant', content: 'שלום! איך אפשר לעזור?' }, { role: 'user', content: '3 shelves' },
+    ], { spoken: false });
   });
 
-  it('a new message drops an unconfirmed proposal', async () => {
-    const agent = vi.fn(async () => ({ reply: 'ok', proposal: null }));
-    const model = createChatModel({ getRevision: () => 3, agent });
-    model.setProposal({ id: 'p', baseRevision: 3, summary: '', changes: [] });
-    model.send('something else');
+  it('tells the agent when the message was spoken (ADR-028)', async () => {
+    const agent = readyAgent(async () => 'בטח.');
+    const model = createChatModel({ getRevision: () => 1, agent });
+    await model.send('שתי מגירות', { spoken: true }).done;
+    expect(agent.reply).toHaveBeenLastCalledWith([{ role: 'user', content: 'שתי מגירות' }], { spoken: true });
+    await model.send('ועוד מדף').done;
+    expect(agent.reply).toHaveBeenLastCalledWith(expect.any(Array), { spoken: false });
+  });
+
+  it('refuses a second message while the agent is answering', async () => {
+    const model = createChatModel({ getRevision: () => 1, agent: readyAgent(async () => 'ok') });
+    const first = model.send('one');
+    expect(model.send('two')).toEqual({ ok: false, reason: 'busy' });
+    await first.done;
+    expect(model.getMessages()).toHaveLength(2);
+  });
+
+  it('shows a server error by its code, in Hebrew, and never touches the design', async () => {
+    const rejected = Object.assign(new Error('OpenAI rejected the API key.'), { code: 'INVALID_KEY' });
+    const model = createChatModel({ getRevision: () => 1, agent: readyAgent(async () => { throw rejected; }) });
+    await model.send('hi').done;
+    expect(model.getMessages().at(-1)).toMatchObject({ role: 'system', text: 'OpenAI דחה את המפתח. בדקו אותו בהגדרות AI.' });
     expect(model.getProposal()).toBeNull();
-    await vi.waitFor(() => expect(model.isBusy()).toBe(false));
   });
 
-  it('keeps the reply signature (for read-aloud) on the assistant message only', async () => {
-    const agent = vi.fn(async () => ({ reply: 'ok', replySignature: 'f'.repeat(64), proposal: null }));
+  it('never shows an unknown server text: it falls back to the generic note', async () => {
+    const model = createChatModel({ getRevision: () => 1, agent: readyAgent(async () => { throw new Error('<b>raw upstream</b>'); }) });
+    await model.send('hi').done;
+    expect(model.getMessages().at(-1).text).toBe(AGENT_ERROR_MESSAGE);
+  });
+
+  it('falls back to the not-connected note when the agent is not ready', () => {
+    const agent = { isReady: () => false, reply: vi.fn() };
     const model = createChatModel({ getRevision: () => 1, agent });
-    model.send('hello');
-    await vi.waitFor(() => expect(model.isBusy()).toBe(false));
-    const [user, reply] = model.getMessages();
-    expect(user).not.toHaveProperty('signature');
-    expect(reply).toMatchObject({ role: 'assistant', text: 'ok', signature: 'f'.repeat(64) });
+    expect(model.send('hi')).toEqual({ ok: true });
+    expect(model.getMessages().at(-1).text).toBe(NOT_CONNECTED_MESSAGE);
+    expect(agent.reply).not.toHaveBeenCalled();
   });
 });
 
-describe('chat model language', () => {
-  it('passes the chat language to the agent and writes its own notes in it', async () => {
-    let language = 'en';
-    const agent = vi.fn().mockRejectedValueOnce(new TypeError('offline'));
-    const model = createChatModel({ getRevision: () => 1, agent, getLanguage: () => language });
-    model.send('hello');
-    await vi.waitFor(() => expect(model.isBusy()).toBe(false));
-    expect(agent.mock.calls[0][0].language).toBe('en');
-    expect(model.getMessages().at(-1).text).toBe(STRINGS.en.agentError);
-    language = 'he';
-    model.setProposal({ id: 'p', baseRevision: 1, summary: '', changes: [] });
-    model.cancelProposal();
-    expect(model.getMessages().at(-1).text).toBe(STRINGS.he.cancelled);
+describe('safeSources', () => {
+  it('keeps http(s) pages only, cleans titles, drops duplicates and stops at six', () => {
+    const sources = safeSources([
+      { title: 'Blum \u202ehinges', url: 'https://www.blum.com/hinges' },
+      { title: 'again', url: 'https://www.blum.com/hinges' },
+      { title: '', url: 'http://example.org/a' },
+      { title: 'x', url: 'javascript:alert(1)' },
+      { title: 'x', url: 'data:text/html,hi' },
+      { title: 'x', url: 'not a url' },
+      { title: 'x'.repeat(300), url: 'https://long.example/' },
+      ...Array.from({ length: 8 }, (_, i) => ({ title: `t${i}`, url: `https://e${i}.example/` })),
+    ]);
+    expect(sources).toHaveLength(MAX_SOURCES);
+    expect(sources[0]).toEqual({ title: 'Blum hinges', url: 'https://www.blum.com/hinges', host: 'blum.com' });
+    expect(safeSources([{ title: 'a\u200bb\u{E0041}c\u00ad', url: 'https://z.example/' }])[0].title).toBe('a b c');
+    expect(sources[1]).toEqual({ title: 'example.org', url: 'http://example.org/a', host: 'example.org' });
+    expect(sources[2].title).toHaveLength(120);
+    expect(sources.every((s) => /^https?:/.test(s.url))).toBe(true);
+    expect(safeSources(null)).toEqual([]);
+    expect(safeSources('https://x.example')).toEqual([]);
   });
 
-  it('the not-connected note follows the language too', () => {
-    const model = createChatModel({ getRevision: () => 1, getLanguage: () => 'en' });
-    model.send('hi');
-    expect(model.getMessages().at(-1).text).toBe(STRINGS.en.notConnected);
-  });
-});
-
-describe('messages keep their language', () => {
-  it('stamps every message and proposal with the language of its turn, even across a mid-request switch', async () => {
-    let language = 'he';
-    let release;
-    const agent = vi.fn(() => new Promise((resolve) => { release = resolve; }));
-    const model = createChatModel({ getRevision: () => 1, agent, getLanguage: () => language });
-    model.send('תוסיף מדף');
-    language = 'en'; // switched while the designer is thinking
-    release({ reply: 'אציע מדף.', proposal: { proposalId: 'prp_0123456789abcdef', baseRevision: 1, summary: 's', changes: [], ops: [], signature: 'x' } });
-    await vi.waitFor(() => expect(model.isBusy()).toBe(false));
-    expect(agent.mock.calls[0][0].language).toBe('he');
-    expect(model.getMessages().map((m) => [m.role, m.language])).toEqual([['user', 'he'], ['assistant', 'he']]);
-    expect(model.getProposal().language).toBe('he');
-    model.cancelProposal(); // a new note, in the language chosen now
-    expect(model.getMessages().at(-1)).toMatchObject({ role: 'system', language: 'en', text: STRINGS.en.cancelled });
-  });
-});
-
-describe('the Generate Style Profile step', () => {
-  it('appears once the agent offers it or a change was confirmed, and never piles up', async () => {
-    const agent = vi.fn().mockResolvedValue({ reply: 'Great, download it.', offerProfile: true });
-    const model = createChatModel({ getRevision: () => 1, agent, getLanguage: () => 'he' });
-    expect(model.getBuilt()).toBeNull();
-    model.send('סיימתי');
-    await vi.waitFor(() => expect(model.isBusy()).toBe(false));
-    expect(model.getBuilt()).toEqual({ kind: 'design', language: 'he' });
-    model.noteDesignReady();
-    expect(model.getBuilt()).toEqual({ kind: 'design', language: 'he' });
-    expect(model.getMessages().map((m) => m.role)).toEqual(['user', 'assistant']);
+  it('a reply keeps its sources; a plain string reply has none', async () => {
+    const agent = { isReady: () => true, reply: vi.fn(async () => ({ reply: 'ok', sources: [{ title: 'T', url: 'https://t.example/' }] })) };
+    const model = createChatModel({ getRevision: () => 1, agent });
+    await model.send('שאלה').done;
+    expect(model.getMessages().at(-1)).toMatchObject({ role: 'assistant', text: 'ok', sources: [{ title: 'T', url: 'https://t.example/' }] });
+    const plain = createChatModel({ getRevision: () => 1, agent: { isReady: () => true, reply: async () => 'ok' } });
+    await plain.send('שאלה').done;
+    expect(plain.getMessages().at(-1).sources).toEqual([]);
   });
 });

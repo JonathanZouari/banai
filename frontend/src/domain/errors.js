@@ -7,6 +7,7 @@ export const OUT_OF_BOUNDS = 'OUT_OF_BOUNDS';
 export const OVERLAP = 'OVERLAP';
 export const DUPLICATE_ID = 'DUPLICATE_ID';
 export const DOOR_INVALID = 'DOOR_INVALID';
+export const INSERT_INVALID = 'INSERT_INVALID';
 export const UNKNOWN_CATALOG_ID = 'UNKNOWN_CATALOG_ID';
 export const NOT_FOUND = 'NOT_FOUND';
 export const INVALID_OP = 'INVALID_OP';

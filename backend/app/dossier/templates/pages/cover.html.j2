@@ -1,0 +1,43 @@
+    <div class="cover-top">
+      <div class="cover-brand">
+        <svg viewBox="0 0 28 28" aria-hidden="true"><rect x="1" y="1" width="26" height="26" rx="7" fill="#1d1d1f"/><rect x="7" y="6.5" width="14" height="15" rx="1.6" fill="none" stroke="#f5f5f7" stroke-width="1.6"/><path d="M14 6.5v15M12 13v2.4M16 13v2.4" stroke="#f5f5f7" stroke-width="1.6" stroke-linecap="round"/></svg>
+        {{ t("בנאי") }}
+      </div>
+      <span class="status">{{ t("תכנון לקוח · לאימות באתר על ידי נגר") }}</span>
+    </div>
+    <div>
+      <h1>{{ t("תיק נגר") }}</h1>
+      <p class="subtitle">{{ meta.project }} · {{ num(lay.width | cm ~ "×" ~ lay.height | cm ~ "×" ~ lay.depth | cm) }} {{ t("ס״מ") }}</p>
+    </div>
+{% if p.image %}
+    <figure class="cover-render">
+      <img src="{{ p.image }}" alt="{{ t('רינדור של הארון') }}">
+      <figcaption>{{ t("רינדור מהמודל, מדויק לגיאומטריה. המחשה, לא צילום.") }}</figcaption>
+    </figure>
+{% else %}
+    <figure class="cover-render cover-render--drawing">
+      {{ p.drawing }}
+      <figcaption>{{ t("חזית מהמודל. לא צורף רינדור.") }}</figcaption>
+    </figure>
+{% endif %}
+    <dl class="spec-grid">
+{% for key, value in p.spec %}
+      <div class="spec"><dt>{{ key }}</dt><dd>{{ value }}</dd></div>
+{% endfor %}
+    </dl>
+    <div class="cover-cols">
+      <div>
+        <h3>{{ t("תוכן") }}</h3>
+        <ol class="toc">
+{% for title, no in toc %}
+          <li><span>{{ title }}</span>{{ num(no) }}</li>
+{% endfor %}
+        </ol>
+      </div>
+      <div class="summary-box">
+        <p class="muted">{{ t("אומדן חומרים בלבד, לפני עבודה") }}</p>
+        <p class="big">{{ num(p.range) }}</p>
+        <p class="muted">{{ p.summary }}</p>
+        <p>{{ p.warnings }}</p>
+      </div>
+    </div>

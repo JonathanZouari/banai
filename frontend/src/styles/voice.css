@@ -1,0 +1,114 @@
+/* Push-to-talk in the chat composer (chat/voice.js): the mic button, and the level meter and hint
+   that cover the text field while recording. Recording is red (--color-danger), as in the prototype. */
+.chat__composer.has-voice { position: relative; } /* the meter is placed over the text field */
+
+.chat__mic {
+  flex: none;
+  touch-action: none; /* a hold and a drag-to-cancel, not a scroll */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  transition: transform 140ms cubic-bezier(0.2, 0.8, 0.2, 1), background 160ms ease, color 160ms ease, box-shadow 120ms linear;
+}
+.chat__mic[aria-pressed="true"],
+.chat__mic[aria-pressed="true"]:hover {
+  background: var(--color-danger);
+  color: var(--color-on-accent);
+  transform: scale(1.1);
+  /* The halo grows with the voice level. */
+  box-shadow: 0 0 0 calc(var(--voice-level, 0) * 10px) rgba(215, 0, 21, 0.18);
+}
+.chat__composer.is-voice-cancel .chat__mic { background: var(--color-muted); transform: none; box-shadow: none; }
+.chat__mic[aria-busy="true"] { cursor: progress; color: var(--md-sys-color-on-surface-variant); }
+
+.voice-ui {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-1);
+  background: var(--md-sys-color-surface-container-lowest);
+  pointer-events: none;
+}
+.voice-ui__bars { display: flex; flex: none; align-items: center; gap: 3px; height: 22px; }
+.voice-ui__bars i { width: 3px; height: 4px; border-radius: 2px; background: var(--color-danger); transition: height 80ms linear; }
+.voice-ui__hint {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--md-sys-color-on-surface-variant);
+  font: var(--md-sys-typescale-body-small);
+  line-height: 1.3;
+  /* The side column is narrow: the instruction wraps onto the field's second row instead of being cut. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+.voice-ui__clock { flex: none; color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-label-medium); font-variant-numeric: tabular-nums; }
+.voice-ui__clock.is-ending { color: var(--color-danger); }
+.chat__composer.is-voice-cancel .voice-ui__hint { color: var(--color-danger); font-weight: 600; }
+.chat__composer.is-voice-cancel .voice-ui__bars i { background: var(--color-muted); }
+/* Transcribing: the bars wait in grey. */
+.chat__composer.is-voice-busy .voice-ui__bars i { background: var(--color-muted); animation: voice-wait 1s ease-in-out infinite; }
+.chat__composer.is-voice-busy .voice-ui__bars i:nth-child(2n) { animation-delay: 0.15s; }
+.chat__composer.is-voice-busy .voice-ui__bars i:nth-child(3n) { animation-delay: 0.3s; }
+@keyframes voice-wait { 0%, 100% { height: 4px; } 50% { height: 12px; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .chat__mic, .voice-ui__bars i { transition: none; }
+  .chat__mic[aria-pressed="true"], .chat__mic[aria-pressed="true"]:hover { transform: none; box-shadow: none; }
+  .chat__composer.is-voice-busy .voice-ui__bars i { animation: none; height: 8px; }
+}
+
+/* Forced colours drop backgrounds, so recording shows as an outline. */
+@media (forced-colors: active) {
+  .chat__mic[aria-pressed="true"] { outline: 3px solid Highlight; outline-offset: 2px; }
+  .voice-ui__bars i { background: CanvasText; }
+}
+
+/* Spoken replies (ADR-028): the mute toggle in the chat header, and the pill above the composer while
+   the AI voice is getting ready or talking (it names the voice as AI-generated; a click stops it). */
+.chat__speaker { flex: none; }
+.chat__speaker[aria-pressed="true"] { color: var(--color-accent-text); }
+.chat__speaking {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 100%;
+  margin-bottom: var(--space-2);
+  padding: 4px var(--space-3);
+  border: 0;
+  border-radius: var(--md-sys-shape-full);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+  font: var(--md-sys-typescale-label-small);
+  cursor: pointer;
+}
+.chat__speaking[hidden] { display: none; }
+.chat__speaking:hover { background: var(--color-accent-soft-hover); }
+.chat__speaking:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
+.chat__speaking span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.chat__speaking[data-state="playing"] .icon { animation: speaking-pulse 1.1s ease-in-out infinite; }
+@keyframes speaking-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) {
+  .chat__speaking[data-state="playing"] .icon { animation: none; }
+}
+
+/* The session language (ADR-029): a compact picker in the chat header and a row on the start screen. */
+.chat__language {
+  height: 30px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-full);
+  background: var(--md-sys-color-surface-container-lowest);
+  color: var(--md-sys-color-on-surface);
+  font: var(--md-sys-typescale-label-small);
+  cursor: pointer;
+}
+.chat__language:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
+.start__language { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--space-2); margin-top: var(--space-4); }
+.start__language-label { color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-small); }
+/* The dossier menu marks the session language as the default choice. */
+.dossier-menu .menu-option[aria-current="true"] { background: var(--color-accent-soft); }

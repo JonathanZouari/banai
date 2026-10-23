@@ -1,0 +1,3608 @@
+[
+  {
+    "name": "a v1 design is upgraded to v2 with defaults",
+    "base": {
+      "schemaVersion": 1,
+      "units": "mm",
+      "dimensions": {
+        "width": 1000,
+        "height": 2000,
+        "depth": 500
+      },
+      "carcass": {
+        "panelThickness": 20,
+        "appearance": {
+          "material": {
+            "catalogId": "melamine"
+          },
+          "color": {
+            "catalogId": "white"
+          },
+          "finish": {
+            "catalogId": "matte"
+          }
+        }
+      },
+      "compartments": [
+        {
+          "id": "cmp_a",
+          "width": 470,
+          "shelves": [
+            {
+              "id": "shf_1",
+              "y": 500,
+              "thickness": 20,
+              "appearance": null
+            }
+          ],
+          "drawers": [
+            {
+              "id": "drw_1",
+              "y": 0,
+              "height": 200,
+              "appearance": null,
+              "handle": null
+            }
+          ],
+          "rails": []
+        },
+        {
+          "id": "cmp_b",
+          "width": 470,
+          "shelves": [],
+          "drawers": [],
+          "rails": [
+            {
+              "id": "rail_1",
+              "y": 1700
+            }
+          ]
+        }
+      ],
+      "partitions": [
+        {
+          "id": "prt_ab",
+          "thickness": 20
+        }
+      ],
+      "doors": {
+        "type": "hinged",
+        "appearance": {
+          "material": {
+            "catalogId": "melamine"
+          },
+          "color": {
+            "catalogId": "white"
+          },
+          "finish": {
+            "catalogId": "matte"
+          }
+        },
+        "items": [
+          {
+            "id": "dr_a",
+            "compartmentIds": [
+              "cmp_a"
+            ],
+            "hingeSide": "left",
+            "appearance": null,
+            "handle": null,
+            "mirror": false
+          },
+          {
+            "id": "dr_b",
+            "compartmentIds": [
+              "cmp_b"
+            ],
+            "hingeSide": "right",
+            "appearance": null,
+            "handle": null,
+            "mirror": false
+          }
+        ]
+      },
+      "handles": {
+        "style": "bar",
+        "finish": "steel"
+      }
+    },
+    "ops": [],
+    "expect": {
+      "match": {
+        "schemaVersion": 2,
+        "site": null,
+        "carcass": {
+          "plinthHeight": 0
+        },
+        "compartments": [
+          {
+            "inserts": []
+          },
+          {
+            "inserts": []
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "create_wardrobe takes a plinth and emits v2",
+    "base": null,
+    "ops": [
+      {
+        "op": "create_wardrobe",
+        "width": 2400,
+        "height": 2400,
+        "depth": 600,
+        "compartmentCount": 3,
+        "panelThickness": 17,
+        "plinthHeight": 60,
+        "compartmentIds": [
+          "cmp_1",
+          "cmp_2",
+          "cmp_3"
+        ],
+        "partitionIds": [
+          "prt_1",
+          "prt_2"
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "schemaVersion": 2,
+        "site": null,
+        "carcass": {
+          "panelThickness": 17,
+          "plinthHeight": 60
+        },
+        "compartments": [
+          {
+            "width": 778,
+            "inserts": []
+          },
+          {
+            "width": 777
+          },
+          {
+            "width": 777
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "plinth over 300 is out of range",
+    "base": null,
+    "ops": [
+      {
+        "op": "create_wardrobe",
+        "width": 2400,
+        "height": 2400,
+        "depth": 600,
+        "compartmentCount": 3,
+        "panelThickness": 17,
+        "plinthHeight": 301,
+        "compartmentIds": [
+          "cmp_1",
+          "cmp_2",
+          "cmp_3"
+        ],
+        "partitionIds": [
+          "prt_1",
+          "prt_2"
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_RANGE",
+        "path": "ops[0].plinthHeight"
+      }
+    }
+  },
+  {
+    "name": "update_dimensions sets the plinth",
+    "base": "two",
+    "ops": [
+      {
+        "op": "update_dimensions",
+        "plinthHeight": 100
+      }
+    ],
+    "expect": {
+      "match": {
+        "carcass": {
+          "plinthHeight": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "a plinth that pushes a rail out of the interior is rejected",
+    "base": "two",
+    "ops": [
+      {
+        "op": "update_dimensions",
+        "plinthHeight": 300
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_BOUNDS",
+        "path": "compartments[1].rails[0].y"
+      }
+    }
+  },
+  {
+    "name": "set_site stores ceiling and niche",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "ceiling": 2600,
+        "niche": 1060
+      }
+    ],
+    "expect": {
+      "match": {
+        "site": {
+          "ceiling": 2600,
+          "niche": 1060
+        }
+      }
+    }
+  },
+  {
+    "name": "set_site merges partial updates",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "ceiling": 2600
+      },
+      {
+        "op": "set_site",
+        "niche": 1100
+      }
+    ],
+    "expect": {
+      "match": {
+        "site": {
+          "ceiling": 2600,
+          "niche": 1100
+        }
+      }
+    }
+  },
+  {
+    "name": "set_site clear removes the site",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "ceiling": 2600
+      },
+      {
+        "op": "set_site",
+        "clear": true
+      }
+    ],
+    "expect": {
+      "match": {
+        "site": null
+      }
+    }
+  },
+  {
+    "name": "a ceiling under 1500 is out of range",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "ceiling": 1000
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_RANGE",
+        "path": "ops[0].ceiling"
+      }
+    }
+  },
+  {
+    "name": "set_site needs a value or clear",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[0]"
+      }
+    }
+  },
+  {
+    "name": "set_site clear cannot carry values",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "ceiling": 2600,
+        "clear": true
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[0]"
+      }
+    }
+  },
+  {
+    "name": "apply_preset long: hat shelf and a rail, deterministic ids",
+    "base": "two",
+    "ops": [
+      {
+        "op": "apply_preset",
+        "compartmentId": "cmp_b",
+        "preset": "long"
+      }
+    ],
+    "expect": {
+      "match": {
+        "compartments": [
+          {},
+          {
+            "shelves": [
+              {
+                "id": "shf_b_1",
+                "y": 1630,
+                "thickness": 20
+              }
+            ],
+            "rails": [
+              {
+                "id": "rail_b_1",
+                "y": 1560
+              }
+            ],
+            "drawers": []
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "apply_preset double: two shelves and two rails",
+    "base": "two",
+    "ops": [
+      {
+        "op": "apply_preset",
+        "compartmentId": "cmp_b",
+        "preset": "double"
+      }
+    ],
+    "expect": {
+      "match": {
+        "compartments": [
+          {},
+          {
+            "shelves": [
+              {
+                "y": 902
+              },
+              {
+                "y": 1630
+              }
+            ],
+            "rails": [
+              {
+                "y": 832
+              },
+              {
+                "y": 1560
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "apply_preset shelves replaces drawers and shelves",
+    "base": "two",
+    "ops": [
+      {
+        "op": "apply_preset",
+        "compartmentId": "cmp_a",
+        "preset": "shelves"
+      }
+    ],
+    "expect": {
+      "match": {
+        "compartments": [
+          {
+            "shelves": [
+              {
+                "id": "shf_a_1",
+                "y": 392
+              },
+              {
+                "y": 784
+              },
+              {
+                "y": 1176
+              },
+              {
+                "y": 1568
+              }
+            ],
+            "drawers": [],
+            "rails": []
+          },
+          {}
+        ]
+      }
+    }
+  },
+  {
+    "name": "apply_preset drawers rounds half up like Math.round",
+    "base": "two",
+    "ops": [
+      {
+        "op": "apply_preset",
+        "compartmentId": "cmp_b",
+        "preset": "drawers"
+      }
+    ],
+    "expect": {
+      "match": {
+        "compartments": [
+          {},
+          {
+            "drawers": [
+              {
+                "id": "drw_b_1",
+                "y": 0,
+                "height": 224
+              },
+              {
+                "y": 230
+              },
+              {
+                "y": 460
+              }
+            ],
+            "shelves": [
+              {
+                "y": 700
+              },
+              {
+                "y": 1015
+              },
+              {
+                "y": 1330
+              },
+              {
+                "y": 1645
+              }
+            ],
+            "rails": []
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "apply_preset keeps the LED and drops zone inserts",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "led",
+        "id": "ins_led"
+      },
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "shoes",
+        "id": "ins_s"
+      },
+      {
+        "op": "apply_preset",
+        "compartmentId": "cmp_b",
+        "preset": "long"
+      }
+    ],
+    "expect": {
+      "match": {
+        "compartments": [
+          {},
+          {
+            "inserts": [
+              {
+                "id": "ins_led",
+                "type": "led"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "add_insert shoes takes default tiers from the floor",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "shoes",
+        "id": "ins_s"
+      }
+    ],
+    "expect": {
+      "match": {
+        "compartments": [
+          {},
+          {
+            "inserts": [
+              {
+                "id": "ins_s",
+                "type": "shoes",
+                "y": 0,
+                "tiers": 3,
+                "height": null
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "shoes over an existing shelf overlap",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_a",
+        "type": "shoes",
+        "id": "ins_s"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OVERLAP",
+        "path": "compartments[0].inserts[0]"
+      }
+    }
+  },
+  {
+    "name": "add_insert trousers takes the default height",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "trousers",
+        "id": "ins_t"
+      }
+    ],
+    "expect": {
+      "match": {
+        "compartments": [
+          {},
+          {
+            "inserts": [
+              {
+                "type": "trousers",
+                "y": 0,
+                "height": 700,
+                "tiers": null
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "add_insert pulldown defaults below the interior top",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "pulldown",
+        "id": "ins_p"
+      }
+    ],
+    "expect": {
+      "match": {
+        "compartments": [
+          {},
+          {
+            "inserts": [
+              {
+                "type": "pulldown",
+                "y": 1560,
+                "tiers": null,
+                "height": null
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "an LED takes no position",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "led",
+        "y": 100
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[0].y"
+      }
+    }
+  },
+  {
+    "name": "shoes take no height",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "shoes",
+        "height": 500
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[0].height"
+      }
+    }
+  },
+  {
+    "name": "one insert of each type per compartment",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "shoes",
+        "id": "ins_s1"
+      },
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "shoes",
+        "y": 800,
+        "id": "ins_s2"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INSERT_INVALID",
+        "path": "compartments[1].inserts[1].type"
+      }
+    }
+  },
+  {
+    "name": "shoe tiers over 6 are out of range",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "shoes",
+        "tiers": 7
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_RANGE",
+        "path": "compartments[1].inserts[0].tiers"
+      }
+    }
+  },
+  {
+    "name": "shoes above the interior top are out of bounds",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "shoes",
+        "y": 1500
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_BOUNDS",
+        "path": "compartments[1].inserts[0].y"
+      }
+    }
+  },
+  {
+    "name": "a rail inside the trouser zone overlaps",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_rail",
+        "compartmentId": "cmp_b",
+        "y": 300,
+        "id": "rail_low"
+      },
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "trousers"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OVERLAP",
+        "path": "compartments[1].rails[1]"
+      }
+    }
+  },
+  {
+    "name": "a pull-down rail inside the shoe zone overlaps",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "shoes"
+      },
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "pulldown",
+        "y": 500
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OVERLAP",
+        "path": "compartments[1].inserts[1]"
+      }
+    }
+  },
+  {
+    "name": "modify_insert changes the tiers",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "shoes",
+        "id": "ins_s"
+      },
+      {
+        "op": "modify_insert",
+        "id": "ins_s",
+        "tiers": 4
+      }
+    ],
+    "expect": {
+      "match": {
+        "compartments": [
+          {},
+          {
+            "inserts": [
+              {
+                "tiers": 4
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "modify_insert rejects a field the type does not take",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "shoes",
+        "id": "ins_s"
+      },
+      {
+        "op": "modify_insert",
+        "id": "ins_s",
+        "height": 500
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[1].height"
+      }
+    }
+  },
+  {
+    "name": "modify_insert needs a change",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "shoes",
+        "id": "ins_s"
+      },
+      {
+        "op": "modify_insert",
+        "id": "ins_s"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[1]"
+      }
+    }
+  },
+  {
+    "name": "modify_insert of an unknown insert",
+    "base": "two",
+    "ops": [
+      {
+        "op": "modify_insert",
+        "id": "ins_nope",
+        "y": 10
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "NOT_FOUND",
+        "path": "ops[0].id"
+      }
+    }
+  },
+  {
+    "name": "remove_component removes an insert",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "led",
+        "id": "ins_l"
+      },
+      {
+        "op": "remove_component",
+        "id": "ins_l"
+      }
+    ],
+    "expect": {
+      "match": {
+        "compartments": [
+          {
+            "inserts": []
+          },
+          {
+            "inserts": []
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "merging at a partition keeps both compartments' inserts",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_a",
+        "type": "led",
+        "id": "ins_la"
+      },
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "pulldown",
+        "id": "ins_pb"
+      },
+      {
+        "op": "remove_component",
+        "id": "prt_ab"
+      }
+    ],
+    "expect": {
+      "match": {
+        "compartments": [
+          {
+            "inserts": [
+              {
+                "id": "ins_la"
+              },
+              {
+                "id": "ins_pb"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "an unknown insert type is a schema error",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "safe"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "SCHEMA_INVALID",
+        "path": "ops[0]"
+      }
+    }
+  },
+  {
+    "name": "an insert id needs the ins_ prefix",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_b",
+        "type": "led",
+        "id": "shf_x"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "SCHEMA_INVALID",
+        "path": "ops[0]"
+      }
+    }
+  },
+  {
+    "name": "split_door makes a left/right pair over one compartment",
+    "base": "two",
+    "ops": [
+      {
+        "op": "split_door",
+        "id": "dr_a",
+        "newId": "dr_a2"
+      }
+    ],
+    "expect": {
+      "match": {
+        "doors": {
+          "items": [
+            {
+              "id": "dr_a",
+              "compartmentIds": [
+                "cmp_a"
+              ],
+              "hingeSide": "left"
+            },
+            {
+              "id": "dr_a2",
+              "compartmentIds": [
+                "cmp_a"
+              ],
+              "hingeSide": "right",
+              "mirror": false
+            },
+            {
+              "id": "dr_b"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "a compartment can only be split once",
+    "base": "two",
+    "ops": [
+      {
+        "op": "split_door",
+        "id": "dr_a",
+        "newId": "dr_a2"
+      },
+      {
+        "op": "split_door",
+        "id": "dr_a2"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[1].id"
+      }
+    }
+  },
+  {
+    "name": "sliding doors cannot be split",
+    "base": "two",
+    "ops": [
+      {
+        "op": "configure_doors",
+        "type": "sliding",
+        "ids": [
+          "dr_s1",
+          "dr_s2"
+        ]
+      },
+      {
+        "op": "split_door",
+        "id": "dr_s1"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[1]"
+      }
+    }
+  },
+  {
+    "name": "a door over two compartments cannot be split",
+    "base": "two",
+    "ops": [
+      {
+        "op": "configure_doors",
+        "type": "hinged",
+        "doors": [
+          {
+            "id": "dr_ab",
+            "compartmentIds": [
+              "cmp_a",
+              "cmp_b"
+            ],
+            "hingeSide": "left"
+          }
+        ]
+      },
+      {
+        "op": "split_door",
+        "id": "dr_ab"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[1].id"
+      }
+    }
+  },
+  {
+    "name": "two single leaves over one compartment are a valid pair",
+    "base": "two",
+    "ops": [
+      {
+        "op": "configure_doors",
+        "type": "hinged",
+        "doors": [
+          {
+            "id": "dr_1",
+            "compartmentIds": [
+              "cmp_a"
+            ],
+            "hingeSide": "left"
+          },
+          {
+            "id": "dr_2",
+            "compartmentIds": [
+              "cmp_a"
+            ],
+            "hingeSide": "right"
+          },
+          {
+            "id": "dr_3",
+            "compartmentIds": [
+              "cmp_b"
+            ],
+            "hingeSide": "left"
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "doors": {
+          "items": [
+            {
+              "id": "dr_1"
+            },
+            {
+              "id": "dr_2"
+            },
+            {
+              "id": "dr_3"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "a third leaf over one compartment is invalid",
+    "base": "two",
+    "ops": [
+      {
+        "op": "configure_doors",
+        "type": "hinged",
+        "doors": [
+          {
+            "id": "dr_1",
+            "compartmentIds": [
+              "cmp_a"
+            ],
+            "hingeSide": "left"
+          },
+          {
+            "id": "dr_2",
+            "compartmentIds": [
+              "cmp_a"
+            ],
+            "hingeSide": "right"
+          },
+          {
+            "id": "dr_3",
+            "compartmentIds": [
+              "cmp_a"
+            ],
+            "hingeSide": "left"
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "DOOR_INVALID",
+        "path": "doors.items[2].compartmentIds"
+      }
+    }
+  },
+  {
+    "name": "set_site widths keep the three readings and the niche is the smallest",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "widths": [
+          1210,
+          1195,
+          1205
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "site": {
+          "widths": [
+            1210,
+            1195,
+            1205
+          ],
+          "niche": 1195
+        }
+      }
+    }
+  },
+  {
+    "name": "set_site takes partial readings: an unknown reading is null",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "widths": [
+          1200,
+          null,
+          1190
+        ],
+        "heights": [
+          2600,
+          2585,
+          null
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "site": {
+          "widths": [
+            1200,
+            null,
+            1190
+          ],
+          "niche": 1190,
+          "heights": [
+            2600,
+            2585,
+            null
+          ],
+          "ceiling": 2585
+        }
+      }
+    }
+  },
+  {
+    "name": "a single niche replaces the three width readings",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "widths": [
+          1210,
+          1195,
+          1205
+        ]
+      },
+      {
+        "op": "set_site",
+        "niche": 1100
+      }
+    ],
+    "expect": {
+      "match": {
+        "site": {
+          "widths": null,
+          "niche": 1100
+        }
+      }
+    }
+  },
+  {
+    "name": "widths and niche together are refused",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "widths": [
+          1210,
+          1195,
+          1205
+        ],
+        "niche": 1195
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[0]"
+      }
+    }
+  },
+  {
+    "name": "set_site stores the clearance in front of the wardrobe",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "ceiling": 2600
+      },
+      {
+        "op": "set_site",
+        "clearance": 900
+      }
+    ],
+    "expect": {
+      "match": {
+        "site": {
+          "ceiling": 2600,
+          "clearance": 900
+        }
+      }
+    }
+  },
+  {
+    "name": "unset drops one field and keeps the others",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "ceiling": 2600,
+        "clearance": 900
+      },
+      {
+        "op": "set_site",
+        "unset": [
+          "clearance"
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "site": {
+          "ceiling": 2600,
+          "clearance": null
+        }
+      }
+    }
+  },
+  {
+    "name": "unsetting the niche drops its readings, and an empty site is null",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "widths": [
+          1210,
+          1195,
+          1205
+        ]
+      },
+      {
+        "op": "set_site",
+        "unset": [
+          "niche"
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "site": null
+      }
+    }
+  },
+  {
+    "name": "three unknown readings clear the governing value",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "niche": 1100
+      },
+      {
+        "op": "set_site",
+        "widths": [
+          null,
+          null,
+          null
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "site": null
+      }
+    }
+  },
+  {
+    "name": "a reading out of range names its index",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "widths": [
+          1200,
+          100,
+          1200
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_RANGE",
+        "path": "ops[0].widths[1]"
+      }
+    }
+  },
+  {
+    "name": "a clearance under 100 mm is out of range",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "clearance": 50
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_RANGE",
+        "path": "ops[0].clearance"
+      }
+    }
+  },
+  {
+    "name": "a field cannot be set and unset in one op",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "clearance": 900,
+        "unset": [
+          "clearance"
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[0]"
+      }
+    }
+  },
+  {
+    "name": "clear cannot carry unset",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "clear": true,
+        "unset": [
+          "clearance"
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[0]"
+      }
+    }
+  },
+  {
+    "name": "readings must be exactly three",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "widths": [
+          1200,
+          1190
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "SCHEMA_INVALID"
+      }
+    }
+  },
+  {
+    "name": "a stored niche that is not the smallest reading is invalid",
+    "base": "two",
+    "mutate": [
+      {
+        "path": [
+          "site"
+        ],
+        "value": {
+          "ceiling": null,
+          "niche": 1300,
+          "heights": null,
+          "widths": [
+            1200,
+            1250,
+            1300
+          ],
+          "clearance": null
+        }
+      }
+    ],
+    "ops": [
+      {
+        "op": "set_site",
+        "clearance": 900
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "SCHEMA_INVALID",
+        "path": "site.niche"
+      }
+    }
+  },
+  {
+    "name": "set_site stores wall obstacles",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "obstacles": [
+          {
+            "type": "socket",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          },
+          {
+            "type": "ac",
+            "x": 200,
+            "y": 2100,
+            "width": 900,
+            "height": 300
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "site": {
+          "obstacles": [
+            {
+              "type": "socket",
+              "x": 400,
+              "y": 300,
+              "width": 80,
+              "height": 80
+            },
+            {
+              "type": "ac",
+              "x": 200,
+              "y": 2100,
+              "width": 900,
+              "height": 300
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "obstacles replace the list, and an empty list clears it",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "ceiling": 2600,
+        "obstacles": [
+          {
+            "type": "socket",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          },
+          {
+            "type": "ac",
+            "x": 200,
+            "y": 2100,
+            "width": 900,
+            "height": 300
+          }
+        ]
+      },
+      {
+        "op": "set_site",
+        "obstacles": [
+          {
+            "type": "ac",
+            "x": 200,
+            "y": 2100,
+            "width": 900,
+            "height": 300
+          }
+        ]
+      },
+      {
+        "op": "set_site",
+        "obstacles": []
+      }
+    ],
+    "expect": {
+      "match": {
+        "site": {
+          "ceiling": 2600,
+          "obstacles": null
+        }
+      }
+    }
+  },
+  {
+    "name": "unset obstacles keeps the measurements",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "clearance": 900,
+        "obstacles": [
+          {
+            "type": "socket",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          }
+        ]
+      },
+      {
+        "op": "set_site",
+        "unset": [
+          "obstacles"
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "site": {
+          "clearance": 900,
+          "obstacles": null
+        }
+      }
+    }
+  },
+  {
+    "name": "an obstacle may sit left of the wardrobe",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "obstacles": [
+          {
+            "type": "socket",
+            "x": -300,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "site": {
+          "obstacles": [
+            {
+              "type": "socket",
+              "x": -300,
+              "y": 300,
+              "width": 80,
+              "height": 80
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "an obstacle size out of range names its field",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "obstacles": [
+          {
+            "type": "socket",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          },
+          {
+            "type": "ac",
+            "x": 200,
+            "y": 2100,
+            "width": 5,
+            "height": 300
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_RANGE",
+        "path": "ops[0].obstacles[1].width"
+      }
+    }
+  },
+  {
+    "name": "an obstacle under the floor is out of range",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "obstacles": [
+          {
+            "type": "socket",
+            "x": 400,
+            "y": -10,
+            "width": 80,
+            "height": 80
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_RANGE",
+        "path": "ops[0].obstacles[0].y"
+      }
+    }
+  },
+  {
+    "name": "an unknown obstacle type is refused",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "obstacles": [
+          {
+            "type": "fireplace",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "SCHEMA_INVALID"
+      }
+    }
+  },
+  {
+    "name": "at most eight obstacles",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "obstacles": [
+          {
+            "type": "socket",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          },
+          {
+            "type": "socket",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          },
+          {
+            "type": "socket",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          },
+          {
+            "type": "socket",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          },
+          {
+            "type": "socket",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          },
+          {
+            "type": "socket",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          },
+          {
+            "type": "socket",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          },
+          {
+            "type": "socket",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          },
+          {
+            "type": "socket",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "SCHEMA_INVALID"
+      }
+    }
+  },
+  {
+    "name": "a stored empty obstacle list is invalid",
+    "base": "two",
+    "mutate": [
+      {
+        "path": [
+          "site"
+        ],
+        "value": {
+          "ceiling": null,
+          "niche": null,
+          "heights": null,
+          "widths": null,
+          "clearance": 900,
+          "obstacles": []
+        }
+      }
+    ],
+    "ops": [
+      {
+        "op": "set_site",
+        "ceiling": 2600
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "SCHEMA_INVALID",
+        "path": "site.obstacles"
+      }
+    }
+  },
+  {
+    "name": "set_fittings turns soft close off and stands the carcass on legs",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_fittings",
+        "softClose": false,
+        "base": "legs"
+      }
+    ],
+    "expect": {
+      "match": {
+        "fittings": {
+          "softClose": false
+        },
+        "carcass": {
+          "base": "legs"
+        }
+      }
+    }
+  },
+  {
+    "name": "set_fittings changes only what it is given",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_fittings",
+        "base": "legs"
+      },
+      {
+        "op": "set_fittings",
+        "softClose": false
+      },
+      {
+        "op": "set_fittings",
+        "base": "plinth"
+      }
+    ],
+    "expect": {
+      "match": {
+        "fittings": {
+          "softClose": false
+        },
+        "carcass": {
+          "base": "plinth"
+        }
+      }
+    }
+  },
+  {
+    "name": "set_fittings needs a value",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_fittings"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[0]"
+      }
+    }
+  },
+  {
+    "name": "an unknown base is refused",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_fittings",
+        "base": "wheels"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "SCHEMA_INVALID"
+      }
+    }
+  },
+  {
+    "name": "soft close must be a boolean",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_fittings",
+        "softClose": "yes"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "SCHEMA_INVALID"
+      }
+    }
+  },
+  {
+    "name": "a tv insert takes the largest screen up to 43 inches with air beside it, at least 24",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_a",
+        "type": "tv",
+        "id": "ins_tv"
+      }
+    ],
+    "expect": {
+      "match": {
+        "compartments": [
+          {
+            "inserts": [
+              {
+                "id": "ins_tv",
+                "type": "tv",
+                "height": 299,
+                "tiers": null
+              }
+            ]
+          },
+          {}
+        ]
+      }
+    }
+  },
+  {
+    "name": "a tv insert has no tiers",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_a",
+        "type": "tv",
+        "tiers": 2
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[0].tiers"
+      }
+    }
+  },
+  {
+    "name": "a tv screen cannot overlap a shelf",
+    "base": "two",
+    "ops": [
+      {
+        "op": "add_shelf",
+        "compartmentId": "cmp_a",
+        "y": 700,
+        "id": "shf_tv"
+      },
+      {
+        "op": "add_insert",
+        "compartmentId": "cmp_a",
+        "type": "tv",
+        "y": 500,
+        "height": 535
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OVERLAP"
+      }
+    }
+  },
+  {
+    "name": "set_household lists the people, each with an optional name",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_household",
+        "people": [
+          {
+            "name": "אבא",
+            "height": 1820
+          },
+          {
+            "height": 1050
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "household": {
+          "people": [
+            {
+              "name": "אבא",
+              "height": 1820
+            },
+            {
+              "name": null,
+              "height": 1050
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "a person's height is in range",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_household",
+        "people": [
+          {
+            "height": 300
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_RANGE",
+        "path": "ops[0].people[0].height"
+      }
+    }
+  },
+  {
+    "name": "at most six people",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_household",
+        "people": [
+          {
+            "height": 1700
+          },
+          {
+            "height": 1700
+          },
+          {
+            "height": 1700
+          },
+          {
+            "height": 1700
+          },
+          {
+            "height": 1700
+          },
+          {
+            "height": 1700
+          },
+          {
+            "height": 1700
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "SCHEMA_INVALID"
+      }
+    }
+  },
+  {
+    "name": "child lock puts the release above the tallest child's reach",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_household",
+        "people": [
+          {
+            "height": 1800
+          },
+          {
+            "height": 1210
+          }
+        ]
+      },
+      {
+        "op": "set_fittings",
+        "childLock": true
+      }
+    ],
+    "expect": {
+      "match": {
+        "fittings": {
+          "childLock": true,
+          "releaseHeight": 1600
+        }
+      }
+    }
+  },
+  {
+    "name": "child lock without children puts the release at 150 cm",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_fittings",
+        "childLock": true
+      }
+    ],
+    "expect": {
+      "match": {
+        "fittings": {
+          "childLock": true,
+          "releaseHeight": 1500
+        }
+      }
+    }
+  },
+  {
+    "name": "a release height out of range is refused",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_fittings",
+        "releaseHeight": 500
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_RANGE",
+        "path": "ops[0].releaseHeight"
+      }
+    }
+  },
+  {
+    "name": "a name must be visible text",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_household",
+        "people": [
+          {
+            "name": "a‮b",
+            "height": 1700
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "SCHEMA_INVALID"
+      }
+    }
+  },
+  {
+    "name": "child locks without a release height are invalid",
+    "base": "two",
+    "mutate": [
+      {
+        "path": [
+          "fittings"
+        ],
+        "value": {
+          "softClose": true,
+          "childLock": true,
+          "releaseHeight": null
+        }
+      }
+    ],
+    "ops": [
+      {
+        "op": "set_fittings",
+        "softClose": true
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "SCHEMA_INVALID",
+        "path": "fittings.releaseHeight"
+      }
+    }
+  },
+  {
+    "name": "an obstacle of another kind keeps its name",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "obstacles": [
+          {
+            "type": "other",
+            "name": "רדיאטור",
+            "x": 300,
+            "y": 150,
+            "width": 800,
+            "height": 600
+          },
+          {
+            "type": "socket",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "site": {
+          "obstacles": [
+            {
+              "type": "other",
+              "name": "רדיאטור",
+              "x": 300,
+              "y": 150,
+              "width": 800,
+              "height": 600
+            },
+            {
+              "type": "socket",
+              "x": 400,
+              "y": 300,
+              "width": 80,
+              "height": 80
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "an obstacle of another kind needs a name",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "obstacles": [
+          {
+            "type": "socket",
+            "x": 400,
+            "y": 300,
+            "width": 80,
+            "height": 80
+          },
+          {
+            "type": "other",
+            "x": 300,
+            "y": 150,
+            "width": 800,
+            "height": 600
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "SCHEMA_INVALID",
+        "path": "site.obstacles[1].name"
+      }
+    }
+  },
+  {
+    "name": "set_room makes a rectangular room and centres the wardrobe on the top wall",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      }
+    ],
+    "expect": {
+      "match": {
+        "room": {
+          "shape": {
+            "kind": "rect",
+            "width": 3500,
+            "depth": 4000
+          },
+          "wall": 0,
+          "offset": 1250
+        }
+      }
+    }
+  },
+  {
+    "name": "an L-shaped room: the top wall is shortened by the cut",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "l",
+          "width": 4500,
+          "depth": 4000,
+          "cutWidth": 1500,
+          "cutDepth": 1500
+        }
+      }
+    ],
+    "expect": {
+      "match": {
+        "room": {
+          "shape": {
+            "kind": "l",
+            "width": 4500,
+            "depth": 4000,
+            "cutWidth": 1500,
+            "cutDepth": 1500
+          },
+          "wall": 0,
+          "offset": 1000
+        }
+      }
+    }
+  },
+  {
+    "name": "a room with a recess puts the wardrobe in the niche, on its back wall",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "recess",
+          "width": 4000,
+          "depth": 3500,
+          "recessX": 1000,
+          "recessWidth": 2400,
+          "recessDepth": 700
+        }
+      }
+    ],
+    "expect": {
+      "match": {
+        "room": {
+          "shape": {
+            "kind": "recess",
+            "width": 4000,
+            "depth": 3500,
+            "recessX": 1000,
+            "recessWidth": 2400,
+            "recessDepth": 700
+          },
+          "wall": 2,
+          "offset": 700
+        }
+      }
+    }
+  },
+  {
+    "name": "another wall recentres the wardrobe; an offset places it",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "wall": 1
+      }
+    ],
+    "expect": {
+      "match": {
+        "room": {
+          "shape": {
+            "kind": "rect",
+            "width": 3500,
+            "depth": 4000
+          },
+          "wall": 1,
+          "offset": 1500
+        }
+      }
+    }
+  },
+  {
+    "name": "an offset alone moves the wardrobe along its wall",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        },
+        "wall": 3,
+        "offset": 0
+      },
+      {
+        "op": "set_room",
+        "offset": 200
+      }
+    ],
+    "expect": {
+      "match": {
+        "room": {
+          "shape": {
+            "kind": "rect",
+            "width": 3500,
+            "depth": 4000
+          },
+          "wall": 3,
+          "offset": 200
+        }
+      }
+    }
+  },
+  {
+    "name": "clear removes the room",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "clear": true
+      }
+    ],
+    "expect": {
+      "match": {
+        "room": null
+      }
+    }
+  },
+  {
+    "name": "set_room needs a room before a wall or an offset",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "offset": 100
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[0]"
+      }
+    }
+  },
+  {
+    "name": "set_room needs a value or clear",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[0]"
+      }
+    }
+  },
+  {
+    "name": "set_room clear cannot carry values",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        },
+        "clear": true
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[0]"
+      }
+    }
+  },
+  {
+    "name": "a rectangular room has four walls",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        },
+        "wall": 4
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_RANGE",
+        "path": "ops[0].wall"
+      }
+    }
+  },
+  {
+    "name": "an L cut must leave a wall",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "l",
+          "width": 4500,
+          "depth": 4000,
+          "cutWidth": 4300,
+          "cutDepth": 1500
+        }
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_BOUNDS",
+        "path": "room.shape.cutWidth"
+      }
+    }
+  },
+  {
+    "name": "a recess must end before the right wall",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "recess",
+          "width": 4000,
+          "depth": 3500,
+          "recessX": 1000,
+          "recessWidth": 2800,
+          "recessDepth": 700
+        }
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_BOUNDS",
+        "path": "room.shape.recessWidth"
+      }
+    }
+  },
+  {
+    "name": "a room is at least a metre",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 900,
+          "depth": 4000
+        }
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_RANGE",
+        "path": "room.shape.width"
+      }
+    }
+  },
+  {
+    "name": "set_room openings: a door opens in on its left hinge and a window sits 90 cm up by default",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "door",
+            "wall": 2,
+            "at": 500,
+            "width": 900,
+            "height": 2100
+          },
+          {
+            "type": "window",
+            "wall": 1,
+            "at": 1000,
+            "width": 1200,
+            "height": 1300
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "room": {
+          "wall": 0,
+          "offset": 1250,
+          "openings": [
+            {
+              "type": "door",
+              "wall": 2,
+              "at": 500,
+              "width": 900,
+              "height": 2100,
+              "sill": null,
+              "hinge": "left",
+              "swing": "in"
+            },
+            {
+              "type": "window",
+              "wall": 1,
+              "at": 1000,
+              "width": 1200,
+              "height": 1300,
+              "sill": 900,
+              "hinge": null,
+              "swing": null
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "a door keeps the hinge and swing it is given, a window its sill",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "door",
+            "wall": 2,
+            "at": 500,
+            "width": 900,
+            "height": 2100,
+            "hinge": "right",
+            "swing": "out"
+          },
+          {
+            "type": "window",
+            "wall": 1,
+            "at": 1000,
+            "width": 1200,
+            "height": 1300,
+            "sill": 0
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "room": {
+          "openings": [
+            {
+              "type": "door",
+              "wall": 2,
+              "at": 500,
+              "width": 900,
+              "height": 2100,
+              "sill": null,
+              "hinge": "right",
+              "swing": "out"
+            },
+            {
+              "type": "window",
+              "wall": 1,
+              "at": 1000,
+              "width": 1200,
+              "height": 1300,
+              "sill": 0,
+              "hinge": null,
+              "swing": null
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "a passage takes no hinge",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "passage",
+            "wall": 3,
+            "at": 1000,
+            "width": 1000,
+            "height": 2100,
+            "hinge": "right"
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[1].openings[0].hinge"
+      }
+    }
+  },
+  {
+    "name": "a door takes no sill",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "door",
+            "wall": 2,
+            "at": 500,
+            "width": 900,
+            "height": 2100,
+            "sill": 100
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[1].openings[0].sill"
+      }
+    }
+  },
+  {
+    "name": "an opening must end inside its wall",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "window",
+            "wall": 0,
+            "at": 3000,
+            "width": 1000,
+            "height": 1000
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_BOUNDS",
+        "path": "room.openings[0].width"
+      }
+    }
+  },
+  {
+    "name": "an opening's wall must exist",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "door",
+            "wall": 4,
+            "at": 500,
+            "width": 900,
+            "height": 2100
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_RANGE",
+        "path": "room.openings[0].wall"
+      }
+    }
+  },
+  {
+    "name": "two openings in one wall must not overlap",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "window",
+            "wall": 1,
+            "at": 500,
+            "width": 1000,
+            "height": 1300
+          },
+          {
+            "type": "window",
+            "wall": 1,
+            "at": 1200,
+            "width": 800,
+            "height": 1300
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_BOUNDS",
+        "path": "room.openings[1].at"
+      }
+    }
+  },
+  {
+    "name": "a window above a door in the same wall is fine",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "door",
+            "wall": 1,
+            "at": 500,
+            "width": 900,
+            "height": 2000
+          },
+          {
+            "type": "window",
+            "wall": 1,
+            "at": 500,
+            "width": 900,
+            "height": 400,
+            "sill": 2100
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "room": {
+          "openings": [
+            {
+              "wall": 1,
+              "at": 500
+            },
+            {
+              "wall": 1,
+              "sill": 2100
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "an opening narrower than 30 cm is out of range",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "door",
+            "wall": 2,
+            "at": 500,
+            "width": 200,
+            "height": 2100
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_RANGE",
+        "path": "room.openings[0].width"
+      }
+    }
+  },
+  {
+    "name": "an opening cannot go above the measured ceiling",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_site",
+        "ceiling": 2400
+      },
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "window",
+            "wall": 1,
+            "at": 1000,
+            "width": 1200,
+            "height": 1300,
+            "sill": 1200
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_BOUNDS",
+        "path": "room.openings[0].height"
+      }
+    }
+  },
+  {
+    "name": "a room takes at most 8 openings",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "window",
+            "wall": 0,
+            "at": 0,
+            "width": 300,
+            "height": 300
+          },
+          {
+            "type": "window",
+            "wall": 0,
+            "at": 400,
+            "width": 300,
+            "height": 300
+          },
+          {
+            "type": "window",
+            "wall": 0,
+            "at": 800,
+            "width": 300,
+            "height": 300
+          },
+          {
+            "type": "window",
+            "wall": 0,
+            "at": 1200,
+            "width": 300,
+            "height": 300
+          },
+          {
+            "type": "window",
+            "wall": 0,
+            "at": 1600,
+            "width": 300,
+            "height": 300
+          },
+          {
+            "type": "window",
+            "wall": 0,
+            "at": 2000,
+            "width": 300,
+            "height": 300
+          },
+          {
+            "type": "window",
+            "wall": 0,
+            "at": 2400,
+            "width": 300,
+            "height": 300
+          },
+          {
+            "type": "window",
+            "wall": 0,
+            "at": 2800,
+            "width": 300,
+            "height": 300
+          },
+          {
+            "type": "window",
+            "wall": 0,
+            "at": 3200,
+            "width": 300,
+            "height": 300
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "SCHEMA_INVALID"
+      }
+    }
+  },
+  {
+    "name": "the same template at another size keeps the openings",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "door",
+            "wall": 2,
+            "at": 500,
+            "width": 900,
+            "height": 2100
+          }
+        ]
+      },
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3600,
+          "depth": 4200
+        },
+        "wall": 0,
+        "offset": 1250
+      }
+    ],
+    "expect": {
+      "match": {
+        "room": {
+          "shape": {
+            "width": 3600
+          },
+          "offset": 1250,
+          "openings": [
+            {
+              "type": "door",
+              "wall": 2,
+              "at": 500,
+              "width": 900,
+              "height": 2100,
+              "sill": null,
+              "hinge": "left",
+              "swing": "in"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "another template drops the openings: its walls are numbered anew",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "door",
+            "wall": 2,
+            "at": 500,
+            "width": 900,
+            "height": 2100
+          }
+        ]
+      },
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "l",
+          "width": 4500,
+          "depth": 4000,
+          "cutWidth": 1500,
+          "cutDepth": 1500
+        }
+      }
+    ],
+    "expect": {
+      "match": {
+        "room": {
+          "shape": {
+            "kind": "l"
+          },
+          "openings": []
+        }
+      }
+    }
+  },
+  {
+    "name": "a smaller room that leaves an opening past its wall is refused",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "door",
+            "wall": 0,
+            "at": 2400,
+            "width": 900,
+            "height": 2100
+          }
+        ]
+      },
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3000,
+          "depth": 4000
+        },
+        "wall": 0,
+        "offset": 1000
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_BOUNDS",
+        "path": "room.openings[0].width"
+      }
+    }
+  },
+  {
+    "name": "an empty list removes the openings",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "door",
+            "wall": 2,
+            "at": 500,
+            "width": 900,
+            "height": 2100
+          }
+        ]
+      },
+      {
+        "op": "set_room",
+        "openings": []
+      }
+    ],
+    "expect": {
+      "match": {
+        "room": {
+          "openings": []
+        }
+      }
+    }
+  },
+  {
+    "name": "openings alone need a room",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "openings": [
+          {
+            "type": "door",
+            "wall": 2,
+            "at": 500,
+            "width": 900,
+            "height": 2100
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[0]"
+      }
+    }
+  },
+  {
+    "name": "a stored window without a sill is refused",
+    "base": "two",
+    "mutate": [
+      {
+        "path": [
+          "room"
+        ],
+        "value": {
+          "shape": {
+            "kind": "rect",
+            "width": 3500,
+            "depth": 4000
+          },
+          "wall": 0,
+          "offset": 1250,
+          "openings": [
+            {
+              "type": "window",
+              "wall": 1,
+              "at": 1000,
+              "width": 1200,
+              "height": 1300,
+              "sill": null
+            }
+          ]
+        }
+      }
+    ],
+    "ops": [
+      {
+        "op": "set_room",
+        "offset": 1000
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "SCHEMA_INVALID",
+        "path": "room.openings[0].sill"
+      }
+    }
+  },
+  {
+    "name": "set_room furniture places a bed in the room",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        }
+      },
+      {
+        "op": "set_room",
+        "furniture": [
+          {
+            "type": "bed",
+            "x": 1750,
+            "y": 2500,
+            "width": 1600,
+            "depth": 2000,
+            "height": 550
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "room": {
+          "furniture": [
+            {
+              "type": "bed",
+              "x": 1750,
+              "y": 2500,
+              "width": 1600,
+              "depth": 2000,
+              "height": 550,
+              "rotation": 0
+            }
+          ],
+          "offset": 1250
+        }
+      }
+    }
+  },
+  {
+    "name": "the same template at another size keeps the furniture; another drops it",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        },
+        "furniture": [
+          {
+            "type": "bed",
+            "x": 1750,
+            "y": 2500,
+            "width": 1600,
+            "depth": 2000,
+            "height": 550
+          }
+        ]
+      },
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3600,
+          "depth": 4000
+        }
+      }
+    ],
+    "expect": {
+      "match": {
+        "room": {
+          "furniture": [
+            {
+              "type": "bed",
+              "x": 1750,
+              "y": 2500,
+              "width": 1600,
+              "depth": 2000,
+              "height": 550,
+              "rotation": 0
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "another template drops the furniture",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        },
+        "furniture": [
+          {
+            "type": "bed",
+            "x": 1750,
+            "y": 2500,
+            "width": 1600,
+            "depth": 2000,
+            "height": 550
+          }
+        ]
+      },
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "l",
+          "width": 4500,
+          "depth": 4000,
+          "cutWidth": 1500,
+          "cutDepth": 1500
+        }
+      }
+    ],
+    "expect": {
+      "match": {
+        "room": {
+          "furniture": []
+        }
+      }
+    }
+  },
+  {
+    "name": "a person keeps a place on the floor",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_household",
+        "people": [
+          {
+            "height": 1700,
+            "at": [
+              2500,
+              800
+            ]
+          },
+          {
+            "height": 1100
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "match": {
+        "household": {
+          "people": [
+            {
+              "height": 1700,
+              "at": [
+                2500,
+                800
+              ],
+              "name": null
+            },
+            {
+              "height": 1100,
+              "at": null
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "furniture is at least 2 cm",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_room",
+        "shape": {
+          "kind": "rect",
+          "width": 3500,
+          "depth": 4000
+        },
+        "furniture": [
+          {
+            "type": "bed",
+            "x": 1750,
+            "y": 2500,
+            "width": 10,
+            "depth": 2000,
+            "height": 550
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_RANGE",
+        "path": "room.furniture[0].width"
+      }
+    }
+  },
+  {
+    "name": "a person stands within 20 m",
+    "base": "two",
+    "ops": [
+      {
+        "op": "set_household",
+        "people": [
+          {
+            "height": 1700,
+            "at": [
+              25000,
+              0
+            ]
+          }
+        ]
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_RANGE",
+        "path": "ops[0].people[0].at[0]"
+      }
+    }
+  }
+]

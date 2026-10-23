@@ -1,46 +1,17 @@
 import { API_BASE_URL } from '../config.js';
 
-/** A failed API call. `status` is the HTTP status (0 for network errors); `code` is the server's error code. */
-export class ApiError extends Error {
-  constructor(message, { status = 0, code = 'NETWORK_ERROR' } = {}) {
-    super(message);
-    this.name = 'ApiError';
-    this.status = status;
-    this.code = code;
-  }
-}
-
-async function request(path, fetchImpl, init) {
+async function getJson(path, fetchImpl) {
   if (!API_BASE_URL) throw new Error('The API base URL is not configured');
-  let response;
-  try {
-    response = await (init ? fetchImpl(`${API_BASE_URL}${path}`, init) : fetchImpl(`${API_BASE_URL}${path}`));
-  } catch {
-    throw new ApiError('Could not reach the design service.');
+  const response = await fetchImpl(`${API_BASE_URL}${path}`);
+  if (!response.ok) {
+    throw new Error(`Request to ${path} failed with status ${response.status}`);
   }
-  let body = null;
-  try {
-    body = await response.json();
-  } catch {
-    // non-JSON error pages fall through to the status check below
-  }
-  if (!response.ok || !body || body.success !== true) {
-    const error = body?.success === false && typeof body.error === 'object' ? body.error : null;
-    const fallback = response.ok
-      ? `Request to ${path} returned an unsuccessful response`
-      : `Request to ${path} failed with status ${response.status}`;
-    throw new ApiError(error?.message ?? fallback, { status: response.status, code: error?.code ?? 'HTTP_ERROR' });
+  const body = await response.json();
+  if (!body || body.success !== true) {
+    throw new Error(`Request to ${path} returned an unsuccessful response`);
   }
   return body.data;
 }
-
-const getJson = (path, fetchImpl) => request(path, fetchImpl);
-const sendJson = (method, path, payload, fetchImpl, headers = {}) => request(path, fetchImpl, {
-  method,
-  headers: { 'Content-Type': 'application/json', ...headers },
-  body: JSON.stringify(payload),
-});
-const postJson = (path, payload, fetchImpl) => sendJson('POST', path, payload, fetchImpl);
 
 export const getHealth = (fetchImpl = fetch) => getJson('/api/health', fetchImpl).then((data) => ({ success: true, data }));
 
@@ -49,93 +20,117 @@ export const getCatalog = (fetchImpl = fetch) => getJson('/api/catalog', fetchIm
 /** Returns { design, revision } for the predefined basic wardrobe. */
 export const getDefaultDesign = (fetchImpl = fetch) => getJson('/api/designs/default', fetchImpl);
 
-/** One agent turn: { messages: [{role, text}], design, revision } -> { reply, proposal|null }. */
-export const sendChat = (payload, fetchImpl = fetch) => postJson('/api/chat', payload, fetchImpl);
+/**
+ * Checks an OpenAI key with the backend, which calls OpenAI once and stores nothing.
+ * Returns { status, model, maskedKey, checkedAt }. Errors carry the envelope's `code`.
+ */
+export const verifyAiKey = (apiKey, fetchImpl = fetch) => postJson('/api/settings/ai/verify', { apiKey }, fetchImpl);
 
-/** Speech to text: a recorded audio Blob -> { text }. `language` only localizes server errors. */
-export const transcribe = (blob, language, fetchImpl = fetch) => request(
-  `/api/voice/transcribe?language=${encodeURIComponent(language)}`,
-  fetchImpl,
-  { method: 'POST', headers: { 'Content-Type': blob.type.split(';')[0] || 'audio/webm' }, body: blob },
-);
+/**
+ * One agent turn. `messages` is [{ role: 'user'|'assistant', content }]. With `context` ({ design, revision })
+ * the agent sees the design and may return a signed proposal. `context.spoken`: the customer spoke and
+ * will hear the reply, so the agent answers for the ear (ADR-028). Returns { reply, model, proposal?, sources? }:
+ * `sources` are the web pages a reply cites, [{ title, url }] (ADR-036).
+ */
+export const sendChatMessage = (apiKey, messages, context = null, fetchImpl = fetch) => {
+  const body = context?.design ? { apiKey, messages, design: context.design, revision: context.revision } : { apiKey, messages };
+  if (context?.spoken) body.spoken = true;
+  if (context?.language) body.language = context.language; // the session language (ADR-029)
+  return postJson('/api/chat', body, fetchImpl);
+};
 
-/** Text to speech: { text, language, signature } -> an audio/mpeg Blob (signature = the chat replySignature). */
-export async function fetchSpeech(payload, fetchImpl = fetch) {
+/**
+ * Apply a signed proposal the customer confirmed (ADR-020). Returns { design, revision }. A design that
+ * changed since the proposal is a 409 with code STALE.
+ */
+export const applyProposal = (design, revision, proposal, fetchImpl = fetch) =>
+  postJson('/api/proposals/apply', { design, revision, proposal }, fetchImpl);
+
+/**
+ * Push-to-talk speech to text. The key and the recording go as multipart form fields (never in the URL);
+ * the backend hands both to OpenAI and keeps neither. Returns the transcript, which may be empty.
+ * Errors carry the envelope's `code` (400 INVALID_FORMAT/EMPTY_AUDIO, 413, 415, 429 BUSY, OpenAI's codes).
+ */
+export async function transcribeAudio(apiKey, blob, { fetchImpl = fetch, language = null } = {}) {
   if (!API_BASE_URL) throw new Error('The API base URL is not configured');
-  let response;
-  try {
-    response = await fetchImpl(`${API_BASE_URL}/api/voice/speech`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-  } catch {
-    throw new ApiError('Could not reach the design service.');
+  const form = new FormData();
+  form.append('apiKey', apiKey);
+  form.append('audio', blob, 'voice');
+  if (language) form.append('language', language); // a hint for the model (ADR-029)
+  const response = await fetchImpl(`${API_BASE_URL}/api/voice/transcribe`, { method: 'POST', body: form });
+  const body = await response.json().catch(() => null);
+  if (!response.ok || !body || body.success !== true) {
+    const error = new Error(body?.error?.message ?? `Request to /api/voice/transcribe failed with status ${response.status}`);
+    error.code = body?.error?.code ?? 'REQUEST_FAILED';
+    throw error;
   }
+  return String(body.data?.text ?? '');
+}
+
+/**
+ * A reply read aloud (ADR-028): MP3 from the server, made with the customer's key and an AI voice.
+ * The key goes in the JSON body, never in the URL. Errors carry the envelope's `code`.
+ */
+export async function synthesizeSpeech(apiKey, text, voice, { fetchImpl = fetch, signal } = {}) {
+  if (!API_BASE_URL) throw new Error('The API base URL is not configured');
+  const response = await fetchImpl(`${API_BASE_URL}/api/voice/speak`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ apiKey: apiKey ?? '', text, ...(voice ? { voice } : {}) }),
+    ...(signal ? { signal } : {}),
+  });
   if (!response.ok) {
     const body = await response.json().catch(() => null);
-    throw new ApiError(body?.error?.message ?? `Request to /api/voice/speech failed with status ${response.status}`, {
-      status: response.status,
-      code: body?.error?.code ?? 'HTTP_ERROR',
-    });
+    const error = new Error(body?.error?.message ?? `Request to /api/voice/speak failed with status ${response.status}`);
+    error.code = body?.error?.code ?? 'REQUEST_FAILED';
+    throw error;
   }
   return response.blob();
 }
 
-/** Apply a signed proposal: { design, revision, proposal } -> { design, revision }. 409 = stale. */
-export const applyProposal = (payload, fetchImpl = fetch) => postJson('/api/proposals/apply', payload, fetchImpl);
-
-const SAFE_PDF_NAME = /^[A-Za-z0-9._-]{1,80}\.pdf$/;
-const FALLBACK_PDF_NAME = 'banai-wardrobe.pdf';
-
-function pdfFilename(disposition) {
-  const name = /filename="?([^";]+)"?/i.exec(disposition ?? '')?.[1];
-  return name && SAFE_PDF_NAME.test(name) ? name : FALLBACK_PDF_NAME;
-}
+/**
+ * Research-backed advisories for a design (ADR-018). Returns [{ id, level, title, body, grade, src,
+ * targets, fix?: { label, ops } }], most severe first. `signal` cancels a request a newer design replaced.
+ */
+export const getAdvisories = (design, { signal, fetchImpl = fetch } = {}) =>
+  postJson('/api/advisories', { design }, fetchImpl, signal).then((data) => data.advisories);
 
 /**
- * The carpenter PDF: { design, language: 'he'|'en', image? } -> { blob, filename }. `image` is the
- * app's own 3D snapshot (a JPEG/PNG data URL); without it the PDF uses its drawn illustration.
+ * The carpenter dossier PDF (ADR-019) as a Blob. `renderPng` (optional) is the path-traced cover,
+ * a PNG data URL or bare base64. `language` is the carpenter's: he | en | ru | ar (ADR-029).
+ * Errors carry the envelope's `code` (422 invalid design, 413, 429).
  */
-export async function exportPdf({ design, language, image = null }, fetchImpl = fetch) {
+export async function getDossier(design, { renderPng = null, language = 'he', customer = null, fetchImpl = fetch } = {}) {
   if (!API_BASE_URL) throw new Error('The API base URL is not configured');
-  let response;
-  try {
-    response = await fetchImpl(`${API_BASE_URL}/api/export/pdf`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(image ? { design, language, image } : { design, language }),
-    });
-  } catch {
-    throw new ApiError('Could not reach the design service.');
-  }
+  const png = renderPng ? renderPng.replace(/^data:image\/png;base64,/, '') : null;
+  const response = await fetchImpl(`${API_BASE_URL}/api/dossier`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    // The customer's details (ADR-038) go with the dossier request only, for that PDF.
+    body: JSON.stringify({ design, ...(png ? { renderPng: png } : {}), ...(language !== 'he' ? { language } : {}), ...(customer ? { customer } : {}) }),
+  });
   if (!response.ok) {
     const body = await response.json().catch(() => null);
-    throw new ApiError(body?.error?.message ?? `Request to /api/export/pdf failed with status ${response.status}`, {
-      status: response.status,
-      code: body?.error?.code ?? 'HTTP_ERROR',
-    });
+    const error = new Error(body?.error?.message ?? `Request to /api/dossier failed with status ${response.status}`);
+    error.code = body?.error?.code ?? 'REQUEST_FAILED';
+    throw error;
   }
-  if (!(response.headers?.get('Content-Type') ?? '').toLowerCase().startsWith('application/pdf')) {
-    throw new ApiError('The service did not return a PDF.', { status: response.status, code: 'BAD_RESPONSE' });
-  }
-  return { blob: await response.blob(), filename: pdfFilename(response.headers.get('Content-Disposition')) };
+  return response.blob();
 }
 
-const designPath = (designId) => `/api/designs/${encodeURIComponent(designId)}`;
-const bearer = (token) => ({ Authorization: `Bearer ${token}` });
-
-/** Save a new design: { design, language } -> { designId, accessToken, revision }. The token is shown only once. */
-export const createSavedDesign = (payload, fetchImpl = fetch) => postJson('/api/designs', payload, fetchImpl);
-
-/** Reopen a saved design: { designId, token, language } -> { designId, name, design, revision }. 404 = not this link. */
-export const getSavedDesign = ({ designId, token, language }, fetchImpl = fetch) => request(
-  `${designPath(designId)}?language=${encodeURIComponent(language)}`,
-  fetchImpl,
-  { headers: bearer(token) },
-);
-
-/** Save over a saved design from `revision`: -> { designId, revision }. 409 STALE = someone saved in between. */
-export const updateSavedDesign = ({ designId, token, revision, design, language }, fetchImpl = fetch) => sendJson(
-  'PUT', designPath(designId), { design, language }, fetchImpl, { ...bearer(token), 'If-Match': String(revision) },
-);
+async function postJson(path, payload, fetchImpl, signal = undefined) {
+  if (!API_BASE_URL) throw new Error('The API base URL is not configured');
+  const response = await fetchImpl(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    ...(signal ? { signal } : {}),
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok || !body || body.success !== true) {
+    const error = new Error(body?.error?.message ?? `Request to ${path} failed with status ${response.status}`);
+    error.code = body?.error?.code ?? 'REQUEST_FAILED';
+    throw error;
+  }
+  return body.data;
+}

@@ -30,6 +30,21 @@ def find_item(design: dict, kind: str, item_id: str, path: str) -> dict:
     raise DomainError(NOT_FOUND, path, f"no {kind[:-1]} with this id")
 
 
+def find_insert(design: dict, insert_id: str, path: str) -> dict:
+    for compartment in design["compartments"]:
+        for item in compartment["inserts"]:
+            if item["id"] == insert_id:
+                return item
+    raise DomainError(NOT_FOUND, path, "no insert with this id")
+
+
+def find_door(design: dict, door_id: str, path: str) -> dict:
+    for door in design["doors"]["items"]:
+        if door["id"] == door_id:
+            return door
+    raise DomainError(NOT_FOUND, path, "no door with this id")
+
+
 def locate(design: dict, component_id: str) -> tuple[str, int, int] | None:
     """Return (kind, compartment_or_list_index, item_index) for any component id."""
     for ci, compartment in enumerate(design["compartments"]):
@@ -39,6 +54,9 @@ def locate(design: dict, component_id: str) -> tuple[str, int, int] | None:
             for ii, item in enumerate(compartment[kind]):
                 if item["id"] == component_id:
                     return (kind, ci, ii)
+        for ii, item in enumerate(compartment["inserts"]):
+            if item["id"] == component_id:
+                return ("inserts", ci, ii)
     for pi, partition in enumerate(design["partitions"]):
         if partition["id"] == component_id:
             return ("partition", pi, -1)

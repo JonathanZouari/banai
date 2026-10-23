@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "p1-prototype",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "5297", "--bind", "localhost", "--directory", "prototypes"],
+      "port": 5297
+    }
+  ]
+}

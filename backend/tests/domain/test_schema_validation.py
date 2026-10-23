@@ -135,3 +135,69 @@ def test_catalog_entries_are_safe_text():
     for section in load_catalog().values():
         for entry in section:
             CustomRef.model_validate({"custom": True, "name": entry["name"]})
+
+
+def test_handles_default_is_emitted_and_not_shared(two):
+    legacy = copy.deepcopy(two)
+    del legacy["handles"]
+    for door in legacy["doors"]["items"]:
+        del door["handle"], door["mirror"]
+    del legacy["compartments"][0]["drawers"][0]["handle"]
+    first, second = parse_design(legacy), parse_design(legacy)
+    assert first == two
+    first["handles"]["style"] = "knob"
+    assert second["handles"] == {"style": "bar", "finish": "steel"}
+
+
+@pytest.mark.parametrize(
+    "path, value",
+    [
+        (("handles",), {"style": "bar"}),
+        (("handles",), None),
+        (("handles", "finish"), "gold"),
+        (("handles", "extra"), 1),
+        (("doors", "items", 0, "handle"), {"style": "knob"}),
+        (("doors", "items", 0, "mirror"), "yes"),
+        (("doors", "items", 0, "mirror"), 1),
+        (("doors", "items", 0, "mirror"), None),
+        (("compartments", 0, "drawers", 0, "handle"), {"style": "pull", "finish": "steel"}),
+    ],
+)
+def test_bad_handle_and_mirror_values_are_schema_errors(two, path, value):
+    bad = copy.deepcopy(two)
+    target = bad
+    for key in path[:-1]:
+        target = target[key]
+    target[path[-1]] = value
+    with pytest.raises(DomainError) as info:
+        parse_design(bad)
+    assert info.value.code == "SCHEMA_INVALID"
+
+
+def test_every_handle_style_and_finish_is_accepted(two):
+    for style in ("bar", "knob", "edge", "cup", "groove", "none"):
+        for finish in ("steel", "black", "brass"):
+            design = copy.deepcopy(two)
+            design["handles"] = {"style": style, "finish": finish}
+            assert parse_design(design)["handles"] == {"style": style, "finish": finish}
+
+
+def test_catalog_grain_is_a_known_wood_family():
+    from app.domain.catalog import GRAINS, load_catalog
+
+    colors = load_catalog()["colors"]
+    grains = {entry["id"]: entry["grain"] for entry in colors if "grain" in entry}
+    assert set(grains.values()) <= set(GRAINS)
+    assert grains["natural_oak"] == "oak" and grains["walnut"] == "walnut"
+    assert {"light_oak", "ash", "cherry", "teak", "smoked_oak", "wenge"} <= set(grains)
+    assert all(entry["id"] not in grains for entry in colors[:4])  # plain colours have no grain
+
+
+def test_catalog_keeps_existing_order_and_a_single_walnut():
+    from app.domain.catalog import load_catalog
+
+    colors = load_catalog()["colors"]
+    ids = [entry["id"] for entry in colors]
+    assert ids[:6] == ["white", "light_grey", "anthracite", "black", "natural_oak", "walnut"]
+    assert len(ids) == len(set(ids)) and "pink" not in ids
+    assert [e["id"] for e in colors if "אגוז" in e["name"]] == ["walnut"]  # one walnut, by its Hebrew name

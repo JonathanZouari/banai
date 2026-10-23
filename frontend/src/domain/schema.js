@@ -1,9 +1,11 @@
-// Canonical wardrobe schema (v1), integer millimetres. Mirrors backend/app/domain/schema.py.
+// Canonical wardrobe schema (v2; v1 input is upgraded), integer millimetres. Mirrors backend/app/domain/schema.py.
+// v2 adds `site`, `carcass.plinthHeight` and `compartments[].inserts`, all with defaults.
 // Structural shape only; cross-field rules live in validation.js. Inputs are untrusted:
 // ints are bounded, lists capped, keys camelCase only, unknown keys rejected.
 
 import { z } from 'zod';
 import { DomainError, SCHEMA_INVALID } from './errors.js';
+import { defaultHandles, INSERT_TYPES, MAX_FURNITURE, MAX_OBSTACLES, MAX_OPENINGS } from './defaults.js';
 import * as ids from './ids.js';
 import { isPlainObject, sum } from './util.js';
 
@@ -13,10 +15,11 @@ export const INT_BOUND = 1_000_000;
 export const MAX_LIST = 100; // items of one kind in one compartment
 export const MAX_COMPARTMENTS = 20;
 export const MAX_DOORS = 20;
-export const MAX_ITEMS_TOTAL = 300; // shelves + drawers + rails across the whole design
+export const MAX_ITEMS_TOTAL = 300; // shelves + drawers + rails + inserts across the whole design
+export const MAX_INSERTS = 4; // at most one insert of each type per compartment
 
 // Free text from customers / the LLM: no control or bidi-override characters.
-export const SAFE_TEXT_PATTERN = /^[^\x00-\x1f\x7f-\x9f\u200b-\u200d\u2028\u2029\u202a-\u202e\u2066-\u2069\ufeff]+$/;
+export const SAFE_TEXT_PATTERN = /^[^\x00-\x1f\x7f-\x9f\u00ad\u061c\u200b-\u200f\u2028\u2029\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]+$/;
 // Not blank, well-formed UTF-16 (no lone surrogates, which Python rejects), no Unicode tag
 // characters (invisible text usable for prompt injection). Mirrors CustomRef._visible_name.
 const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
@@ -49,9 +52,84 @@ export const ref = z.unknown().transform((value, ctx) => {
 export const appearance = z.strictObject({ material: ref, color: ref, finish: ref });
 const override = appearance.nullable().default(null);
 
-const shelf = z.strictObject({ id: typedId(ids.SHELF), y: int(), thickness: int(), appearance: override });
-const drawer = z.strictObject({ id: typedId(ids.DRAWER), y: int(), height: int(), appearance: override });
+export const HANDLE_STYLES = Object.freeze(['bar', 'knob', 'edge', 'cup', 'groove', 'none']);
+export const HANDLE_FINISHES = Object.freeze(['steel', 'black', 'brass']);
+export const handleStyle = z.enum(HANDLE_STYLES);
+export const handleFinish = z.enum(HANDLE_FINISHES);
+export const handle = z.strictObject({ style: handleStyle, finish: handleFinish });
+const handleOverride = handle.nullable().default(null);
+
+// `fixed`: a divider that bounds zones (docs/schema.md "Zones").
+const shelf = z.strictObject({ id: typedId(ids.SHELF), y: int(), thickness: int(), appearance: override, fixed: z.boolean().default(false) });
+const drawer = z.strictObject({
+  id: typedId(ids.DRAWER), y: int(), height: int(), appearance: override, handle: handleOverride,
+});
 const rail = z.strictObject({ id: typedId(ids.RAIL), y: int() });
+
+export const insertType = z.enum(INSERT_TYPES);
+// Which of y/tiers/height apply depends on the type (checked in validation).
+const insert = z.strictObject({
+  id: typedId(ids.INSERT),
+  type: insertType,
+  y: int().nullable().default(null),
+  tiers: int().nullable().default(null),
+  height: int().nullable().default(null),
+});
+
+// Customer's estimated site measurements (mm). The carpenter verifies them on site.
+// ceiling/niche are the governing values; heights (left, middle, right) and widths (top, middle, bottom)
+// keep the raw readings when given, and the governing value is the smallest known one. clearance: the free
+// floor in front of the wardrobe. Mirrors backend/app/domain/schema.py Site.
+const reading3 = () => z.array(int().nullable()).length(3);
+// Something on the wall behind the wardrobe (mm): x from its left outer face (negative = left of it), y from
+// the floor. Ranges are checked in validation. Mirrors backend Obstacle.
+export const obstacle = z.strictObject({
+  type: z.enum(['socket', 'switch', 'ac', 'pipe', 'window', 'panel', 'other']),
+  x: int(), y: int(), width: int(), height: int(),
+  // The customer's word for it: required for "other" (validation), optional otherwise. Code points, as Python counts.
+  name: z.string().refine((s) => [...s].length >= 1 && [...s].length <= 30).regex(SAFE_TEXT_PATTERN).refine(isVisibleText)
+    .nullable().default(null),
+});
+export const MAX_SITE_OBSTACLES = MAX_OBSTACLES;
+// The room around the wardrobe (ADR-037, domain/room.js): a template's floor plan (mm), the wall the wardrobe's
+// back stands against (0-based) and its left face's distance from that wall's start. Mirrors backend Room.
+export const roomShape = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('rect'), width: int(), depth: int() }),
+  z.strictObject({ kind: z.literal('l'), width: int(), depth: int(), cutWidth: int(), cutDepth: int() }),
+  z.strictObject({ kind: z.literal('recess'), width: int(), depth: int(), recessX: int(), recessWidth: int(), recessDepth: int() }),
+]);
+// A door, a window or an open passage in a wall of the room (mm): `at` from the wall's left end facing it from
+// inside, a window's sill, a door's hinge side (seen from inside) and swing. Which fields each type takes, the
+// ranges and the fit in the wall are checked in validation (room.js openingIssues). Mirrors backend Opening.
+export const opening = z.strictObject({
+  type: z.enum(['door', 'window', 'passage']),
+  wall: int(), at: int(), width: int(), height: int(),
+  sill: int().nullable().default(null),
+  hinge: z.enum(['left', 'right']).nullable().default(null),
+  swing: z.enum(['in', 'out']).nullable().default(null),
+});
+export const MAX_ROOM_OPENINGS = MAX_OPENINGS;
+// A free-standing piece of furniture (ADR-041): its centre on the room's plan, its size and its rotation. Mirrors
+// backend Furniture.
+export const furnitureItem = z.strictObject({
+  type: z.enum(['bed', 'dresser', 'desk', 'mirror']),
+  x: int(), y: int(), width: int(), depth: int(), height: int(),
+  rotation: z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]).default(0),
+});
+export const MAX_ROOM_FURNITURE = MAX_FURNITURE;
+const room = z.strictObject({
+  shape: roomShape, wall: int(), offset: int(),
+  openings: z.array(opening).max(MAX_OPENINGS).default([]),
+  furniture: z.array(furnitureItem).max(MAX_FURNITURE).default([]),
+});
+const site = z.strictObject({
+  ceiling: int().nullable().default(null),
+  niche: int().nullable().default(null),
+  heights: reading3().nullable().default(null),
+  widths: reading3().nullable().default(null),
+  clearance: int().nullable().default(null),
+  obstacles: z.array(obstacle).max(MAX_SITE_OBSTACLES).nullable().default(null),
+});
 
 const compartment = z.strictObject({
   id: typedId(ids.COMPARTMENT),
@@ -59,6 +137,7 @@ const compartment = z.strictObject({
   shelves: list(shelf),
   drawers: list(drawer),
   rails: list(rail),
+  inserts: z.array(insert).max(MAX_INSERTS).default(() => []),
 });
 
 const door = z.strictObject({
@@ -66,15 +145,29 @@ const door = z.strictObject({
   compartmentIds: list(typedId(ids.COMPARTMENT)),
   hingeSide: z.enum(['left', 'right']).nullable().default(null),
   appearance: override,
+  handle: handleOverride,
+  mirror: z.boolean().default(false),
+  // A zone door is anchored to dividers (fixed shelves); null = the carcass bottom / top.
+  bottomShelfId: typedId(ids.SHELF).nullable().default(null),
+  topShelfId: typedId(ids.SHELF).nullable().default(null),
+});
+
+const person = z.strictObject({
+  name: z.string().refine((s) => [...s].length >= 1 && [...s].length <= 30).regex(SAFE_TEXT_PATTERN).refine(isVisibleText)
+    .nullable().default(null), // code points, as Python counts them
+  height: int(),
+  at: z.array(int()).length(2).nullable().default(null), // where they stand (ADR-041), [x, z] mm; null: beside it
 });
 
 export const designSchema = z.strictObject({
-  schemaVersion: z.literal(1),
+  // A v1 design is upgraded: its v2 fields take their defaults.
+  schemaVersion: z.union([z.literal(1), z.literal(2)]).transform(() => 2),
   units: z.literal('mm'),
   dimensions: z.strictObject({ width: int(), height: int(), depth: int() }),
-  carcass: z.strictObject({ panelThickness: int(), appearance }),
+  // base: a plinth board, or visible adjustable legs as tall as plinthHeight.
+  carcass: z.strictObject({ panelThickness: int(), appearance, plinthHeight: int().default(0), base: z.enum(['plinth', 'legs']).default('plinth') }),
   compartments: z.array(compartment).min(1).max(MAX_COMPARTMENTS).refine(
-    (all) => sum(all.map((c) => c.shelves.length + c.drawers.length + c.rails.length)) <= MAX_ITEMS_TOTAL,
+    (all) => sum(all.map((c) => c.shelves.length + c.drawers.length + c.rails.length + c.inserts.length)) <= MAX_ITEMS_TOTAL,
     { message: 'too many interior items' },
   ),
   partitions: z.array(z.strictObject({ id: typedId(ids.PARTITION), thickness: int() })).max(MAX_COMPARTMENTS),
@@ -83,6 +176,17 @@ export const designSchema = z.strictObject({
     appearance,
     items: z.array(door).max(MAX_DOORS),
   }),
+  handles: handle.default(defaultHandles),
+  site: site.nullable().default(null),
+  // Hardware for the whole wardrobe: soft-close hinges and runners, on by default.
+  fittings: z.strictObject({
+    softClose: z.boolean().default(true),
+    childLock: z.boolean().default(false), // locks on the doors and drawers...
+    releaseHeight: int().nullable().default(null), // ...released by a button this high above the floor
+  }).default({ softClose: true, childLock: false, releaseHeight: null }),
+  // The people who live with the wardrobe: scale figures, and child-safety advice for anyone under 140 cm.
+  household: z.strictObject({ people: z.array(person).max(6).default([]) }).default({ people: [] }),
+  room: room.nullable().default(null),
 });
 
 export function formatPath(path) {

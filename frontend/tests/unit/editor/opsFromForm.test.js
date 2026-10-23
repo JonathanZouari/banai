@@ -69,9 +69,9 @@ describe('structure ops produce valid designs', () => {
 
 describe('friendlyError', () => {
   it('turns domain errors into short user messages', () => {
-    expect(friendlyError(new DomainError('OVERLAP', 'compartments[0].shelves[4]', 'x'))).toMatch(/overlap/i);
-    expect(friendlyError(new DomainError('OUT_OF_BOUNDS', 'x', 'x'))).toMatch(/inside the wardrobe/i);
-    expect(friendlyError(new DomainError('OUT_OF_RANGE', 'ops[0].width', 'x'))).toMatch(/allowed range/i);
-    expect(friendlyError(new DomainError('SOMETHING_NEW', 'x', 'x'))).toMatch(/could not be applied/i);
+    expect(friendlyError(new DomainError('OVERLAP', 'compartments[0].shelves[4]', 'x'))).toMatch(/חופף/);
+    expect(friendlyError(new DomainError('OUT_OF_BOUNDS', 'x', 'x'))).toMatch(/מחוץ לארון/);
+    expect(friendlyError(new DomainError('OUT_OF_RANGE', 'ops[0].width', 'x'))).toMatch(/לטווח המותר/);
+    expect(friendlyError(new DomainError('SOMETHING_NEW', 'x', 'x'))).toMatch(/לא ניתן להחיל/);
   });
 });

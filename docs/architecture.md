@@ -23,7 +23,7 @@ You want a working MVP of an AI wardrobe designer. A chat agent (OpenAI), a manu
 - Default basic wardrobe: 2000 W × 2400 H × 600 D, 18 mm panels, 3 equal compartments, hinged doors, white matte.
 - Validation ranges (rendering safety only): width 300–6000, height 300–3500, depth 200–1200 mm.
 - LLM and image models come from `OPENAI_CHAT_MODEL` and `OPENAI_IMAGE_MODEL` env vars. Current models are checked against the OpenAI docs at M5 and M8, with image-edit-capable `gpt-image-*` as the candidate.
-- Starter material catalog: about 6 colors × 3 finishes, plus a "custom" entry (free name, hex, finish) flagged `custom: true`.
+- Starter material catalog: about 12 colors (plain colors plus wood colors with an optional `grain` texture family) × 3 finishes, plus a "custom" entry (free name, hex, finish) flagged `custom: true`.
 - Environment names follow your Railway brief: `production` and `dev`. These replace the skill's default `staging`.
 
 ## 3. Architecture
@@ -42,7 +42,7 @@ Browser (vanilla JS + Three.js, Vite)
 ```
 **Single operation protocol.** Every change, whether manual or AI, is a list of typed ops, for example `{op:"add_shelf", compartmentId, y, …}`. The ops engine exists in Python (authoritative, used for AI validation and save) and in JS (instant manual editing). **Parity is guaranteed by shared golden fixtures** in `shared/fixtures/ops/*.json` (input design + ops → expected design or error), run by both pytest and vitest. Each op is pure: `(design) → newDesign`. Nothing is mutated.
 
-Op set: `create_wardrobe, update_dimensions, configure_doors, add_compartment, modify_compartment, add_partition, modify_partition, add_shelf, modify_shelf, add_drawer, modify_drawer, add_rail, modify_rail, set_material, remove_component`.
+Op set: `create_wardrobe, update_dimensions, configure_doors, modify_door, add_compartment, modify_compartment, add_partition, modify_partition, add_shelf, modify_shelf, add_drawer, modify_drawer, add_rail, modify_rail, set_material, set_handles, remove_component`.
 
 ## 4. Canonical schema (v1, JSON/JSONB)
 ```jsonc
@@ -82,31 +82,17 @@ Revision and persistence metadata (`revision`, `designId`) stay **outside** the 
 6. **Cancel** discards the proposal on the client only, and a "cancelled" note goes into the chat history.
 7. Any manual edit made while a proposal is pending bumps the revision. The card then shows "design changed – ask agent to re-propose".
 
-### 5a. Voice (chained pipeline, added 2026-10-16)
-Voice was originally an excluded feature. It was added on request, following OpenAI's voice-agents guide, as a **chained pipeline**: speech-to-text, then the existing agent, then optional text-to-speech.
-- **Mic → `POST /api/voice/transcribe`.**
-  - The request is a raw audio body with a content-type allowlist and a 1 MB streamed cap. The browser stops recording itself at 60 s.
-  - It returns `{text}`. No language hint is sent, so either language is transcribed as spoken.
-  - The text then goes through the normal `submit()`, which detects the language and calls `/api/chat`.
-- **Read replies aloud** (opt-in, remembered per browser): `POST /api/voice/speech {text, language}` returns `audio/mpeg`.
-  - The toggle and its notice disclose that the voice is AI-generated, as OpenAI's usage policies require.
-- **Why chained and not Realtime speech-to-speech.** A Realtime session would need its own tool loop and browser ephemeral keys, and it would bypass the signed-proposal protocol. Chained keeps one agent, one scope policy, and one Confirm step.
-- **Defaults (configurable):**
-  - `OPENAI_TRANSCRIBE_MODEL=gpt-4o-mini-transcribe`
-  - `OPENAI_TTS_MODEL=gpt-4o-mini-tts`
-  - `OPENAI_TTS_VOICE=marin`
-  - The voices are optimized for English, so Hebrew read-aloud may sound accented.
-
 ## 6. API contracts (FastAPI, Pydantic, `{success, data, error}` envelope)
 | Method | Route | Purpose |
 |---|---|---|
 | GET | `/api/health` | liveness |
 | GET | `/api/catalog` | materials, colors, finishes (backend owns the catalog) |
 | GET | `/api/designs/default` | basic wardrobe template |
-| POST | `/api/chat` | agent turn → reply + optional signed proposal |
+| POST | `/api/settings/ai/verify` | `{apiKey}` → `{status, model, maskedKey, checkedAt}`. Checks the customer's OpenAI key with one free OpenAI metadata call and stores nothing. `status` is `connected`, `invalid_key`, `model_unavailable` or `unreachable`; a malformed key is a 400 `INVALID_FORMAT` and never reaches OpenAI |
+| POST | `/api/chat` | agent turn → reply + optional signed proposal. **Built so far (text only):** `{apiKey, messages}` → `{reply, model}`, where `messages` is 1–40 `{role: user\|assistant, content ≤ 2000 chars}` ending with a user message. Wardrobe carpentry only, with no exceptions (the weather tool was removed in ADR-036). The agent may search the web; the reply then carries `sources: [{title, url}]` (ADR-036). `{design, revision}` and the signed proposal arrive in Phase 5 |
+| POST | `/api/advisories` | `{design}` → `{advisories: [{id, level, title, body, grade, src, targets, fix?: {label, ops}}]}`. Non-blocking guidance R1–R19 from the research (ADR-018, Python only), most severe first. A `fix` is an op list that was dry-run against the design. An invalid design is a 422 carrying the engine's `{code, message, path}` |
+| POST | `/api/dossier` | `{design, renderPng?, language?, customer?}` → `application/pdf`. `customer` holds the customer's details (ADR-038, `app/dossier/customer.py`): optional fields, checked strictly, used only for this PDF, never stored or logged. A bad value is a plain 422 `INVALID_REQUEST` that echoes nothing back. The dossier itself: the carpenter's dossier (ADR-019): shop drawings, cut list, sheet nesting, hardware, a material estimate with research sources, site checks and the advisories. Rendered by headless Chromium (Python Playwright) with JavaScript off and every request that isn't `data:` or `about:` aborted. `renderPng` is an optional base64 PNG for the cover, or the same as a `data:image/png;base64,` URL (≤ 2 MiB decoded, ≤ 8192 px a side, ≤ 16.7 M pixels). The server decodes it with Pillow and re-encodes an 8-bit RGB PNG of at most 1600 px, so Chromium never sees client bytes; the client shrinks the render to fit and retries without it if refused. 422 carries the engine's `{code, message, path}` (or `INVALID_IMAGE` at `renderPng`); 413 `PAYLOAD_TOO_LARGE`; 429 `BUSY` past 2 renders per process; 503 `RENDER_FAILED`. Its body cap is 4 MiB; every other route keeps 1 MiB. A design over 25,000 JSON nodes is refused before validation (here and in `/api/advisories`) |
 | POST | `/api/proposals/apply` | verify, check stale, apply → new design |
-| POST | `/api/voice/transcribe` | raw audio (≤ 1 MB) → `{text}` |
-| POST | `/api/voice/speech` | `{text, language}` → `audio/mpeg` |
 | POST | `/api/designs/validate` | server validation of a manual design (used before save) |
 | POST | `/api/designs` | create → `{designId, accessToken, revision}` |
 | GET | `/api/designs/{id}` | header `Authorization: Bearer <token>` → design |
@@ -114,6 +100,8 @@ Voice was originally an excluded feature. It was added on request, following Ope
 | POST | `/api/render` | `{design, imagePngBase64}` → `{imageBase64, disclaimer}` (does not touch state) |
 
 CORS is restricted to the frontend origin for each environment. Rate limiting (slowapi) applies to `/chat` and `/render`.
+
+The OpenAI key is the customer's own and lives only in their browser's localStorage (`banai.openaiApiKey`). It travels in the body of each `/api/settings/ai/verify` and `/api/chat` request and is never stored or logged; responses show only a masked key, and OpenAI's own error messages are never passed on (they can echo part of the key). Limits on these unauthenticated routes today: request bodies over 1 MiB are refused with 413 `PAYLOAD_TOO_LARGE` before parsing, and each process runs at most 2 key checks and 4 chat turns at once. Extra requests get 429 `BUSY` at once instead of waiting for a worker thread. Per-client rate limiting is not built yet.
 
 ## 7. Supabase schema and security
 Migration `supabase/migrations/<ts>_designs.sql`, created with `supabase migration new`:

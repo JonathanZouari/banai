@@ -1,0 +1,1521 @@
+[
+  {
+    "name": "thirds snap the nearest shelves into dividers and give each zone its own door",
+    "base": "basic",
+    "ops": [
+      {
+        "op": "set_zones",
+        "compartmentId": "cmp_left",
+        "count": 3
+      }
+    ],
+    "expect": {
+      "match": {
+        "compartments": [
+          {
+            "id": "cmp_left",
+            "shelves": [
+              {
+                "id": "shf_l1",
+                "fixed": false
+              },
+              {
+                "id": "shf_l2",
+                "fixed": true
+              },
+              {
+                "id": "shf_l3",
+                "fixed": false
+              },
+              {
+                "id": "shf_l4",
+                "fixed": true
+              }
+            ]
+          },
+          {
+            "id": "cmp_middle"
+          },
+          {
+            "id": "cmp_right"
+          }
+        ],
+        "doors": {
+          "items": [
+            {
+              "id": "dr_left_z1",
+              "compartmentIds": [
+                "cmp_left"
+              ],
+              "hingeSide": "left",
+              "bottomShelfId": null,
+              "topShelfId": "shf_l2"
+            },
+            {
+              "id": "dr_left_z2",
+              "compartmentIds": [
+                "cmp_left"
+              ],
+              "hingeSide": "left",
+              "bottomShelfId": "shf_l2",
+              "topShelfId": "shf_l4"
+            },
+            {
+              "id": "dr_left_z3",
+              "compartmentIds": [
+                "cmp_left"
+              ],
+              "hingeSide": "left",
+              "bottomShelfId": "shf_l4",
+              "topShelfId": null
+            },
+            {
+              "id": "dr_middle"
+            },
+            {
+              "id": "dr_right"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "halves add a divider where no shelf is close, and keep the hinge side",
+    "base": "basic",
+    "ops": [
+      {
+        "op": "set_zones",
+        "compartmentId": "cmp_right",
+        "count": 2
+      }
+    ],
+    "expect": {
+      "match": {
+        "compartments": [
+          {
+            "id": "cmp_left"
+          },
+          {
+            "id": "cmp_middle"
+          },
+          {
+            "id": "cmp_right",
+            "shelves": [
+              {
+                "id": "shf_r1",
+                "fixed": false
+              },
+              {
+                "id": "shf_r2",
+                "fixed": false
+              },
+              {
+                "id": "shf_right_z1",
+                "y": 1173,
+                "thickness": 18,
+                "fixed": true
+              }
+            ]
+          }
+        ],
+        "doors": {
+          "items": [
+            {
+              "id": "dr_left"
+            },
+            {
+              "id": "dr_middle"
+            },
+            {
+              "id": "dr_right_z1",
+              "compartmentIds": [
+                "cmp_right"
+              ],
+              "hingeSide": "left",
+              "bottomShelfId": null,
+              "topShelfId": "shf_right_z1"
+            },
+            {
+              "id": "dr_right_z2",
+              "compartmentIds": [
+                "cmp_right"
+              ],
+              "hingeSide": "left",
+              "bottomShelfId": "shf_right_z1",
+              "topShelfId": null
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "one zone turns the dividers back into shelves and restores a full-height door",
+    "base": "basic",
+    "ops": [
+      {
+        "op": "set_zones",
+        "compartmentId": "cmp_left",
+        "count": 3
+      },
+      {
+        "op": "set_zones",
+        "compartmentId": "cmp_left",
+        "count": 1
+      }
+    ],
+    "expect": {
+      "match": {
+        "compartments": [
+          {
+            "id": "cmp_left",
+            "shelves": [
+              {
+                "id": "shf_l1",
+                "fixed": false
+              },
+              {
+                "id": "shf_l2",
+                "fixed": false
+              },
+              {
+                "id": "shf_l3",
+                "fixed": false
+              },
+              {
+                "id": "shf_l4",
+                "fixed": false
+              }
+            ]
+          },
+          {
+            "id": "cmp_middle"
+          },
+          {
+            "id": "cmp_right"
+          }
+        ],
+        "doors": {
+          "items": [
+            {
+              "id": "dr_left_z1",
+              "compartmentIds": [
+                "cmp_left"
+              ],
+              "hingeSide": "left",
+              "bottomShelfId": null,
+              "topShelfId": null
+            },
+            {
+              "id": "dr_middle"
+            },
+            {
+              "id": "dr_right"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "set_zones again gives the same result",
+    "base": "basic",
+    "ops": [
+      {
+        "op": "set_zones",
+        "compartmentId": "cmp_left",
+        "count": 3
+      },
+      {
+        "op": "set_zones",
+        "compartmentId": "cmp_left",
+        "count": 3
+      }
+    ],
+    "expect": {
+      "match": {
+        "doors": {
+          "items": [
+            {
+              "id": "dr_left_z1",
+              "compartmentIds": [
+                "cmp_left"
+              ],
+              "hingeSide": "left",
+              "bottomShelfId": null,
+              "topShelfId": "shf_l2"
+            },
+            {
+              "id": "dr_left_z2",
+              "compartmentIds": [
+                "cmp_left"
+              ],
+              "hingeSide": "left",
+              "bottomShelfId": "shf_l2",
+              "topShelfId": "shf_l4"
+            },
+            {
+              "id": "dr_left_z3",
+              "compartmentIds": [
+                "cmp_left"
+              ],
+              "hingeSide": "left",
+              "bottomShelfId": "shf_l4",
+              "topShelfId": null
+            },
+            {
+              "id": "dr_middle"
+            },
+            {
+              "id": "dr_right"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "zones on a sliding wardrobe only add dividers",
+    "base": "basic",
+    "ops": [
+      {
+        "op": "configure_doors",
+        "type": "sliding",
+        "ids": [
+          "dr_s1",
+          "dr_s2"
+        ]
+      },
+      {
+        "op": "set_zones",
+        "compartmentId": "cmp_right",
+        "count": 2
+      }
+    ],
+    "expect": {
+      "match": {
+        "compartments": [
+          {
+            "id": "cmp_left"
+          },
+          {
+            "id": "cmp_middle"
+          },
+          {
+            "id": "cmp_right",
+            "shelves": [
+              {
+                "id": "shf_r1"
+              },
+              {
+                "id": "shf_r2"
+              },
+              {
+                "id": "shf_right_z1",
+                "fixed": true
+              }
+            ]
+          }
+        ],
+        "doors": {
+          "type": "sliding",
+          "items": [
+            {
+              "id": "dr_s1",
+              "bottomShelfId": null
+            },
+            {
+              "id": "dr_s2",
+              "topShelfId": null
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "an open column stays open when it is zoned",
+    "base": "basic",
+    "ops": [
+      {
+        "op": "remove_component",
+        "id": "dr_middle"
+      },
+      {
+        "op": "set_zones",
+        "compartmentId": "cmp_middle",
+        "count": 2
+      }
+    ],
+    "expect": {
+      "match": {
+        "doors": {
+          "items": [
+            {
+              "id": "dr_left"
+            },
+            {
+              "id": "dr_right"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "more than four zones is out of range",
+    "base": "basic",
+    "ops": [
+      {
+        "op": "set_zones",
+        "compartmentId": "cmp_left",
+        "count": 5
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "OUT_OF_RANGE",
+        "path": "ops[0].count"
+      }
+    }
+  },
+  {
+    "name": "a door spanning the column blocks zones",
+    "base": "basic",
+    "ops": [
+      {
+        "op": "configure_doors",
+        "type": "hinged",
+        "doors": [
+          {
+            "id": "dr_wide",
+            "compartmentIds": [
+              "cmp_left",
+              "cmp_middle"
+            ],
+            "hingeSide": "left"
+          },
+          {
+            "id": "dr_r",
+            "compartmentIds": [
+              "cmp_right"
+            ],
+            "hingeSide": "right"
+          }
+        ]
+      },
+      {
+        "op": "set_zones",
+        "compartmentId": "cmp_left",
+        "count": 2
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[1].compartmentId"
+      }
+    }
+  },
+  {
+    "name": "a zone can be left without a door",
+    "base": "basic",
+    "ops": [
+      {
+        "op": "set_zones",
+        "compartmentId": "cmp_left",
+        "count": 3
+      },
+      {
+        "op": "set_zone_door",
+        "compartmentId": "cmp_left",
+        "zone": 2,
+        "leaves": 0
+      }
+    ],
+    "expect": {
+      "match": {
+        "doors": {
+          "items": [
+            {
+              "id": "dr_left_z1",
+              "compartmentIds": [
+                "cmp_left"
+              ],
+              "hingeSide": "left",
+              "bottomShelfId": null,
+              "topShelfId": "shf_l2"
+            },
+            {
+              "id": "dr_left_z3",
+              "compartmentIds": [
+                "cmp_left"
+              ],
+              "hingeSide": "left",
+              "bottomShelfId": "shf_l4",
+              "topShelfId": null
+            },
+            {
+              "id": "dr_middle"
+            },
+            {
+              "id": "dr_right"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "a zone can take a pair, left and right, in place of its door",
+    "base": "basic",
+    "ops": [
+      {
+        "op": "set_zones",
+        "compartmentId": "cmp_left",
+        "count": 3
+      },
+      {
+        "op": "set_zone_door",
+        "compartmentId": "cmp_left",
+        "zone": 2,
+        "leaves": 2
+      }
+    ],
+    "expect": {
+      "match": {
+        "doors": {
+          "items": [
+            {
+              "id": "dr_left_z1",
+              "compartmentIds": [
+                "cmp_left"
+              ],
+              "hingeSide": "left",
+              "bottomShelfId": null,
+              "topShelfId": "shf_l2"
+            },
+            {
+              "id": "dr_left_z2",
+              "compartmentIds": [
+                "cmp_left"
+              ],
+              "hingeSide": "left",
+              "bottomShelfId": "shf_l2",
+              "topShelfId": "shf_l4"
+            },
+            {
+              "id": "dr_left_z2r",
+              "compartmentIds": [
+                "cmp_left"
+              ],
+              "hingeSide": "right",
+              "bottomShelfId": "shf_l2",
+              "topShelfId": "shf_l4"
+            },
+            {
+              "id": "dr_left_z3",
+              "compartmentIds": [
+                "cmp_left"
+              ],
+              "hingeSide": "left",
+              "bottomShelfId": "shf_l4",
+              "topShelfId": null
+            },
+            {
+              "id": "dr_middle"
+            },
+            {
+              "id": "dr_right"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "one leaf takes the hinge side it is given",
+    "base": "basic",
+    "ops": [
+      {
+        "op": "set_zones",
+        "compartmentId": "cmp_left",
+        "count": 3
+      },
+      {
+        "op": "set_zone_door",
+        "compartmentId": "cmp_left",
+        "zone": 3,
+        "leaves": 1,
+        "hingeSide": "right"
+      }
+    ],
+    "expect": {
+      "match": {
+        "doors": {
+          "items": [
+            {
+              "id": "dr_left_z1",
+              "compartmentIds": [
+                "cmp_left"
+              ],
+              "hingeSide": "left",
+              "bottomShelfId": null,
+              "topShelfId": "shf_l2"
+            },
+            {
+              "id": "dr_left_z2",
+              "compartmentIds": [
+                "cmp_left"
+              ],
+              "hingeSide": "left",
+              "bottomShelfId": "shf_l2",
+              "topShelfId": "shf_l4"
+            },
+            {
+              "id": "dr_left_z3",
+              "compartmentIds": [
+                "cmp_left"
+              ],
+              "hingeSide": "right",
+              "bottomShelfId": "shf_l4",
+              "topShelfId": null
+            },
+            {
+              "id": "dr_middle"
+            },
+            {
+              "id": "dr_right"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "a removed zone door can come back, after the column's last door",
+    "base": "basic",
+    "ops": [
+      {
+        "op": "set_zones",
+        "compartmentId": "cmp_left",
+        "count": 3
+      },
+      {
+        "op": "set_zone_door",
+        "compartmentId": "cmp_left",
+        "zone": 2,
+        "leaves": 0
+      },
+      {
+        "op": "set_zone_door",
+        "compartmentId": "cmp_left",
+        "zone": 2,
+        "leaves": 1
+      }
+    ],
+    "expect": {
+      "match": {
+        "doors": {
+          "items": [
+            {
+              "id": "dr_left_z1",
+              "compartmentIds": [
+                "cmp_left"
+              ],
+              "hingeSide": "left",
+              "bottomShelfId": null,
+              "topShelfId": "shf_l2"
+            },
+            {
+              "id": "dr_left_z3",
+              "compartmentIds": [
+                "cmp_left"
+              ],
+              "hingeSide": "left",
+              "bottomShelfId": "shf_l4",
+              "topShelfId": null
+            },
+            {
+              "id": "dr_left_z2",
+              "compartmentIds": [
+                "cmp_left"
+              ],
+              "hingeSide": "left",
+              "bottomShelfId": "shf_l2",
+              "topShelfId": "shf_l4"
+            },
+            {
+              "id": "dr_middle"
+            },
+            {
+              "id": "dr_right"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "an unzoned column's zone 1 is the full height",
+    "base": "basic",
+    "ops": [
+      {
+        "op": "set_zone_door",
+        "compartmentId": "cmp_middle",
+        "zone": 1,
+        "leaves": 2
+      }
+    ],
+    "expect": {
+      "match": {
+        "doors": {
+          "items": [
+            {
+              "id": "dr_left"
+            },
+            {
+              "id": "dr_middle_z1",
+              "compartmentIds": [
+                "cmp_middle"
+              ],
+              "hingeSide": "left",
+              "bottomShelfId": null,
+              "topShelfId": null
+            },
+            {
+              "id": "dr_middle_z1r",
+              "compartmentIds": [
+                "cmp_middle"
+              ],
+              "hingeSide": "right",
+              "bottomShelfId": null,
+              "topShelfId": null
+            },
+            {
+              "id": "dr_right"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "a pair refuses a hinge side",
+    "base": "basic",
+    "ops": [
+      {
+        "op": "set_zones",
+        "compartmentId": "cmp_left",
+        "count": 3
+      },
+      {
+        "op": "set_zone_door",
+        "compartmentId": "cmp_left",
+        "zone": 1,
+        "leaves": 2,
+        "hingeSide": "left"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[1].hingeSide"
+      }
+    }
+  },
+  {
+    "name": "a zone that does not exist",
+    "base": "basic",
+    "ops": [
+      {
+        "op": "set_zones",
+        "compartmentId": "cmp_left",
+        "count": 3
+      },
+      {
+        "op": "set_zone_door",
+        "compartmentId": "cmp_left",
+        "zone": 4,
+        "leaves": 1
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[1].zone"
+      }
+    }
+  },
+  {
+    "name": "zone doors are hinged doors",
+    "base": "basic",
+    "ops": [
+      {
+        "op": "configure_doors",
+        "type": "sliding",
+        "count": 2
+      },
+      {
+        "op": "set_zone_door",
+        "compartmentId": "cmp_left",
+        "zone": 1,
+        "leaves": 1
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[1]"
+      }
+    }
+  },
+  {
+    "name": "three leaves is not an op",
+    "base": "basic",
+    "ops": [
+      {
+        "op": "set_zone_door",
+        "compartmentId": "cmp_left",
+        "zone": 1,
+        "leaves": 3
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "SCHEMA_INVALID",
+        "path": "ops[0]"
+      }
+    }
+  },
+  {
+    "name": "a preset fills one zone and keeps the dividers and the other zones",
+    "base": "basic",
+    "ops": [
+      {
+        "op": "set_zones",
+        "compartmentId": "cmp_left",
+        "count": 3
+      },
+      {
+        "op": "apply_preset",
+        "compartmentId": "cmp_left",
+        "preset": "drawers",
+        "zone": 1
+      }
+    ],
+    "expect": {
+      "match": {
+        "compartments": [
+          {
+            "id": "cmp_left",
+            "shelves": [
+              {
+                "id": "shf_l2",
+                "fixed": true
+              },
+              {
+                "id": "shf_l3"
+              },
+              {
+                "id": "shf_l4",
+                "fixed": true
+              },
+              {
+                "id": "shf_left_z1_1",
+                "y": 700,
+                "thickness": 18,
+                "fixed": false
+              }
+            ],
+            "drawers": [
+              {
+                "id": "drw_left_z1_1",
+                "y": 0,
+                "height": 224
+              },
+              {
+                "id": "drw_left_z1_2",
+                "y": 230,
+                "height": 224
+              },
+              {
+                "id": "drw_left_z1_3",
+                "y": 460,
+                "height": 224
+              }
+            ]
+          },
+          {
+            "id": "cmp_middle"
+          },
+          {
+            "id": "cmp_right"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "a preset in the top zone starts at the divider's top face",
+    "base": "basic",
+    "ops": [
+      {
+        "op": "set_zones",
+        "compartmentId": "cmp_left",
+        "count": 3
+      },
+      {
+        "op": "apply_preset",
+        "compartmentId": "cmp_left",
+        "preset": "long",
+        "zone": 3
+      }
+    ],
+    "expect": {
+      "match": {
+        "compartments": [
+          {
+            "id": "cmp_left",
+            "shelves": [
+              {
+                "id": "shf_l1"
+              },
+              {
+                "id": "shf_l2"
+              },
+              {
+                "id": "shf_l3"
+              },
+              {
+                "id": "shf_l4"
+              },
+              {
+                "id": "shf_left_z3_1",
+                "y": 2034
+              }
+            ],
+            "rails": [
+              {
+                "id": "rail_left_z3_1",
+                "y": 1964
+              }
+            ]
+          },
+          {
+            "id": "cmp_middle"
+          },
+          {
+            "id": "cmp_right"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "a whole-column preset on a zoned column asks for a zone",
+    "base": "basic",
+    "ops": [
+      {
+        "op": "set_zones",
+        "compartmentId": "cmp_left",
+        "count": 3
+      },
+      {
+        "op": "apply_preset",
+        "compartmentId": "cmp_left",
+        "preset": "shelves"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[1].zone"
+      }
+    }
+  },
+  {
+    "name": "a zone door can be split",
+    "base": "basic",
+    "ops": [
+      {
+        "op": "set_zones",
+        "compartmentId": "cmp_left",
+        "count": 3
+      },
+      {
+        "op": "split_door",
+        "id": "dr_left_z2",
+        "newId": "dr_left_z2b"
+      }
+    ],
+    "expect": {
+      "match": {
+        "doors": {
+          "items": [
+            {
+              "id": "dr_left_z1",
+              "compartmentIds": [
+                "cmp_left"
+              ],
+              "hingeSide": "left",
+              "bottomShelfId": null,
+              "topShelfId": "shf_l2"
+            },
+            {
+              "id": "dr_left_z2",
+              "hingeSide": "left",
+              "bottomShelfId": "shf_l2"
+            },
+            {
+              "id": "dr_left_z2b",
+              "hingeSide": "right",
+              "bottomShelfId": "shf_l2",
+              "topShelfId": "shf_l4"
+            },
+            {
+              "id": "dr_left_z3",
+              "compartmentIds": [
+                "cmp_left"
+              ],
+              "hingeSide": "left",
+              "bottomShelfId": "shf_l4",
+              "topShelfId": null
+            },
+            {
+              "id": "dr_middle"
+            },
+            {
+              "id": "dr_right"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "a split zone cannot be split again",
+    "base": "basic",
+    "ops": [
+      {
+        "op": "set_zones",
+        "compartmentId": "cmp_left",
+        "count": 3
+      },
+      {
+        "op": "split_door",
+        "id": "dr_left_z2",
+        "newId": "dr_left_z2b"
+      },
+      {
+        "op": "split_door",
+        "id": "dr_left_z2",
+        "newId": "dr_left_z2c"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[2].id"
+      }
+    }
+  },
+  {
+    "name": "an anchored divider cannot be removed",
+    "base": "basic",
+    "ops": [
+      {
+        "op": "set_zones",
+        "compartmentId": "cmp_left",
+        "count": 3
+      },
+      {
+        "op": "remove_component",
+        "id": "shf_l2"
+      }
+    ],
+    "expect": {
+      "error": {
+        "code": "INVALID_OP",
+        "path": "ops[1].id"
+      }
+    }
+  },
+  {
+    "name": "zone doors stay on the left part when the column is split",
+    "base": "basic",
+    "ops": [
+      {
+        "op": "set_zones",
+        "compartmentId": "cmp_left",
+        "count": 3
+      },
+      {
+        "op": "add_partition",
+        "compartmentId": "cmp_left",
+        "offset": 300,
+        "id": "prt_new",
+        "newCompartmentId": "cmp_new"
+      }
+    ],
+    "expect": {
+      "match": {
+        "doors": {
+          "items": [
+            {
+              "id": "dr_left_z1",
+              "compartmentIds": [
+                "cmp_left"
+              ],
+              "hingeSide": "left",
+              "bottomShelfId": null,
+              "topShelfId": "shf_l2"
+            },
+            {
+              "id": "dr_left_z2",
+              "compartmentIds": [
+                "cmp_left"
+              ],
+              "hingeSide": "left",
+              "bottomShelfId": "shf_l2",
+              "topShelfId": "shf_l4"
+            },
+            {
+              "id": "dr_left_z3",
+              "compartmentIds": [
+                "cmp_left"
+              ],
+              "hingeSide": "left",
+              "bottomShelfId": "shf_l4",
+              "topShelfId": null
+            },
+            {
+              "id": "dr_middle"
+            },
+            {
+              "id": "dr_right"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "an anchor must be a divider",
+    "base": "basic",
+    "mutate": [
+      {
+        "path": [
+          "doors",
+          "items",
+          0,
+          "bottomShelfId"
+        ],
+        "value": "shf_l2"
+      }
+    ],
+    "ops": [],
+    "expect": {
+      "error": {
+        "code": "DOOR_INVALID",
+        "path": "doors.items[0].bottomShelfId"
+      }
+    }
+  },
+  {
+    "name": "an anchor must be in the door's own column",
+    "base": "basic",
+    "mutate": [
+      {
+        "path": [
+          "compartments",
+          1,
+          "shelves",
+          0,
+          "fixed"
+        ],
+        "value": true
+      },
+      {
+        "path": [
+          "doors",
+          "items",
+          0,
+          "topShelfId"
+        ],
+        "value": "shf_m1"
+      }
+    ],
+    "ops": [],
+    "expect": {
+      "error": {
+        "code": "DOOR_INVALID",
+        "path": "doors.items[0].topShelfId"
+      }
+    }
+  },
+  {
+    "name": "the top anchor must be above the bottom one",
+    "base": "basic",
+    "mutate": [
+      {
+        "path": [
+          "compartments",
+          0,
+          "shelves",
+          1,
+          "fixed"
+        ],
+        "value": true
+      },
+      {
+        "path": [
+          "compartments",
+          0,
+          "shelves",
+          3,
+          "fixed"
+        ],
+        "value": true
+      },
+      {
+        "path": [
+          "doors",
+          "items",
+          0,
+          "bottomShelfId"
+        ],
+        "value": "shf_l4"
+      },
+      {
+        "path": [
+          "doors",
+          "items",
+          0,
+          "topShelfId"
+        ],
+        "value": "shf_l2"
+      }
+    ],
+    "ops": [],
+    "expect": {
+      "error": {
+        "code": "DOOR_INVALID",
+        "path": "doors.items[0].topShelfId"
+      }
+    }
+  },
+  {
+    "name": "an anchored door covers one compartment",
+    "base": "basic",
+    "mutate": [
+      {
+        "path": [
+          "compartments",
+          0,
+          "shelves",
+          1,
+          "fixed"
+        ],
+        "value": true
+      },
+      {
+        "path": [
+          "doors",
+          "items"
+        ],
+        "value": [
+          {
+            "id": "dr_a",
+            "compartmentIds": [
+              "cmp_left",
+              "cmp_middle"
+            ],
+            "hingeSide": "left",
+            "appearance": null,
+            "handle": null,
+            "mirror": false,
+            "bottomShelfId": null,
+            "topShelfId": "shf_l2"
+          },
+          {
+            "id": "dr_right",
+            "compartmentIds": [
+              "cmp_right"
+            ],
+            "hingeSide": "left",
+            "appearance": null,
+            "handle": null,
+            "mirror": false,
+            "bottomShelfId": null,
+            "topShelfId": null
+          }
+        ]
+      }
+    ],
+    "ops": [],
+    "expect": {
+      "error": {
+        "code": "DOOR_INVALID",
+        "path": "doors.items[0].compartmentIds"
+      }
+    }
+  },
+  {
+    "name": "zone doors may not overlap",
+    "base": "basic",
+    "mutate": [
+      {
+        "path": [
+          "compartments",
+          0,
+          "shelves",
+          1,
+          "fixed"
+        ],
+        "value": true
+      },
+      {
+        "path": [
+          "compartments",
+          0,
+          "shelves",
+          3,
+          "fixed"
+        ],
+        "value": true
+      },
+      {
+        "path": [
+          "doors",
+          "items"
+        ],
+        "value": [
+          {
+            "id": "dr_a",
+            "compartmentIds": [
+              "cmp_left"
+            ],
+            "hingeSide": "left",
+            "appearance": null,
+            "handle": null,
+            "mirror": false,
+            "bottomShelfId": null,
+            "topShelfId": "shf_l4"
+          },
+          {
+            "id": "dr_b",
+            "compartmentIds": [
+              "cmp_left"
+            ],
+            "hingeSide": "left",
+            "appearance": null,
+            "handle": null,
+            "mirror": false,
+            "bottomShelfId": "shf_l2",
+            "topShelfId": null
+          },
+          {
+            "id": "dr_middle",
+            "compartmentIds": [
+              "cmp_middle"
+            ],
+            "hingeSide": "right",
+            "appearance": null,
+            "handle": null,
+            "mirror": false,
+            "bottomShelfId": null,
+            "topShelfId": null
+          },
+          {
+            "id": "dr_right",
+            "compartmentIds": [
+              "cmp_right"
+            ],
+            "hingeSide": "left",
+            "appearance": null,
+            "handle": null,
+            "mirror": false,
+            "bottomShelfId": null,
+            "topShelfId": null
+          }
+        ]
+      }
+    ],
+    "ops": [],
+    "expect": {
+      "error": {
+        "code": "DOOR_INVALID",
+        "path": "doors.items[1].compartmentIds"
+      }
+    }
+  },
+  {
+    "name": "a zone pair and an open zone are valid",
+    "base": "basic",
+    "mutate": [
+      {
+        "path": [
+          "compartments",
+          0,
+          "shelves",
+          1,
+          "fixed"
+        ],
+        "value": true
+      },
+      {
+        "path": [
+          "compartments",
+          0,
+          "shelves",
+          3,
+          "fixed"
+        ],
+        "value": true
+      },
+      {
+        "path": [
+          "doors",
+          "items"
+        ],
+        "value": [
+          {
+            "id": "dr_a",
+            "compartmentIds": [
+              "cmp_left"
+            ],
+            "hingeSide": "left",
+            "appearance": null,
+            "handle": null,
+            "mirror": false,
+            "bottomShelfId": null,
+            "topShelfId": "shf_l2"
+          },
+          {
+            "id": "dr_b",
+            "compartmentIds": [
+              "cmp_left"
+            ],
+            "hingeSide": "right",
+            "appearance": null,
+            "handle": null,
+            "mirror": false,
+            "bottomShelfId": null,
+            "topShelfId": "shf_l2"
+          },
+          {
+            "id": "dr_c",
+            "compartmentIds": [
+              "cmp_left"
+            ],
+            "hingeSide": "left",
+            "appearance": null,
+            "handle": null,
+            "mirror": false,
+            "bottomShelfId": "shf_l4",
+            "topShelfId": null
+          },
+          {
+            "id": "dr_middle",
+            "compartmentIds": [
+              "cmp_middle"
+            ],
+            "hingeSide": "right",
+            "appearance": null,
+            "handle": null,
+            "mirror": false,
+            "bottomShelfId": null,
+            "topShelfId": null
+          },
+          {
+            "id": "dr_right",
+            "compartmentIds": [
+              "cmp_right"
+            ],
+            "hingeSide": "left",
+            "appearance": null,
+            "handle": null,
+            "mirror": false,
+            "bottomShelfId": null,
+            "topShelfId": null
+          }
+        ]
+      }
+    ],
+    "ops": [],
+    "expect": {
+      "match": {
+        "doors": {
+          "items": [
+            {
+              "id": "dr_a"
+            },
+            {
+              "id": "dr_b"
+            },
+            {
+              "id": "dr_c"
+            },
+            {
+              "id": "dr_middle"
+            },
+            {
+              "id": "dr_right"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "sliding doors have no anchors",
+    "base": "basic",
+    "mutate": [
+      {
+        "path": [
+          "compartments",
+          0,
+          "shelves",
+          1,
+          "fixed"
+        ],
+        "value": true
+      },
+      {
+        "path": [
+          "doors",
+          "type"
+        ],
+        "value": "sliding"
+      },
+      {
+        "path": [
+          "doors",
+          "items"
+        ],
+        "value": [
+          {
+            "id": "dr_s1",
+            "compartmentIds": [],
+            "hingeSide": null,
+            "bottomShelfId": "shf_l2"
+          },
+          {
+            "id": "dr_s2",
+            "compartmentIds": [],
+            "hingeSide": null
+          }
+        ]
+      }
+    ],
+    "ops": [],
+    "expect": {
+      "error": {
+        "code": "DOOR_INVALID",
+        "path": "doors.items[0].bottomShelfId"
+      }
+    }
+  }
+]

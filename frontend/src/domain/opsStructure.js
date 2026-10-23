@@ -3,14 +3,18 @@
 // caller re-validates. Integer arithmetic only (parity with Python).
 
 import * as ids from './ids.js';
-import { DEFAULT_PANEL_THICKNESS, DEFAULT_SLIDING_DOOR_COUNT, LIMITS, defaultAppearance } from './defaults.js';
+import {
+  DEFAULT_PANEL_THICKNESS, DEFAULT_PLINTH_HEIGHT, DEFAULT_SLIDING_DOOR_COUNT, LIMITS, defaultAppearance, defaultHandles,
+} from './defaults.js';
 import { DomainError, INVALID_OP, NOT_FOUND, OUT_OF_RANGE } from './errors.js';
 import { partitionLeftEdge } from './geometry.js';
 import { ITEM_KINDS, compartmentIndex, locate, partitionIndex, requireRange } from './lookup.js';
 import { isSet, sum } from './util.js';
 
-const emptyCompartment = (id, width) => ({ id, width, shelves: [], drawers: [], rails: [] });
-const door = (id, compartmentIds, hingeSide) => ({ id, compartmentIds, hingeSide, appearance: null });
+const emptyCompartment = (id, width) => ({ id, width, shelves: [], drawers: [], rails: [], inserts: [] });
+const door = (id, compartmentIds, hingeSide) => ({
+  id, compartmentIds, hingeSide, appearance: null, handle: null, mirror: false,
+});
 
 function idsOrNew(given, count, prefix, path) {
   if (!isSet(given)) return Array.from({ length: count }, () => ids.newId(prefix));
@@ -34,6 +38,8 @@ function createWardrobe(_draft, op, path) {
   requireRange(op.compartmentCount, 'compartmentCount', `${path}.compartmentCount`);
   const n = op.compartmentCount;
   const panel = op.panelThickness ?? DEFAULT_PANEL_THICKNESS;
+  const plinth = op.plinthHeight ?? DEFAULT_PLINTH_HEIGHT;
+  requireRange(plinth, 'plinthHeight', `${path}.plinthHeight`);
   const partition = op.partitionThickness ?? panel;
   const available = op.width - 2 * panel - (n - 1) * partition;
   const base = Math.floor(available / n);
@@ -43,21 +49,30 @@ function createWardrobe(_draft, op, path) {
   const compartmentIds = idsOrNew(op.compartmentIds, n, ids.COMPARTMENT, `${path}.compartmentIds`);
   const partitionIds = idsOrNew(op.partitionIds, n - 1, ids.PARTITION, `${path}.partitionIds`);
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     units: 'mm',
     dimensions: { width: op.width, height: op.height, depth: op.depth },
-    carcass: { panelThickness: panel, appearance: defaultAppearance() },
+    carcass: { panelThickness: panel, appearance: defaultAppearance(), plinthHeight: plinth, base: 'plinth' },
     compartments: compartmentIds.map((id, i) => emptyCompartment(id, widths[i])),
     partitions: partitionIds.map((id) => ({ id, thickness: partition })),
     doors: { type: 'none', appearance: defaultAppearance(), items: [] },
+    handles: defaultHandles(),
+    site: null,
+    fittings: { softClose: true, childLock: false, releaseHeight: null },
+    household: { people: [] },
+    room: null,
   };
 }
 
 function updateDimensions(draft, op, path) {
-  if (!isSet(op.width) && !isSet(op.height) && !isSet(op.depth)) {
-    throw new DomainError(INVALID_OP, path, 'give at least one of width, height, depth');
+  if (!isSet(op.width) && !isSet(op.height) && !isSet(op.depth) && !isSet(op.plinthHeight)) {
+    throw new DomainError(INVALID_OP, path, 'give at least one of width, height, depth, plinthHeight');
   }
   requireDimensionRanges(op, path);
+  if (isSet(op.plinthHeight)) {
+    requireRange(op.plinthHeight, 'plinthHeight', `${path}.plinthHeight`);
+    draft.carcass.plinthHeight = op.plinthHeight;
+  }
   if (isSet(op.width)) {
     const { compartments } = draft;
     const fixed = 2 * draft.carcass.panelThickness + sum(draft.partitions.map((p) => p.thickness));
@@ -154,7 +169,8 @@ function addPartition(draft, op, path) {
   draft.partitions.splice(index, 0, { id: op.id ?? ids.newId(ids.PARTITION), thickness });
   for (const d of draft.doors.items) {
     const at = d.compartmentIds.indexOf(compartment.id);
-    if (at >= 0) d.compartmentIds.splice(at + 1, 0, createdId);
+    const anchored = (d.bottomShelfId ?? null) !== null || (d.topShelfId ?? null) !== null;
+    if (at >= 0 && !anchored) d.compartmentIds.splice(at + 1, 0, createdId); // zone doors stay on the left part
   }
   return draft;
 }
@@ -182,7 +198,10 @@ function removeComponent(draft, op, path) {
   const found = locate(draft, op.id);
   if (!found) throw new DomainError(NOT_FOUND, `${path}.id`, 'no component with this id');
   const [kind, index, itemIndex] = found;
-  if (ITEM_KINDS.includes(kind)) {
+  if (kind === 'shelves' && draft.doors.items.some((d) => d.bottomShelfId === op.id || d.topShelfId === op.id)) {
+    throw new DomainError(INVALID_OP, `${path}.id`, 'a door is anchored to this shelf: change the zones first');
+  }
+  if (ITEM_KINDS.includes(kind) || kind === 'inserts') {
     draft.compartments[index][kind].splice(itemIndex, 1);
   } else if (kind === 'compartment') {
     removeCompartment(draft, index, `${path}.id`);
@@ -216,7 +235,7 @@ function mergeAtPartition(draft, j) {
   const left = compartments[j];
   const right = compartments[j + 1];
   left.width += draft.partitions[j].thickness + right.width;
-  for (const kind of ITEM_KINDS) left[kind] = [...left[kind], ...right[kind]];
+  for (const kind of [...ITEM_KINDS, 'inserts']) left[kind] = [...left[kind], ...right[kind]];
   compartments.splice(j + 1, 1);
   draft.partitions.splice(j, 1);
   const order = new Map(compartments.map((c, i) => [c.id, i]));

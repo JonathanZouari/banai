@@ -1,28 +1,29 @@
-// Pure chat view-model (no DOM). With an `agent` (Phase 5) a sent message goes to the AI designer;
-// without one, it gets an honest "not connected" reply. Either way nothing is ever applied to the
-// design from here: a proposal only changes the design after the customer confirms it.
+// Pure chat view-model (no DOM). With an OpenAI key the agent answers in text (any language,
+// wardrobe topics only); without one a sent message gets an honest "not connected" reply.
+// Nothing here is ever applied to the design: design proposals arrive in Phase 5.
 //
-// Once the chat changed the design (a confirmed proposal) or the customer said they are done, one
-// pinned note ({ kind: 'design' }) offers Generate Style Profile. It is replaced, never added, so
-// it never piles up.
-//
-// A proposal is { id, baseRevision, summary, changes: [{ title, detail }], signed? }. It is kept
-// apart from the committed design and is only ever "pending" or "stale" (the design changed after
-// it was made). `signed` is the server's signed payload, sent back unchanged on confirm.
+// A proposal is { id, baseRevision, summary, changes: [{ title, detail }] }. It is kept apart from
+// the committed design and is only ever "pending" or "stale" (the design changed after it was made).
 
-import { DEFAULT_LANGUAGE, STRINGS, stringsFor } from './i18n.js';
+import { ct } from './chatI18n.js';
 
-// Default-language (Hebrew) texts, kept as named exports for callers and tests.
-export const NOT_CONNECTED_MESSAGE = STRINGS.he.notConnected;
-export const STALE_MESSAGE = STRINGS.he.stale;
-export const AGENT_ERROR_MESSAGE = STRINGS.he.agentError;
-export const APPLIED_MESSAGE = STRINGS.he.applied;
-export const NOT_APPLIED_MESSAGE = STRINGS.he.notApplied;
+export const NOT_CONNECTED_MESSAGE =
+  'הסוכן עוד לא מחובר. הוסיפו מפתח OpenAI בהגדרות AI, או המשיכו לתכנן ידנית בפאנל התכנון.';
+export const AGENT_ERROR_MESSAGE = 'בוב הבנאי לא הצליח לענות. נסו שוב.';
+const HISTORY_LIMIT = 20;
+export const STALE_MESSAGE = 'התכנון השתנה מאז ההצעה. בקשו הצעה חדשה.';
 export const MAX_MESSAGE_LENGTH = 2000;
-export const MAX_HISTORY = 30; // mirrors the backend cap on messages per request
+// The server's messages are English; the chat speaks Hebrew, so errors are shown by code.
+const CHAT_ERRORS = Object.freeze({
+  INVALID_KEY: 'OpenAI דחה את המפתח. בדקו אותו בהגדרות AI.',
+  INVALID_FORMAT: 'הוסיפו מפתח OpenAI תקין בהגדרות AI.',
+  MODEL_UNAVAILABLE: 'למפתח שלכם אין גישה למודל השיחה.',
+  OPENAI_RATE_LIMIT: 'OpenAI מגביל כרגע את המפתח הזה, או שהמכסה נגמרה. נסו שוב מאוחר יותר.',
+  UPSTREAM: 'שירות ה-AI לא זמין כרגע. נסו שוב בעוד רגע.',
+  EMPTY_REPLY: 'התקבלה תשובה ריקה. נסו שוב.',
+  BUSY: 'בוב עסוק כרגע. נסו שוב בעוד רגע.',
+});
 
-// Starter prompts shown before the first message (per language in i18n.js). Picking one only fills the composer.
-export const SUGGESTIONS = STRINGS.he.suggestions;
 
 export function proposalStatus(proposal, currentRevision) {
   if (!proposal) return null;
@@ -30,66 +31,48 @@ export function proposalStatus(proposal, currentRevision) {
 }
 
 /**
- * Map the server's signed proposal to the view-model shape (the original travels in `signed`).
- * `language` is the language it was written in; the card keeps showing it in that language.
+ * `agent` (optional): { isReady(): boolean, reply(history, { spoken }): Promise<string | { reply, proposal? }> },
+ * where history is [{ role: 'user'|'assistant', content }] ending with the new customer message and
+ * `spoken` says the customer said it out loud (ADR-028). A proposal
+ * replaces any pending one; it is never applied here (the host does that after Confirm).
  */
-export function fromServerProposal(signed, language = DEFAULT_LANGUAGE) {
-  return {
-    id: signed.proposalId,
-    baseRevision: signed.baseRevision,
-    summary: signed.summary,
-    changes: signed.changes,
-    language,
-    signed,
-  };
-}
+export const MAX_SOURCES = 6;
+// Control, invisible and bidi characters and tag characters (as SAFE_TEXT_PATTERN, ADR-036 review).
+const UNSAFE_TITLE = /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u200b-\u200f\u2028\u2029\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]|\u{E0000}|[\u{E0001}-\u{E007F}]/gu;
 
 /**
- * @param getRevision  () => current committed revision
- * @param agent        optional async ({ messages, language }) => { reply, proposal|null }, where
- *                     messages is the user/assistant history ending with the new customer message
- * @param getLanguage  () => the chat language ('he' | 'en'): the agent replies in it, and so do UI notes
+ * The web pages a reply cites, safe to show as links: http(s) only, a title of at most 120 characters (the
+ * address when it has none), no duplicates, at most MAX_SOURCES. Anything else from the server is dropped.
  */
-export function createChatModel({ getRevision, agent = null, getLanguage = () => DEFAULT_LANGUAGE }) {
+export function safeSources(sources) {
+  const out = [];
+  for (const source of Array.isArray(sources) ? sources : []) {
+    let url;
+    try {
+      url = new URL(String(source?.url ?? ''));
+    } catch {
+      continue;
+    }
+    if (!['https:', 'http:'].includes(url.protocol) || out.some((s) => s.url === url.href)) continue;
+    const title = Array.from(String(source?.title ?? '').replace(UNSAFE_TITLE, ' ').split(/\s+/).filter(Boolean).join(' ')).slice(0, 120).join('');
+    out.push(Object.freeze({ title: title || url.hostname, url: url.href, host: url.hostname.replace(/^www\./, '') }));
+    if (out.length === MAX_SOURCES) break;
+  }
+  return out;
+}
+
+export function createChatModel({ getRevision, agent = null }) {
   let nextId = 1;
   let proposal = null;
-  let built = null;
-  let busy = false;
+  let thinking = false;
+  let generation = 0; // a cleared conversation drops answers still on their way
   const messages = [];
   const listeners = new Set();
   const notify = () => listeners.forEach((listener) => listener());
-  const t = () => stringsFor(getLanguage());
-  // Every message remembers the language it was written in, so switching the chat language later
-  // never changes how earlier messages look (a Hebrew message stays Hebrew and right-to-left).
-  // An agent reply also keeps its server signature, which read-aloud needs (/api/voice/speech).
-  const push = (role, text, language = getLanguage(), signature = null) => {
-    messages.push(Object.freeze({ id: nextId, role, text, language, ...(signature && { signature }) }));
+  const push = (role, text, sources = []) => {
+    messages.push(Object.freeze({ id: nextId, role, text, sources: Object.freeze(safeSources(sources)) }));
     nextId += 1;
   };
-  // Only real dialogue goes to the model; system notes (cancelled, applied...) are UI-only.
-  const history = () => messages
-    .filter((m) => m.role === 'user' || m.role === 'assistant')
-    .slice(-MAX_HISTORY)
-    .map(({ role, text }) => ({ role, text }));
-
-  async function ask() {
-    // The reply is written in the language chosen when the message was sent, even if the
-    // customer switches language while the designer is still thinking.
-    const language = getLanguage();
-    busy = true;
-    notify();
-    try {
-      const { reply, replySignature, proposal: signed, offerProfile } = await agent({ messages: history(), language });
-      push('assistant', reply, language, replySignature);
-      if (signed) proposal = fromServerProposal(signed, language);
-      if (offerProfile === true) built = Object.freeze({ kind: 'design', language });
-    } catch (error) {
-      push('system', error?.message && error.status ? error.message : stringsFor(language).agentError, language);
-    } finally {
-      busy = false;
-      notify();
-    }
-  }
 
   return {
     subscribe(listener) {
@@ -98,30 +81,54 @@ export function createChatModel({ getRevision, agent = null, getLanguage = () =>
     },
     getMessages: () => [...messages],
     getProposal: () => proposal,
-    getBuilt: () => built,
     getProposalStatus: () => proposalStatus(proposal, getRevision()),
-    isBusy: () => busy,
-    isConnected: () => agent !== null,
+    isThinking: () => thinking,
 
-    /**
-     * A customer message. Returns { ok } synchronously; with an agent, the reply (and maybe a
-     * proposal) arrives later through subscribers. Never touches the design.
-     */
-    send(rawText) {
+    /** A customer message (`spoken`: it came from the mic). Returns { ok, done? } and never touches the design. */
+    send(rawText, { spoken = false } = {}) {
       const text = String(rawText ?? '').trim();
       if (!text) return { ok: false, reason: 'empty' };
       if (text.length > MAX_MESSAGE_LENGTH) return { ok: false, reason: 'too-long' };
-      if (busy) return { ok: false, reason: 'busy' };
+      if (thinking) return { ok: false, reason: 'busy' };
       push('user', text);
-      if (!agent) {
-        push('system', t().notConnected);
+      if (!agent?.isReady()) {
+        push('system', ct(NOT_CONNECTED_MESSAGE));
         notify();
         return { ok: true };
       }
-      // A new request supersedes an unconfirmed proposal.
+      const history = messages
+        .filter((m) => m.role === 'user' || m.role === 'assistant')
+        .slice(-HISTORY_LIMIT)
+        .map((m) => ({ role: m.role, content: m.text }));
+      thinking = true;
+      notify();
+      const turn = generation;
+      const done = Promise.resolve()
+        .then(() => agent.reply(history, { spoken: Boolean(spoken) }))
+        .then((answer) => {
+          if (turn !== generation) return;
+          push('assistant', typeof answer === 'string' ? answer : answer.reply, answer?.sources);
+          if (answer?.proposal) proposal = answer.proposal;
+        })
+        .catch((error) => {
+          if (turn !== generation) return;
+          push('system', ct(Object.hasOwn(CHAT_ERRORS, error?.code ?? '') ? CHAT_ERRORS[error.code] : AGENT_ERROR_MESSAGE));
+        })
+        .finally(() => {
+          if (turn !== generation) return;
+          thinking = false;
+          notify();
+        });
+      return { ok: true, done };
+    },
+
+    /** A new or opened project: an empty conversation, no proposal, and no late answer from the old one. */
+    clear() {
+      generation += 1;
+      messages.length = 0;
       proposal = null;
-      ask();
-      return { ok: true };
+      thinking = false;
+      notify();
     },
 
     /** Set by the agent integration (Phase 5) or the dev-only demo. */
@@ -134,15 +141,9 @@ export function createChatModel({ getRevision, agent = null, getLanguage = () =>
     cancelProposal() {
       if (!proposal) return false;
       proposal = null;
-      push('system', t().cancelled);
+      push('system', ct('ההצעה בוטלה. התכנון לא השתנה.'));
       notify();
       return true;
-    },
-
-    /** The design changed through the chat (a confirmed proposal): offer the PDF step. */
-    noteDesignReady() {
-      built = Object.freeze({ kind: 'design', language: getLanguage() });
-      notify();
     },
 
     /** Called after the host applied (or refused) the proposal. */

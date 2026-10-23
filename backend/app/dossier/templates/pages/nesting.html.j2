@@ -1,0 +1,11 @@
+{% if p.first %}
+    <p class="lead">{{ t("{sheets} לוחות · ניצולת ממוצעת {ratio}% · חיתוך גיליוטינה (מקצה לקצה), ניסור {kerf} מ״מ. בלוחות עם סיב עץ החלקים לא מסובבים, כדי לשמור על כיוון הסיב.", sheets=p.nesting.sheets | length, ratio=(p.nesting.avg_yield * 100) | mm, kerf=num(sheet.kerf)) }}</p>
+{% if p.oversize %}
+    <p class="lead bad">{{ t("חלקים גדולים מלוח: {list}. צריך לפצל או להזמין לוח ארוך.", list=num(p.oversize)) }}</p>
+{% endif %}
+{% endif %}
+{% for svg in p.chunk %}
+    <figure class="fig" style="flex: 1">
+      <div class="fig-art">{{ svg }}</div>
+    </figure>
+{% endfor %}

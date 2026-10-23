@@ -5,13 +5,14 @@
 // atomic: the whole batch is schema-checked first, then the first failing op throws.
 
 import { DomainError, INVALID_OP } from './errors.js';
+import { INTERIOR_HANDLERS } from './opsInterior.js';
 import { ITEM_HANDLERS } from './opsItems.js';
 import { parseOps } from './opsSchema.js';
 import { STRUCTURE_HANDLERS } from './opsStructure.js';
 import { parseDesign } from './schema.js';
 import { validateCanonical } from './validation.js';
 
-const HANDLERS = Object.freeze({ ...STRUCTURE_HANDLERS, ...ITEM_HANDLERS });
+const HANDLERS = Object.freeze({ ...STRUCTURE_HANDLERS, ...ITEM_HANDLERS, ...INTERIOR_HANDLERS });
 
 export function applyOps(design, ops, catalog) {
   const parsed = parseOps(ops);

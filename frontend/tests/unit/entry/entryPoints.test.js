@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { STRINGS } from '../../../src/chat/i18n.js';
 import { ENTRY_POINTS, getEntryPoint } from '../../../src/entry/entryPoints.js';
 
 describe('entry points', () => {
@@ -7,12 +6,10 @@ describe('entry points', () => {
     expect(ENTRY_POINTS.map((e) => e.id)).toEqual(['guided', 'freeText', 'basic']);
   });
 
-  it('focuses the chat (with a localized hint) for the two AI entry points only', () => {
-    expect(ENTRY_POINTS.filter((e) => e.focusesChat).map((e) => e.id)).toEqual(['guided', 'freeText']);
-    for (const strings of Object.values(STRINGS)) {
-      expect(strings.composerHints.guided).toBeTruthy();
-      expect(strings.composerHints.freeText).toBeTruthy();
-    }
+  it('gives the two AI entry points a composer hint and the basic one none', () => {
+    expect(getEntryPoint('guided').composerHint).not.toBe('');
+    expect(getEntryPoint('freeText').composerHint).not.toBe('');
+    expect(getEntryPoint('basic').composerHint).toBe('');
   });
 
   it('returns null for an unknown id and the data is immutable', () => {

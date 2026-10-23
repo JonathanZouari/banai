@@ -1,0 +1,27 @@
+/* Viewer-owned styles: labels layer, render HUD helpers, flash. Kept apart from the shell styles. */
+
+/* CSS2D places every label with an absolute position plus a transform measured from the layer's
+   top-left. On the RTL page an RTL layer would anchor them to the right edge, so the layer stays
+   LTR (the viewer also sets dir="ltr" on it). Each label sets dir="auto", so Hebrew text still
+   reads right to left, while the [-] label [+] stepper row keeps its physical order. */
+.viewer-labels { direction: ltr; }
+
+/* Labels are hidden while the path tracer renders: they are UI, not part of the picture. */
+.viewer-labels--hidden { visibility: hidden; }
+
+/* The room's label on the floor (the free space in front of the wardrobe): a pencil note, not a control. */
+.room-label {
+  padding: 2px 8px;
+  border: 1px solid rgba(92, 84, 75, 0.3);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+  color: #5c544b;
+  font: 600 12px/1.4 var(--font-ui);
+  white-space: nowrap;
+  pointer-events: none;
+}
+/* A wall obstacle's name, small, over its dashed outline. */
+.room-label--small { padding: 0 6px; font-size: 11px; }
+
+/* A scale figure's label: its name and height, above its head. */
+.figure-label { padding: 1px 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.88); border: 1px solid rgba(0, 0, 0, 0.08); color: #3a3a3c; font: 600 11.5px/1.4 var(--font-ui); white-space: nowrap; pointer-events: none; }

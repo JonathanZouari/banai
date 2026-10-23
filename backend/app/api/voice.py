@@ -1,141 +1,148 @@
-"""Voice for the AI designer: speech-to-text in, text-to-speech out. A chained pipeline: the
-transcript goes through the normal /api/chat turn, so voice never bypasses the signed proposal
-and its Confirm step. The server stores nothing."""
+"""POST /api/voice/transcribe: speech to text for the chat's push-to-talk (ADR-021), and
+POST /api/voice/speak: the agent's reply as speech (ADR-028).
 
-from __future__ import annotations
+Transcription: The customer's OpenAI key
+comes with each request; the key and the audio pass through memory only and are never stored or logged.
 
-import logging
-import re
-from typing import Annotated, Any
+The transcript is only text for the chat composer: it goes through the same agent turn as a typed
+message, so any design change still waits for the customer's confirmation.
+"""
 
-from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import Response
-from starlette.concurrency import run_in_threadpool
-from pydantic import BaseModel, ConfigDict, Field
+import threading
 
-from app.agent.language import Language
-from app.api.agent import MESSAGE_TEXT_PATTERN, get_llm_client, localized
-from app.config import Settings, get_settings, get_signing_key
-from app.services import signing
+from typing import Literal
+
+from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi.responses import JSONResponse, Response
+from pydantic import BaseModel, Field
+
+from app.agent.chat import AgentError
+from app.agent.speech import DEFAULT_VOICE, VOICES, speak, spoken_text
+from app.agent.transcribe import transcribe
+from app.ai.verify import KEY_PATTERN
+from app.config import get_settings
 
 router = APIRouter(prefix="/api/voice")
-log = logging.getLogger(__name__)
 
-# ASSUMPTION: configurable defaults (OPENAI_TRANSCRIBE_MODEL / OPENAI_TTS_MODEL / OPENAI_TTS_VOICE).
-DEFAULT_TRANSCRIBE_MODEL = "gpt-4o-mini-transcribe"
-DEFAULT_TTS_MODEL = "gpt-4o-mini-tts"
-DEFAULT_TTS_VOICE = "marin"
+# 30 s of Opus at the recorder's 64 kb/s is about 240 KB; 1 MiB leaves room for other codecs.
+# The body cap for this route (app/body_limit.py) is this plus the multipart overhead.
+MAX_AUDIO_BYTES = 1024 * 1024
+# A cheap DoS guard on an unauthenticated endpoint: two transcriptions at a time per process.
+# A request never waits for a slot: waiting would pin a worker thread shared by every sync endpoint.
+_slots = threading.BoundedSemaphore(2)
 
-# The browser records at 32 kbps and stops at 60 s (~240 KB). The byte cap is not a duration
-# limit: low-bitrate audio can be longer. shortcut: no duration check; add rate limiting (open item).
-MAX_AUDIO_BYTES = 1_000_000
-MAX_TRANSCRIPT_CHARS = 2000  # the chat message limit
-MAX_SPEECH_CHARS = 1000
-AUDIO_TYPES = {"audio/webm": "webm", "audio/ogg": "ogg", "audio/mp4": "mp4", "audio/wav": "wav", "audio/mpeg": "mp3"}
-# Measured on real Hebrew audio (2026-10-16): English instructions that name Hebrew speak it most
-# clearly; instructions written in Hebrew made the speech worse.
-SPEECH_STYLE = (
-    "Speak in the language of the text. For Hebrew, use fluent native Israeli Hebrew pronunciation. "
-    "Calm, friendly furniture designer; clear and concise."
-)
-# Domain vocabulary in both languages: fixes Hebrew misrecognitions and writes sizes as digits,
-# without forcing a language (English speech stays English).
-TRANSCRIBE_PROMPT = (
-    "שיחה על עיצוב ארון בגדים, בעברית או באנגלית: ארון, תא, מדף, מגירה, מוט תלייה, מחיצה, "
-    "דלתות הזזה, דלתות ציר, רוחב, גובה, עומק, סנטימטר, מט, מבריק. "
-    "Wardrobe design in Hebrew or English: shelf, drawer, hanging rail, sliding doors, width, cm."
-)
-PROMPTABLE_MODELS = {"gpt-4o-transcribe", "gpt-4o-mini-transcribe", "whisper-1"}
-# Abbreviations TTS reads letter by letter; spoken as words instead.
-SPOKEN_UNITS = {'ס"מ': "סנטימטר", "ס״מ": "סנטימטר", 'מ"מ': "מילימטר", "מ״מ": "מילימטר"}
+# Allow-listed content types -> (container family, file extension sent to OpenAI).
+AUDIO_TYPES = {
+    "audio/webm": ("webm", "webm"),
+    "audio/ogg": ("ogg", "ogg"),
+    "audio/mp4": ("mp4", "mp4"),
+    "audio/m4a": ("mp4", "m4a"),
+    "audio/x-m4a": ("mp4", "m4a"),
+    "audio/mpeg": ("mp3", "mp3"),
+    "audio/mp3": ("mp3", "mp3"),
+    "audio/wav": ("wav", "wav"),
+    "audio/wave": ("wav", "wav"),
+    "audio/x-wav": ("wav", "wav"),
+    "audio/vnd.wave": ("wav", "wav"),
+}
 
 
-def spoken(text: str) -> str:
-    for short, word in SPOKEN_UNITS.items():
-        text = text.replace(short, word)
-    return text
+def sniff_audio(data: bytes) -> str | None:
+    """The container family from the first bytes, or None. The declared type must agree with it."""
+    if data[:4] == b"\x1a\x45\xdf\xa3":  # EBML header (WebM/Matroska)
+        return "webm"
+    if data[:4] == b"OggS":
+        return "ogg"
+    if data[4:8] == b"ftyp":  # ISO base media (MP4/M4A)
+        return "mp4"
+    if data[:4] == b"RIFF" and data[8:12] == b"WAVE":
+        return "wav"
+    if data[:3] == b"ID3" or (len(data) > 1 and data[0] == 0xFF and data[1] & 0xE0 == 0xE0):  # ID3 tag or MPEG frame sync
+        return "mp3"
+    return None
 
 
-
-def _model(value: str, default: str) -> str:
-    return value.strip() or default
-
-
-async def _read_capped(request: Request) -> bytes | None:
-    """The body, or None once it passes MAX_AUDIO_BYTES (stops reading early)."""
-    chunks, size = [], 0
-    async for chunk in request.stream():
-        size += len(chunk)
-        if size > MAX_AUDIO_BYTES:
-            return None
-        chunks.append(chunk)
-    return b"".join(chunks)
+def get_transcriber():
+    return transcribe
 
 
+def _error(status_code: int, code: str, message: str) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code,
+        content={"success": False, "data": None, "error": {"code": code, "message": message}},
+    )
+
+
+# Both fields are optional in the signature and checked here, so a missing field gets our own code.
+# A field of the wrong kind (audio sent as text) is a 422 from the app-wide handler, which echoes nothing.
 @router.post("/transcribe")
-async def transcribe(
-    request: Request,
-    settings: Annotated[Settings, Depends(get_settings)],
-    client: Annotated[Any, Depends(get_llm_client)],
-    language: Annotated[Language, Query()] = "he",
+def transcribe_audio(
+    api_key: str = Form("", alias="apiKey"),
+    audio: UploadFile | None = File(None),
+    language: str = Form("", max_length=8),
+    transcriber=Depends(get_transcriber),
 ):
-    if client is None:
-        return localized(503, "AGENT_UNAVAILABLE", language)
-    media_type = request.headers.get("content-type", "").split(";")[0].strip().lower()
-    if media_type not in AUDIO_TYPES:
-        return localized(415, "UNSUPPORTED_AUDIO", language)
-    audio = await _read_capped(request)
-    if audio is None:
-        return localized(413, "AUDIO_TOO_LARGE", language)
-    if not audio:
-        return localized(422, "NO_SPEECH", language)
-    # No language hint: the customer may speak either language, and the chat switches to whichever
-    # the transcript is written in. `language` only localizes the error messages.
-    model = _model(settings.openai_transcribe_model, DEFAULT_TRANSCRIBE_MODEL)
+    api_key = api_key.strip()
+    if not KEY_PATTERN.fullmatch(api_key):
+        return _error(400, "INVALID_FORMAT", "Add a valid OpenAI API key in AI settings.")
+    data = audio.file.read(MAX_AUDIO_BYTES + 1) if audio is not None else b""
+    if not data:
+        return _error(400, "EMPTY_AUDIO", "The recording is empty.")
+    if len(data) > MAX_AUDIO_BYTES:
+        return _error(413, "PAYLOAD_TOO_LARGE", "The recording is too large.")
+    declared = (audio.content_type or "").split(";")[0].strip().lower()
+    family, extension = AUDIO_TYPES.get(declared, (None, None))
+    if family is None or sniff_audio(data) != family:
+        return _error(415, "UNSUPPORTED_MEDIA", "Send WebM, Ogg, MP4, MP3 or WAV audio.")
+    if not _slots.acquire(blocking=False):
+        return _error(429, "BUSY", "Transcription is busy. Try again in a moment.")
     try:
-        # The OpenAI client is synchronous: run it off the event loop, or one slow upstream call
-        # would stall every other request (health checks included).
-        result = await run_in_threadpool(
-            client.audio.transcriptions.create,
-            model=model,
-            file=(f"speech.{AUDIO_TYPES[media_type]}", audio, media_type),
-            **({"prompt": TRANSCRIBE_PROMPT} if model in PROMPTABLE_MODELS else {}),
-        )
-    except Exception:  # never echo upstream error text to the customer
-        log.exception("transcription failed")
-        return localized(502, "AGENT_ERROR", language)
-    text = " ".join((getattr(result, "text", "") or "").split())[:MAX_TRANSCRIPT_CHARS]
-    if not text or not re.fullmatch(MESSAGE_TEXT_PATTERN, text):  # must be sendable as a chat message
-        return localized(422, "NO_SPEECH", language)
+        # The session language (ADR-029) is a hint for the model; anything else is ignored, never echoed.
+        hint = {"language": language} if language in ("he", "en", "ru", "ar") else {}
+        text = transcriber(api_key, data, f"voice.{extension}", declared, get_settings().openai_transcribe_model or None, **hint)
+    except AgentError as error:
+        return _error(error.status_code, error.code, error.message)
+    finally:
+        _slots.release()
     return {"success": True, "data": {"text": text}}
 
 
-class SpeechRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    text: Annotated[str, Field(min_length=1, max_length=MAX_SPEECH_CHARS, pattern=MESSAGE_TEXT_PATTERN)]
-    language: Language = "he"
-    signature: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]  # replySignature from /api/chat
+# --- spoken replies (ADR-028) ------------------------------------------------------------------
+
+# The agent's replies stay short (the prompt asks for a few sentences), so 4000 characters is generous;
+# what is actually spoken is cut to MAX_SPOKEN_CHARS at a sentence end (app/agent/speech.py).
+MAX_SPEAK_INPUT = 4000
+_speak_slots = threading.BoundedSemaphore(2)
 
 
-@router.post("/speech")
-def speech(
-    request: SpeechRequest,
-    settings: Annotated[Settings, Depends(get_settings)],
-    client: Annotated[Any, Depends(get_llm_client)],
-):
-    if client is None:
-        return localized(503, "AGENT_UNAVAILABLE", request.language)
-    # Only the agent's own replies are spoken: this is not an open text-to-speech proxy.
-    if not signing.verify_reply(get_signing_key(), request.signature, request.text):
-        return localized(403, "BAD_REPLY_SIGNATURE", request.language)
+class SpeakRequest(BaseModel):
+    apiKey: str = Field(max_length=512)
+    text: str = Field(max_length=MAX_SPEAK_INPUT)
+    voice: Literal[VOICES] | None = None  # type: ignore[valid-type]
+
+
+def get_speaker():
+    return speak
+
+
+@router.post("/speak")
+def speak_reply(body: SpeakRequest, speaker=Depends(get_speaker)):
+    """MP3 of the reply. The key comes with the request and is never stored or logged; nothing in the
+    response echoes the text. Not cached by the browser (the reply is private to this customer)."""
+    api_key = body.apiKey.strip()
+    if not KEY_PATTERN.fullmatch(api_key):
+        return _error(400, "INVALID_FORMAT", "Add a valid OpenAI API key in AI settings.")
+    text = spoken_text(body.text)
+    if not text:
+        return _error(400, "EMPTY_TEXT", "There is nothing to read aloud.")
+    settings = get_settings()
+    voice = body.voice or (settings.openai_tts_voice if settings.openai_tts_voice in VOICES else DEFAULT_VOICE)
+    if not _speak_slots.acquire(blocking=False):
+        return _error(429, "BUSY", "Speech is busy. Try again in a moment.")
     try:
-        result = client.audio.speech.create(
-            model=_model(settings.openai_tts_model, DEFAULT_TTS_MODEL),
-            voice=_model(settings.openai_tts_voice, DEFAULT_TTS_VOICE),
-            input=spoken(request.text), instructions=SPEECH_STYLE, response_format="mp3",
-        )
-        audio = result.read() if hasattr(result, "read") else result.content
-    except Exception:
-        log.exception("speech synthesis failed")
-        return localized(502, "AGENT_ERROR", request.language)
+        audio = speaker(api_key, text, voice, settings.openai_tts_model or None)
+    except AgentError as error:
+        return _error(error.status_code, error.code, error.message)
+    finally:
+        _speak_slots.release()
     return Response(content=audio, media_type="audio/mpeg", headers={"Cache-Control": "no-store"})

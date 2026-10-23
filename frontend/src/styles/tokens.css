@@ -1,97 +1,190 @@
-/* Material Design 3 tokens for BanAI (light scheme, seed #B4532A).
-   Source: Stitch project "BanAI Wardrobe Designer – M3" (projects/3661595013505240058),
-   design system "BanAI Material 3". See /.stitch/DESIGN.md. */
+/* Design tokens: the Apple-inspired system (see /.stitch/DESIGN.md).
+   Every colour, radius, shadow, material and easing used elsewhere is defined here. */
 :root {
-  /* Color roles */
-  --md-sys-color-primary: #9c4520; /* AA: >= 4.5:1 as text on every light surface */
+  color-scheme: light;
+
+  /* Surfaces and ink */
+  --color-bg: #f3eee6; /* warm paper: the workshop behind the panels (2026-10-19) */
+  --color-surface: #ffffff;
+  --color-ink: #1d1d1f;
+  /* 5.99:1 on #fff, 5.18:1 on --color-bg, 4.92:1 on --color-viewer (WCAG 1.4.3; #6e6e73 fell to 4.39:1 on the warm
+     paper, found by the axe check in tests/e2e/a11y.spec.js). Not for text on --color-fill (use ink there). */
+  --color-muted: #636366;
+  --color-viewer: #efe8dc; /* Also the Three.js clear colour in viewer/scene: a warm studio. */
+
+  /* Lines and fills */
+  --color-border: rgba(0, 0, 0, 0.1); /* Separators between regions. */
+  --color-hairline: rgba(0, 0, 0, 0.05); /* The faintest edge: card rims. */
+  --color-swatch-edge: rgba(0, 0, 0, 0.16); /* Inset rim of colour swatches. */
+  /* Edges of interactive controls: 3.62:1 on #fff, 3.33:1 on --color-bg (WCAG 1.4.11). */
+  --color-border-control: #86868b;
+  --color-border-control-hover: #6e6e73;
+  --color-fill: rgba(118, 118, 128, 0.12); /* Segmented track, secondary button. */
+  --color-fill-hover: rgba(118, 118, 128, 0.2);
+  --color-fill-subtle: rgba(118, 118, 128, 0.08); /* Row hover. */
+
+  /* Accent: Apple blue */
+  --color-accent: #0071e3; /* 4.70:1 against white (fills, rings, borders, white text on it). */
+  --color-accent-hover: #0066cc; /* Hover darkens: white text stays at 5.57:1 (Apple's #0077ed hover would drop to 4.32:1). */
+  --color-accent-pressed: #005bb5;
+  --color-accent-text: #0066cc; /* Accent-coloured text: 5.57:1 on white, 4.99:1 on the soft tint. */
+  --color-accent-soft: rgba(0, 113, 227, 0.08);
+  --color-accent-soft-hover: rgba(0, 113, 227, 0.12);
+  --color-accent-ring: rgba(0, 113, 227, 0.35); /* Soft halo around a focused text field (decorative; the solid accent edge carries the contrast). */
+
+  --color-success: #1f7d36;
+  --color-danger: #d70015; /* 5.38:1 on white, 4.72:1 on --color-danger-soft. */
+  --color-danger-soft: #fdecee;
+  --color-danger-soft-hover: #fbdde1;
+  --color-danger-ring: rgba(215, 0, 21, 0.25);
+
+  /* Switch */
+  --color-switch-off: var(--color-border-control);
+  --color-knob: #ffffff;
+  /* Slider: the unfilled part of the track (the accent fills the rest); the thumb is --color-knob. */
+  --color-slider-track: rgba(118, 118, 128, 0.28);
+  --color-on-accent: #ffffff; /* Text and icons on an accent fill. */
+
+  /* Typography: the platform font first, self-hosted Inter (imported in main.js) as the fallback. */
+  --font-ui: 'Assistant', -apple-system, BlinkMacSystemFont, 'SF Hebrew', 'SF Pro Text', system-ui, sans-serif;
+  --text-xs: 0.75rem; /* 12px: captions, section labels, chips */
+  --text-sm: 0.8125rem; /* 13px: controls, labels, notes */
+  --text-md: 0.875rem; /* 14px: body, field values */
+  --text-lg: 1.0625rem; /* 17px: panel and app titles */
+  /* Leading is tighter on titles and looser on running text. */
+  --leading-title: 1.2;
+  --leading-snug: 1.35;
+  --leading-body: 1.45;
+  /* Tracking is size-specific: positive on small text, negative as it grows. */
+  --tracking-caps: 0.05em;
+  --tracking-small: 0.01em;
+  --tracking-control: 0;
+  --tracking-body: -0.006em;
+  --tracking-title: -0.014em;
+
+  /* Spacing (rem so layout follows the user's text size) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --control-h: 2rem;
+  --control-h-sm: 1.75rem;
+
+  /* Shape */
+  --radius-sm: 6px; /* Segments inside a segmented track. */
+  --radius-md: 8px; /* Controls. */
+  --radius-lg: 12px; /* Cards, panels, floating surfaces. */
+  --radius-pill: 999px;
+
+  /* Focus: keyboard rings are a solid 2px accent line (3:1 or better against every surface). */
+  --focus-outline: 2px solid var(--color-accent);
+
+  /* Materials: translucent layers over what scrolls or renders beneath them. */
+  --material-bg: rgba(255, 255, 255, 0.72);
+  --material-bg-thick: rgba(255, 255, 255, 0.82); /* Larger or lighter-weight surfaces read as thicker. */
+  --material-filter: blur(20px) saturate(180%);
+  --material-filter-thick: blur(24px) saturate(180%);
+  --material-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.72); /* Light catching the top edge. */
+  --material-edge: rgba(0, 0, 0, 0.06);
+
+  /* Depth: layered shadows; the bigger the surface, the softer and deeper. */
+  --shadow-card: 0 0 0 1px var(--color-hairline), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-card-selected: 0 0 0 1px var(--color-accent-ring), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-topbar: 0 1px 0 rgba(0, 0, 0, 0.06), 0 6px 20px rgba(0, 0, 0, 0.04);
+  --shadow-toolbar: 0 0 0 1px var(--material-edge), 0 1px 2px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.06), 0 12px 32px rgba(0, 0, 0, 0.08);
+  --shadow-popover: 0 0 0 1px rgba(0, 0, 0, 0.07), 0 2px 6px rgba(0, 0, 0, 0.06), 0 12px 24px rgba(0, 0, 0, 0.1), 0 24px 56px rgba(0, 0, 0, 0.14);
+  --shadow-raised: 0 0 0 0.5px rgba(0, 0, 0, 0.04), 0 1px 1px rgba(0, 0, 0, 0.04), 0 3px 8px rgba(0, 0, 0, 0.12); /* Selected segment, switch knob. */
+  --shadow-knob: 0 0 0 0.5px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.2), 0 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-label: 0 0 0 1px var(--material-edge), 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-label-selected: 0 1px 2px rgba(0, 0, 0, 0.2), 0 4px 10px var(--color-accent-ring);
+
+  /* Motion: only transform and opacity move; one strong ease-out for everything. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --dur-press: 120ms;
+  --dur-state: 160ms;
+  --dur-pop: 180ms;
+
+  --z-loading: 10;
+  --z-toolbar: 20;
+  --z-popover: 30;
+  --z-topbar: 40;
+
+  /* Select chevron (a token so the stroke colour lives with the other colours: #6e6e73). */
+  --icon-chevron-down: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%236e6e73' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+/* No backdrop-filter support: fall back to a nearly opaque layer so text stays legible. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root {
+    --material-bg: rgba(255, 255, 255, 0.94);
+    --material-bg-thick: rgba(255, 255, 255, 0.96);
+  }
+}
+
+/* The user asked for less transparency: solid layers, no blur. */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --material-bg: #ffffff;
+    --material-bg-thick: #ffffff;
+    --material-filter: none;
+    --material-filter-thick: none;
+  }
+}
+
+/* Higher contrast: solid layers and defined borders. */
+@media (prefers-contrast: more) {
+  :root {
+    --material-bg: #ffffff;
+    --material-bg-thick: #ffffff;
+    --material-filter: none;
+    --material-filter-thick: none;
+    --material-edge: rgba(0, 0, 0, 0.45);
+    --color-border: rgba(0, 0, 0, 0.4);
+    --color-hairline: rgba(0, 0, 0, 0.35);
+    --color-swatch-edge: rgba(0, 0, 0, 0.55);
+    --color-border-control: #6e6e73;
+    --color-border-control-hover: #1d1d1f;
+    --color-muted: #515154;
+    --color-fill: rgba(118, 118, 128, 0.2);
+    --color-fill-hover: rgba(118, 118, 128, 0.3);
+    --color-slider-track: rgba(118, 118, 128, 0.5);
+  }
+}
+
+/* Material 3 names used by the chat, dialogs and start screen (bobHabanai's pre-merge components).
+   The uxui merge replaced the file that defined them, so they resolved to nothing and those
+   surfaces lost their backgrounds. They are aliases of the Apple palette, so the components
+   follow .stitch/DESIGN.md instead of the old orange theme. */
+:root {
+  --md-sys-color-primary: var(--color-accent);
   --md-sys-color-on-primary: #ffffff;
-  --md-sys-color-primary-container: #ffdbce;
-  --md-sys-color-on-primary-container: #380d00;
-  --md-sys-color-secondary: #77574b;
-  --md-sys-color-on-secondary: #ffffff;
-  --md-sys-color-secondary-container: #ffdbce;
-  --md-sys-color-on-secondary-container: #2c160d;
-  --md-sys-color-tertiary: #6b5e2f;
-  --md-sys-color-tertiary-container: #f4e2a7;
-  --md-sys-color-error: #ba1a1a;
-  --md-sys-color-on-error: #ffffff;
-  --md-sys-color-error-container: #ffdad6;
-  --md-sys-color-on-error-container: #410002;
-  --md-sys-color-success: #4f7a5a;
-  --md-sys-color-surface: #fff8f6;
-  --md-sys-color-on-surface: #231917;
-  --md-sys-color-on-surface-variant: #53433e;
-  --md-sys-color-surface-container-lowest: #ffffff;
-  --md-sys-color-surface-container-low: #fff1ed;
-  --md-sys-color-surface-container: #fceae4;
-  --md-sys-color-surface-container-high: #f6e4de;
-  --md-sys-color-surface-container-highest: #f0deD8;
-  --md-sys-color-outline: #85736d;
-  --md-sys-color-outline-variant: #d8c2bb;
+  --md-sys-color-primary-container: var(--color-accent-soft);
+  --md-sys-color-secondary-container: var(--color-fill);
+  --md-sys-color-surface: var(--color-bg);
+  --md-sys-color-on-surface: var(--color-ink);
+  --md-sys-color-on-surface-variant: var(--color-muted);
+  --md-sys-color-surface-container-lowest: var(--color-surface);
+  --md-sys-color-surface-container-low: #fbfbfd;
+  --md-sys-color-surface-container: var(--color-fill-subtle);
+  --md-sys-color-surface-container-high: var(--color-fill);
+  --md-sys-color-outline: var(--color-border-control);
+  --md-sys-color-outline-variant: var(--color-border);
   --md-sys-color-scrim: rgba(0, 0, 0, 0.32);
-  --md-sys-color-viewer: #eceeec;
-
-  /* State layers */
-  --md-sys-state-hover: 0.08;
-  --md-sys-state-focus: 0.1;
-  --md-sys-state-pressed: 0.1;
-
-  /* Type: Bricolage Grotesque for display (headings, wordmark), DM Sans for UI and body. */
-  --md-ref-typeface-display: 'Bricolage Grotesque', 'DM Sans', system-ui, sans-serif;
-  --md-ref-typeface-body: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --md-ref-typeface: var(--md-ref-typeface-body);
-  --md-sys-typescale-headline-small: 700 24px/32px var(--md-ref-typeface-display);
-  --md-sys-typescale-headline-medium: 700 28px/36px var(--md-ref-typeface-display);
-  --md-sys-typescale-headline-large: 700 40px/46px var(--md-ref-typeface-display);
-  --md-sys-typescale-title-large: 700 22px/28px var(--md-ref-typeface-display);
-  --md-sys-typescale-title-medium: 600 16px/24px var(--md-ref-typeface-display);
-  --md-sys-typescale-title-small: 600 14px/20px var(--md-ref-typeface-display);
-  --md-sys-typescale-body-large: 400 16px/24px var(--md-ref-typeface-body);
-  --md-sys-typescale-body-medium: 400 14px/20px var(--md-ref-typeface-body);
-  --md-sys-typescale-body-small: 400 12px/16px var(--md-ref-typeface-body);
-  --md-sys-typescale-label-large: 600 14px/20px var(--md-ref-typeface-body);
-  --md-sys-typescale-label-medium: 600 12px/16px var(--md-ref-typeface-body);
-  --md-sys-typescale-label-small: 600 11px/16px var(--md-ref-typeface-body);
-
-  /* Shape scale */
+  --md-sys-typescale-headline-large: 700 40px/46px var(--font-ui);
+  --md-sys-typescale-headline-small: 700 24px/32px var(--font-ui);
+  --md-sys-typescale-title-medium: 600 16px/24px var(--font-ui);
+  --md-sys-typescale-title-small: 600 14px/20px var(--font-ui);
+  --md-sys-typescale-body-large: 400 16px/24px var(--font-ui);
+  --md-sys-typescale-body-medium: 400 14px/20px var(--font-ui);
+  --md-sys-typescale-body-small: 400 12px/16px var(--font-ui);
+  --md-sys-typescale-label-large: 600 14px/20px var(--font-ui);
+  --md-sys-typescale-label-medium: 600 12px/16px var(--font-ui);
+  --md-sys-typescale-label-small: 600 11px/16px var(--font-ui);
   --md-sys-shape-extra-small: 4px;
   --md-sys-shape-small: 8px;
   --md-sys-shape-medium: 12px;
   --md-sys-shape-large: 16px;
   --md-sys-shape-extra-large: 28px;
   --md-sys-shape-full: 999px;
-
-  /* Elevation (shadows only for dialogs and menus; everything else uses tonal surfaces) */
-  --md-sys-elevation-1: 0 1px 2px rgba(35, 25, 23, 0.3), 0 1px 3px 1px rgba(35, 25, 23, 0.15);
-  --md-sys-elevation-3: 0 1px 3px rgba(35, 25, 23, 0.3), 0 4px 8px 3px rgba(35, 25, 23, 0.15);
-
-  /* Spacing (4px grid) */
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 24px;
-
-  --focus-outline: 2px solid var(--md-sys-color-primary);
-
-  /* Aliases used by existing component CSS and JS-created elements */
-  --color-bg: var(--md-sys-color-surface);
-  --color-surface: var(--md-sys-color-surface-container-lowest);
-  --color-ink: var(--md-sys-color-on-surface);
-  --color-muted: var(--md-sys-color-on-surface-variant);
-  --color-border: var(--md-sys-color-outline-variant);
-  --color-accent: var(--md-sys-color-primary);
-  --color-accent-hover: #9c4420;
-  --color-accent-soft: rgba(180, 83, 42, 0.12);
-  --color-success: var(--md-sys-color-success);
-  --color-danger: var(--md-sys-color-error);
-  --color-danger-soft: var(--md-sys-color-error-container);
-  --color-viewer: var(--md-sys-color-viewer);
-  --font-ui: var(--md-ref-typeface);
-  --text-xs: 11px;
-  --text-sm: 13px;
-  --text-md: 14px;
-  --text-lg: 16px;
-  --radius-sm: var(--md-sys-shape-small);
-  --radius-md: var(--md-sys-shape-small);
 }

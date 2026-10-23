@@ -10,7 +10,9 @@ def interior_width(design: dict) -> int:
 
 
 def interior_height(design: dict) -> int:
-    return design["dimensions"]["height"] - 2 * design["carcass"]["panelThickness"]
+    carcass = design["carcass"]
+    # .get: geometry also runs on hand-built v1 dicts (no plinth key) before parse_design upgrades them.
+    return design["dimensions"]["height"] - 2 * carcass["panelThickness"] - carcass.get("plinthHeight", 0)
 
 
 def partition_left_edge(design: dict, index: int) -> int:

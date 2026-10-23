@@ -26,6 +26,20 @@ export function findItem(design, kind, itemId, path) {
   throw new DomainError(NOT_FOUND, path, `no ${kind.slice(0, -1)} with this id`);
 }
 
+export function findInsert(design, insertId, path) {
+  for (const compartment of design.compartments) {
+    const item = compartment.inserts.find((i) => i.id === insertId);
+    if (item) return item;
+  }
+  throw new DomainError(NOT_FOUND, path, 'no insert with this id');
+}
+
+export function findDoor(design, doorId, path) {
+  const door = design.doors.items.find((d) => d.id === doorId);
+  if (!door) throw new DomainError(NOT_FOUND, path, 'no door with this id');
+  return door;
+}
+
 /** Returns [kind, index, itemIndex] for any component id, or null. */
 export function locate(design, componentId) {
   for (const [ci, compartment] of design.compartments.entries()) {
@@ -34,6 +48,8 @@ export function locate(design, componentId) {
       const ii = compartment[kind].findIndex((i) => i.id === componentId);
       if (ii >= 0) return [kind, ci, ii];
     }
+    const ni = compartment.inserts.findIndex((i) => i.id === componentId);
+    if (ni >= 0) return ['inserts', ci, ni];
   }
   const pi = design.partitions.findIndex((p) => p.id === componentId);
   if (pi >= 0) return ['partition', pi, -1];

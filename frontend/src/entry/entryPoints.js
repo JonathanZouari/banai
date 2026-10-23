@@ -3,26 +3,26 @@ export const ENTRY_POINTS = Object.freeze([
   Object.freeze({
     id: 'guided',
     icon: 'chat',
-    title: 'Guide me',
-    description: 'Answer a few questions and the AI designer will propose a wardrobe for you to confirm.',
-    action: 'Start guided flow',
-    focusesChat: true, // placeholder text per language: chat/i18n.js composerHints.guided
+    title: 'הדריכו אותי',
+    description: 'ספרו לבוב הבנאי מה צריך להיכנס לארון, והוא יציע סידור שתאשרו.',
+    action: 'מתחילים בשיחה',
+    composerHint: 'ספרו על החדר: כמה רחב וגבוה הארון צריך להיות?',
   }),
   Object.freeze({
     id: 'freeText',
     icon: 'edit',
-    title: 'Describe it',
-    description: 'Type your wardrobe in your own words. The AI designer turns it into a proposal you approve.',
-    action: 'Enter description',
-    focusesChat: true, // composerHints.freeText
+    title: 'אני אתאר',
+    description: 'כתבו במילים שלכם איזה ארון אתם רוצים. בוב הבנאי הופך את זה להצעה שתאשרו.',
+    action: 'כתיבת תיאור',
+    composerHint: 'למשל: רוחב 240, גובה 260, לבן, שלושה תאים',
   }),
   Object.freeze({
     id: 'basic',
     icon: 'wardrobe',
-    title: 'Start from a basic wardrobe',
-    description: 'Begin with a standard 200 × 240 × 60 cm wardrobe, then edit it by hand or with the AI.',
-    action: 'Open basic wardrobe',
-    focusesChat: false,
+    title: 'מתחילים מארון בסיסי',
+    description: 'ארון סטנדרטי של ‎200 × 240 × 60‎ ס״מ, ומשם עורכים ידנית או בשיחה.',
+    action: 'פתיחת הארון',
+    composerHint: '',
   }),
 ]);
 

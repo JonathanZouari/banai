@@ -8,6 +8,6 @@
 - Organization: Kindra (`mqmgjlbatfmoxunyepzc`).
 - The CLI is linked to **banai-dev** by default. To target prod, run `supabase link --project-ref lkslzvgypmbjltrtcrec` explicitly, and only for an approved release.
 - DB passwords are kept in the gitignored `.env.supabase` at the repo root, never committed.
-- Schema: `supabase/migrations/20261020120000_designs.sql`, table `public.designs`. RLS is on with no policies, and anon/authenticated have no grants: only the backend reaches it.
-- The backend (`app/persistence/repository.py`) calls PostgREST with `SUPABASE_URL` and `SUPABASE_SECRET_KEY`, set per Railway environment: dev uses banai-dev and production uses banai-prod. `/api/health` reports `storage: true` when they are set.
-- API: `POST /api/designs`, then `GET` / `PUT /api/designs/{id}` with `Authorization: Bearer <token>`. `PUT` also needs `If-Match: <revision>` and returns 409 `STALE` when someone saved in between. A wrong token and a missing design both return the same 404.
+- **`designs` (2026-10-20, ADR-042):** the migration `supabase/migrations/20261020120000_designs.sql` is applied to **banai-dev** (`supabase db push --db-url "$SUPABASE_DEV_DB_URL"`, with the URL from `.env.supabase`) and, with the user's approval on 2026-10-21, to **banai-prod** (the same command with `SUPABASE_PROD_DB_URL`; `migration list` shows it on both). The production backend still needs `SUPABASE_URL` and `SUPABASE_SECRET_KEY` in Railway before it uses it.
+- **Expiry:** rows not saved for 180 days are treated as gone and purged by the backend on the next create (`backend/app/store.py`, `RETENTION`). No cron job or extension is needed. No Docker is installed on this machine, so `supabase db dump` and a local stack do not work; `db push` and `migration list` do.
+- The schema and security model (RLS deny-all, backend-only access, hashed access tokens) are implemented in Phase 7. See `docs/architecture.md` §7.

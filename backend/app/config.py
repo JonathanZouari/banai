@@ -1,12 +1,10 @@
 """Application settings loaded from environment variables."""
 
-import secrets
 from functools import lru_cache
+from typing import Literal
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-# ASSUMPTION: a configurable default; override with OPENAI_CHAT_MODEL per environment.
-DEFAULT_CHAT_MODEL = "gpt-5.4-mini"
 
 
 class Settings(BaseSettings):
@@ -14,50 +12,31 @@ class Settings(BaseSettings):
 
     app_env: str = "local"
     cors_origins: str = "http://localhost:5173"
-    openai_api_key: str = ""
     openai_chat_model: str = ""
-    proposal_signing_key: str = ""
-    # ASSUMPTION: configurable voice defaults (empty = the defaults in app/api/voice.py).
     openai_transcribe_model: str = ""
+    # Spoken replies (ADR-028): empty = pick a speech model from the key's list / the default voice.
     openai_tts_model: str = ""
     openai_tts_voice: str = ""
-    # Saved designs (Phase 7). Only the backend holds the secret key; the browser never talks to Supabase.
+    # HMAC key for chat proposals; empty = a random key per process (proposals expire on restart).
+    proposal_secret: str = ""
+    # Saved projects (ADR-042): Supabase, through the backend only (the service key never leaves the server).
     supabase_url: str = ""
     supabase_secret_key: str = ""
+    # auto: Supabase when both are set, otherwise off. memory: rows in this process (tests, the E2E server).
+    storage: Literal["auto", "memory", "off"] = "auto"
+    # Behind exactly one trusted proxy (Railway): count requests against the address it appended to X-Forwarded-For.
+    trust_proxy: bool = False
 
-    @property
-    def storage_enabled(self) -> bool:
-        return bool(self.supabase_url.strip() and self.supabase_secret_key.strip())
+    @field_validator("storage", mode="before")
+    @classmethod
+    def _blank_storage_is_auto(cls, value):
+        return "auto" if isinstance(value, str) and not value.strip() else value
 
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
-    @property
-    def chat_model(self) -> str:
-        return self.openai_chat_model.strip() or DEFAULT_CHAT_MODEL
-
-    @property
-    def agent_enabled(self) -> bool:
-        return bool(self.openai_api_key.strip())
-
 
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-
-
-@lru_cache
-def get_signing_key() -> bytes:
-    """The HMAC key for proposals. Required outside local development.
-
-    Locally (APP_ENV=local) a missing key falls back to a random per-process key, so
-    proposals simply expire on restart; every other environment must configure one.
-    """
-    settings = get_settings()
-    key = settings.proposal_signing_key.strip()
-    if key:
-        return key.encode()
-    if settings.app_env == "local":
-        return secrets.token_bytes(32)
-    raise RuntimeError("PROPOSAL_SIGNING_KEY is not configured")

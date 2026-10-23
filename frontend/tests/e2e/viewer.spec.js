@@ -5,9 +5,9 @@ test.describe('Phase 3: 3D viewer', () => {
 
   test('renders the basic wardrobe with overall dimension labels', async ({ page }) => {
     await expect.poll(() => paintedRatio(page)).toBeGreaterThan(0.05);
-    await expect(page.getByText('W 200.0 cm', { exact: true })).toBeVisible();
-    await expect(page.getByText('H 240.0 cm', { exact: true })).toBeVisible();
-    await expect(page.getByText('D 60.0 cm', { exact: true })).toBeVisible();
+    await expect(page.getByText('רוחב 200.0 ס״מ', { exact: true })).toBeVisible();
+    await expect(page.getByText('גובה 240.0 ס״מ', { exact: true })).toBeVisible();
+    await expect(page.getByText('עומק 60.0 ס״מ', { exact: true })).toBeVisible();
   });
 
   test('orbit drag rotates the camera', async ({ page }) => {
@@ -23,16 +23,16 @@ test.describe('Phase 3: 3D viewer', () => {
 
   test('doors are shown by default and "Show interior" hides them', async ({ page }) => {
     expect(await page.evaluate(() => Boolean(window.__banai.viewer.meshOf('dr_left')))).toBe(true);
-    await page.getByLabel('Show interior').check();
+    await page.getByLabel('הצג פנים').check();
     await expect.poll(() => page.evaluate(() => Boolean(window.__banai.viewer.meshOf('dr_left')))).toBe(false);
   });
 
   test('clicking a shelf selects it, highlights it and shows its dimensions', async ({ page }) => {
-    await page.getByLabel('Show interior').check();
+    await page.getByLabel('הצג פנים').check();
     await clickComponent(page, 'shf_l2');
     expect(await selection(page)).toEqual({ id: 'shf_l2', kind: 'shelf' });
-    await expect(page.getByTestId('selected-section')).toContainText('Selected · Shelf');
-    await expect(page.locator('.dim-label--selected')).toHaveText('Shelf · 80.0 cm from base · 1.8 cm thick');
+    await expect(page.getByTestId('selected-section')).toContainText('נבחר · מדף');
+    await expect(page.locator('.dim-label--selected')).toHaveText('מדף · 80.0 ס״מ מהבסיס · עובי 1.8 ס״מ');
   });
 
   test('clicking a door selects the door; clicking empty space clears the selection', async ({ page }) => {

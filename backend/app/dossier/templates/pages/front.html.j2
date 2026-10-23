@@ -1,0 +1,9 @@
+    <p class="lead">{{ p.lead }}</p>
+    <figure class="fig" style="flex: 1.35">
+      <div class="fig-art">{{ p.front }}</div>
+      <figcaption>{{ p.caption }}</figcaption>
+    </figure>
+    <figure class="fig" style="flex: 1">
+      <div class="fig-art">{{ p.plan }}</div>
+      <figcaption>{{ t("תוכנית (חתך אופקי)") }}{% if lay.doors and not lay.sliding %} · {{ t("קשתות הפתיחה ומרחב הפתיחה הנדרש מול הארון") }}{% endif %}</figcaption>
+    </figure>
