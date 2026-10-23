@@ -99,6 +99,9 @@ hingeSide}] (hinged; omit for one door per compartment), count? (sliding, defaul
 - modify_compartment: compartmentId, width - the right neighbour absorbs the difference.
 - add_partition: compartmentId, offset - splits a compartment at offset mm from its left.
 - modify_partition: partitionId, position?, thickness?
+- mirror_layout: (no fields) - reverses the compartment order left to right ("תהפוך את \
+הסידור", "flip the layout"). Ids, widths and contents stay with their compartment; hinged doors \
+swap hinge sides.
 - add_shelf: compartmentId, y, thickness? | modify_shelf: id, y?, thickness?
 - add_drawer: compartmentId, y, height | modify_drawer: id, y?, height?
 - add_rail: compartmentId, y | modify_rail: id, y
