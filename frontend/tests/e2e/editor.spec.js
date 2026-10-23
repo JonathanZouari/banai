@@ -58,6 +58,15 @@ test.describe('Phase 4: manual editing', () => {
     await expect.poll(() => page.evaluate(() => window.__banai.viewer.meshOf('carcass').material.color.getHexString())).toBe('6b4a32');
   });
 
+  test('material, colour and finish controls expose test ids', async ({ page }) => {
+    await page.getByTestId('swatch-carcass-walnut').click();
+    await expect.poll(() => page.evaluate(() => window.__banai.viewer.meshOf('carcass').material.color.getHexString())).toBe('6b4a32');
+    await page.getByTestId('finish-carcass').getByRole('button', { name: 'Gloss' }).click();
+    await page.getByTestId('material-carcass').selectOption('oak_veneer');
+    await expect.poll(async () => (await state(page)).design.carcass.appearance.material.catalogId).toBe('oak_veneer');
+    await expect(page.getByTestId('colour-carcass')).toBeVisible();
+  });
+
   test('switching to sliding doors rebuilds the doors', async ({ page }) => {
     await page.getByTestId('door-type').getByRole('button', { name: 'Sliding' }).click();
     await expect.poll(async () => (await state(page)).design.doors.type).toBe('sliding');

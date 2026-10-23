@@ -270,3 +270,29 @@ def test_done_offers_the_style_profile_and_changes_nothing(make_client):
     assert data["offerProfile"] is True
     assert data["proposal"] is None
     assert "offer_style_profile" in fake.requests[0]["messages"][0]["content"]
+
+
+def test_agent_knows_the_new_colours_in_hebrew_and_maps_them_to_catalog_ids(make_client):
+    paint = {"op": "set_material", "target": "carcass", "color": {"catalogId": "olive_green"}}
+    fake = FakeClient(completion(calls=[tool_call(PROPOSE, propose([paint]))]))
+    data = make_client(fake).post("/api/chat", json=chat_body("תצבע בירוק זית")).json()["data"]
+    system_prompt = fake.requests[0]["messages"][0]["content"]
+    # the catalog the model sees carries both names, so "ירוק זית" can be matched to the id
+    assert '"id":"olive_green","name":"Olive green","hex":"#6b7a47","nameHe":"ירוק זית"' in system_prompt
+    for catalog_id in ("dusty_blue", "sage_green", "solid_wood"):
+        assert f'"id":"{catalog_id}"' in system_prompt
+    # the proposal uses the existing set_material op with a catalog id, and is signed
+    assert data["proposal"]["ops"] == [paint]
+    assert data["proposal"]["signature"]
+
+
+def test_agent_prompt_hebrew_names_do_not_change_the_catalog():
+    from app.agent.prompts import _catalog_for_prompt
+    from app.domain.catalog import load_catalog
+
+    catalog = load_catalog()
+    before = copy.deepcopy(catalog)
+    enriched = _catalog_for_prompt(catalog)
+    assert catalog == before  # the real catalog (used for validation) stays as it was
+    assert all("nameHe" in entry for entries in enriched.values() for entry in entries)
+

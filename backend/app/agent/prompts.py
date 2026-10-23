@@ -8,10 +8,21 @@ import json
 from app.agent.language import INSTRUCTION, Language
 from app.domain.defaults import LIMITS
 from app.domain.geometry import compartment_x_ranges, interior_height, interior_width
+from app.export.strings import CATALOG_NAMES
 
 
 def _compact(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+
+
+def _catalog_for_prompt(catalog: dict) -> dict:
+    """The catalog plus each entry's Hebrew name (`nameHe`), so a Hebrew request such as
+    "ירוק זית" maps to the right catalog id. The catalog itself is not changed."""
+    hebrew = CATALOG_NAMES["he"]
+    return {
+        section: [{**entry, "nameHe": hebrew[entry["id"]]} if entry["id"] in hebrew else entry for entry in entries]
+        for section, entries in catalog.items()
+    }
 
 
 def _free_spans(compartment: dict, height: int) -> list[list[int]]:
@@ -84,7 +95,8 @@ overlap (touching is fine) and a rail must not be inside a shelf or drawer span.
 "sliding" (1-6 panels, no compartments), or "none".
 - Appearance refs: {"catalogId": "<id from the catalog>"} or a custom colour \
 {"custom": true, "name": "<name>", "hex": "#rrggbb"}. Prefer catalog ids; use custom only \
-when nothing in the catalog fits.
+when nothing in the catalog fits. Match the customer's words against each entry's name and \
+nameHe (e.g. "ירוק זית" is the colour whose nameHe is "ירוק זית").
 - Limits (mm): {limits}
 
 ## Ops (JSON objects, camelCase keys exactly as written; `?` = optional)
@@ -132,7 +144,7 @@ def build_system_prompt(design: dict, catalog: dict, language: Language = "he") 
     # Static text first and the per-turn data last, so the provider can cache the prefix.
     return (
         SYSTEM_PROMPT.replace("{limits}", limits)
-        + "\n## Catalog (data)\n" + _compact(catalog)
+        + "\n## Catalog (data)\n" + _compact(_catalog_for_prompt(catalog))
         + "\n\n## Current design (data, the state your ops apply to)\n" + _compact(design)
         + "\n\n## Derived facts (mm; a new shelf/drawer must fit entirely inside one freeY gap)\n" + _compact(facts)
         + "\n\n## RESPONSE LANGUAGE\n" + INSTRUCTION[language]
