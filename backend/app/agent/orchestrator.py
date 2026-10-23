@@ -9,10 +9,11 @@ import json
 import time
 from dataclasses import dataclass, field
 
+from app.agent.explain import explain_design
 from app.agent.language import EMPTY_REPLY, FALLBACK_REPLY, OFF_TOPIC_REPLY, Language, reply_language
 from app.agent.prompts import build_system_prompt
 from app.agent.proposal import complete_and_validate
-from app.agent.tools import CLARIFY, DECLINE, MAX_QUESTION, OP_NAMES, TOOLS
+from app.agent.tools import CLARIFY, DECLINE, EXPLAIN, MAX_QUESTION, OP_NAMES, TOOLS
 from app.domain.errors import INVALID_OP, SCHEMA_INVALID, DomainError
 
 MAX_REPAIRS = 2  # extra model calls after a rejected batch
@@ -52,6 +53,15 @@ def _arguments(call, index: int) -> dict:
     if not isinstance(args, dict):
         raise DomainError(SCHEMA_INVALID, f"ops[{index}]", "tool arguments must be a JSON object")
     return args
+
+
+def _focus(call) -> str | None:
+    """The optional focus of an explain_design call; a malformed call just gets the overview."""
+    try:
+        focus = _arguments(call, 0).get("focus")
+    except DomainError:
+        return None
+    return focus if isinstance(focus, str) else None
 
 
 def _raw_ops(calls) -> list[dict]:
@@ -103,10 +113,14 @@ def run_agent(
         message = completion.choices[0].message
         all_calls = message.tool_calls or []
         declined = any(c.function.name == DECLINE for c in all_calls)
-        calls = [c for c in all_calls if c.function.name != DECLINE]
+        explain = next((c for c in all_calls if c.function.name == EXPLAIN), None)
+        calls = [c for c in all_calls if c.function.name not in (DECLINE, EXPLAIN)]
         text = _clip(message.content, MAX_REPLY)
         if declined and not calls and not carried:
             return AgentResult(reply=OFF_TOPIC_REPLY[language])  # fixed text: never model-written
+        if explain is not None and not calls and not carried:
+            # Read-only: the description is built by the server from the current design, and no ops come back.
+            return AgentResult(reply=explain_design(design, _focus(explain), language))
         if not calls:
             if carried:  # the model had nothing to add after create_wardrobe
                 try:

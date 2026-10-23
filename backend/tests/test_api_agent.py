@@ -278,3 +278,12 @@ def test_chat_passes_the_configured_temperature_to_the_model():
     client = use_client(FakeOpenAI(reply("ok")))
     http.post("/api/chat", json=chat_body())
     assert "temperature" not in client.requests[0]
+
+
+def test_what_do_i_have_answers_through_the_api_with_a_signed_reply_and_no_proposal():
+    use_client(FakeOpenAI(reply(None, [call("explain_design")])))
+    response = http.post("/api/chat", json=chat_body("what do I have in my wardrobe?"))
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["proposal"] is None and "Compartment 1" in data["reply"]
+    assert len(data["replySignature"]) == 64  # read-aloud works for the explanation too

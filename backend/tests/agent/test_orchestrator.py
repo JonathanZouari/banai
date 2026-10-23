@@ -80,7 +80,7 @@ def test_request_carries_the_tools_the_design_and_the_history():
 
 def test_every_op_has_a_tool_and_no_tool_exposes_the_op_discriminator():
     names = {t["function"]["name"] for t in TOOLS}
-    assert "ask_clarification" in names and "decline_off_topic" in names and len(names) == 17
+    assert "ask_clarification" in names and "decline_off_topic" in names and "explain_design" in names and len(names) == 18
     for tool in TOOLS:
         assert "op" not in tool["function"]["parameters"]["properties"]
         assert "op" not in tool["function"]["parameters"].get("required", [])
