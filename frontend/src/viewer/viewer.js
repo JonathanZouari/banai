@@ -45,7 +45,7 @@ const VIEW_MS = 300;
 const MAX_DISTANCE = 14;
 const FLOOR_SIZE = 12; // m, same as the grid
 const PROPS_SEED = 7;
-const CANVAS_LABEL = 'תצוגת תלת־ממד של הארון';
+const CANVAS_LABEL = 'תצוגת תלת־ממד של הארון. כל החלקים מופיעים גם ברשימה "כל החלקים" בלוח התכנון.';
 const noRaycast = () => {};
 
 /** Invisible ground that only shows the wardrobe's shadow. It lies at y = 0, 0.5 mm above the grid (so the shadow tints the grid lines too), and is never picked. */
@@ -114,6 +114,7 @@ export function createViewer(container, store, { onDimensionStep, onDragError, o
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.shadowMap.autoUpdate = false; // the wardrobe is static between rebuilds, so draw the map only then
+  renderer.domElement.setAttribute('role', 'img');
   renderer.domElement.setAttribute('aria-label', CANVAS_LABEL);
   container.appendChild(renderer.domElement);
 

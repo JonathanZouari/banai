@@ -231,7 +231,9 @@ test.describe('UX pass', () => {
 
     const leftRow = page.getByTestId('select-cmp_left').locator('xpath=ancestor::li');
     await expect(leftRow).toHaveAttribute('aria-current', 'true');
-    await expect(page.locator('#properties-content [aria-current]')).toHaveCount(1);
+    // One current item per list: the compartment here, and the shelf itself in "all parts" (the keyboard list).
+    await expect(page.locator('#properties-content [aria-current]:not(.parts-list *)')).toHaveCount(1);
+    await expect(page.locator('.parts-list [aria-current]')).toHaveAttribute('data-testid', 'part-shf_l2');
 
     await selected.getByRole('button', { name: 'ביטול בחירה' }).click();
     await expect.poll(() => selection(page)).toBeNull();

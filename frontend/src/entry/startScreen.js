@@ -103,7 +103,8 @@ export function mountStartScreen({ onChoose, reducedMotion = false, still = fals
       bobLine,
     ]),
     el('div', { className: 'atl-hero__cards' }, ENTRY_POINTS.map((entry) => entryCard(entry, choose))),
-    el('div', { className: 'atl-hero__foot' }, [el('p', { className: 'start__footnote', text: START_FOOTNOTE }), toAbout]),
+    el('div', { className: 'atl-hero__foot' }, [el('p', { className: 'start__footnote', text: START_FOOTNOTE }), toAbout,
+      el('a', { className: 'start__footnote', text: 'הצהרת נגישות', attrs: { href: '/accessibility.html', 'data-testid': 'start-a11y' } })]),
     replay,
   ]);
 

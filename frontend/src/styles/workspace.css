@@ -235,7 +235,7 @@
   .preset:hover, .insert:hover { background: var(--color-fill); }
   .insert[aria-pressed='true']:hover { background: var(--color-accent-soft-hover); }
 }
-.field__hint { margin: 6px 0 0; font-size: var(--text-xs); color: var(--color-faint); line-height: 1.45; }
+.field__hint { margin: 6px 0 0; font-size: var(--text-xs); color: var(--color-muted); line-height: 1.45; } /* text: AA, not the faint edge colour */
 
 /* ---------- compare ---------- */
 .compare-bar {

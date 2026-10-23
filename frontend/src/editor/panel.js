@@ -15,6 +15,7 @@ import { createDragGate } from './liveSlider.js';
 import { siteSection } from './siteSection.js';
 import { roomSection } from './roomSection.js';
 import { householdSection } from './householdSection.js';
+import { partsSection } from './partsSection.js';
 import { wardrobeSection } from './wardrobeSection.js';
 
 const HINT_DEFAULT = 'לחצו על רכיב בתלת-ממד כדי לערוך אותו.';
@@ -111,6 +112,7 @@ export function mountPanel(root, store) {
       compartmentsSection(context),
       materials,
       householdSection(context),
+      partsSection(context), // every part by keyboard (WCAG 2.1.1)
     ];
   };
 

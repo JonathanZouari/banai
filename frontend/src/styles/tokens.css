@@ -7,8 +7,9 @@
   --color-bg: #f3eee6; /* warm paper: the workshop behind the panels (2026-10-19) */
   --color-surface: #ffffff;
   --color-ink: #1d1d1f;
-  /* 5.07:1 on #fff, 4.66:1 on --color-bg. Not for text on --color-viewer or on --color-fill (use ink there). */
-  --color-muted: #6e6e73;
+  /* 5.99:1 on #fff, 5.18:1 on --color-bg, 4.92:1 on --color-viewer (WCAG 1.4.3; #6e6e73 fell to 4.39:1 on the warm
+     paper, found by the axe check in tests/e2e/a11y.spec.js). Not for text on --color-fill (use ink there). */
+  --color-muted: #636366;
   --color-viewer: #efe8dc; /* Also the Three.js clear colour in viewer/scene: a warm studio. */
 
   /* Lines and fills */

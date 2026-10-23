@@ -57,6 +57,12 @@ function showError(message) {
 
 byId('error-retry').addEventListener('click', () => location.reload());
 
+// The skip link moves focus without touching the hash: the hash may hold the private project link.
+document.querySelector('.skip-link')?.addEventListener('click', (event) => {
+  event.preventDefault();
+  byId('properties-panel').focus();
+});
+
 /**
  * The chat stays in the side column, always visible. The advice opens from the Help menu as a panel over the
  * 3D view ("ייעוץ"), and "פתיחת הצ'אט" puts the cursor in the chat.
