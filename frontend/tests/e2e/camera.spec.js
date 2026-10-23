@@ -29,6 +29,17 @@ test.describe('camera angle buttons', () => {
     await expect(group).toHaveAttribute('lang', 'en');
   });
 
+  test('every button is a touch-sized target of at least 44 x 44 px, on desktop and phone widths', async ({ page }) => {
+    for (const size of [{ width: 1280, height: 800 }, { width: 700, height: 800 }]) {
+      await page.setViewportSize(size);
+      for (const id of ['view-front', 'view-side', 'view-3q', 'view-reset']) {
+        const box = await page.getByTestId(id).boundingBox();
+        expect(box.height, `${id} height at ${size.width}px`).toBeGreaterThanOrEqual(44);
+        expect(box.width, `${id} width at ${size.width}px`).toBeGreaterThanOrEqual(44);
+      }
+    }
+  });
+
   test('Front, Side and 3/4 move the camera to the right place, smoothly', async ({ page }) => {
     const centre = [1, 1.2, -0.3]; // basic wardrobe 2000 x 2400 x 600 mm, scene metres
     const start = await camera(page);
