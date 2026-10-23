@@ -8,12 +8,13 @@ import { toCmText } from './opsFromForm.js';
 import { button, cmField, el, section } from './fields.js';
 
 const cm = (mm) => toCmText(mm).replace(/\.0$/, '');
+const focusTestId = (testId) => document.querySelector(`[data-testid="${CSS.escape(testId)}"]`)?.focus();
 
 function nameField(person, onCommit) {
   const id = `person-name-${person.id}`;
   const input = el('input', {
     className: 'field__input',
-    attrs: { id, type: 'text', maxlength: String(MAX_NAME), autocomplete: 'off', placeholder: 'לא חובה', 'data-testid': `person-name-${person.id}` },
+    attrs: { id, type: 'text', dir: 'auto', maxlength: String(MAX_NAME), autocomplete: 'off', placeholder: 'לא חובה', 'data-testid': `person-name-${person.id}` },
   });
   input.value = person.name;
   input.addEventListener('change', () => onCommit(input.value));
@@ -40,8 +41,24 @@ function personRow(person, index, design, update, remove) {
       }),
     ]),
     el('p', { className: 'person-row__note', text: `${share}% מגובה הארון (${cm(design.dimensions.height)} ס״מ)` }),
-    button('הסרה', remove, { variant: 'ghost', testId: `person-remove-${person.id}` }),
+    removeButton(title, remove, person.id),
   ]);
+}
+
+// Every remove button says whom it removes (they would all be "הסרה" otherwise).
+function removeButton(title, remove, id) {
+  const node = button('הסרה', remove, { variant: 'ghost', testId: `person-remove-${id}` });
+  node.setAttribute('aria-label', `הסרת ${title}`);
+  return node;
+}
+
+// What the lock goes on: only what this wardrobe has (doors, drawers), or the wardrobe itself when it has neither.
+function lockTargets(design, safety) {
+  const hasDrawers = design.compartments.some((c) => c.drawers.length);
+  if (safety.hasDoors && hasDrawers) return 'בכל דלת ומגירה';
+  if (safety.hasDoors) return 'בכל דלת';
+  if (hasDrawers) return 'בכל מגירה';
+  return 'כשיתווספו דלתות או מגירות';
 }
 
 function safetyAlert(design, safety) {
@@ -59,7 +76,7 @@ function safetyAlert(design, safety) {
       el('li', { text: 'לקבע את הארון לקיר לפני השימוש.' }),
       el('li', {
         attrs: { 'data-testid': 'child-lock-suggestion' },
-        text: `מומלץ: נעילת הגנה לילדים בכל ${safety.hasDoors ? 'דלת ומגירה' : 'מגירה'}, ${release}, מעל טווח ההגעה של ילד עומד (הערכה: פי 1.3 מגובהו).`,
+        text: `מומלץ: נעילת הגנה לילדים ${lockTargets(design, safety)}, ${release}, מעל טווח ההגעה של ילד עומד (הערכה: פי 1.3 מגובהו).`,
       }),
     ]),
     el('p', { className: 'safety-alert__note', text: 'נעילה מרתיעה, אבל לא מחליפה השגחה. זו המלצה לנגר, לא אישור בטיחות.' }),
@@ -71,9 +88,24 @@ export function householdSection({ design, household, setHousehold }) {
     setHousehold(household.map((p) => (p.id === person.id ? person : p)));
     return { ok: true };
   };
-  const remove = (id) => () => setHousehold(household.filter((p) => p.id !== id));
-  const add = (height) => () => setHousehold([...household, newPerson(height)]);
+  // After a removal the focus goes to the next person, else the previous one, else "+ מבוגר" (the panel re-renders
+  // synchronously, so the new controls exist when setHousehold returns).
+  const remove = (id) => () => {
+    const index = household.findIndex((p) => p.id === id);
+    const neighbour = household[index + 1] ?? household[index - 1];
+    setHousehold(household.filter((p) => p.id !== id));
+    focusTestId(neighbour ? `person-remove-${neighbour.id}` : 'add-adult');
+  };
   const full = household.length >= MAX_PEOPLE;
+  // At the limit the buttons stay focusable (aria-disabled) and a status line says why nothing is added.
+  const add = (height) => () => {
+    if (!full) setHousehold([...household, newPerson(height)]);
+  };
+  const addButton = (text, height, testId) => {
+    const node = button(text, add(height), { testId });
+    if (full) node.setAttribute('aria-disabled', 'true');
+    return node;
+  };
   const safety = childSafety(design, household);
 
   const container = section('בני הבית', [
@@ -81,9 +113,13 @@ export function householdSection({ design, household, setHousehold }) {
     ...(safety ? [safetyAlert(design, safety)] : []),
     el('ol', { className: 'person-list' }, household.map((p, i) => personRow(p, i, design, update, remove(p.id)))),
     el('div', { className: 'button-row button-row--pair' }, [
-      button(`+ מבוגר (${cm(ADULT_DEFAULT)} ס״מ)`, add(ADULT_DEFAULT), { testId: 'add-adult', disabled: full }),
-      button(`+ ילד (${cm(CHILD_DEFAULT)} ס״מ)`, add(CHILD_DEFAULT), { testId: 'add-child', disabled: full }),
+      addButton(`+ מבוגר (${cm(ADULT_DEFAULT)} ס״מ)`, ADULT_DEFAULT, 'add-adult'),
+      addButton(`+ ילד (${cm(CHILD_DEFAULT)} ס״מ)`, CHILD_DEFAULT, 'add-child'),
     ]),
+    el('p', {
+      className: 'panel__hint', text: full ? `אפשר להוסיף עד ${MAX_PEOPLE} אנשים. כדי להוסיף, הסירו מישהו.` : '',
+      attrs: { role: 'status', 'data-testid': 'household-limit' },
+    }),
   ]);
   // The rest of the panel is in English; this section is Hebrew, right to left.
   container.lang = 'he';

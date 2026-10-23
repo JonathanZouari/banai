@@ -67,8 +67,9 @@ export function createViewer(container, store) {
   let rendered = { design: null, doorsVisible: null, selection: undefined, dimsKey: null };
 
   const fitCamera = (design, household) => {
-    const { height, depth } = design.dimensions;
+    const { depth } = design.dimensions;
     const width = figures.rightEdge(design, household); // the wardrobe and the people beside it
+    const height = figures.topEdge(design, household);
     const center = new THREE.Vector3(toM(width / 2), toM(height / 2), toM(-depth / 2));
     const distance = (toM(Math.max(width, height)) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)))) * 1.35;
     camera.position.set(center.x + distance * 0.35, center.y + distance * 0.12, distance);
@@ -91,7 +92,8 @@ export function createViewer(container, store) {
       rendered = { ...rendered, design, doorsVisible: ui.doorsVisible };
     }
     const { width, height, depth } = design.dimensions;
-    const dimsKey = `${width}x${height}x${depth}x${household.length}`;
+    const tallest = Math.max(0, ...household.map((p) => p.height));
+    const dimsKey = `${width}x${height}x${depth}x${household.length}x${tallest}`;
     if (dimsKey !== rendered.dimsKey) {
       fitCamera(design, household);
       rendered = { ...rendered, dimsKey };

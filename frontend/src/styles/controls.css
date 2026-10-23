@@ -193,5 +193,7 @@ select.field__input {
 .safety-alert__title { display: block; }
 .safety-alert__list { margin: var(--space-2) 0 0; padding-inline-start: var(--space-4); }
 .safety-alert__note { font: var(--md-sys-typescale-body-small); }
-.figure-label { padding: 2px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.92); color: #231917; font: 600 12px/1.4 var(--font-body, sans-serif); white-space: nowrap; pointer-events: none; }
+.figure-label { max-width: 16ch; overflow: hidden; padding: 2px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.92); color: #231917; font: 600 12px/1.4 var(--md-ref-typeface-body, sans-serif); white-space: nowrap; text-overflow: ellipsis; pointer-events: none; }
+[lang="he"] .prop-section__title { letter-spacing: 0; }
 .figure-label--child { background: #f4e2a7; }
+.btn[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; }

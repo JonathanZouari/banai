@@ -22,7 +22,8 @@ export const FIGURE_PARTS = Object.freeze([
 /** Where person `index` stands (mm, the wardrobe's frame): in a row to the right, a little in front. */
 export const figureSpot = (design, index) => ({ x: design.dimensions.width + FIGURE_OFFSET.x + index * FIGURE_SPACING, z: FIGURE_OFFSET.z });
 
-const label = (person, index) => `${person.name || `אדם ${index + 1}`} · ${(person.height / 10).toFixed(0)} ס״מ`;
+const LABEL_STAGGER = 140; // mm: every second label sits higher, so neighbours' labels do not overlap
+
 
 export function createFigures(scene) {
   const group = new THREE.Group();
@@ -61,12 +62,16 @@ export function createFigures(scene) {
     const spot = figureSpot(design, index);
     body.scale.setScalar(scale);
     body.position.set(toM(spot.x), 0, toM(spot.z));
+    // Text only, never HTML. The name sits in <bdi> (any script) and is cut with an ellipsis; the full text is the title.
     const element = document.createElement('div');
     element.className = `figure-label${child ? ' figure-label--child' : ''}`;
-    element.textContent = label(p, index); // text only, never HTML
-    element.dir = 'auto';
+    const name = document.createElement('bdi');
+    name.textContent = p.name || `אדם ${index + 1}`;
+    element.append(name, ` · ${(p.height / 10).toFixed(0)} ס״מ${child ? ' · ילד' : ''}`);
+    element.title = element.textContent;
+    element.dir = 'rtl';
     const tag = new CSS2DObject(element);
-    tag.position.set(0, toM((p.height + 120) / scale), 0);
+    tag.position.set(0, toM((p.height + 120 + (index % 2) * LABEL_STAGGER) / scale), 0);
     body.add(tag);
     return body;
   }
@@ -80,7 +85,12 @@ export function createFigures(scene) {
       people.forEach((p, i) => group.add(person(p, i, design)));
     },
     /** The right edge (mm) the camera must include: the last person, or the wardrobe alone. */
-    rightEdge: (design, people) => (people.length ? figureSpot(design, people.length - 1).x + 300 : design.dimensions.width),
+    // Capped at twice the wardrobe, so a long row of people does not shrink the wardrobe to nothing.
+    rightEdge: (design, people) => (people.length
+      ? Math.min(figureSpot(design, people.length - 1).x + 300, design.dimensions.width * 2)
+      : design.dimensions.width),
+    /** The tallest point (mm) the camera must include: the wardrobe or the tallest person with their label. */
+    topEdge: (design, people) => Math.max(design.dimensions.height, ...people.map((p) => p.height + 400)),
     get count() {
       return group.children.length;
     },
