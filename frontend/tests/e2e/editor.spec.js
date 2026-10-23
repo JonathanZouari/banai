@@ -80,3 +80,23 @@ test.describe('Phase 4: manual editing', () => {
     expect((await state(page)).selection).toBeNull();
   });
 });
+
+test('switching to inches changes only the display; typed inches are stored as whole mm', async ({ page }) => {
+  await openDesigner(page);
+  const before = await page.evaluate(() => JSON.stringify(window.__banai.store.getState().design));
+  await page.getByTestId('display-units').selectOption('in');
+  await expect(page.getByTestId('dim-width')).toHaveValue('78.74');
+  await expect(page.locator('.dim-label', { hasText: /^W / })).toHaveText('W 78.74 in');
+  expect(await page.evaluate(() => JSON.stringify(window.__banai.store.getState().design))).toBe(before);
+
+  await page.getByTestId('dim-width').fill('80');
+  await page.getByTestId('dim-width').press('Enter');
+  await expect.poll(() => page.evaluate(() => window.__banai.store.getState().design.dimensions.width)).toBe(2032);
+  await expect(page.getByTestId('dim-width')).toHaveValue('80.00');
+
+  await page.getByTestId('display-units').selectOption('mm');
+  await expect(page.getByTestId('dim-width')).toHaveValue('2032');
+  await page.reload();
+  await page.getByTestId('entry-basic').click();
+  await expect(page.getByTestId('display-units')).toHaveValue('mm'); // remembered in this browser
+});
