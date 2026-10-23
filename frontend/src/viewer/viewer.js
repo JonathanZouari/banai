@@ -7,6 +7,7 @@ import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { buildWardrobe, disposeWardrobe } from './buildWardrobe.js';
 import { frameOf } from './builders/frame.js';
 import { createDimensions } from './dimensions.js';
+import { createFigures } from './figures.js';
 import { createHighlighter } from './highlight.js';
 import { createMaterials } from './materials.js';
 import { attachPicking } from './picking.js';
@@ -61,11 +62,13 @@ export function createViewer(container, store) {
   const materials = createMaterials(store.getState().catalog);
   const highlighter = createHighlighter(scene);
   const dimensions = createDimensions(scene);
+  const figures = createFigures(scene);
   let group = null;
   let rendered = { design: null, doorsVisible: null, selection: undefined, dimsKey: null };
 
-  const fitCamera = (design) => {
-    const { width, height, depth } = design.dimensions;
+  const fitCamera = (design, household) => {
+    const { height, depth } = design.dimensions;
+    const width = figures.rightEdge(design, household); // the wardrobe and the people beside it
     const center = new THREE.Vector3(toM(width / 2), toM(height / 2), toM(-depth / 2));
     const distance = (toM(Math.max(width, height)) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)))) * 1.35;
     camera.position.set(center.x + distance * 0.35, center.y + distance * 0.12, distance);
@@ -74,7 +77,8 @@ export function createViewer(container, store) {
   };
 
   const sync = (state) => {
-    const { design, ui, selection } = state;
+    const { design, ui, selection, household } = state;
+    figures.update(design, household);
     const geometryChanged = design !== rendered.design || ui.doorsVisible !== rendered.doorsVisible;
     if (geometryChanged) {
       if (group) {
@@ -84,10 +88,13 @@ export function createViewer(container, store) {
       group = buildWardrobe(design, materials, { doorsVisible: ui.doorsVisible });
       scene.add(group);
       materials.retainOnly(new Set(group.children.map((mesh) => mesh.material)));
-      const { width, height, depth } = design.dimensions;
-      const dimsKey = `${width}x${height}x${depth}`;
-      if (dimsKey !== rendered.dimsKey) fitCamera(design);
-      rendered = { ...rendered, design, doorsVisible: ui.doorsVisible, dimsKey };
+      rendered = { ...rendered, design, doorsVisible: ui.doorsVisible };
+    }
+    const { width, height, depth } = design.dimensions;
+    const dimsKey = `${width}x${height}x${depth}x${household.length}`;
+    if (dimsKey !== rendered.dimsKey) {
+      fitCamera(design, household);
+      rendered = { ...rendered, dimsKey };
     }
     if (geometryChanged || selection !== rendered.selection) {
       highlighter.update(group, design, selection);
@@ -127,6 +134,7 @@ export function createViewer(container, store) {
     camera,
     controls,
     canvas: renderer.domElement,
+    get figureCount() { return figures.count; },
     meshOf: (componentId) => group?.children.find((mesh) => mesh.userData.componentId === componentId) ?? null,
     /** Client (page) coordinates of a component's centre, for tests and tooling. */
     screenPointOf(componentId) {
@@ -144,6 +152,7 @@ export function createViewer(container, store) {
       if (group) disposeWardrobe(group);
       highlighter.dispose();
       dimensions.dispose();
+      figures.dispose();
       materials.dispose();
       controls.dispose();
       renderer.dispose();

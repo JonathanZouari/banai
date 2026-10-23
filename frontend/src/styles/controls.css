@@ -178,3 +178,20 @@ select.field__input {
 .skip-link { position: absolute; left: var(--space-3); top: -100px; z-index: 100; padding: var(--space-2) var(--space-3); border-radius: var(--md-sys-shape-medium); background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); }
 .skip-link:focus { top: var(--space-2); outline: var(--focus-outline); outline-offset: 2px; }
 #properties-panel:focus { outline: none; }
+
+/* Household and child safety */
+.field-row--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.person-list { display: grid; gap: var(--space-3); margin: 0 0 var(--space-3); padding: 0; list-style: none; }
+.person-row { display: grid; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-sys-shape-medium); }
+.person-row__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.person-row__tag { padding: 2px var(--space-2); border-radius: 999px; background: var(--md-sys-color-surface-container-high); font: var(--md-sys-typescale-body-small); }
+.person-row__tag--child { background: var(--md-sys-color-tertiary-container); }
+.person-row__note { margin: 0; color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-small); }
+.person-row .btn { justify-self: start; }
+.safety-alert { margin: 0 0 var(--space-3); padding: var(--space-3); border-inline-start: 4px solid var(--md-sys-color-error); border-radius: var(--md-sys-shape-small); background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); }
+.safety-alert p { margin: var(--space-2) 0 0; }
+.safety-alert__title { display: block; }
+.safety-alert__list { margin: var(--space-2) 0 0; padding-inline-start: var(--space-4); }
+.safety-alert__note { font: var(--md-sys-typescale-body-small); }
+.figure-label { padding: 2px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.92); color: #231917; font: 600 12px/1.4 var(--font-body, sans-serif); white-space: nowrap; pointer-events: none; }
+.figure-label--child { background: #f4e2a7; }
