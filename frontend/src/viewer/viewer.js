@@ -41,6 +41,17 @@ function componentAt(hit, design) {
   return index >= 0 ? design.compartments[index].id : componentId;
 }
 
+// Preset camera views: direction from the wardrobe's centre (x right, y up, z towards the viewer).
+const VIEWS = Object.freeze({
+  front: { label: 'Front', dir: [0, 0.08, 1] },
+  side: { label: 'Side', dir: [1, 0.08, 0.02] },
+  threeQuarter: { label: '3/4', dir: [0.75, 0.25, 0.75] },
+  reset: { label: 'Reset', dir: [0.35, 0.12, 1] },
+});
+const VIEW_MS = 600;
+const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
+const prefersReducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+
 export function createViewer(container, store) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -64,14 +75,61 @@ export function createViewer(container, store) {
   let group = null;
   let rendered = { design: null, doorsVisible: null, selection: undefined, dimsKey: null };
 
-  const fitCamera = (design) => {
+  // Camera pose for a preset view; reads the design, never writes state.
+  const poseFor = (design, view) => {
     const { width, height, depth } = design.dimensions;
     const center = new THREE.Vector3(toM(width / 2), toM(height / 2), toM(-depth / 2));
     const distance = (toM(Math.max(width, height)) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)))) * 1.35;
-    camera.position.set(center.x + distance * 0.35, center.y + distance * 0.12, distance);
-    controls.target.copy(center);
+    const dir = new THREE.Vector3(...VIEWS[view].dir).normalize();
+    return { position: center.clone().addScaledVector(dir, distance), target: center };
+  };
+
+  let tween = null;
+  const fitCamera = (design) => {
+    tween = null;
+    const { position, target } = poseFor(design, 'reset');
+    camera.position.copy(position);
+    controls.target.copy(target);
     controls.update();
   };
+
+  const setView = (view) => {
+    const to = poseFor(store.getState().design, view);
+    if (prefersReducedMotion()) {
+      tween = null;
+      camera.position.copy(to.position);
+      controls.target.copy(to.target);
+      controls.update();
+      return;
+    }
+    tween = { from: { position: camera.position.clone(), target: controls.target.clone() }, to, start: performance.now() };
+  };
+
+  const stepTween = (now) => {
+    if (!tween) return;
+    const t = Math.min((now - tween.start) / VIEW_MS, 1);
+    const k = easeInOut(t);
+    camera.position.lerpVectors(tween.from.position, tween.to.position, k);
+    controls.target.lerpVectors(tween.from.target, tween.to.target, k);
+    if (t === 1) tween = null;
+  };
+  // Grabbing the view with the mouse cancels a running transition.
+  controls.addEventListener('start', () => { tween = null; });
+
+  const toolbar = document.createElement('div');
+  toolbar.className = 'viewer-views';
+  toolbar.setAttribute('role', 'group');
+  toolbar.setAttribute('aria-label', 'Camera view');
+  Object.entries(VIEWS).forEach(([view, { label }]) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'viewer-views__btn';
+    button.textContent = label;
+    button.dataset.testid = `view-${view}`;
+    button.addEventListener('click', () => setView(view));
+    toolbar.appendChild(button);
+  });
+  container.appendChild(toolbar);
 
   const sync = (state) => {
     const { design, ui, selection } = state;
@@ -117,7 +175,8 @@ export function createViewer(container, store) {
   const unsubscribe = store.subscribe(sync);
   sync(store.getState());
 
-  renderer.setAnimationLoop(() => {
+  renderer.setAnimationLoop((now) => {
+    stepTween(now);
     controls.update();
     renderer.render(scene, camera);
     labels.render(scene, camera);
@@ -127,6 +186,7 @@ export function createViewer(container, store) {
     camera,
     controls,
     canvas: renderer.domElement,
+    setView,
     meshOf: (componentId) => group?.children.find((mesh) => mesh.userData.componentId === componentId) ?? null,
     /** Client (page) coordinates of a component's centre, for tests and tooling. */
     screenPointOf(componentId) {
@@ -146,6 +206,7 @@ export function createViewer(container, store) {
       dimensions.dispose();
       materials.dispose();
       controls.dispose();
+      toolbar.remove();
       renderer.dispose();
     },
   };
