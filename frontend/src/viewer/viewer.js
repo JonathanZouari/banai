@@ -5,14 +5,16 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { buildWardrobe, disposeWardrobe } from './buildWardrobe.js';
+import { TRANSITION_MS, cameraPose, easeInOutCubic, interpolatePose } from './cameraViews.js';
 import { frameOf } from './builders/frame.js';
 import { createDimensions } from './dimensions.js';
 import { createHighlighter } from './highlight.js';
 import { createMaterials } from './materials.js';
 import { attachPicking } from './picking.js';
-import { toM } from './units.js';
 
 const BACKGROUND = '#eceeec';
+
+const prefersReducedMotion = () => Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
 
 function createScene() {
   const scene = new THREE.Scene();
@@ -64,13 +66,48 @@ export function createViewer(container, store) {
   let group = null;
   let rendered = { design: null, doorsVisible: null, selection: undefined, dimsKey: null };
 
+  // Camera presets move only the camera: the design and the store are never touched.
+  let flight = null; // { from, to, start } while easing to a preset view
+  const currentPose = () => ({ position: camera.position.toArray(), target: controls.target.toArray() });
+  const placeCamera = ({ position, target }) => {
+    camera.position.fromArray(position);
+    controls.target.fromArray(target);
+  };
+  const stepFlight = (now) => {
+    if (!flight) return;
+    const t = Math.min(1, Math.max(0, (now - flight.start) / TRANSITION_MS));
+    placeCamera(interpolatePose(flight.from, flight.to, easeInOutCubic(t)));
+    if (t === 1) flight = null;
+  };
+  // Grabbing the view hands control back to the user immediately.
+  controls.addEventListener('start', () => { flight = null; });
+
   const fitCamera = (design) => {
-    const { width, height, depth } = design.dimensions;
-    const center = new THREE.Vector3(toM(width / 2), toM(height / 2), toM(-depth / 2));
-    const distance = (toM(Math.max(width, height)) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)))) * 1.35;
-    camera.position.set(center.x + distance * 0.35, center.y + distance * 0.12, distance);
-    controls.target.copy(center);
+    flight = null;
+    placeCamera(cameraPose('reset', design.dimensions, camera.fov));
     controls.update();
+  };
+
+  // Drops the damping inertia left by a drag, which would otherwise keep turning the camera after a
+  // preset lands. An undamped update() clears it; restoring the pose cancels its one-off nudge.
+  const stopMomentum = () => {
+    const pose = currentPose();
+    controls.enableDamping = false;
+    controls.update();
+    controls.enableDamping = true;
+    placeCamera(pose);
+  };
+
+  const setView = (view) => {
+    stopMomentum();
+    const to = cameraPose(view, store.getState().design.dimensions, camera.fov);
+    if (prefersReducedMotion()) {
+      flight = null;
+      placeCamera(to);
+      controls.update();
+      return;
+    }
+    flight = { from: currentPose(), to, start: performance.now() };
   };
 
   const sync = (state) => {
@@ -117,7 +154,8 @@ export function createViewer(container, store) {
   const unsubscribe = store.subscribe(sync);
   sync(store.getState());
 
-  renderer.setAnimationLoop(() => {
+  renderer.setAnimationLoop((now) => {
+    stepFlight(now);
     controls.update();
     renderer.render(scene, camera);
     labels.render(scene, camera);
@@ -127,6 +165,8 @@ export function createViewer(container, store) {
     camera,
     controls,
     canvas: renderer.domElement,
+    /** Move the camera to a preset view: 'front', 'side', 'threeQuarter' or 'reset'. */
+    setView,
     meshOf: (componentId) => group?.children.find((mesh) => mesh.userData.componentId === componentId) ?? null,
     /** Client (page) coordinates of a component's centre, for tests and tooling. */
     screenPointOf(componentId) {
