@@ -24,7 +24,7 @@ export default defineConfig({
   }],
   webServer: [
     {
-      command: `uv run uvicorn app.main:app --port ${API_PORT}`,
+      command: `..\\backend\\.venv\\Scripts\\python.exe -m uvicorn app.main:app --port ${API_PORT}`,
       cwd: '../backend',
       url: `http://localhost:${API_PORT}/api/health`,
       // No keys: E2E never calls OpenAI or Supabase (it would read backend/.env otherwise). Agent tests
