@@ -261,3 +261,7 @@
 /* The pinned "design ready" note in the chat, with Generate Style Profile. */
 .chat__built-body { display: flex; flex-direction: column; gap: var(--space-2); }
 .chat__built .button-row { margin-top: 0; }
+
+.summary-list { display: grid; grid-template-columns: 1fr auto; gap: 4px var(--space-3); margin: 0; }
+.summary-list dt { color: var(--md-sys-color-on-surface-variant); }
+.summary-list dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { applyOps } from '../../../src/domain/apply.js';
 import { basicWardrobe } from '../../../src/domain/presets.js';
 import { DomainError } from '../../../src/domain/errors.js';
-import { compartmentXRanges, interiorHeight, interiorWidth, partitionLeftEdge } from '../../../src/domain/geometry.js';
+import { compartmentXRanges, designSummary, interiorHeight, interiorWidth, partitionLeftEdge } from '../../../src/domain/geometry.js';
 import { parseDesign } from '../../../src/domain/schema.js';
 import { validateDesign } from '../../../src/domain/validation.js';
 import { loadCatalog, loadDesign } from './helpers.js';
@@ -184,5 +184,25 @@ describe('security hardening (phase 2 gate)', () => {
     const started = performance.now();
     applyOps(null, ops, catalog);
     expect(performance.now() - started).toBeLessThan(2000);
+  });
+});
+
+describe('designSummary', () => {
+  it('counts the parts and derives volume and hanging length from the design', () => {
+    const design = loadDesign('basic');
+    expect(designSummary(design)).toEqual({
+      compartments: 3, shelves: 7, drawers: 2, rails: 1,
+      interiorLitres: 2735, // (643 + 643 + 642) × 2364 × 600 mm³
+      hangingLengthMm: 643,
+    });
+  });
+
+  it('is pure and follows every op', () => {
+    const design = loadDesign('basic');
+    const copy = structuredClone(design);
+    const next = applyOps(design, [{ op: 'add_rail', compartmentId: 'cmp_left', y: 1900 }], loadCatalog());
+    expect(designSummary(next)).toMatchObject({ rails: 2, hangingLengthMm: 643 * 2 });
+    designSummary(design);
+    expect(design).toEqual(copy);
   });
 });

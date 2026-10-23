@@ -21,3 +21,22 @@ export function compartmentXRanges(d) {
     return range;
   });
 }
+
+const countOf = (d, key) => sum(d.compartments.map((c) => (c[key] ?? []).length));
+
+/**
+ * Display summary of a design (pure). Interior volume is the space between the panels and
+ * partitions over the full depth; ASSUMPTION: no back-panel deduction (illustrative figure).
+ * Hanging length is the total length of all rails (each spans its compartment).
+ */
+export function designSummary(d) {
+  const clearWidth = sum(d.compartments.map((c) => c.width));
+  return {
+    compartments: d.compartments.length,
+    shelves: countOf(d, 'shelves'),
+    drawers: countOf(d, 'drawers'),
+    rails: countOf(d, 'rails'),
+    interiorLitres: Math.round((clearWidth * interiorHeight(d) * d.dimensions.depth) / 1e6),
+    hangingLengthMm: sum(d.compartments.map((c) => (c.rails ?? []).length * c.width)),
+  };
+}
