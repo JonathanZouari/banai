@@ -92,6 +92,24 @@ test.describe('AI designer (agent connected)', () => {
     await expect(page.locator('#chat-panel')).toHaveAttribute('dir', 'ltr');
   });
 
+  test('French: the switch localizes the chat, and a French message asks the agent for French', async ({ page }) => {
+    const calls = await mockAgent(page);
+    await openDesigner(page);
+    await page.getByTestId('chat-language-fr').click();
+    const panel = page.locator('#chat-panel');
+    await expect(panel).toHaveAttribute('dir', 'ltr');
+    await expect(page.getByTestId('chat-language-fr')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('chat-welcome')).toContainText("Que concevons-nous aujourd'hui ?");
+    await expect(page.locator('.chat__status--online')).toHaveText('En ligne');
+
+    await page.getByTestId('chat-language-en').click();
+    await page.getByTestId('chat-input').fill('Je voudrais une armoire moins profonde');
+    await page.getByTestId('chat-send').click();
+    await expect(page.getByTestId('chat-language-fr')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('proposal-confirm')).toContainText('Confirmer');
+    expect(calls.chat[0].language).toBe('fr');
+  });
+
   test('writing in the other language switches the chat to it, and the reply comes back in it', async ({ page }) => {
     const calls = await mockAgent(page);
     await openDesigner(page);

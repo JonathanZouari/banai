@@ -48,8 +48,25 @@ def test_hebrew_pdf_is_hebrew_and_keeps_numbers_left_to_right():
     assert "שלבי עבודה מוצעים" in text
 
 
+def test_french_pdf_is_french():
+    text = text_of(render_pdf(load_design("basic"), load_catalog(), "fr", date(2026, 10, 16)))
+    assert "18 + 643 + 18 + 643 + 18 + 642 + 18 = 2000" in text
+    assert "2000 × 2400 × 600" in text
+    assert "Liste des composants" in text
+    assert "Panneau mélaminé" in text
+    assert "Ordre de montage suggéré" in text
+    assert "Construction details" not in text  # no English left in the French document
+
+
+def test_french_pdf_through_the_api():
+    response = client.post("/api/export/pdf", json={"design": load_design("basic"), "language": "fr"})
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/pdf"
+    assert "Liste des composants" in text_of(response.content)
+
+
 def test_never_claims_the_design_is_manufacturable():
-    for language in ("he", "en"):
+    for language in ("he", "en", "fr"):
         text = text_of(render_pdf(load_design("basic"), load_catalog(), language, date(2026, 10, 16))).lower()
         assert "manufacturable" not in text and "ready for production" not in text
     assert "Construction details are decided by the carpenter" in text_of(
@@ -83,7 +100,7 @@ def test_invalid_design_is_rejected_with_the_domain_error():
 
 
 def test_unknown_keys_bad_language_and_bad_json_are_rejected():
-    for body in ({"design": load_design("basic"), "language": "fr"},
+    for body in ({"design": load_design("basic"), "language": "de"},
                  {"design": load_design("basic"), "revision": 1},
                  {"language": "en"}):
         response = client.post("/api/export/pdf", json=body)

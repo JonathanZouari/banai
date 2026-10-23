@@ -59,15 +59,24 @@ class ApplyRequest(BaseModel):
 
 # Customer-facing API messages per UI language (domain errors keep their engine-owned text).
 MESSAGES: dict[str, dict[str, str]] = {
-    "AGENT_UNAVAILABLE": {"he": "המעצב החכם עדיין לא מוגדר בשרת הזה.", "en": "The AI designer is not configured on this server."},
-    "INVALID_REQUEST": {"he": "ההודעה האחרונה חייבת להגיע מהלקוח.", "en": "The last message must come from the customer."},
-    "AGENT_ERROR": {"he": "המעצב החכם לא זמין כרגע. נסה שוב בעוד רגע.", "en": "The AI designer is unavailable right now. Please try again in a moment."},
-    "BAD_SIGNATURE": {"he": "לא ניתן לאמת את ההצעה. בקש מהמעצב שוב.", "en": "This proposal could not be verified. Ask the designer again."},
-    "NO_SPEECH": {"he": "לא שמעתי דיבור. נסה שוב.", "en": "I couldn't hear any speech. Please try again."},
-    "UNSUPPORTED_AUDIO": {"he": "פורמט השמע לא נתמך.", "en": "This audio format is not supported."},
-    "AUDIO_TOO_LARGE": {"he": "ההקלטה ארוכה מדי.", "en": "The recording is too long."},
-    "BAD_REPLY_SIGNATURE": {"he": "אפשר להקריא רק תשובות של המעצב.", "en": "Only the designer's own replies can be read aloud."},
-    "STALE": {"he": "העיצוב השתנה אחרי שההצעה נוצרה. בקש מהמעצב הצעה חדשה.", "en": "The design changed after this proposal was made. Ask the designer to re-propose."},
+    "AGENT_UNAVAILABLE": {"he": "המעצב החכם עדיין לא מוגדר בשרת הזה.", "en": "The AI designer is not configured on this server.",
+                          "fr": "Le designer IA n'est pas configuré sur ce serveur."},
+    "INVALID_REQUEST": {"he": "ההודעה האחרונה חייבת להגיע מהלקוח.", "en": "The last message must come from the customer.",
+                        "fr": "Le dernier message doit venir du client."},
+    "AGENT_ERROR": {"he": "המעצב החכם לא זמין כרגע. נסה שוב בעוד רגע.", "en": "The AI designer is unavailable right now. Please try again in a moment.",
+                    "fr": "Le designer IA n'est pas disponible pour le moment. Réessayez dans un instant."},
+    "BAD_SIGNATURE": {"he": "לא ניתן לאמת את ההצעה. בקש מהמעצב שוב.", "en": "This proposal could not be verified. Ask the designer again.",
+                      "fr": "Cette proposition n'a pas pu être vérifiée. Redemandez au designer."},
+    "NO_SPEECH": {"he": "לא שמעתי דיבור. נסה שוב.", "en": "I couldn't hear any speech. Please try again.",
+                  "fr": "Je n'ai entendu aucune parole. Veuillez réessayer."},
+    "UNSUPPORTED_AUDIO": {"he": "פורמט השמע לא נתמך.", "en": "This audio format is not supported.",
+                          "fr": "Ce format audio n'est pas pris en charge."},
+    "AUDIO_TOO_LARGE": {"he": "ההקלטה ארוכה מדי.", "en": "The recording is too long.",
+                        "fr": "L'enregistrement est trop long."},
+    "BAD_REPLY_SIGNATURE": {"he": "אפשר להקריא רק תשובות של המעצב.", "en": "Only the designer's own replies can be read aloud.",
+                            "fr": "Seules les réponses du designer peuvent être lues à voix haute."},
+    "STALE": {"he": "העיצוב השתנה אחרי שההצעה נוצרה. בקש מהמעצב הצעה חדשה.", "en": "The design changed after this proposal was made. Ask the designer to re-propose.",
+              "fr": "Le design a changé depuis cette proposition. Demandez une nouvelle proposition au designer."},
 }
 
 
