@@ -6,7 +6,8 @@ import '@fontsource/dm-sans/500.css';
 import '@fontsource/dm-sans/600.css';
 import '@fontsource/dm-sans/700.css';
 import {
-  applyProposal, createSavedDesign, getCatalog, getDefaultDesign, getHealth, getSavedDesign, sendChat, updateSavedDesign,
+  applyProposal, createMyDesign, createSavedDesign, getCatalog, getDefaultDesign, getHealth, getMyDesign, getSavedDesign,
+  listMyDesigns, refreshSession, sendChat, signIn, signOut, signUp, updateMyDesign, updateSavedDesign,
 } from './api/client.js';
 import { createStore } from './state/store.js';
 import { mountPanel } from './editor/panel.js';
@@ -17,7 +18,10 @@ import { createLanguage } from './chat/i18n.js';
 import { mountChat } from './chat/chatPanel.js';
 import { mountStartScreen } from './entry/startScreen.js';
 import { createSaveDialog } from './share/saveDialog.js';
-import { parseShareHash, shareHash } from './share/link.js';
+import { myHash, parseMyHash, parseShareHash, shareHash } from './share/link.js';
+import { createAccount } from './auth/account.js';
+import { createAuthDialog } from './auth/authDialog.js';
+import { createAccountDialog } from './auth/accountDialog.js';
 import { createExportDialog } from './export/exportDialog.js';
 import { createRenderDialog } from './render/renderDialog.js';
 import { createLogo } from './ui/logo.js';
@@ -45,10 +49,11 @@ function bindInteriorToggle(store) {
 }
 
 /**
- * The design to open: the saved one when the page was opened from its private link, else the basic
- * wardrobe. `session` ({ designId, token, revision }) is what the next save writes over.
+ * The design to open: the saved one when the page was opened from its private link (or, signed in,
+ * from /#my=<id>), else the basic wardrobe. `session` is what the next save writes over:
+ * { designId, token, revision } for a link, { designId, mine: true, revision } for an account design.
  */
-async function loadInitial(language) {
+async function loadInitial(language, account, restored) {
   const link = parseShareHash(window.location.hash);
   if (link) {
     try {
@@ -58,21 +63,38 @@ async function loadInitial(language) {
       showError('This link did not open a saved design, so the basic wardrobe is shown instead.');
     }
   }
+  const mine = parseMyHash(window.location.hash);
+  if (mine) {
+    try {
+      if (!(await restored)) throw new Error('Not signed in');
+      const saved = await account.withToken((accessToken) => getMyDesign({ accessToken, ...mine, language }));
+      return { initial: { design: saved.design, revision: 1 }, session: { ...mine, mine: true, revision: saved.revision } };
+    } catch {
+      showError('Sign in with the account that saved this design to open it. The basic wardrobe is shown instead.');
+    }
+  }
   return { initial: await getDefaultDesign(), session: null };
 }
 
-function createSaver(store, language, initialSession) {
+function createSaver(store, language, initialSession, account) {
   let session = initialSession;
   return async () => {
     const { design } = store.getState();
-    if (session) {
-      const { revision } = await updateSavedDesign({ ...session, design, language: language.get() });
+    const lang = language.get();
+    if (session?.mine) {
+      const { revision } = await account.withToken((accessToken) => updateMyDesign({ accessToken, ...session, design, language: lang }));
+      session = { ...session, revision };
+    } else if (session) {
+      const { revision } = await updateSavedDesign({ ...session, design, language: lang });
       session = { ...session, revision };
     } else {
-      const created = await createSavedDesign({ design, language: language.get() });
+      // Signed in: the new design also belongs to the account. Either way it gets a private link.
+      const created = account.user()
+        ? await account.withToken((accessToken) => createMyDesign({ accessToken, design, language: lang }))
+        : await createSavedDesign({ design, language: lang });
       session = { designId: created.designId, token: created.accessToken, revision: created.revision };
     }
-    window.history.replaceState(null, '', shareHash(session));
+    window.history.replaceState(null, '', session.mine ? myHash(session) : shareHash(session));
     return window.location.href;
   };
 }
@@ -84,10 +106,35 @@ function bindDialogs({ storage, onSave, link }) {
   document.getElementById('open-render').addEventListener('click', render.open);
 }
 
+/** Accounts PROTOTYPE: the top-bar button reads "Sign in", or the user's email once signed in. */
+function bindAccount(account, language) {
+  const trigger = document.getElementById('open-account');
+  const signIn = createAuthDialog({ account });
+  const mine = createAccountDialog({
+    account,
+    listDesigns: () => account.withToken((accessToken) => listMyDesigns({ accessToken, language: language.get() }))
+      .then((data) => data.designs),
+    onOpen: (designId) => {
+      window.location.hash = myHash({ designId });
+      window.location.reload();
+    },
+  });
+  const show = (user) => {
+    trigger.textContent = user ? user.email : 'Sign in';
+    trigger.title = user ? 'My designs and sign out' : 'Sign in or create an account';
+  };
+  account.subscribe(show);
+  show(account.user());
+  trigger.hidden = false;
+  trigger.addEventListener('click', () => (account.user() ? mine.open() : signIn.open()));
+}
+
 async function boot() {
   document.getElementById('topbar-logo').append(createLogo({ size: 34, tagline: 'Wardrobe Designer' }));
   installRipple();
   const language = createLanguage();
+  const account = createAccount({ api: { signUp, signIn, refreshSession, signOut }, getLanguage: language.get });
+  const restored = account.restore();
   let catalog;
   let initial;
   let session;
@@ -95,7 +142,7 @@ async function boot() {
   try {
     // A failed health check only means "agent and saving unknown": the editor still works without it.
     [catalog, { initial, session }, health] = await Promise.all([
-      getCatalog(), loadInitial(language.get()), getHealth().catch(() => null),
+      getCatalog(), loadInitial(language.get(), account, restored), getHealth().catch(() => null),
     ]);
   } catch {
     showError('Could not reach the design service. Please check your connection and reload.');
@@ -114,9 +161,10 @@ async function boot() {
   mountPanel(document.getElementById('properties-content'), store, { onExport: exporter.open });
   bindDialogs({
     storage: health?.data.storage === true,
-    onSave: createSaver(store, language, session),
+    onSave: createSaver(store, language, session, account),
     link: session ? window.location.href : '',
   });
+  if (health?.data.accounts === true) bindAccount(account, language);
 
   // The agent is optional: without an OpenAI key on the server the panel says so honestly.
   const agent = health?.data.agent === true

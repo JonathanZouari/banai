@@ -94,7 +94,7 @@ function pdfFilename(disposition) {
 }
 
 /**
- * The carpenter PDF: { design, language: 'he'|'en', image? } -> { blob, filename }. `image` is the
+ * The carpenter PDF: { design, language: 'he'|'en'|'es', image? } -> { blob, filename }. `image` is the
  * app's own 3D snapshot (a JPEG/PNG data URL); without it the PDF uses its drawn illustration.
  */
 export async function exportPdf({ design, language, image = null }, fetchImpl = fetch) {
@@ -138,4 +138,43 @@ export const getSavedDesign = ({ designId, token, language }, fetchImpl = fetch)
 /** Save over a saved design from `revision`: -> { designId, revision }. 409 STALE = someone saved in between. */
 export const updateSavedDesign = ({ designId, token, revision, design, language }, fetchImpl = fetch) => sendJson(
   'PUT', designPath(designId), { design, language }, fetchImpl, { ...bearer(token), 'If-Match': String(revision) },
+);
+
+// --- Accounts PROTOTYPE (branch feature/auth) ---------------------------------------------------
+// The session's access token goes to /api/auth/* and /api/me/* only. A saved design's link token still
+// goes to /api/designs/* as before.
+
+/** Create an account: { email, password, language } -> { user, accessToken, refreshToken, expiresIn } or { confirmationRequired }. */
+export const signUp = (payload, fetchImpl = fetch) => postJson('/api/auth/signup', payload, fetchImpl);
+
+/** Sign in: { email, password, language } -> { user, accessToken, refreshToken, expiresIn }. 401 = wrong details. */
+export const signIn = (payload, fetchImpl = fetch) => postJson('/api/auth/login', payload, fetchImpl);
+
+/** A new session from a refresh token (each refresh token works once): { refreshToken, language } -> session. */
+export const refreshSession = (payload, fetchImpl = fetch) => postJson('/api/auth/refresh', payload, fetchImpl);
+
+export const signOut = ({ accessToken, language }, fetchImpl = fetch) => sendJson(
+  'POST', `/api/auth/logout?language=${encodeURIComponent(language)}`, {}, fetchImpl, bearer(accessToken),
+);
+
+const myDesignPath = (designId) => `/api/me/designs/${encodeURIComponent(designId)}`;
+
+/** The signed-in user's designs, newest first: -> { designs: [{ designId, name, revision, updatedAt }] }. */
+export const listMyDesigns = ({ accessToken, language }, fetchImpl = fetch) => request(
+  `/api/me/designs?language=${encodeURIComponent(language)}`, fetchImpl, { headers: bearer(accessToken) },
+);
+
+/** Save a new design to the account; it also gets a private link: -> { designId, accessToken, revision }. */
+export const createMyDesign = ({ accessToken, design, language }, fetchImpl = fetch) => sendJson(
+  'POST', '/api/me/designs', { design, language }, fetchImpl, bearer(accessToken),
+);
+
+/** Reopen one of the user's designs: -> { designId, name, design, revision }. 404 = not theirs. */
+export const getMyDesign = ({ accessToken, designId, language }, fetchImpl = fetch) => request(
+  `${myDesignPath(designId)}?language=${encodeURIComponent(language)}`, fetchImpl, { headers: bearer(accessToken) },
+);
+
+/** Save over one of the user's designs from `revision`: -> { designId, revision }. 409 STALE. */
+export const updateMyDesign = ({ accessToken, designId, revision, design, language }, fetchImpl = fetch) => sendJson(
+  'PUT', myDesignPath(designId), { design, language }, fetchImpl, { ...bearer(accessToken), 'If-Match': String(revision) },
 );
