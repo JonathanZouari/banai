@@ -94,5 +94,25 @@
     "base": "two",
     "ops": [{ "op": "set_material", "target": "carcass" }],
     "expect": { "error": { "code": "INVALID_OP", "path": "ops[0]" } }
+  },
+  {
+    "name": "the new olive green colour and solid wood material apply to the carcass",
+    "base": "two",
+    "ops": [{ "op": "set_material", "target": "carcass", "material": { "catalogId": "solid_wood" }, "color": { "catalogId": "olive_green" } }],
+    "expect": { "match": { "carcass": { "appearance": {
+      "material": { "catalogId": "solid_wood" }, "color": { "catalogId": "olive_green" }, "finish": { "catalogId": "matte" }
+    } } } }
+  },
+  {
+    "name": "dusty blue doors and a sand shelf override",
+    "base": "two",
+    "ops": [
+      { "op": "set_material", "target": "doors", "color": { "catalogId": "dusty_blue" } },
+      { "op": "set_material", "target": "shf_1", "color": { "catalogId": "sand" } }
+    ],
+    "expect": { "match": {
+      "doors": { "appearance": { "color": { "catalogId": "dusty_blue" } } },
+      "compartments": [{ "shelves": [{ "appearance": { "color": { "catalogId": "sand" } } }] }, {}]
+    } }
   }
 ]

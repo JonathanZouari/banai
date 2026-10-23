@@ -3,7 +3,8 @@
   "materials": [
     { "id": "melamine", "name": "Melamine board" },
     { "id": "oak_veneer", "name": "Oak veneer" },
-    { "id": "lacquered_mdf", "name": "Lacquered MDF" }
+    { "id": "lacquered_mdf", "name": "Lacquered MDF" },
+    { "id": "solid_wood", "name": "Solid wood" }
   ],
   "colors": [
     { "id": "white", "name": "White", "hex": "#f2f1ed" },
@@ -11,7 +12,10 @@
     { "id": "anthracite", "name": "Anthracite", "hex": "#3b3d40" },
     { "id": "black", "name": "Black", "hex": "#1d1d1f" },
     { "id": "natural_oak", "name": "Natural oak", "hex": "#c49a6c" },
-    { "id": "walnut", "name": "Walnut", "hex": "#6b4a32" }
+    { "id": "walnut", "name": "Walnut", "hex": "#6b4a32" },
+    { "id": "olive_green", "name": "Olive green", "hex": "#6b7a47" },
+    { "id": "dusty_blue", "name": "Dusty blue", "hex": "#6f8aa3" },
+    { "id": "sand", "name": "Sand", "hex": "#d6c7a8" }
   ],
   "finishes": [
     { "id": "matte", "name": "Matte" },
