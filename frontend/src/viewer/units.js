@@ -18,6 +18,15 @@ export const VISUAL = Object.freeze({
   handleLength: 400,
   handleHeightFromFloor: 1050,
   handleInset: 40,
+  // Pull-down rail (wardrobe lift) mechanism, visual only.
+  liftInset: 12,
+  liftArmRise: 320,
+  liftPivotFromBack: 70,
+  liftArmRadius: 7,
+  liftPlateThickness: 6,
+  liftPlateHeight: 140,
+  liftPlateDepth: 90,
+  liftPullLength: 160,
   doorOpenAngle: 95, // degrees a hinged door swings out when "Doors open" is on
   doorOpenMs: 400, // duration of the open/close animation
 });

@@ -69,7 +69,10 @@ function freeGaps(design, compartment) {
   return gaps;
 }
 
-/** Ops that add a shelf, drawer or rail at a sensible free position (largest/lowest gap). */
+/**
+ * Ops that add a shelf, drawer, rail or pull-down rail ('pulldown') at a sensible free position
+ * (largest/lowest gap; rails go near the top of the largest gap).
+ */
 export function addItemOps(design, compartmentId, kind) {
   const compartment = design.compartments.find((c) => c.id === compartmentId);
   const gaps = freeGaps(design, compartment);
@@ -83,7 +86,7 @@ export function addItemOps(design, compartmentId, kind) {
     return [{ op: 'add_drawer', compartmentId, y: lowest[0], height: NEW_ITEM.drawerHeight }];
   }
   const y = Math.max(largest[0], largest[1] - NEW_ITEM.railBelowTop);
-  return [{ op: 'add_rail', compartmentId, y }];
+  return [{ op: 'add_rail', compartmentId, y, ...(kind === 'pulldown' ? { type: 'pulldown' } : {}) }];
 }
 
 const FRIENDLY = Object.freeze({

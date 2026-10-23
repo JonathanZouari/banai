@@ -101,7 +101,7 @@ hingeSide}] (hinged; omit for one door per compartment), count? (sliding, defaul
 - modify_partition: partitionId, position?, thickness?
 - add_shelf: compartmentId, y, thickness? | modify_shelf: id, y?, thickness?
 - add_drawer: compartmentId, y, height | modify_drawer: id, y?, height?
-- add_rail: compartmentId, y | modify_rail: id, y
+- add_rail: compartmentId, y, type? ("fixed" default | "pulldown" = a pull-down wardrobe lift, mounted high; use it when the customer asks for a pull-down / lift / נשלף rail) | modify_rail: id, y?, type?
 - set_material: target ("carcass" | "doors" | a door/shelf/drawer id), material?, color?, \
 finish? (each a ref), clear? - carcass covers the body, shelves and drawers.
 - remove_component: id (shelf, drawer, rail, compartment, partition or door).

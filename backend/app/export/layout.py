@@ -30,6 +30,7 @@ class Item:
     id: str
     y: int
     size: int  # shelf thickness, drawer height, 0 for a rail
+    pulldown: bool = False  # a rail on a pull-down lift
 
 
 @dataclass(frozen=True)
@@ -67,7 +68,8 @@ def compartment_items(design: dict, index: int) -> list[Item]:
         ordered = sorted(compartment[key], key=lambda entry: entry["y"])
         for number, entry in enumerate(ordered, start=1):
             size = entry[size_key] if size_key else 0
-            items.append(Item(f"{prefix}-{short}{number}", kind, entry["id"], entry["y"], size))
+            pulldown = kind == "rail" and entry.get("type") == "pulldown"
+            items.append(Item(f"{prefix}-{short}{number}", kind, entry["id"], entry["y"], size, pulldown))
     return sorted(items, key=lambda item: (item.y, item.kind != "drawer", item.code))
 
 
@@ -144,6 +146,7 @@ class Row:
     size: tuple[int, ...]  # mm, in the order the kind's label describes
     appearance: dict | None  # None = no appearance of its own (partition, rail)
     override: bool = False
+    pulldown: bool = False  # a rail on a pull-down lift
 
 
 def component_rows(design: dict) -> list[Row]:
@@ -171,5 +174,6 @@ def component_rows(design: dict) -> list[Row]:
             else:
                 size = (compartment["width"],)
             appearance = None if item.kind == "rail" else own or carcass
-            rows.append(Row(item.code, item.kind, letter(index), item.y, size, appearance, own is not None))
+            rows.append(Row(item.code, item.kind, letter(index), item.y, size, appearance, own is not None,
+                            item.pulldown))
     return rows

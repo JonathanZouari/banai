@@ -9,6 +9,8 @@ const TITLES = Object.freeze({
   shelf: 'Shelf', drawer: 'Drawer', rail: 'Hanging rail', compartment: 'Compartment', partition: 'Partition', door: 'Door', carcass: 'Wardrobe body',
 });
 
+const ADD_LABELS = Object.freeze({ shelf: 'Shelf', drawer: 'Drawer', rail: 'Rail', pulldown: 'Pull-down rail' });
+
 function findItem(design, kind, id) {
   const key = { shelf: 'shelves', drawer: 'drawers', rail: 'rails' }[kind];
   for (const compartment of design.compartments) {
@@ -47,14 +49,21 @@ function fieldsFor(kind, { design, catalog, selection, run, runAction, prints })
   }
   if (kind === 'rail') {
     const rail = findItem(design, kind, id);
-    return [cmField({ label: 'Height from base', mm: rail.y, testId: 'rail-y', onCommit: move('modify_rail', 'y') })];
+    return [
+      segmented({
+        label: 'Type', value: rail.type, testId: 'rail-type',
+        options: [{ value: 'fixed', label: 'Fixed' }, { value: 'pulldown', label: 'Pull-down' }],
+        onChange: (type) => runAction([{ op: 'modify_rail', id, type }]),
+      }),
+      cmField({ label: 'Height from base', mm: rail.y, testId: 'rail-y', onCommit: move('modify_rail', 'y') }),
+    ];
   }
   if (kind === 'compartment') {
     const compartment = design.compartments.find((c) => c.id === id);
     return [
       cmField({ label: 'Width', mm: compartment.width, testId: 'compartment-width', onCommit: (mm) => run([{ op: 'modify_compartment', compartmentId: id, width: mm }]) }),
-      el('div', { className: 'button-row' }, ['shelf', 'drawer', 'rail'].map((item) =>
-        button(`+ ${item === 'rail' ? 'Rail' : item[0].toUpperCase() + item.slice(1)}`, () => runAction(addItemOps(design, id, item)), { testId: `add-${item}` }))),
+      el('div', { className: 'button-row' }, ['shelf', 'drawer', 'rail', 'pulldown'].map((item) =>
+        button(`+ ${ADD_LABELS[item]}`, () => runAction(addItemOps(design, id, item)), { testId: `add-${item}` }))),
     ];
   }
   if (kind === 'partition') {
@@ -80,14 +89,16 @@ function fieldsFor(kind, { design, catalog, selection, run, runAction, prints })
 }
 
 export function componentSection({ design, catalog, selection, run, select, prints }) {
-  const container = section(`Selected · ${TITLES[selection.kind]}`, []);
+  const pulldown = selection.kind === 'rail' && findItem(design, 'rail', selection.id)?.type === 'pulldown';
+  const title = pulldown ? 'Pull-down rail' : TITLES[selection.kind];
+  const container = section(`Selected · ${title}`, []);
   container.dataset.testid = 'selected-section';
   // Inputs report their own errors inline; buttons/selects report under the section.
   const runAction = (ops) => actionResult(container, run(ops));
   container.append(...fieldsFor(selection.kind, { design, catalog, selection, run, runAction, prints }));
   const actions = [button('Deselect', () => select(null), { variant: 'ghost' })];
   if (selection.kind !== 'carcass') {
-    actions.unshift(button(`Delete ${TITLES[selection.kind].toLowerCase()}`, () => runAction(removeOps(selection.id)), { variant: 'danger', testId: 'delete-selected' }));
+    actions.unshift(button(`Delete ${title.toLowerCase()}`, () => runAction(removeOps(selection.id)), { variant: 'danger', testId: 'delete-selected' }));
   }
   container.append(el('div', { className: 'button-row' }, actions));
   return container;

@@ -14,7 +14,7 @@ export function describeSelection(design, selection) {
     const drawer = compartment.drawers.find((d) => d.id === id);
     if (drawer) return `Drawer · ${cm(drawer.y)} cm from base · ${cm(drawer.height)} cm high`;
     const rail = compartment.rails.find((r) => r.id === id);
-    if (rail) return `Hanging rail · ${cm(rail.y)} cm from base`;
+    if (rail) return `${rail.type === 'pulldown' ? 'Pull-down rail' : 'Hanging rail'} · ${cm(rail.y)} cm from base`;
   }
   const pi = design.partitions.findIndex((p) => p.id === id);
   if (pi >= 0) return `Partition ${pi + 1} · ${cm(design.partitions[pi].thickness)} cm thick`;

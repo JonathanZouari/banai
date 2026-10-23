@@ -5,7 +5,7 @@
 import { z } from 'zod';
 import { DomainError, SCHEMA_INVALID } from './errors.js';
 import * as ids from './ids.js';
-import { int, list, ref, schemaError, typedId } from './schema.js';
+import { int, list, RAIL_TYPES, ref, schemaError, typedId } from './schema.js';
 
 export const MAX_OPS = 100;
 
@@ -40,8 +40,8 @@ export const opSchema = z.discriminatedUnion('op', [
   op('modify_shelf', { id: typedId(ids.SHELF), y: opt(int()), thickness: opt(int()) }),
   op('add_drawer', { compartmentId: cmpId(), y: int(), height: int(), id: opt(typedId(ids.DRAWER)) }),
   op('modify_drawer', { id: typedId(ids.DRAWER), y: opt(int()), height: opt(int()) }),
-  op('add_rail', { compartmentId: cmpId(), y: int(), id: opt(typedId(ids.RAIL)) }),
-  op('modify_rail', { id: typedId(ids.RAIL), y: int() }),
+  op('add_rail', { compartmentId: cmpId(), y: int(), id: opt(typedId(ids.RAIL)), type: opt(z.enum(RAIL_TYPES)) }),
+  op('modify_rail', { id: typedId(ids.RAIL), y: opt(int()), type: opt(z.enum(RAIL_TYPES)) }),
   op('set_material', {
     target: z.string().regex(ids.TARGET_PATTERN),
     material: opt(ref), color: opt(ref), finish: opt(ref),
