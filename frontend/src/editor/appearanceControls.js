@@ -7,11 +7,13 @@ const isCatalog = (ref, id) => !ref.custom && ref.catalogId === id;
 
 function swatches({ catalog, appearance, run, target }) {
   const row = el('div', { className: 'swatches', attrs: { role: 'group', 'aria-label': 'Colour' } });
+  row.dataset.testid = `colour-${target}`;
   catalog.colors.forEach((color) => {
     const swatch = el('button', {
       className: 'swatch',
       attrs: { type: 'button', title: color.name, 'aria-label': color.name, 'aria-pressed': String(isCatalog(appearance.color, color.id)) },
     });
+    swatch.dataset.testid = `swatch-${target}-${color.id}`;
     swatch.style.backgroundColor = color.hex; // validated #rrggbb from the parsed catalog
     swatch.addEventListener('click', () => run(materialOps(target, 'color', { catalogId: color.id })));
     row.append(swatch);
@@ -25,9 +27,11 @@ function customColour({ appearance, run, target }) {
   name.value = current?.name ?? '';
   const picker = el('input', { className: 'colour-input', attrs: { type: 'color', 'aria-label': 'Custom colour' } });
   picker.value = current?.hex ?? '#9caf88';
+  name.dataset.testid = `custom-name-${target}`;
+  picker.dataset.testid = `custom-hex-${target}`;
   const applyButton = button('Apply custom colour', () => {
     run(materialOps(target, 'color', { custom: true, name: name.value.trim() || 'Custom colour', hex: picker.value }));
-  }, { variant: 'ghost' });
+  }, { variant: 'ghost', testId: `custom-apply-${target}` });
   const badge = current ? [el('p', { className: 'custom-badge', text: `Custom: ${current.name}` })] : [];
   return el('details', { className: 'custom-colour', attrs: current ? { open: '' } : {} }, [
     el('summary', { text: 'Custom colour…' }),
@@ -43,6 +47,7 @@ export function appearanceControls({ catalog, appearance, target, run, label }) 
     el('p', { className: 'appearance__label', text: label }),
     selectField({
       label: 'Material',
+      testId: `material-${target}`,
       value: material.custom ? '' : material.catalogId,
       options: [
         ...(material.custom ? [{ value: '', label: `Custom: ${material.name}` }] : []),
@@ -54,6 +59,7 @@ export function appearanceControls({ catalog, appearance, target, run, label }) 
     customColour({ appearance, run, target }),
     segmented({
       label: 'Finish',
+      testId: `finish-${target}`,
       value: appearance.finish.custom ? null : appearance.finish.catalogId,
       options: catalog.finishes.map((f) => ({ value: f.id, label: f.name })),
       onChange: (id) => run(materialOps(target, 'finish', { catalogId: id })),
