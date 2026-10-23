@@ -75,17 +75,20 @@ test.describe('design summary card', () => {
     await expect(page.getByTestId('summary-status')).toHaveText('Design summary: Interior volume 2,507 L.');
   });
 
-  test('a design reopened from a saved link shows its own totals', async ({ page, context }) => {
+  test('a design reopened from a saved link shows its own totals', async ({ page }) => {
     await openDesigner(page);
     expect(await page.evaluate(() => window.__banai.store.dispatch([{ op: 'update_dimensions', height: 2300 }]).ok)).toBe(true);
     await page.getByTestId('open-save').click();
     await page.getByTestId('save-confirm').click();
+    await expect(page.getByTestId('share-link')).toHaveValue(/#d=/);
     const link = await page.getByTestId('share-link').inputValue();
 
-    const reopened = await context.newPage();
-    await reopened.goto(link);
-    await reopened.waitForFunction(() => window.__banai?.viewer.meshOf('shf_l1'));
-    await expectValues(reopened, { ...BASIC, interiorVolumeMm3: '2,619 L' }); // 1928 × 2264 × 600 mm³
-    await expect(reopened.getByTestId('summary-status')).toHaveText('');
+    // Reopen in the same tab: a second page would render two WebGL scenes at once (slow in CI's software GL).
+    await page.goto('about:blank');
+    await page.goto(link);
+    await page.waitForFunction(() => window.__banai?.viewer.meshOf('shf_l1'));
+    await expect(page.getByTestId('start-screen')).toHaveCount(0);
+    await expectValues(page, { ...BASIC, interiorVolumeMm3: '2,619 L' }); // 1928 × 2264 × 600 mm³
+    await expect(page.getByTestId('summary-status')).toHaveText('');
   });
 });
