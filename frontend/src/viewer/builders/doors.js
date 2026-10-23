@@ -5,10 +5,12 @@
 //   between a top and a bottom rail, each with a vertical pull handle.
 // Handles and rails are visual hardware only: they are not selectable, and never part of the design.
 import * as THREE from 'three';
-import { VISUAL } from '../units.js';
+import { VISUAL, toM } from '../units.js';
 import { box } from './frame.js';
 
 const noRaycast = () => {};
+// ASSUMPTION: visual swing of an open hinged door (view only, not a hardware specification).
+const OPEN_ANGLE = THREE.MathUtils.degToRad(100);
 
 function hardware(args, part) {
   const mesh = box({ ...args, userData: { kind: 'hardware', part } });
@@ -51,9 +53,34 @@ function buildHinged(design, frame, materials, { t, gap, y, height, materialOf }
     });
     // The handle sits on the free edge, opposite the hinge.
     const freeEdgeX = door.hingeSide === 'right' ? x0 + gap + VISUAL.handleInset : x1 - gap - VISUAL.handleInset;
-    return [panel, outline(panel, materials), handle(freeEdgeX, t, y, height, materials)];
+    const parts = [panel, outline(panel, materials), handle(freeEdgeX, t, y, height, materials)];
+    // Every part swings with the panel about the hinge line (the panel's back edge on the hinge side).
+    const hinge = {
+      x: toM(door.hingeSide === 'right' ? x1 - gap : x0 + gap),
+      z: 0,
+      sign: door.hingeSide === 'right' ? 1 : -1,
+    };
+    parts.forEach((part) => { part.userData.hinge = { ...hinge, base: part.position.clone() }; });
+    return parts;
   });
 }
+
+/** Swing hinged doors open by `amount` (0 closed .. 1 open). View only: the design is untouched. */
+export function setDoorOpening(group, amount) {
+  const angle = hingeAngle(amount);
+  group.children.forEach((part) => {
+    const { hinge } = part.userData;
+    if (!hinge) return;
+    const a = hinge.sign * angle;
+    const dx = hinge.base.x - hinge.x;
+    const dz = hinge.base.z - hinge.z;
+    part.position.set(hinge.x + dx * Math.cos(a) + dz * Math.sin(a), hinge.base.y, hinge.z - dx * Math.sin(a) + dz * Math.cos(a));
+    part.rotation.y = a;
+  });
+  group.updateMatrixWorld(true); // picking in the same tick sees the swung doors
+}
+
+const hingeAngle = (amount) => OPEN_ANGLE * Math.min(Math.max(amount, 0), 1);
 
 function buildSliding(design, frame, materials, { t, gap, y, height, materialOf }) {
   const count = design.doors.items.length;

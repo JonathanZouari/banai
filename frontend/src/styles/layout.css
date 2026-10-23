@@ -65,6 +65,17 @@ body {
 .viewer { position: relative; min-width: 0; overflow: hidden; background: var(--md-sys-color-viewer); }
 .viewer canvas { display: block; }
 .viewer-labels { position: absolute; inset: 0; pointer-events: none; }
+.viewer-doors {
+  position: absolute; right: var(--space-3); bottom: var(--space-3); z-index: 1;
+  padding: 4px var(--space-3);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  font: inherit; font-size: 0.8125rem; cursor: pointer;
+}
+.viewer-doors[aria-pressed="true"] { background: var(--md-sys-color-secondary-container); }
+.viewer-doors:disabled { opacity: 0.5; cursor: default; }
+.viewer-doors:focus-visible { outline: 2px solid var(--md-sys-color-primary); outline-offset: 2px; }
 
 .dim-label {
   padding: 2px var(--space-2);
