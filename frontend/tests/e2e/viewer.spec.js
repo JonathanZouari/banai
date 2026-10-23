@@ -66,3 +66,20 @@ test.describe('Phase 3: 3D viewer', () => {
     expect(selected).toBe('shf_r1');
   });
 });
+
+test('measure mode shows the vertical gap between two shelves without selecting or editing', async ({ page }) => {
+  await openDesigner(page);
+  const before = await page.evaluate(() => JSON.stringify(window.__banai.store.getState().design));
+  await page.getByTestId('toggle-measure').click();
+  await expect(page.getByTestId('measure-readout')).toContainText('Pick the first');
+  await clickComponent(page, 'shf_l1');
+  await expect(page.getByTestId('measure-readout')).toHaveText('Now pick the second part.');
+  await clickComponent(page, 'shf_l2');
+  await expect(page.getByTestId('measure-readout')).toHaveText('Vertical gap: 38.2 cm');
+  await expect(page.locator('.dim-label--measure')).toHaveText('38.2 cm');
+  expect(await selection(page)).toBeNull();
+  expect(await page.evaluate(() => JSON.stringify(window.__banai.store.getState().design))).toBe(before);
+
+  await page.getByTestId('toggle-measure').click();
+  await expect(page.locator('.dim-label--measure')).toHaveCount(0);
+});
