@@ -9,9 +9,11 @@ from fastapi.testclient import TestClient
 
 from app.agent.language import FALLBACK_REPLY, OFF_TOPIC_REPLY, detect, reply_language
 from app.agent.orchestrator import MAX_REPAIRS, fill_ids
+from app.agent.prompts import build_system_prompt
 from app.agent.tools import ANSWER, CLARIFY, DECLINE, OFFER, PROPOSE
 from app.api.agent import get_llm_client
 from app.config import get_settings, get_signing_key
+from app.domain.catalog import load_catalog
 from app.domain.defaults import basic_wardrobe
 from app.main import create_app
 from app.services import signing
@@ -219,6 +221,13 @@ def test_health_reports_whether_the_agent_is_configured(monkeypatch):
 
 
 # ---- reply language: the agent answers in the language the message is written in ----
+
+def test_system_prompt_lists_the_new_catalog_colours():
+    prompt = build_system_prompt(basic_wardrobe(), load_catalog(), "he")
+    for catalog_id in ("olive_green", "navy_blue", "terracotta", "birch_plywood"):
+        assert catalog_id in prompt
+    assert "Olive green -> ירוק זית" in prompt
+
 
 def test_detect_and_reply_language():
     assert detect("תוסיף מדף") == "he"

@@ -9,6 +9,7 @@ from app.api import export
 from app.domain.apply import apply_ops
 from app.domain.catalog import load_catalog
 from app.export.pdf import render_pdf
+from app.export.strings import CATALOG_NAMES
 from app.main import app
 from tests.domain.conftest import load_design
 
@@ -71,6 +72,23 @@ def test_custom_hebrew_colour_name_is_shown():
                                                "color": {"custom": True, "name": "ירוק מרווה", "hex": "#9caf88"}}], catalog)
     text = text_of(render_pdf(design, catalog, "en", date(2026, 10, 16)))
     assert "ירוק מרווה" in text and "custom" in text
+
+
+def test_every_catalog_entry_has_a_hebrew_name():
+    catalog = load_catalog()
+    ids = {entry["id"] for section in ("materials", "colors", "finishes") for entry in catalog[section]}
+    assert ids - CATALOG_NAMES["he"].keys() == set()
+
+
+def test_new_catalog_colour_and_material_are_named_in_both_languages():
+    catalog = load_catalog()
+    design = apply_ops(load_design("basic"), [{"op": "set_material", "target": "carcass",
+                                               "material": {"catalogId": "birch_plywood"},
+                                               "color": {"catalogId": "olive_green"}}], catalog)
+    english = text_of(render_pdf(design, catalog, "en", date(2026, 10, 16)))
+    assert "Birch plywood" in english and "Olive green" in english
+    hebrew = text_of(render_pdf(design, catalog, "he", date(2026, 10, 16)))
+    assert "דיקט ליבנה" in hebrew and "ירוק זית" in hebrew
 
 
 def test_invalid_design_is_rejected_with_the_domain_error():
