@@ -3,7 +3,9 @@
 // and shows an inline message. No LLM is involved in manual editing.
 import { compartmentsSection } from './compartmentsSection.js';
 import { componentSection } from './componentSection.js';
+import { el } from './fields.js';
 import { partsSection } from './partsSection.js';
+import { summarySection } from './summarySection.js';
 import { wardrobeSection } from './wardrobeSection.js';
 
 export function mountPanel(root, store, { onExport } = {}) {
@@ -16,23 +18,30 @@ export function mountPanel(root, store, { onExport } = {}) {
   };
   const select = (id) => store.select(id);
   let rendered = { design: null, selection: undefined };
+  // The summary card stays mounted (its live region must persist); only the sections re-render.
+  const summary = summarySection(store);
+  const sections = el('div', { className: 'prop-sections' });
+  root.replaceChildren(summary.node, sections);
 
   const render = (state) => {
     if (state.design === rendered.design && state.selection === rendered.selection) return;
     rendered = { design: state.design, selection: state.selection };
     const context = { design: state.design, catalog: state.catalog, selection: state.selection, run, select, onExport };
     // Re-rendering replaces every control: put keyboard focus back on the same one (WCAG 2.4.3).
-    const focused = root.contains(document.activeElement) ? document.activeElement.dataset.testid : undefined;
-    root.replaceChildren(
+    const focused = sections.contains(document.activeElement) ? document.activeElement.dataset.testid : undefined;
+    sections.replaceChildren(
       ...(state.selection ? [componentSection(context)] : []),
       ...wardrobeSection(context),
       compartmentsSection(context),
       partsSection(context),
     );
-    if (focused) root.querySelector(`[data-testid="${CSS.escape(focused)}"]`)?.focus();
+    if (focused) sections.querySelector(`[data-testid="${CSS.escape(focused)}"]`)?.focus();
   };
 
   const unsubscribe = store.subscribe(render);
   render(store.getState());
-  return unsubscribe;
+  return () => {
+    unsubscribe();
+    summary.destroy();
+  };
 }

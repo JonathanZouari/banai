@@ -178,3 +178,18 @@ select.field__input {
 .skip-link { position: absolute; left: var(--space-3); top: -100px; z-index: 100; padding: var(--space-2) var(--space-3); border-radius: var(--md-sys-shape-medium); background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); }
 .skip-link:focus { top: var(--space-2); outline: var(--focus-outline); outline-offset: 2px; }
 #properties-panel:focus { outline: none; }
+
+/* Design summary card: read-only totals (src/editor/summarySection.js) */
+.summary-card {
+  margin-bottom: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-medium);
+  background: var(--md-sys-color-surface-container-low);
+}
+.summary-list { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2) var(--space-4); margin: 0; }
+.summary-list__row { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2); min-width: 0; }
+.summary-list__label { color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-small); }
+.summary-list__value { margin: 0; color: var(--md-sys-color-on-surface); font: var(--md-sys-typescale-label-large); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.summary-card__note { margin: var(--space-3) 0 0; color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-small); }
+.visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
