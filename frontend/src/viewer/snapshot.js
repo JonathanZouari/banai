@@ -5,54 +5,17 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { buildWardrobe, disposeWardrobe } from './buildWardrobe.js';
-import { createMaterials, FINISH_ROUGHNESS } from './materials.js';
+import { createMaterials, FINISH_ROUGHNESS, resolveColor } from './materials.js';
 import { toM } from './units.js';
+import { woodTexture } from './woodGrain.js';
 
 // About the shape of the picture box on the PDF's first page, so the wardrobe fills it.
 export const SNAPSHOT_SIZE = Object.freeze({ width: 1200, height: 1300 });
 const WALL = '#ebe7e0';
 const FLOOR = '#d8d1c6';
 // ASSUMPTION: which catalog entries read as wood in the picture (visual only).
-const WOOD_MATERIALS = new Set(['oak_veneer']);
+const WOOD_MATERIALS = new Set(['oak_veneer', 'solid_oak']);
 const WOOD_COLORS = new Set(['natural_oak', 'walnut']);
-
-/** Deterministic pseudo-random numbers, so the same design always gives the same picture. */
-function seeded(seed) {
-  let state = seed >>> 0;
-  return () => {
-    state = (state * 1664525 + 1013904223) >>> 0;
-    return state / 2 ** 32;
-  };
-}
-
-/** A procedural vertical grain on the base colour (canvas texture). */
-function woodTexture(hex) {
-  const canvas = document.createElement('canvas');
-  canvas.width = 256;
-  canvas.height = 1024;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = hex;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  const random = seeded(parseInt(hex.slice(1), 16));
-  for (let i = 0; i < 70; i += 1) {
-    const x = random() * canvas.width;
-    const dark = random() < 0.6;
-    ctx.strokeStyle = dark ? `rgba(60, 35, 15, ${0.08 + random() * 0.16})` : `rgba(255, 240, 215, ${0.04 + random() * 0.08})`;
-    ctx.lineWidth = 0.6 + random() * 2.2;
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    const sway = 3 + random() * 10;
-    const phase = random() * Math.PI * 2;
-    for (let y = 0; y <= canvas.height; y += 16) {
-      ctx.lineTo(x + Math.sin(y / 140 + phase) * sway, y);
-    }
-    ctx.stroke();
-  }
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 4;
-  return texture;
-}
 
 /** The viewer's materials, upgraded for the picture: physical shading, clearcoat on gloss, wood grain. */
 function snapshotMaterials(catalog) {
@@ -68,14 +31,14 @@ function snapshotMaterials(catalog) {
         const finish = appearance.finish.custom ? null : appearance.finish.catalogId;
         const wood = WOOD_MATERIALS.has(appearance.material.catalogId) || WOOD_COLORS.has(appearance.color.catalogId);
         const material = new THREE.MeshPhysicalMaterial({
-          color: wood ? '#ffffff' : plain.color.clone(),
+          color: wood ? '#ffffff' : resolveColor(appearance.color, catalog),
           roughness: FINISH_ROUGHNESS[finish] ?? plain.roughness,
           metalness: 0,
           clearcoat: finish === 'gloss' ? 0.6 : 0,
           clearcoatRoughness: 0.15,
         });
         if (wood) {
-          material.map = woodTexture(`#${plain.color.getHexString()}`);
+          material.map = woodTexture(resolveColor(appearance.color, catalog));
           textures.push(material.map);
         }
         cache.set(key, material);

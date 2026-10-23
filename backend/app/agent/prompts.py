@@ -8,6 +8,7 @@ import json
 from app.agent.language import INSTRUCTION, Language
 from app.domain.defaults import LIMITS
 from app.domain.geometry import compartment_x_ranges, interior_height, interior_width
+from app.export.strings import CATALOG_NAMES
 
 
 def _compact(value: object) -> str:
@@ -133,6 +134,7 @@ def build_system_prompt(design: dict, catalog: dict, language: Language = "he") 
     return (
         SYSTEM_PROMPT.replace("{limits}", limits)
         + "\n## Catalog (data)\n" + _compact(catalog)
+        + "\n## Hebrew catalog names (data; map the customer's words to these ids)\n" + _compact(CATALOG_NAMES["he"])
         + "\n\n## Current design (data, the state your ops apply to)\n" + _compact(design)
         + "\n\n## Derived facts (mm; a new shelf/drawer must fit entirely inside one freeY gap)\n" + _compact(facts)
         + "\n\n## RESPONSE LANGUAGE\n" + INSTRUCTION[language]
