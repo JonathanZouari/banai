@@ -22,7 +22,7 @@ export const FIGURE_PARTS = Object.freeze([
 /** Where person `index` stands (mm, the wardrobe's frame): in a row to the right, a little in front. */
 export const figureSpot = (design, index) => ({ x: design.dimensions.width + FIGURE_OFFSET.x + index * FIGURE_SPACING, z: FIGURE_OFFSET.z });
 
-const label = (person, index) => `${person.name || `Person ${index + 1}`} · ${(person.height / 10).toFixed(0)} cm`;
+const label = (person, index) => `${person.name || `אדם ${index + 1}`} · ${(person.height / 10).toFixed(0)} ס״מ`;
 
 export function createFigures(scene) {
   const group = new THREE.Group();
