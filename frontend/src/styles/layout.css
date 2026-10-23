@@ -65,6 +65,20 @@ body {
 .viewer { position: relative; min-width: 0; overflow: hidden; background: var(--md-sys-color-viewer); }
 .viewer canvas { display: block; }
 .viewer-labels { position: absolute; inset: 0; pointer-events: none; }
+/* Camera angle buttons, floating over the top corner of the 3D view. */
+.view-presets {
+  position: absolute;
+  top: var(--space-3);
+  inset-inline-start: var(--space-3);
+  z-index: 1;
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border-radius: var(--md-sys-shape-full);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 1px 4px rgba(35, 25, 23, 0.12);
+}
+.view-presets__btn { height: 32px; padding: 0 var(--space-3); border-color: transparent; }
 
 .dim-label {
   padding: 2px var(--space-2);
@@ -81,3 +95,10 @@ body {
   background: var(--md-sys-color-primary);
   color: var(--md-sys-color-on-primary);
 }
+
+/* Accessibility statement page (accessibility.html) */
+body.statement { height: auto; min-height: 100vh; display: block; }
+.statement main { max-width: 760px; margin: 0 auto; padding: var(--space-6, 32px) 16px; line-height: 1.7; }
+.statement h1 { margin-top: 0; }
+.statement a { color: var(--md-sys-color-primary); }
+.statement__updated { color: var(--md-sys-color-on-surface-variant); }

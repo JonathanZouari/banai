@@ -6,7 +6,7 @@ export const ENTRY_POINTS = Object.freeze([
     title: 'Guide me',
     description: 'Answer a few questions and the AI designer will propose a wardrobe for you to confirm.',
     action: 'Start guided flow',
-    composerHint: 'Tell me about the space: how wide and tall should the wardrobe be?',
+    focusesChat: true, // placeholder text per language: chat/i18n.js composerHints.guided
   }),
   Object.freeze({
     id: 'freeText',
@@ -14,7 +14,7 @@ export const ENTRY_POINTS = Object.freeze([
     title: 'Describe it',
     description: 'Type your wardrobe in your own words. The AI designer turns it into a proposal you approve.',
     action: 'Enter description',
-    composerHint: 'e.g. 240 cm wide, 260 cm tall, white, three compartments',
+    focusesChat: true, // composerHints.freeText
   }),
   Object.freeze({
     id: 'basic',
@@ -22,7 +22,7 @@ export const ENTRY_POINTS = Object.freeze([
     title: 'Start from a basic wardrobe',
     description: 'Begin with a standard 200 × 240 × 60 cm wardrobe, then edit it by hand or with the AI.',
     action: 'Open basic wardrobe',
-    composerHint: '',
+    focusesChat: false,
   }),
 ]);
 

@@ -2,11 +2,13 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="referrer" content="no-referrer" /><!-- the share link carries a token -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BanAI Wardrobe Designer</title>
     <link rel="stylesheet" href="/src/styles/index.css" />
   </head>
   <body>
+    <a class="skip-link" href="#properties-panel">Skip to properties</a>
     <header class="topbar">
       <h1 class="topbar__title" id="topbar-logo" aria-label="BanAI Wardrobe Designer"></h1>
       <div class="topbar__actions">
@@ -17,15 +19,24 @@
         <span class="topbar__units">cm</span>
         <button type="button" class="btn btn--tonal" id="open-render" data-testid="open-render">Render</button>
         <button type="button" class="btn btn--primary" id="open-save" data-testid="open-save">Save</button>
+        <a class="btn btn--ghost" href="/accessibility.html" lang="he" data-testid="a11y-link">נגישות</a>
       </div>
     </header>
     <div class="banner banner--error" id="error-banner" role="alert" hidden></div>
     <main class="workspace">
-      <aside class="panel" id="chat-panel" aria-label="AI designer"></aside>
-      <section class="viewer" id="viewer" aria-label="3D viewer"></section>
-      <aside class="panel panel--properties" id="properties-panel" aria-label="Properties">
+      <aside class="panel" id="chat-panel" lang="he" aria-label="מעצב AI"></aside>
+      <section class="viewer" id="viewer" aria-label="3D viewer">
+        <div class="view-presets" id="view-presets" role="group" aria-label="זווית מצלמה" lang="he" dir="rtl">
+          <button type="button" class="btn view-presets__btn" data-view="front">חזית</button>
+          <button type="button" class="btn view-presets__btn" data-view="side">צד ימין</button>
+          <button type="button" class="btn view-presets__btn" data-view="sideLeft">צד שמאל</button>
+          <button type="button" class="btn view-presets__btn" data-view="threeQuarter">3/4</button>
+          <button type="button" class="btn view-presets__btn" data-view="reset">איפוס</button>
+        </div>
+      </section>
+      <aside class="panel panel--properties" id="properties-panel" aria-label="Properties" tabindex="-1">
         <h2 class="panel__title">Properties</h2>
-        <p class="panel__hint">Click a component in the 3D view to edit it.</p>
+        <p class="panel__hint">Select a component in the 3D view, or under All parts below, to edit it.</p>
         <div id="properties-content"></div>
       </aside>
     </main>

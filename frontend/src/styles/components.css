@@ -79,7 +79,7 @@
 
 .chat__messages { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-1) 0; }
 .chat__bubble { max-width: 90%; padding: var(--space-3) var(--space-4); border-radius: 18px; font: var(--md-sys-typescale-body-medium); overflow-wrap: anywhere; white-space: pre-wrap; animation: pop-in 260ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
-.chat__bubble--user { align-self: flex-end; border-bottom-right-radius: 6px; background: linear-gradient(135deg, #c8602f 0%, #b4532a 100%); color: var(--md-sys-color-on-primary); box-shadow: 0 4px 12px rgba(180, 83, 42, 0.25); }
+.chat__bubble--user { align-self: flex-end; border-bottom-right-radius: 6px; background: linear-gradient(135deg, #b4532a 0%, #9c4520 100%); color: var(--md-sys-color-on-primary); box-shadow: 0 4px 12px rgba(180, 83, 42, 0.25); }
 .chat__bubble--assistant { align-self: flex-start; border-bottom-left-radius: 6px; background: var(--md-sys-color-surface-container-high); }
 .chat__bubble--system { display: flex; align-items: flex-start; gap: var(--space-2); align-self: stretch; max-width: 100%; border-radius: var(--md-sys-shape-medium); background: #fff6dc; color: #3d2f00; font: var(--md-sys-typescale-body-small); }
 .chat__bubble--system .icon { margin-top: 1px; color: #8a6a00; }
@@ -96,7 +96,7 @@
   background: var(--md-sys-color-surface-container-lowest);
   transition: border-color 160ms ease, box-shadow 160ms ease;
 }
-.chat__composer:focus-within { border-color: var(--md-sys-color-primary); box-shadow: 0 0 0 3px rgba(180, 83, 42, 0.16); }
+.chat__composer:focus-within { border-color: var(--md-sys-color-primary); box-shadow: 0 0 0 2px var(--md-sys-color-primary); }
 .chat__input { flex: 1; min-width: 0; padding: var(--space-2) 0; border: 0; outline: none; background: transparent; color: var(--md-sys-color-on-surface); font: var(--md-sys-typescale-body-medium); resize: none; }
 .chat__send { flex: none; transition: transform 160ms ease, background 160ms ease; }
 .chat__send:hover { transform: scale(1.08) rotate(-8deg); }
@@ -215,3 +215,49 @@
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-delay: 0ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* Agent connected: status chip and typing indicator. */
+.chat__status--online { display: inline-flex; align-items: center; gap: 6px; background: #dcefe0; color: #1f4d2b; }
+.chat__status--online::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: #2e8b4e; box-shadow: 0 0 0 0 rgba(46, 139, 78, 0.5); animation: online-pulse 2s ease-out infinite; }
+@keyframes online-pulse { 0% { box-shadow: 0 0 0 0 rgba(46, 139, 78, 0.5); } 80%, 100% { box-shadow: 0 0 0 6px rgba(46, 139, 78, 0); } }
+.chat__typing { display: inline-flex; align-items: center; gap: 4px; padding: var(--space-3) var(--space-4); }
+.chat__typing[hidden] { display: none; }
+.chat__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--md-sys-color-on-surface-variant); opacity: 0.35; animation: typing-dot 1.2s ease-in-out infinite; }
+.chat__dot:nth-child(2) { animation-delay: 150ms; }
+.chat__dot:nth-child(3) { animation-delay: 300ms; }
+@keyframes typing-dot { 0%, 60%, 100% { opacity: 0.35; transform: none; } 30% { opacity: 1; transform: translateY(-3px); } }
+.chat__send:disabled { opacity: 0.5; cursor: progress; transform: none; }
+.chat__bubble { unicode-bidi: plaintext; text-align: start; } /* Hebrew/RTL replies read correctly */
+@media (prefers-reduced-motion: reduce) {
+  .chat__dot, .chat__status--online::before { animation: none; }
+}
+.proposal__summary, .proposal__title, .proposal__detail { unicode-bidi: plaintext; text-align: start; }
+/* Chat language: the panel carries dir="rtl" (Hebrew) or dir="ltr" (English); text follows it. */
+.panel--chat .welcome, .panel--chat .suggestion span { text-align: start; }
+/* The customer's own messages stay on the right in both languages. */
+.panel--chat[dir="rtl"] .chat__bubble--user { align-self: flex-start; border-bottom-right-radius: 18px; border-bottom-left-radius: 6px; }
+.panel--chat[dir="rtl"] .chat__bubble--assistant { align-self: flex-end; border-bottom-left-radius: 18px; border-bottom-right-radius: 6px; }
+
+.lang-switch { display: inline-flex; flex: none; padding: 2px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-sys-shape-full); background: var(--md-sys-color-surface-container-lowest); }
+.lang-switch__option { min-width: 34px; padding: 3px var(--space-2); border: 0; border-radius: var(--md-sys-shape-full); background: transparent; color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-label-small); cursor: pointer; transition: background 160ms ease, color 160ms ease; }
+.lang-switch__option:hover { color: var(--md-sys-color-on-surface); }
+.lang-switch__option[aria-pressed="true"] { background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); }
+.lang-switch__option:focus-visible { outline: var(--focus-outline); outline-offset: 1px; }
+.chat__input { unicode-bidi: plaintext; }
+
+/* Composer footer: keyboard hint on one side, the chat language switch on the other. */
+.chat__footer-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.chat__footer-row .chat__hint { margin: 0; }
+
+/* Voice: mic in the composer, read-aloud toggle in the footer. */
+.chat__mic { flex: none; color: var(--md-sys-color-primary); }
+.chat__mic--recording { background: var(--md-sys-color-error); color: var(--md-sys-color-on-error); animation: mic-pulse 1.4s ease-out infinite; }
+.chat__footer-controls { display: flex; align-items: center; gap: var(--space-2); flex: none; }
+.chat__read-aloud { width: 32px; height: 32px; color: var(--md-sys-color-on-surface-variant); }
+.chat__read-aloud[aria-pressed="true"] { background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); }
+@keyframes mic-pulse { 0% { box-shadow: 0 0 0 0 rgba(186, 26, 26, 0.45); } 80%, 100% { box-shadow: 0 0 0 10px rgba(186, 26, 26, 0); } }
+@media (prefers-reduced-motion: reduce) { .chat__mic--recording { animation: none; } }
+
+/* The pinned "design ready" note in the chat, with Generate Style Profile. */
+.chat__built-body { display: flex; flex-direction: column; gap: var(--space-2); }
+.chat__built .button-row { margin-top: 0; }
