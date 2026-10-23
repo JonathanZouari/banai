@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { createStore } from '../../../src/state/store.js';
 import { basicWardrobe } from '../../../src/domain/presets.js';
 import { dimensionOps } from '../../../src/editor/opsFromForm.js';
-import { describeSelection } from '../../../src/viewer/format.js';
+import { cm, describeSelection } from '../../../src/viewer/format.js';
+import { cmField, lengthField } from '../../../src/editor/fields.js';
 import {
   DEFAULT_UNIT, UNITS, createUnitPreference, formatLength, formatWithUnit, parseLength,
 } from '../../../src/units/displayUnits.js';
@@ -152,5 +153,19 @@ describe('changing the display unit never touches the design state', () => {
     const ops = dimensionOps('width', parsed.mm);
     expect(ops).toEqual([{ op: 'update_dimensions', width: 2000 }]);
     expect(Number.isInteger(ops[0].width)).toBe(true);
+  });
+});
+
+describe('names that other code already imports keep working', () => {
+  it('cm() is the old centimetre formatter', () => {
+    expect(cm(643)).toBe('64.3');
+    expect(cm(2000)).toBe('200.0');
+    expect(cm(0)).toBe('0.0');
+    for (let mm = 0; mm <= 3000; mm += 11) expect(cm(mm)).toBe(formatLength(mm, 'cm'));
+  });
+
+  it('cmField and lengthField are exported (cmField delegates to lengthField with cm)', () => {
+    expect(typeof cmField).toBe('function');
+    expect(typeof lengthField).toBe('function');
   });
 });

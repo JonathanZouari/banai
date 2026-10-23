@@ -62,6 +62,9 @@ export function lengthField({ label, mm, testId, unit = 'cm', onCommit }) {
   });
 }
 
+/** Backwards-compatible alias: a centimetre field (use `lengthField` for other units). */
+export const cmField = (options) => lengthField({ ...options, unit: 'cm' });
+
 /** A whole-number field (counts). */
 export function countField({ label, value, testId, onCommit }) {
   return inputField({

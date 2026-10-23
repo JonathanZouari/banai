@@ -1,6 +1,9 @@
 // Display formatting. The domain is integer mm; the UI shows the chosen display unit (cm, mm or in).
 import { formatLength, formatWithUnit } from '../units/displayUnits.js';
 
+/** Backwards-compatible alias: millimetres as centimetres with 1 decimal, e.g. `'64.3'`. */
+export const cm = (mm) => formatLength(mm, 'cm');
+
 /** One-line description of a selected component, for labels and readouts. */
 export function describeSelection(design, selection, unit = 'cm') {
   const n = (mm) => formatLength(mm, unit);

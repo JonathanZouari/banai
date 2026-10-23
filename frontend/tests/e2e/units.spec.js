@@ -16,6 +16,42 @@ test.describe('display units (cm / mm / in)', () => {
     await expect(page.getByText('W 200.0 cm', { exact: true })).toBeVisible();
   });
 
+  test('the unit buttons are touch-sized and sit in one frame, not two', async ({ page }) => {
+    for (const size of [{ width: 1280, height: 800 }, { width: 900, height: 800 }]) {
+      await page.setViewportSize(size);
+      for (const unit of ['cm', 'mm', 'in']) {
+        const box = await page.getByTestId(`unit-${unit}`).boundingBox();
+        expect(box.height, `unit-${unit} height at ${size.width}px`).toBeGreaterThanOrEqual(44);
+        expect(box.width, `unit-${unit} width at ${size.width}px`).toBeGreaterThanOrEqual(44);
+      }
+    }
+    // The wrapper around the group carries no frame or padding of its own (that made a double border).
+    const wrapper = await page.locator('#unit-selector').evaluate((node) => {
+      const style = getComputedStyle(node);
+      return { border: style.borderTopWidth, padding: style.paddingTop };
+    });
+    expect(wrapper).toEqual({ border: '0px', padding: '0px' });
+    // The topbar still fits the 44px buttons without clipping them.
+    const bar = await page.locator('.topbar').boundingBox();
+    const button = await page.getByTestId('unit-cm').boundingBox();
+    expect(button.y).toBeGreaterThanOrEqual(bar.y);
+    expect(button.y + button.height).toBeLessThanOrEqual(bar.y + bar.height);
+  });
+
+  test('cmField and cm() still work for code that imports them', async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const fields = await import('/src/editor/fields.js');
+      const format = await import('/src/viewer/format.js');
+      const node = fields.cmField({ label: 'Width', mm: 2000, testId: 'legacy', onCommit: () => ({ ok: true }) });
+      return {
+        value: node.querySelector('input').value,
+        suffix: node.querySelector('.field__suffix').textContent,
+        cm: format.cm(643),
+      };
+    });
+    expect(result).toEqual({ value: '200.0', suffix: 'cm', cm: '64.3' });
+  });
+
   test('switching to mm and inches updates fields, suffixes and the 3D labels', async ({ page }) => {
     await page.getByTestId('unit-mm').click();
     await expect(page.getByTestId('unit-mm')).toHaveAttribute('aria-pressed', 'true');
