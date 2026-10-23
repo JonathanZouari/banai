@@ -38,6 +38,24 @@ function bindSkipLink() {
   });
 }
 
+// The display unit is a per-viewer convenience: remembered in this browser, never in the design.
+const UNIT_KEY = 'banai.units';
+function bindUnits(store) {
+  const select = document.getElementById('display-units');
+  try {
+    store.setUnit(localStorage.getItem(UNIT_KEY));
+  } catch { /* storage blocked: keep the default */ }
+  select.addEventListener('change', () => {
+    store.setUnit(select.value);
+    try {
+      localStorage.setItem(UNIT_KEY, select.value);
+    } catch { /* storage blocked: the choice lasts for this page only */ }
+  });
+  const show = (state) => { select.value = state.ui.unit; };
+  store.subscribe(show);
+  show(store.getState());
+}
+
 function bindInteriorToggle(store) {
   const toggle = document.getElementById('toggle-interior');
   toggle.addEventListener('change', () => store.setDoorsVisible(!toggle.checked));
@@ -105,6 +123,7 @@ async function boot() {
   const store = createStore({ design: initial.design, revision: initial.revision, catalog });
   const viewer = createViewer(document.getElementById('viewer'), store);
   bindInteriorToggle(store);
+  bindUnits(store);
   bindSkipLink();
   const exporter = createExportDialog({
     getDesign: () => store.getState().design,

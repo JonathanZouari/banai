@@ -7,6 +7,7 @@ import { parseCatalog } from '../domain/catalog.js';
 import { DomainError } from '../domain/errors.js';
 import { locate } from '../domain/lookup.js';
 import { deepFreeze } from '../domain/util.js';
+import { DEFAULT_UNIT, isDisplayUnit } from '../viewer/units.js';
 
 const KIND_BY_LOCATION = Object.freeze({
   compartment: 'compartment',
@@ -36,7 +37,7 @@ export function createStore({ design, revision = 1, catalog }) {
     throw new DomainError('SCHEMA_INVALID', 'revision', 'invalid revision');
   }
   let state = deepFreeze({
-    design: validDesign, revision, catalog: validCatalog, selection: null, ui: { doorsVisible: true },
+    design: validDesign, revision, catalog: validCatalog, selection: null, ui: { doorsVisible: true, unit: DEFAULT_UNIT },
   });
   const listeners = new Set();
 
@@ -88,6 +89,11 @@ export function createStore({ design, revision = 1, catalog }) {
 
     setDoorsVisible(doorsVisible) {
       commit({ ui: { ...state.ui, doorsVisible } });
+    },
+
+    /** Display unit (view preference only; the design stays in integer mm). Unknown units are ignored. */
+    setUnit(unit) {
+      if (isDisplayUnit(unit) && unit !== state.ui.unit) commit({ ui: { ...state.ui, unit } });
     },
   };
 }

@@ -16,7 +16,11 @@
           <input type="checkbox" id="toggle-interior" />
           <span>Show interior</span>
         </label>
-        <span class="topbar__units">cm</span>
+        <select class="topbar__units" id="display-units" data-testid="display-units" aria-label="Display units">
+          <option value="cm">cm</option>
+          <option value="mm">mm</option>
+          <option value="in">in</option>
+        </select>
         <button type="button" class="btn btn--tonal" id="open-render" data-testid="open-render">Render</button>
         <button type="button" class="btn btn--primary" id="open-save" data-testid="open-save">Save</button>
         <a class="btn btn--ghost" href="/accessibility.html" lang="he" data-testid="a11y-link">נגישות</a>

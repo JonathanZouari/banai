@@ -62,7 +62,7 @@ export function createViewer(container, store) {
   const highlighter = createHighlighter(scene);
   const dimensions = createDimensions(scene);
   let group = null;
-  let rendered = { design: null, doorsVisible: null, selection: undefined, dimsKey: null };
+  let rendered = { design: null, doorsVisible: null, selection: undefined, dimsKey: null, unit: null };
 
   const fitCamera = (design) => {
     const { width, height, depth } = design.dimensions;
@@ -89,10 +89,10 @@ export function createViewer(container, store) {
       if (dimsKey !== rendered.dimsKey) fitCamera(design);
       rendered = { ...rendered, design, doorsVisible: ui.doorsVisible, dimsKey };
     }
-    if (geometryChanged || selection !== rendered.selection) {
+    if (geometryChanged || selection !== rendered.selection || ui.unit !== rendered.unit) {
       highlighter.update(group, design, selection);
-      dimensions.update(group, design, selection);
-      rendered = { ...rendered, selection };
+      dimensions.update(group, design, selection, ui.unit);
+      rendered = { ...rendered, selection, unit: ui.unit };
     }
   };
 
