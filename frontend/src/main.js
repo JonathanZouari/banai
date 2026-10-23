@@ -29,6 +29,13 @@ function showError(message) {
   banner.hidden = false;
 }
 
+// Camera angle buttons: they move the 3D camera only and never change the design.
+function bindViewPresets(viewer) {
+  document.querySelectorAll('#view-presets [data-view]').forEach((button) => {
+    button.addEventListener('click', () => viewer.setView(button.dataset.view));
+  });
+}
+
 // The skip link moves focus without touching the hash: the hash may hold the private design link.
 function bindSkipLink() {
   const link = document.querySelector('.skip-link');
@@ -105,6 +112,7 @@ async function boot() {
   const store = createStore({ design: initial.design, revision: initial.revision, catalog });
   const viewer = createViewer(document.getElementById('viewer'), store);
   bindInteriorToggle(store);
+  bindViewPresets(viewer);
   bindSkipLink();
   const exporter = createExportDialog({
     getDesign: () => store.getState().design,
