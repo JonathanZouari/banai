@@ -9,6 +9,7 @@ import {
   applyProposal, createSavedDesign, getCatalog, getDefaultDesign, getHealth, getSavedDesign, sendChat, updateSavedDesign,
 } from './api/client.js';
 import { createStore } from './state/store.js';
+import { loadHousehold, saveHousehold } from './household/household.js';
 import { mountPanel } from './editor/panel.js';
 import { createViewer } from './viewer/viewer.js';
 import { renderSnapshot } from './viewer/snapshot.js';
@@ -35,6 +36,16 @@ function bindSkipLink() {
   link.addEventListener('click', (event) => {
     event.preventDefault();
     document.querySelector(link.getAttribute('href')).focus();
+  });
+}
+
+// The household stays in this browser: saved on every change, never sent anywhere.
+function bindHouseholdStorage(store) {
+  let saved = store.getState().household;
+  store.subscribe(({ household }) => {
+    if (household === saved) return;
+    saved = household;
+    saveHousehold(household);
   });
 }
 
@@ -102,7 +113,8 @@ async function boot() {
     return;
   }
   // Validates the server data before anything is rendered (throws on invalid data).
-  const store = createStore({ design: initial.design, revision: initial.revision, catalog });
+  const store = createStore({ design: initial.design, revision: initial.revision, catalog, household: loadHousehold() });
+  bindHouseholdStorage(store);
   const viewer = createViewer(document.getElementById('viewer'), store);
   bindInteriorToggle(store);
   bindSkipLink();
