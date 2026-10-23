@@ -14,6 +14,18 @@ describe('store', () => {
     expect(Object.isFrozen(state.design.compartments[0])).toBe(true);
   });
 
+  it('keeps the summary view in UI state, never in the design or revision', () => {
+    const store = makeStore();
+    expect(store.getState().ui.summaryView).toBe('interior');
+    const { design, revision } = store.getState();
+    store.setSummaryView('exterior');
+    expect(store.getState().ui.summaryView).toBe('exterior');
+    expect(store.getState().design).toBe(design);
+    expect(store.getState().revision).toBe(revision);
+    store.setSummaryView('sideways');
+    expect(store.getState().ui.summaryView).toBe('exterior');
+  });
+
   it('applies ops, bumps the revision and notifies subscribers', () => {
     const store = makeStore();
     const listener = vi.fn();
