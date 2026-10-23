@@ -20,6 +20,7 @@ from app.domain.schema import (
     Int,
     PartitionId,
     RailId,
+    RailType,
     Ref,
     ShelfId,
     StrictModel,
@@ -129,12 +130,14 @@ class AddRail(StrictModel):
     compartment_id: CompartmentId
     y: Int
     id: RailId | None = None
+    type: RailType | None = None
 
 
 class ModifyRail(StrictModel):
     op: Literal["modify_rail"]
     id: RailId
-    y: Int
+    y: Int | None = None
+    type: RailType | None = None
 
 
 class SetMaterial(StrictModel):

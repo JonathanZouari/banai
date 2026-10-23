@@ -8,7 +8,9 @@ function parts(design) {
   const doors = design.doors.items.map((door, i) => ({ id: door.id, label: `Door ${i + 1}` }));
   const partitions = design.partitions.map((partition, i) => ({ id: partition.id, label: `Partition ${i + 1}` }));
   const items = design.compartments.flatMap((compartment, c) => ITEM_GROUPS.flatMap(([key, name]) =>
-    (compartment[key] ?? []).map((item, i) => ({ id: item.id, label: `Compartment ${c + 1} · ${name} ${i + 1}` }))));
+    (compartment[key] ?? []).map((item, i) => ({
+      id: item.id, label: `Compartment ${c + 1} · ${item.type === 'pulldown' ? 'Pull-down rail' : name} ${i + 1}`,
+    }))));
   return [{ id: 'carcass', label: 'Wardrobe body' }, ...doors, ...partitions, ...items];
 }
 

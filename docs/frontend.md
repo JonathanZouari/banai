@@ -67,3 +67,24 @@ In dev builds `window.__banai.chat` exposes the chat model, so a proposal can be
 - **Unit:** `npm test` (vitest). This covers the domain engine and parity fixtures, the store, the API client, and the builders.
 - **E2E:** `npm run test:e2e` (Playwright, Chromium with SwiftShader WebGL). It starts uvicorn on :8010 and Vite on :5183. `window.__banai` exists only in dev builds (`import.meta.env.DEV`) and is stripped from production bundles.
 - **Visual walkthrough:** Claude in Chrome on `localhost:5173`, with a GIF per phase.
+
+## Printed image on door fronts (browser-only preview, proposed 2026-10-23)
+
+**Scope note:** spec §22 and `CLAUDE.md` exclude image uploads, so the team has to approve this feature in its pull request. To stay as close to the rule as possible, the image **never leaves the browser**.
+
+- **Where to find it:** select a door or a sliding panel, then go to **Printed image** in its properties. You can either:
+  - **upload** a PNG, JPEG or WebP image, up to 10 MB, or
+  - choose one of three **samples**. These are drawn in code (`viewer/prints.js`), so they need no external assets.
+- **Fit:** the image covers the panel's front face. It keeps its proportions and is cropped to fill the panel (`coverTransform`). The other faces keep the door finish. "Apply to all doors" puts the same image on every door.
+- **State:** `store.ui.prints[doorId] = { printId, name, width, height }`.
+  - This is view state only. It never goes into the design, never changes the revision, and isn't saved.
+  - Prints for doors that no longer exist are dropped.
+  - The pixels are stored in `createPrintRegistry()`, outside the deep-frozen store. Images that nothing uses any more are freed.
+- **Safety:**
+  - The file type is checked against an allow-list. SVG is refused.
+  - Size is capped at 10 MB.
+  - The image is decoded with `createImageBitmap` and downscaled to at most 2048 px.
+  - Error messages are fixed texts, and file names are rendered with `textContent`.
+  - Nothing is sent to the server.
+  - The carpenter PDF snapshot (`viewer/snapshot.js`) builds the wardrobe without prints.
+- **Phase 8 note.** The live renderer uses `preserveDrawingBuffer`. The AI photoreal render must not capture the live canvas, which may show an uploaded print. It should build its own scene without prints, as `snapshot.js` does, or else clearly tell the user that the print will be included.

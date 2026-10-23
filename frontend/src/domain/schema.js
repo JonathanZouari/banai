@@ -51,7 +51,9 @@ const override = appearance.nullable().default(null);
 
 const shelf = z.strictObject({ id: typedId(ids.SHELF), y: int(), thickness: int(), appearance: override });
 const drawer = z.strictObject({ id: typedId(ids.DRAWER), y: int(), height: int(), appearance: override });
-const rail = z.strictObject({ id: typedId(ids.RAIL), y: int() });
+// type 'pulldown' = a wardrobe lift (the rail swings down and out). Mirrors schema.py.
+export const RAIL_TYPES = Object.freeze(['fixed', 'pulldown']);
+const rail = z.strictObject({ id: typedId(ids.RAIL), y: int(), type: z.enum(RAIL_TYPES).default('fixed') });
 
 const compartment = z.strictObject({
   id: typedId(ids.COMPARTMENT),

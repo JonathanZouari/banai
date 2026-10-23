@@ -139,9 +139,13 @@ class Drawer(StrictModel):
     appearance: Appearance | None = None
 
 
+RailType = Literal["fixed", "pulldown"]  # pulldown = a wardrobe lift (rail swings down and out)
+
+
 class Rail(StrictModel):
     id: RailId
     y: Int
+    type: RailType = "fixed"
 
 
 class Compartment(StrictModel):

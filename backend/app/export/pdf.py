@@ -223,6 +223,10 @@ class Document:
                     pen.stroke(rail, 0.6)
                     self.c.setFillColor(rail)
                     self.c.circle(x, y, 1.4, stroke=0, fill=1)
+                if item.pulldown:  # a small down chevron marks a pull-down lift
+                    mid = (v.x(T + x0) + v.x(T + x1)) / 2
+                    pen.line(mid - 3, y - 2.5, mid, y - 5.5, rail, 0.8)
+                    pen.line(mid, y - 5.5, mid + 3, y - 2.5, rail, 0.8)
                 if codes:
                     pen.text(v.x(T + x0) + 4, y - 7, item.code, 5.5, fill=MUTED, align="left")
 
@@ -591,7 +595,8 @@ class Document:
                 elif item.kind == "drawer":
                     parts.append(f("itemDrawer", code=item.code, y0=item.y, y1=item.y + item.size, h=item.size))
                 else:
-                    parts.append(f("itemRail", code=item.code, y=item.y, w=compartment["width"]))
+                    key = "itemRailPulldown" if item.pulldown else "itemRail"
+                    parts.append(f(key, code=item.code, y=item.y, w=compartment["width"]))
             head = f("stepCompartment", l=letters[index], w=compartment["width"])
             blocks.append(("bullet", f"{head} {'; '.join(parts) if parts else s['noItems']}."))
         doors = d["doors"]
@@ -687,6 +692,8 @@ class Document:
             else:
                 text = s["sizeRail"].format(w=size[0])
             kind = s["slidingDoor"] if row.kind == "door" and self.d["doors"]["type"] == "sliding" else s[row.kind]
+            if row.pulldown:
+                kind = s["railPulldown"]
             if row.kind == "door" and self.d["doors"]["type"] == "hinged":
                 hinge = next(p.hinge for p in layout.door_panels(self.d) if p.code == row.code)
                 kind = f"{s['door']} · {s['hingeLeft' if hinge == 'left' else 'hingeRight']}"

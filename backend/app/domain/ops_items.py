@@ -51,12 +51,19 @@ def modify_drawer(draft: dict, op: op_types.ModifyDrawer, path: str) -> dict:
 
 def add_rail(draft: dict, op: op_types.AddRail, path: str) -> dict:
     index = compartment_index(draft, op.compartment_id, f"{path}.compartmentId")
-    draft["compartments"][index]["rails"].append({"id": op.id or ids.new_id(ids.RAIL), "y": op.y})
+    draft["compartments"][index]["rails"].append(
+        {"id": op.id or ids.new_id(ids.RAIL), "y": op.y, "type": op.type or "fixed"}
+    )
     return draft
 
 
 def modify_rail(draft: dict, op: op_types.ModifyRail, path: str) -> dict:
-    find_item(draft, "rails", op.id, f"{path}.id")["y"] = op.y
+    _require_any(path, op.y, op.type)
+    rail = find_item(draft, "rails", op.id, f"{path}.id")
+    if op.y is not None:
+        rail["y"] = op.y
+    if op.type is not None:
+        rail["type"] = op.type
     return draft
 
 

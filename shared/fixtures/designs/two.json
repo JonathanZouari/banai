@@ -23,7 +23,7 @@
       "width": 470,
       "shelves": [],
       "drawers": [],
-      "rails": [{ "id": "rail_1", "y": 1700 }]
+      "rails": [{ "id": "rail_1", "y": 1700, "type": "fixed" }]
     }
   ],
   "partitions": [{ "id": "prt_ab", "thickness": 20 }],
