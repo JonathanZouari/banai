@@ -9,13 +9,14 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Annotated, Literal
+from typing import Annotated
 
 from fastapi import APIRouter, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from app.agent.language import LANGUAGES, Language
 from app.api.agent import error
 from app.api.export import read_capped
 from app.auth.provider import AuthError, AuthProvider, AuthUnavailable, Session, User, get_auth
@@ -41,19 +42,19 @@ REFRESH_PER_CLIENT = RateLimiter(120, 15 * 60)
 LIMITERS = (LOGIN_PER_EMAIL, LOGIN_PER_CLIENT, SIGNUP_PER_CLIENT, REFRESH_PER_CLIENT)
 
 MESSAGES = {
-    "INVALID_REQUEST": {"he": "הבקשה אינה תקינה.", "en": "The request is not valid."},
-    "INVALID_EMAIL": {"he": "כתובת האימייל אינה תקינה.", "en": "Enter a valid email address."},
+    "INVALID_REQUEST": {"he": "הבקשה אינה תקינה.", "en": "The request is not valid.", "es": "La solicitud no es válida."},
+    "INVALID_EMAIL": {"he": "כתובת האימייל אינה תקינה.", "en": "Enter a valid email address.", "es": "Introduce un correo electrónico válido."},
     "WEAK_PASSWORD": {"he": f"הסיסמה צריכה להכיל {MIN_PASSWORD} עד {MAX_PASSWORD} תווים.",
-                      "en": f"The password needs {MIN_PASSWORD} to {MAX_PASSWORD} characters."},
-    "INVALID_CREDENTIALS": {"he": "האימייל או הסיסמה שגויים.", "en": "The email or password is incorrect."},
+                      "en": f"The password needs {MIN_PASSWORD} to {MAX_PASSWORD} characters.", "es": f"La contraseña debe tener entre {MIN_PASSWORD} y {MAX_PASSWORD} caracteres."},
+    "INVALID_CREDENTIALS": {"he": "האימייל או הסיסמה שגויים.", "en": "The email or password is incorrect.", "es": "El correo o la contraseña no son correctos."},
     "SIGNUP_FAILED": {"he": "לא ניתן ליצור חשבון עם הפרטים האלה.",
-                      "en": "An account could not be created with these details."},
-    "UNAUTHORIZED": {"he": "צריך להתחבר מחדש.", "en": "Please sign in again."},
+                      "en": "An account could not be created with these details.", "es": "No se pudo crear una cuenta con estos datos."},
+    "UNAUTHORIZED": {"he": "צריך להתחבר מחדש.", "en": "Please sign in again.", "es": "Vuelve a iniciar sesión."},
     "RATE_LIMITED": {"he": "יותר מדי ניסיונות. נסה שוב בעוד כמה דקות.",
-                     "en": "Too many attempts. Please try again in a few minutes."},
+                     "en": "Too many attempts. Please try again in a few minutes.", "es": "Demasiados intentos. Inténtalo de nuevo en unos minutos."},
     "ACCOUNTS_UNAVAILABLE": {"he": "חשבונות משתמש לא זמינים בשרת הזה.",
-                             "en": "Accounts are not available on this server."},
-    "AUTH_ERROR": {"he": "ההתחברות נכשלה. נסה שוב בעוד רגע.", "en": "Signing in failed. Please try again in a moment."},
+                             "en": "Accounts are not available on this server.", "es": "Las cuentas no están disponibles en este servidor."},
+    "AUTH_ERROR": {"he": "ההתחברות נכשלה. נסה שוב בעוד רגע.", "en": "Signing in failed. Please try again in a moment.", "es": "No se pudo iniciar sesión. Inténtalo de nuevo en un momento."},
 }
 
 
@@ -65,13 +66,13 @@ class Credentials(BaseModel):
     model_config = ConfigDict(extra="forbid")
     email: Annotated[str, Field(max_length=254)]
     password: str
-    language: Literal["he", "en"] = "he"
+    language: Language = "he"
 
 
 class RefreshRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     refreshToken: Annotated[str, Field(pattern=TOKEN_PATTERN.pattern)]
-    language: Literal["he", "en"] = "he"
+    language: Language = "he"
 
 
 def client_key(request: Request) -> str:
@@ -84,7 +85,7 @@ def bearer_token(request: Request) -> str | None:
 
 
 def _language_of(raw: object) -> str:
-    return raw["language"] if isinstance(raw, dict) and raw.get("language") in ("he", "en") else "he"
+    return raw["language"] if isinstance(raw, dict) and raw.get("language") in LANGUAGES else "he"
 
 
 async def _parse(request: Request, model: type[BaseModel]) -> tuple[BaseModel | None, str]:
@@ -205,7 +206,7 @@ async def refresh(request: Request):
 
 
 @router.post("/auth/logout")
-async def sign_out(request: Request, language: Literal["he", "en"] = "he"):
+async def sign_out(request: Request, language: Language = "he"):
     signed_in = await current_user(request, language)
     if isinstance(signed_in, JSONResponse):
         return signed_in
@@ -221,7 +222,7 @@ async def sign_out(request: Request, language: Literal["he", "en"] = "he"):
 
 
 @router.get("/auth/me")
-async def me(request: Request, language: Literal["he", "en"] = "he"):
+async def me(request: Request, language: Language = "he"):
     signed_in = await current_user(request, language)
     if isinstance(signed_in, JSONResponse):
         return signed_in

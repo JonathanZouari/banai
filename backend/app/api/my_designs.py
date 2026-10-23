@@ -8,12 +8,12 @@ from __future__ import annotations
 
 import logging
 import secrets
-from typing import Literal
 
 from fastapi import APIRouter, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 
+from app.agent.language import Language
 from app.api.auth import current_user
 from app.api.designs import NO_STORE, REVISION_PATTERN, _design_id, _fail, _hash, _parse_save
 from app.api.agent import error
@@ -29,7 +29,7 @@ MAX_LISTED = 100  # ASSUMPTION: a configurable default; the list shows the most 
 
 
 @router.get("/me/designs")
-async def list_my_designs(request: Request, language: Literal["he", "en"] = "he"):
+async def list_my_designs(request: Request, language: Language = "he"):
     signed_in = await current_user(request, language)
     if isinstance(signed_in, JSONResponse):
         return signed_in
@@ -71,7 +71,7 @@ async def create_my_design(request: Request):
 
 
 @router.get("/me/designs/{raw_id}")
-async def get_my_design(raw_id: str, request: Request, language: Literal["he", "en"] = "he"):
+async def get_my_design(raw_id: str, request: Request, language: Language = "he"):
     signed_in = await current_user(request, language)
     if isinstance(signed_in, JSONResponse):
         return signed_in
