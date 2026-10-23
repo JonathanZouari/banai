@@ -8,6 +8,8 @@ import { DomainError } from '../domain/errors.js';
 import { locate } from '../domain/lookup.js';
 import { deepFreeze } from '../domain/util.js';
 
+const VALID_UNITS = new Set(['mm', 'cm', 'in']);
+
 const KIND_BY_LOCATION = Object.freeze({
   compartment: 'compartment',
   partition: 'partition',
@@ -36,7 +38,7 @@ export function createStore({ design, revision = 1, catalog }) {
     throw new DomainError('SCHEMA_INVALID', 'revision', 'invalid revision');
   }
   let state = deepFreeze({
-    design: validDesign, revision, catalog: validCatalog, selection: null, ui: { doorsVisible: true },
+    design: validDesign, revision, catalog: validCatalog, selection: null, ui: { doorsVisible: true, unit: 'cm' },
   });
   const listeners = new Set();
 
@@ -88,6 +90,11 @@ export function createStore({ design, revision = 1, catalog }) {
 
     setDoorsVisible(doorsVisible) {
       commit({ ui: { ...state.ui, doorsVisible } });
+    },
+
+    setUnit(unit) {
+      if (!VALID_UNITS.has(unit)) return;
+      commit({ ui: { ...state.ui, unit } });
     },
   };
 }

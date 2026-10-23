@@ -4,18 +4,27 @@ import { appearanceControls } from './appearanceControls.js';
 import { actionResult, cmField, countField, el, section, segmented } from './fields.js';
 import { dimensionOps, doorTypeOps } from './opsFromForm.js';
 
-function dimensionsRow(design, run) {
+function dimensionsRow(design, run, unit) {
   const { width, height, depth } = design.dimensions;
   return el('div', { className: 'field-row field-row--3' }, [
-    cmField({ label: 'Width', mm: width, testId: 'dim-width', onCommit: (mm) => run(dimensionOps('width', mm)) }),
-    cmField({ label: 'Height', mm: height, testId: 'dim-height', onCommit: (mm) => run(dimensionOps('height', mm)) }),
-    cmField({ label: 'Depth', mm: depth, testId: 'dim-depth', onCommit: (mm) => run(dimensionOps('depth', mm)) }),
+    cmField({ label: 'Width', mm: width, testId: 'dim-width', unit, onCommit: (mm) => run(dimensionOps('width', mm)) }),
+    cmField({ label: 'Height', mm: height, testId: 'dim-height', unit, onCommit: (mm) => run(dimensionOps('height', mm)) }),
+    cmField({ label: 'Depth', mm: depth, testId: 'dim-depth', unit, onCommit: (mm) => run(dimensionOps('depth', mm)) }),
   ]);
 }
 
-export function wardrobeSection({ design, catalog, run }) {
+export function wardrobeSection({ design, catalog, run, unit = 'cm', setUnit }) {
   const { doors } = design;
-  const wardrobe = section('Wardrobe', [dimensionsRow(design, run)]);
+  const wardrobe = section('Wardrobe', [
+    segmented({
+      label: 'Units',
+      testId: 'unit-selector',
+      value: unit,
+      options: [{ value: 'mm', label: 'mm' }, { value: 'cm', label: 'cm' }, { value: 'in', label: 'in' }],
+      onChange: setUnit,
+    }),
+    dimensionsRow(design, run, unit),
+  ]);
   const runDoors = (ops) => actionResult(wardrobe, run(ops));
   wardrobe.append(segmented({
     label: 'Doors',

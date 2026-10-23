@@ -1,6 +1,7 @@
 // Small DOM builders for the properties panel. Text is always set via textContent or
 // input.value, never innerHTML, so design data (e.g. custom names) cannot inject markup.
-import { friendlyError, parseCm, toCmText } from './opsFromForm.js';
+import { friendlyError } from './opsFromForm.js';
+import { toDisplay, fromDisplay } from '../viewer/units.js';
 
 let fieldCounter = 0;
 const nextId = (prefix) => `${prefix}-${(fieldCounter += 1)}`;
@@ -50,12 +51,16 @@ function inputField({ label, value, testId, suffix, commit, inputMode = 'decimal
   return el('div', { className: 'field' }, [el('label', { className: 'field__label', text: label, attrs: { for: id } }), control, message]);
 }
 
-/** A centimetre field backed by an integer-millimetre value. `onCommit(mm)` dispatches. */
-export function cmField({ label, mm, testId, onCommit }) {
+/**
+ * A dimension field backed by an integer-millimetre value.
+ * `unit` controls the display and input format ('mm' | 'cm' | 'in'); defaults to 'cm'.
+ * `onCommit(mm)` is called with the rounded integer mm value.
+ */
+export function cmField({ label, mm, testId, onCommit, unit = 'cm' }) {
   return inputField({
-    label, testId, suffix: 'cm', value: toCmText(mm),
+    label, testId, suffix: unit, value: toDisplay(mm, unit),
     commit: (text) => {
-      const parsed = parseCm(text);
+      const parsed = fromDisplay(text, unit);
       return parsed.ok ? onCommit(parsed.mm) : parsed;
     },
   });
