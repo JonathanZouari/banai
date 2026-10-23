@@ -38,6 +38,7 @@ BanAI is an MVP AI wardrobe designer for standard straight wardrobes only. Three
 - **Excluded features (do not build):** pricing, quotes, orders, accounts or registration, dashboards, manufacturing/CNC export (cut lists, machine files), feasibility rules, room design, image uploads, mobile-first layout, drag-and-drop geometry, and any AI change applied without approval. The app must never claim a design is manufacturable.
   - **Approved exceptions (2026-10-16):**
     - The **carpenter PDF** ("Generate Style Profile") is a design drawing that explains the intent. It is not a manufacturing export: no cut list, and construction details are left to the carpenter.
+    - **Customer accounts (2026-10-23):** email + password sign up, log in and log out, through Supabase Auth behind the backend (`backend/app/api/auth.py`, `backend/app/auth/`). The start screen asks for a login, with "Continue as guest". Saving a design needs a login and records `designs.owner_id`; opening a share link does not. Accounts are created already confirmed (no confirmation email). Still no profiles, dashboards or "my designs" list.
     - The PDF's **3D snapshot** is not an image upload. The app renders it from the design (`viewer/snapshot.js`) and sends it with the export. The server treats it as untrusted bytes (`backend/app/export/image.py`): PNG/JPEG only, at most 2 MB and 2400 px, fully decoded, then re-encoded. It is never stored.
 - **Mandatory stack.**
   - Frontend: vanilla JS ES modules + Three.js, bundled with Vite. **No React, Vue, or R3F.**

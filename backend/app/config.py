@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     # Saved designs (Phase 7). Only the backend holds the secret key; the browser never talks to Supabase.
     supabase_url: str = ""
     supabase_secret_key: str = ""
+    # Customer accounts (2026-10-23). ASSUMPTION: configurable defaults; attempts per 15 minutes.
+    auth_max_per_ip: int = 20
+    auth_max_per_email: int = 10
 
     @property
     def storage_enabled(self) -> bool:

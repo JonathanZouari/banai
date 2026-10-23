@@ -123,19 +123,36 @@ export async function exportPdf({ design, language, image = null }, fetchImpl = 
 }
 
 const designPath = (designId) => `/api/designs/${encodeURIComponent(designId)}`;
-const bearer = (token) => ({ Authorization: `Bearer ${token}` });
+// The link token opens a design; the customer's session (a bearer token) is what saving needs.
+const designToken = (token) => ({ 'X-Design-Token': token });
+const bearer = (accessToken) => ({ Authorization: `Bearer ${accessToken}` });
 
-/** Save a new design: { design, language } -> { designId, accessToken, revision }. The token is shown only once. */
-export const createSavedDesign = (payload, fetchImpl = fetch) => postJson('/api/designs', payload, fetchImpl);
+/** Save a new design (logged in): { design, language, accessToken } -> { designId, accessToken, revision }. The link token is shown only once. */
+export const createSavedDesign = ({ accessToken, ...payload }, fetchImpl = fetch) => sendJson(
+  'POST', '/api/designs', payload, fetchImpl, bearer(accessToken),
+);
 
 /** Reopen a saved design: { designId, token, language } -> { designId, name, design, revision }. 404 = not this link. */
 export const getSavedDesign = ({ designId, token, language }, fetchImpl = fetch) => request(
   `${designPath(designId)}?language=${encodeURIComponent(language)}`,
   fetchImpl,
-  { headers: bearer(token) },
+  { headers: designToken(token) },
 );
 
-/** Save over a saved design from `revision`: -> { designId, revision }. 409 STALE = someone saved in between. */
-export const updateSavedDesign = ({ designId, token, revision, design, language }, fetchImpl = fetch) => sendJson(
-  'PUT', designPath(designId), { design, language }, fetchImpl, { ...bearer(token), 'If-Match': String(revision) },
+/** Save over a saved design from `revision` (logged in): -> { designId, revision }. 409 STALE = someone saved in between. */
+export const updateSavedDesign = ({ designId, token, revision, design, language, accessToken }, fetchImpl = fetch) => sendJson(
+  'PUT', designPath(designId), { design, language }, fetchImpl,
+  { ...designToken(token), ...bearer(accessToken), 'If-Match': String(revision) },
 );
+
+/** Accounts: { email, password, language } -> { user, accessToken, refreshToken, expiresIn, confirmationRequired }. */
+export const signUp = (payload, fetchImpl = fetch) => postJson('/api/auth/signup', payload, fetchImpl);
+
+/** { email, password, language } -> { user, accessToken, refreshToken, expiresIn }. 401 = wrong email or password. */
+export const logIn = (payload, fetchImpl = fetch) => postJson('/api/auth/login', payload, fetchImpl);
+
+/** { refreshToken, language } -> a new session (the old refresh token stops working). */
+export const refreshSession = (payload, fetchImpl = fetch) => postJson('/api/auth/refresh', payload, fetchImpl);
+
+/** Ends the session on the server. */
+export const logOut = (accessToken, fetchImpl = fetch) => sendJson('POST', '/api/auth/logout', {}, fetchImpl, bearer(accessToken));

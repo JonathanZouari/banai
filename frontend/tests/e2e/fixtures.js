@@ -21,9 +21,31 @@ export { expect };
 
 export async function openDesigner(page) {
   await page.goto('/');
-  // The start screen is modal: choose the basic wardrobe to reach the editor.
+  // The start screen is modal: continue as a guest, then choose the basic wardrobe to reach the editor.
+  await page.getByTestId('auth-guest').click();
   await page.getByTestId('entry-basic').click();
   await page.waitForFunction(() => window.__banai?.viewer.meshOf('shf_l1'));
+}
+
+let accountCount = 0;
+
+/** Signs up a new account on the start screen, logs in with it and opens the basic wardrobe. */
+export async function openDesignerLoggedIn(page) {
+  accountCount += 1;
+  const email = `e2e-${Date.now()}-${accountCount}@example.com`;
+  const password = 'e2e-password-1';
+  await page.goto('/');
+  const start = page.getByTestId('start-screen');
+  await start.getByTestId('auth-switch').click();
+  await start.getByTestId('auth-email').fill(email);
+  await start.getByTestId('auth-password').fill(password);
+  await start.getByTestId('auth-submit').click();
+  await expect(start.getByTestId('auth-status')).toContainText('Account created');
+  await start.getByTestId('auth-password').fill(password);
+  await start.getByTestId('auth-submit').click();
+  await start.getByTestId('entry-basic').click();
+  await page.waitForFunction(() => window.__banai?.viewer.meshOf('shf_l1'));
+  return { email, password };
 }
 
 export const selection = (page) => page.evaluate(() => window.__banai.store.getState().selection);

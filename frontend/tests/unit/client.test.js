@@ -108,25 +108,25 @@ describe('saved designs api', () => {
     expect(JSON.parse(init.body)).toEqual({ design: {}, language: 'he' });
   });
 
-  it('reopens with the token as a bearer header, never in the URL', async () => {
+  it('reopens with the link token in a header, never in the URL', async () => {
     const fetchImpl = okResponse({ success: true, data: { designId, design: {}, revision: 3 } });
     await getSavedDesign({ designId, token: 'secret', language: 'en' }, fetchImpl);
     const [url, init] = fetchImpl.mock.calls[0];
     expect(url).toBe(`http://localhost:8000/api/designs/${designId}?language=en`);
     expect(url).not.toContain('secret');
-    expect(init.headers).toEqual({ Authorization: 'Bearer secret' });
+    expect(init.headers).toEqual({ 'X-Design-Token': 'secret' });
   });
 
   it('saves over a design with PUT and If-Match, and surfaces 409 STALE', async () => {
     const stale = vi.fn().mockResolvedValue({
       ok: false, status: 409, json: async () => ({ success: false, error: { code: 'STALE', message: 'saved elsewhere' } }),
     });
-    const payload = { designId, token: 'secret', revision: 2, design: { a: 1 }, language: 'he' };
+    const payload = { designId, token: 'secret', revision: 2, design: { a: 1 }, language: 'he', accessToken: 'session' };
     await expect(updateSavedDesign(payload, stale)).rejects.toMatchObject({ status: 409, code: 'STALE' });
     const [url, init] = stale.mock.calls[0];
     expect(url).toBe(`http://localhost:8000/api/designs/${designId}`);
     expect(init.method).toBe('PUT');
-    expect(init.headers).toMatchObject({ Authorization: 'Bearer secret', 'If-Match': '2' });
+    expect(init.headers).toMatchObject({ 'X-Design-Token': 'secret', Authorization: 'Bearer session', 'If-Match': '2' });
     expect(JSON.parse(init.body)).toEqual({ design: { a: 1 }, language: 'he' });
   });
 });
