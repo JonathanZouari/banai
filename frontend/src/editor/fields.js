@@ -3,7 +3,7 @@
 import { friendlyError, parseCm, toCmText } from './opsFromForm.js';
 
 let fieldCounter = 0;
-const nextId = (prefix) => `${prefix}-${(fieldCounter += 1)}`;
+export const nextId = (prefix) => `${prefix}-${(fieldCounter += 1)}`;
 
 export function el(tag, { className, text, attrs = {} } = {}, children = []) {
   const node = document.createElement(tag);
@@ -74,6 +74,7 @@ export function segmented({ label, options, value, onChange, testId }) {
   if (testId) group.dataset.testid = testId;
   options.forEach((option) => {
     const button = el('button', { className: 'segmented__option', text: option.label, attrs: { type: 'button', 'aria-pressed': String(option.value === value) } });
+    if (testId) button.dataset.testid = `${testId}-${option.value}`; // lets the panel restore focus after a re-render
     button.addEventListener('click', () => {
       if (option.value !== value) onChange(option.value);
     });
