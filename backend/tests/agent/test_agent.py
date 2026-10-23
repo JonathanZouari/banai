@@ -225,10 +225,13 @@ def test_detect_and_reply_language():
     assert detect("Add a shelf") == "en"
     assert detect("תצבע ב-Walnut") == "he"  # Hebrew wins in mixed text
     assert detect("240?") is None
+    assert detect("Ajoute une étagère") == "fr"
     history = [{"role": "user", "text": "שלום"}, {"role": "assistant", "text": "היי"}, {"role": "user", "text": "Add a shelf"}]
     assert reply_language(history, "he") == "en"  # follows the latest customer message
     assert reply_language([{"role": "user", "text": "240?"}], "en") == "en"  # no letters: the chat's choice
     assert reply_language([{"role": "user", "text": "240?"}], "he") == "he"
+    assert reply_language([{"role": "user", "text": "240 cm"}], "fr") == "fr"  # Latin, no clue: stays French
+    assert reply_language([{"role": "user", "text": "Je veux trois tiroirs"}], "en") == "fr"
 
 
 def test_hebrew_message_gets_hebrew_only(make_client):
@@ -245,6 +248,14 @@ def test_english_message_gets_english_only(make_client):
     assert "in ENGLISH" in fake.requests[0]["messages"][0]["content"].split("## RESPONSE LANGUAGE")[-1]
 
 
+def test_french_message_gets_french_only(make_client):
+    fake = FakeClient(completion(calls=[tool_call(DECLINE, {})]))
+    data = make_client(fake).post("/api/chat", json={**chat_body("Quel temps fera-t-il demain ?"), "language": "he"}).json()["data"]
+    assert data["reply"] == OFF_TOPIC_REPLY["fr"]
+    instruction = fake.requests[0]["messages"][0]["content"].split("## RESPONSE LANGUAGE")[-1]
+    assert "in FRENCH" in instruction and "Noyer" in instruction
+
+
 def test_message_without_letters_uses_the_chat_language(make_client):
     fake = FakeClient(completion(calls=[tool_call(DECLINE, {})]))
     data = make_client(fake).post("/api/chat", json={**chat_body("240?"), "language": "en"}).json()["data"]
@@ -258,8 +269,9 @@ def test_api_errors_follow_the_ui_language(monkeypatch):
         client = TestClient(create_app())
         en = client.post("/api/chat", json={**chat_body(), "language": "en"}).json()["error"]["message"]
         he = client.post("/api/chat", json=chat_body()).json()["error"]["message"]
-        assert en.startswith("The AI designer") and "המעצב" in he
-        assert client.post("/api/chat", json={**chat_body(), "language": "fr"}).status_code == 422
+        fr = client.post("/api/chat", json={**chat_body(), "language": "fr"}).json()["error"]["message"]
+        assert en.startswith("The AI designer") and "המעצב" in he and fr.startswith("Le designer IA")
+        assert client.post("/api/chat", json={**chat_body(), "language": "de"}).status_code == 422
     finally:
         get_settings.cache_clear()
 

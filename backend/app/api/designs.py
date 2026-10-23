@@ -12,13 +12,14 @@ import logging
 import re
 import secrets
 import uuid
-from typing import Annotated, Literal
+from typing import Annotated
 
 from fastapi import APIRouter, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from app.agent.language import LANGUAGES, Language
 from app.api.agent import error
 from app.api.export import read_capped
 from app.domain.apply import apply_ops
@@ -39,13 +40,18 @@ REVISION_PATTERN = re.compile(r"^[1-9][0-9]{0,8}$")  # ASCII only: str.isdigit()
 NO_STORE = {"Cache-Control": "no-store"}
 
 MESSAGES = {
-    "INVALID_REQUEST": {"he": "הבקשה אינה תקינה.", "en": "The request is not valid."},
-    "TOO_LARGE": {"he": "העיצוב גדול מדי לשמירה.", "en": "The design is too large to save."},
-    "NOT_FOUND": {"he": "לא מצאנו עיצוב בקישור הזה.", "en": "No design was found at this link."},
+    "INVALID_REQUEST": {"he": "הבקשה אינה תקינה.", "en": "The request is not valid.", "fr": "La demande n'est pas valide."},
+    "TOO_LARGE": {"he": "העיצוב גדול מדי לשמירה.", "en": "The design is too large to save.",
+                  "fr": "Le design est trop volumineux pour être enregistré."},
+    "NOT_FOUND": {"he": "לא מצאנו עיצוב בקישור הזה.", "en": "No design was found at this link.",
+                  "fr": "Aucun design n'a été trouvé à ce lien."},
     "STALE": {"he": "העיצוב נשמר בינתיים ממקום אחר. טען את הקישור מחדש.",
-              "en": "This design was saved elsewhere in the meantime. Reload the link."},
-    "STORAGE_UNAVAILABLE": {"he": "שמירה עדיין לא זמינה בשרת הזה.", "en": "Saving is not available on this server."},
-    "STORAGE_ERROR": {"he": "השמירה נכשלה. נסה שוב בעוד רגע.", "en": "Saving failed. Please try again in a moment."},
+              "en": "This design was saved elsewhere in the meantime. Reload the link.",
+              "fr": "Ce design a été enregistré ailleurs entre-temps. Rechargez le lien."},
+    "STORAGE_UNAVAILABLE": {"he": "שמירה עדיין לא זמינה בשרת הזה.", "en": "Saving is not available on this server.",
+                            "fr": "L'enregistrement n'est pas disponible sur ce serveur."},
+    "STORAGE_ERROR": {"he": "השמירה נכשלה. נסה שוב בעוד רגע.", "en": "Saving failed. Please try again in a moment.",
+                      "fr": "L'enregistrement a échoué. Réessayez dans un instant."},
 }
 
 
@@ -53,7 +59,7 @@ class SaveRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     design: dict
     name: Annotated[str, Field(min_length=1, max_length=60, pattern=SAFE_TEXT_PATTERN)] = DEFAULT_NAME
-    language: Literal["he", "en"] = "he"
+    language: Language = "he"
 
 
 def _fail(status: int, code: str, language: str) -> JSONResponse:
@@ -85,7 +91,7 @@ async def _parse_save(request: Request) -> SaveRequest | JSONResponse:
         raw = json.loads(body)
     except (ValueError, RecursionError):
         raw = None
-    language = raw["language"] if isinstance(raw, dict) and raw.get("language") in ("he", "en") else "he"
+    language = raw["language"] if isinstance(raw, dict) and raw.get("language") in LANGUAGES else "he"
     try:
         parsed = SaveRequest.model_validate(raw)
     except ValidationError:
@@ -116,7 +122,7 @@ async def create_design(request: Request):
 
 
 @router.get("/designs/{raw_id}")
-async def get_design(raw_id: str, request: Request, language: Literal["he", "en"] = "he"):
+async def get_design(raw_id: str, request: Request, language: Language = "he"):
     repository = get_repository()
     if repository is None:
         return _fail(503, "STORAGE_UNAVAILABLE", language)

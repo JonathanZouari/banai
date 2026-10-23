@@ -36,14 +36,16 @@ AUDIO_TYPES = {"audio/webm": "webm", "audio/ogg": "ogg", "audio/mp4": "mp4", "au
 # clearly; instructions written in Hebrew made the speech worse.
 SPEECH_STYLE = (
     "Speak in the language of the text. For Hebrew, use fluent native Israeli Hebrew pronunciation. "
+    "For French, use natural native French pronunciation. "
     "Calm, friendly furniture designer; clear and concise."
 )
-# Domain vocabulary in both languages: fixes Hebrew misrecognitions and writes sizes as digits,
-# without forcing a language (English speech stays English).
+# Domain vocabulary in all three languages: fixes Hebrew misrecognitions and writes sizes as
+# digits, without forcing a language (English speech stays English, French stays French).
 TRANSCRIBE_PROMPT = (
-    "שיחה על עיצוב ארון בגדים, בעברית או באנגלית: ארון, תא, מדף, מגירה, מוט תלייה, מחיצה, "
+    "שיחה על עיצוב ארון בגדים, בעברית, באנגלית או בצרפתית: ארון, תא, מדף, מגירה, מוט תלייה, מחיצה, "
     "דלתות הזזה, דלתות ציר, רוחב, גובה, עומק, סנטימטר, מט, מבריק. "
-    "Wardrobe design in Hebrew or English: shelf, drawer, hanging rail, sliding doors, width, cm."
+    "Wardrobe design in Hebrew, English or French: shelf, drawer, hanging rail, sliding doors, width, cm. "
+    "Armoire : étagère, tiroir, penderie, portes coulissantes, largeur, hauteur, cm."
 )
 PROMPTABLE_MODELS = {"gpt-4o-transcribe", "gpt-4o-mini-transcribe", "whisper-1"}
 # Abbreviations TTS reads letter by letter; spoken as words instead.
@@ -89,7 +91,7 @@ async def transcribe(
         return localized(413, "AUDIO_TOO_LARGE", language)
     if not audio:
         return localized(422, "NO_SPEECH", language)
-    # No language hint: the customer may speak either language, and the chat switches to whichever
+    # No language hint: the customer may speak any chat language, and the chat switches to whichever
     # the transcript is written in. `language` only localizes the error messages.
     model = _model(settings.openai_transcribe_model, DEFAULT_TRANSCRIBE_MODEL)
     try:

@@ -1,0 +1,21 @@
+{
+  "description": "Chat language detection, shared by backend app/agent/language.py (detect) and frontend src/chat/i18n.js (detectLanguage). `current` is the language selected in the chat; `expected` null means the text has no letters.",
+  "cases": [
+    { "text": "תוסיף מדף", "current": "en", "expected": "he" },
+    { "text": "תצבע ב-Walnut", "current": "fr", "expected": "he" },
+    { "text": "Add a shelf", "current": "he", "expected": "en" },
+    { "text": "Make it 250 cm wide with black doors", "current": "fr", "expected": "en" },
+    { "text": "Hello", "current": "fr", "expected": "en" },
+    { "text": "Je voudrais une armoire de 240 cm avec trois portes", "current": "en", "expected": "fr" },
+    { "text": "Peux-tu ajouter une étagère ?", "current": "he", "expected": "fr" },
+    { "text": "Élargis l'armoire", "current": "en", "expected": "fr" },
+    { "text": "armoire blanche, 3 portes coulissantes", "current": "en", "expected": "fr" },
+    { "text": "Bonjour", "current": "en", "expected": "fr" },
+    { "text": "240 cm", "current": "fr", "expected": "fr" },
+    { "text": "240 cm", "current": "en", "expected": "en" },
+    { "text": "240 cm", "current": "he", "expected": "en" },
+    { "text": "OK", "current": "fr", "expected": "fr" },
+    { "text": "240 × 260?", "current": "fr", "expected": null },
+    { "text": "240?", "current": "he", "expected": null }
+  ]
+}
