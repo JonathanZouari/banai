@@ -7,6 +7,7 @@ import { parseCatalog } from '../domain/catalog.js';
 import { DomainError } from '../domain/errors.js';
 import { locate } from '../domain/lookup.js';
 import { deepFreeze } from '../domain/util.js';
+import { normalizePeople } from '../household/household.js';
 
 const KIND_BY_LOCATION = Object.freeze({
   compartment: 'compartment',
@@ -29,7 +30,7 @@ export function resolveSelection(design, id) {
  * Create the store. The initial catalog and design are validated first (applyOps with
  * no ops = parse + full validation); invalid data throws instead of being rendered.
  */
-export function createStore({ design, revision = 1, catalog }) {
+export function createStore({ design, revision = 1, catalog, household = [] }) {
   const validCatalog = parseCatalog(catalog);
   const validDesign = applyOps(design, [], validCatalog);
   if (!Number.isInteger(revision) || revision < 1) {
@@ -37,6 +38,7 @@ export function createStore({ design, revision = 1, catalog }) {
   }
   let state = deepFreeze({
     design: validDesign, revision, catalog: validCatalog, selection: null, ui: { doorsVisible: true },
+    household: normalizePeople(household),
   });
   const listeners = new Set();
 
@@ -88,6 +90,11 @@ export function createStore({ design, revision = 1, catalog }) {
 
     setDoorsVisible(doorsVisible) {
       commit({ ui: { ...state.ui, doorsVisible } });
+    },
+
+    /** Replace the household (client-only, never part of the design or its revision). */
+    setHousehold(people) {
+      commit({ household: normalizePeople(people) });
     },
   };
 }
