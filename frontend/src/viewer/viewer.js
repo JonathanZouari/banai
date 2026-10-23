@@ -8,6 +8,7 @@ import { buildWardrobe, disposeWardrobe } from './buildWardrobe.js';
 import { frameOf } from './builders/frame.js';
 import { createDimensions } from './dimensions.js';
 import { createHighlighter } from './highlight.js';
+import { createDoorMotion } from './doorMotion.js';
 import { createMaterials } from './materials.js';
 import { attachPicking } from './picking.js';
 import { toM } from './units.js';
@@ -62,7 +63,9 @@ export function createViewer(container, store) {
   const highlighter = createHighlighter(scene);
   const dimensions = createDimensions(scene);
   let group = null;
-  let rendered = { design: null, doorsVisible: null, selection: undefined, dimsKey: null };
+  let rendered = { design: null, doorsVisible: null, doorsOpen: null, selection: undefined, dimsKey: null };
+  const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+  const doorMotion = createDoorMotion({ reducedMotion });
 
   const fitCamera = (design) => {
     const { width, height, depth } = design.dimensions;
@@ -82,6 +85,7 @@ export function createViewer(container, store) {
         disposeWardrobe(group);
       }
       group = buildWardrobe(design, materials, { doorsVisible: ui.doorsVisible });
+      doorMotion.attach(group); // keep the doors where they are (open or closed)
       scene.add(group);
       materials.retainOnly(new Set(group.children.map((mesh) => mesh.material)));
       const { width, height, depth } = design.dimensions;
@@ -89,7 +93,13 @@ export function createViewer(container, store) {
       if (dimsKey !== rendered.dimsKey) fitCamera(design);
       rendered = { ...rendered, design, doorsVisible: ui.doorsVisible, dimsKey };
     }
-    if (geometryChanged || selection !== rendered.selection) {
+    let jumped = false; // reduced motion: the doors moved at once
+    if (ui.doorsOpen !== rendered.doorsOpen) {
+      doorMotion.setOpen(ui.doorsOpen);
+      jumped = rendered.doorsOpen !== null && doorMotion.isSettled();
+      rendered = { ...rendered, doorsOpen: ui.doorsOpen };
+    }
+    if (geometryChanged || jumped || selection !== rendered.selection) {
       highlighter.update(group, design, selection);
       dimensions.update(group, design, selection);
       rendered = { ...rendered, selection };
@@ -117,7 +127,16 @@ export function createViewer(container, store) {
   const unsubscribe = store.subscribe(sync);
   sync(store.getState());
 
-  renderer.setAnimationLoop(() => {
+  let lastFrame = performance.now();
+  renderer.setAnimationLoop((time = performance.now()) => {
+    const elapsed = Math.min(time - lastFrame, 100);
+    lastFrame = time;
+    if (doorMotion.step(elapsed) && doorMotion.isSettled()) {
+      // The selection outline and its label follow the door once it has stopped moving.
+      const { design, selection } = store.getState();
+      highlighter.update(group, design, selection);
+      dimensions.update(group, design, selection);
+    }
     controls.update();
     renderer.render(scene, camera);
     labels.render(scene, camera);
@@ -127,6 +146,8 @@ export function createViewer(container, store) {
     camera,
     controls,
     canvas: renderer.domElement,
+    /** 0 = doors closed, 1 = fully open (view state, for tests and tooling). */
+    doorOpenAmount: () => doorMotion.amount(),
     meshOf: (componentId) => group?.children.find((mesh) => mesh.userData.componentId === componentId) ?? null,
     /** Client (page) coordinates of a component's centre, for tests and tooling. */
     screenPointOf(componentId) {

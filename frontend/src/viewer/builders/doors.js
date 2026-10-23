@@ -38,6 +38,11 @@ function handle(x, frontZ, panelY, panelHeight, materials) {
   }, 'handle');
 }
 
+function withOpening(objects, opening) {
+  objects.forEach((object) => { object.userData.opening = opening; });
+  return objects;
+}
+
 function buildHinged(design, frame, materials, { t, gap, y, height, materialOf }) {
   const rangeOf = new Map(design.compartments.map((c, i) => [c.id, frame.ranges[i]]));
   return design.doors.items.flatMap((door) => {
@@ -51,7 +56,11 @@ function buildHinged(design, frame, materials, { t, gap, y, height, materialOf }
     });
     // The handle sits on the free edge, opposite the hinge.
     const freeEdgeX = door.hingeSide === 'right' ? x0 + gap + VISUAL.handleInset : x1 - gap - VISUAL.handleInset;
-    return [panel, outline(panel, materials), handle(freeEdgeX, t, y, height, materials)];
+    // "Doors open" (view only): swing outward around the hinge edge on the panel's back face.
+    const opening = door.hingeSide === 'right'
+      ? { type: 'hinge', pivot: [x1 - gap, 0], sign: 1 }
+      : { type: 'hinge', pivot: [x0 + gap, 0], sign: -1 };
+    return withOpening([panel, outline(panel, materials), handle(freeEdgeX, t, y, height, materials)], opening);
   });
 }
 
@@ -81,7 +90,10 @@ function buildSliding(design, frame, materials, { t, gap, y, height, materialOf 
     if (count === 1) handleX = x0 + panelWidth - inset;
     else if (isLast) handleX = x0 + (onFront ? 0 : overlap) + inset;
     else handleX = x0 + panelWidth - (onFront ? 0 : overlap) - inset;
-    return [panel, outline(panel, materials), handle(handleX, z + t / 2, y, height, materials)];
+    // "Doors open" (view only): every panel slides over the first one; panels sharing a track are
+    // nudged forward a little so their faces never coincide.
+    const opening = { type: 'slide', dx: -i * step, dz: Math.floor(i / 2) * 1.5 };
+    return withOpening([panel, outline(panel, materials), handle(handleX, z + t / 2, y, height, materials)], opening);
   });
 
   // Top and bottom rails span both tracks, like the aluminium frame of a sliding wardrobe.
