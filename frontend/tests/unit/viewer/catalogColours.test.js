@@ -8,7 +8,7 @@ import { loadCatalog, loadDesign } from '../domain/helpers.js';
 // The catalog file is the single source: every colour in it must reach the right 3D surfaces.
 const catalog = loadCatalog();
 const basic = loadDesign('basic');
-const NEW_COLOURS = { olive_green: '#6b7a47', dusty_blue: '#6f8aa3', sand: '#d6c7a8' };
+const NEW_COLOURS = { olive_green: '#6b7a47', dusty_blue: '#6f8aa3' };
 
 const meshes = (design) => buildWardrobe(design, createMaterials(catalog), { doorsVisible: true }).children.filter((c) => c.isMesh);
 const colourOf = (mesh) => `#${mesh.material.color.getHexString()}`;

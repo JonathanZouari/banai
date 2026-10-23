@@ -1,7 +1,7 @@
 import { expect, openDesigner, test } from './fixtures.js';
 
 // The E2E backend serves the real catalog, so these cover the editor -> 3D -> save -> reopen path.
-const NEW_COLOURS = { olive_green: '6b7a47', dusty_blue: '6f8aa3', sand: 'd6c7a8' };
+const NEW_COLOURS = { olive_green: '6b7a47', dusty_blue: '6f8aa3' };
 const EXISTING_COLOURS = ['white', 'light_grey', 'anthracite', 'black', 'natural_oak', 'walnut'];
 const LINK = /#d=[0-9a-f-]{36}\.[A-Za-z0-9_-]{43}$/;
 

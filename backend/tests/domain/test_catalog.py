@@ -5,7 +5,7 @@ import re
 from app.domain.catalog import load_catalog
 from app.export.strings import CATALOG_NAMES
 
-NEW_COLORS = {"olive_green": "#6b7a47", "dusty_blue": "#6f8aa3", "sand": "#d6c7a8"}
+NEW_COLORS = {"olive_green": "#6b7a47", "dusty_blue": "#6f8aa3"}
 NEW_MATERIALS = {"solid_wood"}
 
 # Entries that existed before the colours feature must keep their id and value.

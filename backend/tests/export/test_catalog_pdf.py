@@ -13,7 +13,7 @@ from tests.domain.conftest import load_design
 NEW_LOOK = [
     {"op": "set_material", "target": "carcass", "material": {"catalogId": "solid_wood"}, "color": {"catalogId": "olive_green"}},
     {"op": "set_material", "target": "doors", "color": {"catalogId": "dusty_blue"}},
-    {"op": "set_material", "target": "shf_l1", "color": {"catalogId": "sand"}},
+    {"op": "set_material", "target": "shf_l1", "color": {"catalogId": "sand_beige"}},
 ]
 
 
@@ -25,10 +25,10 @@ def pdf_text(language: str, ops: list[dict]) -> str:
 
 def test_english_pdf_shows_the_catalog_names():
     text = pdf_text("en", NEW_LOOK)
-    for name in ("Olive green", "Dusty blue", "Sand", "Solid wood"):
+    for name in ("Olive green", "Dusty blue", "Sand beige", "Solid wood"):
         assert name in text, name
     baseline = pdf_text("en", [])
-    assert not any(name in baseline for name in ("Olive green", "Dusty blue", "Sand", "Solid wood"))
+    assert not any(name in baseline for name in ("Olive green", "Dusty blue", "Sand beige", "Solid wood"))
 
 
 def test_hebrew_pdf_resolves_the_hebrew_names_and_colours():
@@ -36,7 +36,7 @@ def test_hebrew_pdf_resolves_the_hebrew_names_and_colours():
     names = {
         ("color", "olive_green"): "ירוק זית",
         ("color", "dusty_blue"): "כחול אבק",
-        ("color", "sand"): "חול",
+        ("color", "sand_beige"): "בז' חול",
         ("material", "solid_wood"): "עץ מלא",
     }
     for (field, catalog_id), hebrew in names.items():

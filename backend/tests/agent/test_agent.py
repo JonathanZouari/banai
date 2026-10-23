@@ -279,7 +279,7 @@ def test_agent_knows_the_new_colours_in_hebrew_and_maps_them_to_catalog_ids(make
     system_prompt = fake.requests[0]["messages"][0]["content"]
     # the catalog the model sees carries both names, so "ירוק זית" can be matched to the id
     assert '"id":"olive_green","name":"Olive green","hex":"#6b7a47","nameHe":"ירוק זית"' in system_prompt
-    for catalog_id in ("dusty_blue", "sand", "solid_wood"):
+    for catalog_id in ("dusty_blue", "sage_green", "solid_wood"):
         assert f'"id":"{catalog_id}"' in system_prompt
     # the proposal uses the existing set_material op with a catalog id, and is signed
     assert data["proposal"]["ops"] == [paint]

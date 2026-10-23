@@ -104,15 +104,15 @@
     } } } }
   },
   {
-    "name": "dusty blue doors and a sand shelf override",
+    "name": "dusty blue doors and a sand beige shelf override",
     "base": "two",
     "ops": [
       { "op": "set_material", "target": "doors", "color": { "catalogId": "dusty_blue" } },
-      { "op": "set_material", "target": "shf_1", "color": { "catalogId": "sand" } }
+      { "op": "set_material", "target": "shf_1", "color": { "catalogId": "sand_beige" } }
     ],
     "expect": { "match": {
       "doors": { "appearance": { "color": { "catalogId": "dusty_blue" } } },
-      "compartments": [{ "shelves": [{ "appearance": { "color": { "catalogId": "sand" } } }] }, {}]
+      "compartments": [{ "shelves": [{ "appearance": { "color": { "catalogId": "sand_beige" } } }] }, {}]
     } }
   }
 ]
