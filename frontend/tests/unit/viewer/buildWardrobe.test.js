@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { applyOps } from '../../../src/domain/apply.js';
 import { buildWardrobe } from '../../../src/viewer/buildWardrobe.js';
+import { setDoorOpening } from '../../../src/viewer/builders/doors.js';
 import { createMaterials } from '../../../src/viewer/materials.js';
 import { loadCatalog, loadDesign } from '../domain/helpers.js';
 
@@ -152,5 +153,20 @@ describe('material cache', () => {
     materials.retainOnly(new Set([kept]));
     expect(materials.forAppearance(custom)).not.toBe(first);
     expect(materials.forAppearance(basic.carcass.appearance)).toBe(kept);
+  });
+});
+
+describe('setDoorOpening', () => {
+  it('swings hinged doors forward about their hinge and closes them back exactly', () => {
+    const group = build(basic);
+    const [door] = byId(group, 'dr_left');
+    const closed = door.position.clone();
+    setDoorOpening(group, 1);
+    expect(door.position.z).toBeGreaterThan(closed.z + 0.1); // the panel stands out in front of the carcass
+    expect(Math.abs(door.rotation.y)).toBeCloseTo(THREE.MathUtils.degToRad(100), 6);
+    setDoorOpening(group, 0);
+    close(door.position.x, closed.x);
+    close(door.position.z, closed.z);
+    close(door.rotation.y, 0);
   });
 });

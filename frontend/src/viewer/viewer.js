@@ -6,6 +6,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { buildWardrobe, disposeWardrobe } from './buildWardrobe.js';
 import { frameOf } from './builders/frame.js';
+import { setDoorOpening } from './builders/doors.js';
 import { createDimensions } from './dimensions.js';
 import { createHighlighter } from './highlight.js';
 import { createMaterials } from './materials.js';
@@ -41,6 +42,9 @@ function componentAt(hit, design) {
   return index >= 0 ? design.compartments[index].id : componentId;
 }
 
+const DOOR_MS = 700;
+const prefersReducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+
 export function createViewer(container, store) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -73,6 +77,37 @@ export function createViewer(container, store) {
     controls.update();
   };
 
+  // Open/closed doors is view state only: it lives here, never in the store or the design.
+  const doors = { open: false, amount: 0 };
+  const doorToggle = document.createElement('button');
+  doorToggle.type = 'button';
+  doorToggle.className = 'viewer-doors';
+  doorToggle.dataset.testid = 'toggle-doors-open';
+  const renderDoorToggle = () => {
+    const { design, ui } = store.getState();
+    doorToggle.textContent = doors.open ? 'Close doors' : 'Open doors';
+    doorToggle.setAttribute('aria-pressed', String(doors.open));
+    doorToggle.disabled = design.doors.type !== 'hinged' || !ui.doorsVisible;
+  };
+  doorToggle.addEventListener('click', () => {
+    doors.open = !doors.open;
+    if (prefersReducedMotion()) {
+      doors.amount = doors.open ? 1 : 0;
+      if (group) setDoorOpening(group, doors.amount);
+    }
+    renderDoorToggle();
+  });
+  container.appendChild(doorToggle);
+
+  const stepDoors = (dt) => {
+    const target = doors.open ? 1 : 0;
+    if (doors.amount === target || !group) return;
+    const step = dt / DOOR_MS;
+    doors.amount = target > doors.amount ? Math.min(doors.amount + step, 1) : Math.max(doors.amount - step, 0);
+    const t = doors.amount;
+    setDoorOpening(group, t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
+  };
+
   const sync = (state) => {
     const { design, ui, selection } = state;
     const geometryChanged = design !== rendered.design || ui.doorsVisible !== rendered.doorsVisible;
@@ -82,6 +117,7 @@ export function createViewer(container, store) {
         disposeWardrobe(group);
       }
       group = buildWardrobe(design, materials, { doorsVisible: ui.doorsVisible });
+      if (doors.amount > 0) setDoorOpening(group, doors.amount);
       scene.add(group);
       materials.retainOnly(new Set(group.children.map((mesh) => mesh.material)));
       const { width, height, depth } = design.dimensions;
@@ -89,6 +125,7 @@ export function createViewer(container, store) {
       if (dimsKey !== rendered.dimsKey) fitCamera(design);
       rendered = { ...rendered, design, doorsVisible: ui.doorsVisible, dimsKey };
     }
+    renderDoorToggle();
     if (geometryChanged || selection !== rendered.selection) {
       highlighter.update(group, design, selection);
       dimensions.update(group, design, selection);
@@ -117,7 +154,10 @@ export function createViewer(container, store) {
   const unsubscribe = store.subscribe(sync);
   sync(store.getState());
 
-  renderer.setAnimationLoop(() => {
+  let last = performance.now();
+  renderer.setAnimationLoop((now) => {
+    stepDoors(Math.min(now - last, 100));
+    last = now;
     controls.update();
     renderer.render(scene, camera);
     labels.render(scene, camera);
@@ -127,6 +167,8 @@ export function createViewer(container, store) {
     camera,
     controls,
     canvas: renderer.domElement,
+    /** 0 closed .. 1 open (view state, for tests and tooling). */
+    doorOpening: () => doors.amount,
     meshOf: (componentId) => group?.children.find((mesh) => mesh.userData.componentId === componentId) ?? null,
     /** Client (page) coordinates of a component's centre, for tests and tooling. */
     screenPointOf(componentId) {
@@ -146,6 +188,7 @@ export function createViewer(container, store) {
       dimensions.dispose();
       materials.dispose();
       controls.dispose();
+      doorToggle.remove();
       renderer.dispose();
     },
   };
