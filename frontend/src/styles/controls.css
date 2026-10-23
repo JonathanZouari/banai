@@ -180,3 +180,13 @@ select.field__input {
 #properties-panel:focus { outline: none; }
 .toggle--disabled { cursor: not-allowed; opacity: 0.5; }
 .toggle--disabled input { cursor: not-allowed; }
+
+/* Printed image on a door (browser-only preview). */
+.print { margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--md-sys-color-outline-variant); }
+.print__title { margin: 0 0 var(--space-2); font: var(--md-sys-typescale-title-small); }
+.print__file { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+.print__upload { cursor: pointer; }
+.print__file:focus-visible + .print__upload, .print__upload:focus-within { outline: 2px solid var(--md-sys-color-primary); outline-offset: 2px; }
+.print__current { margin: var(--space-2) 0 0; font: var(--md-sys-typescale-body-medium); }
+.print__status:empty { display: none; }
+.print__note { margin-top: var(--space-2); font: var(--md-sys-typescale-body-small); }

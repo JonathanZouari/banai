@@ -11,6 +11,7 @@ import {
 import { createStore } from './state/store.js';
 import { mountPanel } from './editor/panel.js';
 import { createViewer } from './viewer/viewer.js';
+import { createPrintRegistry, PRINT_ERRORS, PrintError } from './viewer/prints.js';
 import { renderSnapshot } from './viewer/snapshot.js';
 import { createChatModel } from './chat/chatModel.js';
 import { createLanguage } from './chat/i18n.js';
@@ -56,6 +57,30 @@ function bindDoorsOpenToggle(store) {
     label.classList.toggle('toggle--disabled', toggle.disabled);
     label.title = noDoors ? 'This design has no doors.' : !ui.doorsVisible ? 'Turn off "Show interior" to see the doors.' : '';
   });
+}
+
+/**
+ * Printed door fronts: a browser-only preview. The registry holds the pixels; the store holds
+ * metadata per door; prints nobody uses any more are freed.
+ */
+function createPrintActions(store, registry) {
+  store.subscribe(({ ui }) => registry.releaseUnused(new Set(Object.values(ui.prints).map((p) => p.printId))));
+  return {
+    async upload(doorId, file) {
+      try {
+        store.setPrint(doorId, await registry.load(file));
+        return { ok: true };
+      } catch (error) {
+        return { ok: false, message: error instanceof PrintError ? error.message : PRINT_ERRORS.decode };
+      }
+    },
+    sample: (doorId, key) => store.setPrint(doorId, registry.sample(key)),
+    remove: (doorId) => store.setPrint(doorId, null),
+    applyToAll(doorId) {
+      const print = store.getState().ui.prints[doorId];
+      if (print) store.getState().design.doors.items.forEach((door) => store.setPrint(door.id, print));
+    },
+  };
 }
 
 /**
@@ -117,7 +142,8 @@ async function boot() {
   }
   // Validates the server data before anything is rendered (throws on invalid data).
   const store = createStore({ design: initial.design, revision: initial.revision, catalog });
-  const viewer = createViewer(document.getElementById('viewer'), store);
+  const prints = createPrintRegistry();
+  const viewer = createViewer(document.getElementById('viewer'), store, { prints });
   bindInteriorToggle(store);
   bindDoorsOpenToggle(store);
   bindSkipLink();
@@ -126,7 +152,9 @@ async function boot() {
     getLanguage: () => language.get(),
     getSnapshot: (design) => renderSnapshot(design, store.getState().catalog),
   });
-  mountPanel(document.getElementById('properties-content'), store, { onExport: exporter.open });
+  mountPanel(document.getElementById('properties-content'), store, {
+    onExport: exporter.open, printActions: createPrintActions(store, prints),
+  });
   bindDialogs({
     storage: health?.data.storage === true,
     onSave: createSaver(store, language, session),

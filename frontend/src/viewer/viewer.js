@@ -4,7 +4,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
-import { buildWardrobe, disposeWardrobe } from './buildWardrobe.js';
+import { buildWardrobe, disposeWardrobe, materialsOf } from './buildWardrobe.js';
+import { printMaterial } from './prints.js';
 import { frameOf } from './builders/frame.js';
 import { createDimensions } from './dimensions.js';
 import { createHighlighter } from './highlight.js';
@@ -42,7 +43,7 @@ function componentAt(hit, design) {
   return index >= 0 ? design.compartments[index].id : componentId;
 }
 
-export function createViewer(container, store) {
+export function createViewer(container, store, { prints = null } = {}) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -78,20 +79,25 @@ export function createViewer(container, store) {
 
   const sync = (state) => {
     const { design, ui, selection } = state;
-    const geometryChanged = design !== rendered.design || ui.doorsVisible !== rendered.doorsVisible;
+    const geometryChanged = design !== rendered.design || ui.doorsVisible !== rendered.doorsVisible || ui.prints !== rendered.prints;
     if (geometryChanged) {
       if (group) {
         scene.remove(group);
         disposeWardrobe(group);
       }
-      group = buildWardrobe(design, materials, { doorsVisible: ui.doorsVisible });
+      // Printed door fronts (browser-only preview, see prints.js).
+      const printFor = (doorId, width, height, base) => {
+        const texture = prints?.texture(ui.prints[doorId]?.printId);
+        return texture ? printMaterial(texture, width, height, base) : null;
+      };
+      group = buildWardrobe(design, materials, { doorsVisible: ui.doorsVisible, printFor });
       doorMotion.attach(group); // keep the doors where they are (open or closed)
       scene.add(group);
-      materials.retainOnly(new Set(group.children.map((mesh) => mesh.material)));
+      materials.retainOnly(materialsOf(group));
       const { width, height, depth } = design.dimensions;
       const dimsKey = `${width}x${height}x${depth}`;
       if (dimsKey !== rendered.dimsKey) fitCamera(design);
-      rendered = { ...rendered, design, doorsVisible: ui.doorsVisible, dimsKey };
+      rendered = { ...rendered, design, doorsVisible: ui.doorsVisible, prints: ui.prints, dimsKey };
     }
     let jumped = false; // reduced motion: the doors moved at once
     if (ui.doorsOpen !== rendered.doorsOpen) {
