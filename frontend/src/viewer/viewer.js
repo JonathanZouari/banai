@@ -11,6 +11,7 @@ import { createHighlighter } from './highlight.js';
 import { createMaterials } from './materials.js';
 import { attachPicking } from './picking.js';
 import { toM } from './units.js';
+import { createCameraPresets, mountCameraToolbar } from './cameraPresets.js';
 
 const BACKGROUND = '#eceeec';
 
@@ -61,8 +62,10 @@ export function createViewer(container, store) {
   const materials = createMaterials(store.getState().catalog);
   const highlighter = createHighlighter(scene);
   const dimensions = createDimensions(scene);
+  const presets = createCameraPresets(camera, controls);
+  mountCameraToolbar(container, presets);
   let group = null;
-  let rendered = { design: null, doorsVisible: null, selection: undefined, dimsKey: null };
+  let rendered = { design: null, doorsVisible: null, selection: undefined, dimsKey: null, unit: null };
 
   const fitCamera = (design) => {
     const { width, height, depth } = design.dimensions;
@@ -75,6 +78,7 @@ export function createViewer(container, store) {
 
   const sync = (state) => {
     const { design, ui, selection } = state;
+    const unit = ui?.unit ?? 'cm';
     const geometryChanged = design !== rendered.design || ui.doorsVisible !== rendered.doorsVisible;
     if (geometryChanged) {
       if (group) {
@@ -87,12 +91,13 @@ export function createViewer(container, store) {
       const { width, height, depth } = design.dimensions;
       const dimsKey = `${width}x${height}x${depth}`;
       if (dimsKey !== rendered.dimsKey) fitCamera(design);
+      presets.setDesign(design);
       rendered = { ...rendered, design, doorsVisible: ui.doorsVisible, dimsKey };
     }
-    if (geometryChanged || selection !== rendered.selection) {
+    if (geometryChanged || selection !== rendered.selection || unit !== rendered.unit) {
       highlighter.update(group, design, selection);
-      dimensions.update(group, design, selection);
-      rendered = { ...rendered, selection };
+      dimensions.update(group, design, selection, unit);
+      rendered = { ...rendered, selection, unit };
     }
   };
 
