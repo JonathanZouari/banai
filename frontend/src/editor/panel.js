@@ -4,6 +4,7 @@
 import { compartmentsSection } from './compartmentsSection.js';
 import { componentSection } from './componentSection.js';
 import { partsSection } from './partsSection.js';
+import { summarySection } from './summarySection.js';
 import { wardrobeSection } from './wardrobeSection.js';
 
 export function mountPanel(root, store, { onExport } = {}) {
@@ -20,12 +21,16 @@ export function mountPanel(root, store, { onExport } = {}) {
   const render = (state) => {
     if (state.design === rendered.design && state.selection === rendered.selection) return;
     rendered = { design: state.design, selection: state.selection };
-    const context = { design: state.design, catalog: state.catalog, selection: state.selection, run, select, onExport };
+    const context = {
+      design: state.design, catalog: state.catalog, selection: state.selection, run, select, onExport,
+      summaryView: state.ui.summaryView, setSummaryView: (view) => store.setSummaryView(view),
+    };
     // Re-rendering replaces every control: put keyboard focus back on the same one (WCAG 2.4.3).
     const focused = root.contains(document.activeElement) ? document.activeElement.dataset.testid : undefined;
     root.replaceChildren(
       ...(state.selection ? [componentSection(context)] : []),
       ...wardrobeSection(context),
+      summarySection(context),
       compartmentsSection(context),
       partsSection(context),
     );

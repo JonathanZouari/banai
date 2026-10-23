@@ -17,6 +17,7 @@ const KIND_BY_LOCATION = Object.freeze({
   rails: 'rail',
 });
 const INTERIOR_KINDS = new Set(['shelf', 'drawer', 'rail', 'compartment', 'partition']);
+const SUMMARY_VIEWS = new Set(['interior', 'exterior']);
 
 /** Resolve a component id to a selection, or null when it does not exist. */
 export function resolveSelection(design, id) {
@@ -36,7 +37,7 @@ export function createStore({ design, revision = 1, catalog }) {
     throw new DomainError('SCHEMA_INVALID', 'revision', 'invalid revision');
   }
   let state = deepFreeze({
-    design: validDesign, revision, catalog: validCatalog, selection: null, ui: { doorsVisible: true },
+    design: validDesign, revision, catalog: validCatalog, selection: null, ui: { doorsVisible: true, summaryView: 'interior' },
   });
   const listeners = new Set();
 
@@ -88,6 +89,12 @@ export function createStore({ design, revision = 1, catalog }) {
 
     setDoorsVisible(doorsVisible) {
       commit({ ui: { ...state.ui, doorsVisible } });
+    },
+
+    /** Which design-summary view is shown. UI state only: never part of the design or revision. */
+    setSummaryView(summaryView) {
+      if (!SUMMARY_VIEWS.has(summaryView) || summaryView === state.ui.summaryView) return;
+      commit({ ui: { ...state.ui, summaryView } });
     },
   };
 }
