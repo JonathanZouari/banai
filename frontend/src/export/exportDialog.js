@@ -15,8 +15,11 @@ function saveBlob(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-/** getSnapshot() returns the 3D picture as a data URL, or throws (the PDF then uses its own drawing). */
-export function createExportDialog({ getDesign, getLanguage, getSnapshot = null, exportImpl = exportPdf }) {
+/**
+ * getSnapshot() returns the 3D picture as a data URL, or throws (the PDF then uses its own drawing).
+ * getRequest() returns the customer's notes and measured wall (or null) for the requirements page.
+ */
+export function createExportDialog({ getDesign, getLanguage, getSnapshot = null, getRequest = () => null, exportImpl = exportPdf }) {
   const s = t().dialogs.export;
   let language = getLanguage();
   let busy = false;
@@ -43,7 +46,7 @@ export function createExportDialog({ getDesign, getLanguage, getSnapshot = null,
       } catch {
         image = null; // no WebGL here: the PDF falls back to its drawn illustration
       }
-      const { blob, filename } = await exportImpl({ design, language, image });
+      const { blob, filename } = await exportImpl({ design, language, image, request: getRequest() });
       saveBlob(blob, filename);
       status.textContent = s.downloading;
     } catch (error) {

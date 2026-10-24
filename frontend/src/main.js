@@ -28,6 +28,8 @@ import { createViewSwitch } from './ui/viewSwitch.js';
 import { createPhotoStore } from './room/photo.js';
 import { mountRoomPanel } from './room/roomPanel.js';
 import { mountRoomStage } from './room/roomStage.js';
+import { mountReview } from './review/reviewScreen.js';
+import { isEmptyRequest } from './state/request.js';
 
 function showError(message) {
   const banner = document.getElementById('error-banner');
@@ -59,7 +61,11 @@ async function loadInitial(language) {
   if (link) {
     try {
       const saved = await getSavedDesign({ ...link, language });
-      return { initial: { design: saved.design, revision: 1 }, session: { ...link, revision: saved.revision } };
+      return {
+        initial: { design: saved.design, revision: 1 },
+        session: { ...link, revision: saved.revision },
+        request: saved.request ?? null, // the customer's notes and measured wall, if they were saved
+      };
     } catch {
       showError(t().app.errorLinkFailed);
     }
@@ -70,12 +76,12 @@ async function loadInitial(language) {
 function createSaver(store, language, initialSession) {
   let session = initialSession;
   return async () => {
-    const { design } = store.getState();
+    const { design, request } = store.getState();
     if (session) {
-      const { revision } = await updateSavedDesign({ ...session, design, language: language.get() });
+      const { revision } = await updateSavedDesign({ ...session, design, request, language: language.get() });
       session = { ...session, revision };
     } else {
-      const created = await createSavedDesign({ design, language: language.get() });
+      const created = await createSavedDesign({ design, request, language: language.get() });
       session = { designId: created.designId, token: created.accessToken, revision: created.revision };
     }
     window.history.replaceState({ ...(window.history.state ?? {}) }, '', shareHash(session));
@@ -102,9 +108,10 @@ function lazyDialog(factory) {
   };
 }
 
+// The private link, once there is one, is in the address bar (saved now or reopened from it).
+const currentLink = () => (parseShareHash(window.location.hash) ? window.location.href : '');
+
 function bindDialogs({ storage, onSave }) {
-  // The private link, once there is one, is in the address bar (saved now or reopened from it).
-  const currentLink = () => (parseShareHash(window.location.hash) ? window.location.href : '');
   const save = lazyDialog(() => createSaveDialog({ available: storage, onSave, link: currentLink() }));
   const render = lazyDialog(createRenderDialog);
   document.getElementById('open-save').addEventListener('click', save.open);
@@ -126,9 +133,14 @@ function mountLogo() {
   document.getElementById('topbar-logo').replaceChildren(home);
 }
 
-/** While the homepage is shown, the workspace under it is out of the tab order and the a11y tree. */
-function setWorkspaceInert(inert) {
-  document.querySelectorAll('.skip-link, .topbar, .workspace').forEach((node) => { node.inert = inert; });
+/**
+ * While the homepage is shown, the workspace under it is out of the tab order and the a11y tree.
+ * The review screen keeps the top bar usable (`keepTopbar`), so the customer can switch views.
+ */
+function setWorkspaceInert(inert, { keepTopbar = false } = {}) {
+  document.querySelectorAll('.skip-link, .topbar, .workspace').forEach((node) => {
+    node.inert = inert && !(keepTopbar && node.classList.contains('topbar'));
+  });
 }
 
 async function boot() {
@@ -142,9 +154,10 @@ async function boot() {
   let initial;
   let session;
   let health;
+  let savedRequest;
   try {
     // A failed health check only means "agent and saving unknown": the editor still works without it.
-    [catalog, { initial, session }, health] = await Promise.all([
+    [catalog, { initial, session, request: savedRequest }, health] = await Promise.all([
       getCatalog(), loadInitial(language.get()), getHealth().catch(() => null),
     ]);
   } catch {
@@ -153,6 +166,11 @@ async function boot() {
   }
   // Validates the server data before anything is rendered (throws on invalid data).
   const store = createStore({ design: initial.design, revision: initial.revision, catalog });
+  if (savedRequest) {
+    // Untrusted like everything from the server: the store cleans both (state/request.js).
+    store.setNotes(savedRequest.notes ?? '');
+    store.setRoom(savedRequest.room ?? {});
+  }
   const viewer = createViewer(document.getElementById('viewer'), store);
   bindInteriorToggle(store);
   bindSkipLink();
@@ -160,8 +178,13 @@ async function boot() {
     getDesign: () => store.getState().design,
     getLanguage: () => language.get(),
     getSnapshot: (design) => renderSnapshot(design, store.getState().catalog),
+    // Only when the customer entered something: an empty request is not sent (data minimisation).
+    getRequest: () => (isEmptyRequest(store.getState().request) ? null : store.getState().request),
   }));
   const panel = mountPanel(document.getElementById('properties-content'), store, { onExport: exporter.open });
+  const saver = createSaver(store, language, session);
+  const storage = health?.data.storage === true;
+  bindDialogs({ storage, onSave: saver });
   // Room fit (ADR-008): the photo lives only in this browser tab's memory.
   const photos = createPhotoStore();
   const roomPanel = mountRoomPanel(document.getElementById('room-panel'), {
@@ -170,12 +193,28 @@ async function boot() {
   const roomStage = mountRoomStage(document.getElementById('room-stage'), {
     store, photos, render: renderSnapshot, onDropFile: (file) => roomPanel.usePhoto(file),
   });
+  const review = mountReview({
+    store,
+    photos,
+    render: renderSnapshot,
+    storage,
+    getLink: currentLink,
+    onSave: saver,
+    onPdf: () => exporter.open(),
+    onBack: () => goView?.('designer'),
+    onEdit: (section) => {
+      if (section === 'room') {
+        goView?.('room');
+        return;
+      }
+      goView?.('designer');
+      panel.openStep(section);
+      document.querySelector(`[data-testid="step-${section}-toggle"]`)?.focus();
+    },
+  });
+  document.getElementById('open-review').addEventListener('click', () => goView?.('review'));
   const viewSwitch = createViewSwitch({ onChange: (view) => goView?.(view) });
   document.getElementById('view-switch-slot').replaceWith(viewSwitch.element);
-  bindDialogs({
-    storage: health?.data.storage === true,
-    onSave: createSaver(store, language, session),
-  });
   // Switching the interface language re-renders every text, and the chat follows it.
   uiLanguage.subscribe((code) => {
     applyDocumentLanguage();
@@ -183,6 +222,7 @@ async function boot() {
     panel.refresh();
     roomPanel.refresh();
     roomStage.refresh();
+    review.refresh();
     viewSwitch.refresh();
     viewer.refreshLabels();
     language.set(code);
@@ -248,11 +288,19 @@ async function boot() {
     initial: session ? 'designer' : 'home', // reopened from a private link: straight into the editor
     onShow: (view, { initial }) => {
       if (view === 'home') {
+        review.hide();
         setWorkspaceInert(true);
         home.show({ canContinue: Boolean(session) || store.getState().revision !== startRevision });
         return;
       }
       home.hide();
+      if (view === 'review') {
+        setWorkspaceInert(true, { keepTopbar: true });
+        viewSwitch.set('review');
+        review.show();
+        return;
+      }
+      review.hide();
       setWorkspaceInert(false);
       const room = view === 'room';
       document.body.classList.toggle('is-room', room);

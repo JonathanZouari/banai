@@ -1,8 +1,8 @@
-// In-app views: the homepage, the designer and the room-fit view (the review screen joins later).
+// In-app views: the homepage, the designer, the room-fit view and the review-and-send screen.
 // The URL itself never changes: the hash may hold the private design link (#d=...), so the view
 // lives in history.state. Browser Back/Forward move between views like normal pages.
 
-export const VIEWS = Object.freeze(['home', 'designer', 'room']);
+export const VIEWS = Object.freeze(['home', 'designer', 'room', 'review']);
 
 /**
  * `onShow(view, { initial, fromHistory })` renders a view. `history` and `target` are injectable

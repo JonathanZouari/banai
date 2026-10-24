@@ -1,6 +1,6 @@
 # QA log: UX/UI MVP (`uxui_nurit`)
 
-Per-stage QA reports for the Hebrew-first UX/UI MVP. Each stage passed its gate before it was reported:
+Per-stage QA reports (stages 0–5) for the Hebrew-first UX/UI MVP. Each stage passed its gate before it was reported:
 pytest, vitest, the full Playwright suite (including visual regression and axe WCAG 2.2 AA),
 Claude in Chrome with a recorded GIF, and security checks (secrets, unsafe HTML sinks, invisible
 characters, `npm audit`). The plan and the decisions are in the Obsidian vault note `07 - UX-UI Plan`
@@ -13,6 +13,7 @@ characters, `npm audit`). The plan and the decisions are in the Obsidian vault n
 | 2 | Homepage with a central AI field + router | `b4c6275` |
 | 3 | Step-by-step designer, live summaries, notes | `c3e7fae` |
 | 4 | Room fit: measurements, fit check, local-only photo, approximate layer | `24151cd` |
+| 5 | Review and send: summary, save, PDF with customer requirements, share | (this commit) |
 
 Known open items: no `OPENAI_API_KEY` locally (real AI integration tests are BLOCKED; agent flows are
 tested with deterministic mocks only); one moderate `npm audit` finding (`fast-uri` via `serve`, kept by
@@ -176,3 +177,38 @@ decision); the Phase 9 CSP needs `img-src blob:` for the room photo preview.
 | Claude in Chrome | ✅ room view → upload → layer → wall 180 → "גדול ב-20 ס״מ" (20 cm too large) → move/resize. GIF `banai_stage4_room_fit.gif`, 0 console errors |
 
 **Phase 9 reminder:** the CSP needs `img-src 'self' data: blob:` for the photo preview (already in Obsidian `05 - Open Items`).
+
+### 2026-10-24 · Stage 5: Review and send: **PASSED**
+**What was done:**
+- A review screen (`review/reviewScreen.js`, router view `review`, a "לסיכום ושליחה" (review and send) button in the top bar):
+  - a picture of the wardrobe
+  - a card per part (dimensions, doors, interior layout, materials, notes, room fit), each with "עריכה" (edit), which goes back to that step or to the room view
+  - save and get a private link, the PDF for the carpenter, and sending by copy, email or WhatsApp (links the customer opens; the app sends nothing)
+  - a warning that anyone with the link can edit, and "אין כאן מחיר או אישור ייצור" (no price and no manufacturing approval here)
+- The backend (additive, optional, per the approved plan): `request {notes, room}` in `POST/PUT /api/designs` (the existing `customer` column) and in `POST /api/export/pdf` (a "דרישות הלקוח" (customer requirements) page).
+  - Strict validation in `app/api/customer_request.py`. The value is re-validated on read and never contains the photo.
+  - A save without `request` keeps the stored one, so older clients keep working.
+- Opening a private link restores the notes and the measured wall into the store.
+
+**Bugs found and fixed during the check:**
+1. `request` was sent with the PDF even when empty. An existing test that checks exactly which fields are sent caught it. The app was fixed (`isEmptyRequest`, data minimization); the test was not changed.
+2. The local backend was running without auto-reload, so it was restarted for the live test.
+
+**Real integration (not mocked):** in Chrome against the real Supabase `banai-dev`: save with notes and a wall → reopen the link → the notes and the room came back exactly. It's the first live test of the `customer` column.
+
+**Timeout:** each test in `review.spec.js` walks the whole journey across several screens, so the file was given 60 s instead of 30 (no assertion was changed).
+
+| Check | Result |
+|---|---|
+| vitest | ✅ 261 passed, 0 failed, 0 skipped (new: share ×3, request with saves/PDF ×2, isEmptyRequest ×1) |
+| pytest | ✅ 268 passed, 0 failed, 0 skipped (26 new in `test_customer_request.py`: save/reopen, the same token, 14 hostile-input cases, Supabase, the PDF page) |
+| Playwright (full) | ✅ 96 passed, 0 failed, 0 skipped (re-run in full after the fix). New `review.spec.js` (6, stable ×2) |
+| axe WCAG 2.2 AA | ✅ the review screen, before and after saving |
+| Visual regression | ✅ new `review.png`, designer/room updated after review (the new top-bar button), stable ×3 |
+| Build / secrets / sinks / invisible characters | ✅ |
+| npm audit | 🟡 the same moderate finding (`fast-uri`) |
+| Claude in Chrome | ✅ review → save (Supabase dev) → link → share buttons → reopen restores the notes and the room. GIF `banai_stage5_review_send.gif`, 0 console errors |
+
+**Security:** strict validation of `request` (types, ranges, a fixed list, caps, hidden characters rejected), the same token protection (a wrong token returns 404 without data), plain text in the PDF, share links encoded and limited to the app's own links, `noopener noreferrer` for WhatsApp, no personal details collected, and an empty request is not sent.
+
+**Open:** sending through WhatsApp puts the private link in the WhatsApp URL (customer-initiated, with a warning). No OpenAI key: AI flows are tested with mocks only. `fast-uri`.

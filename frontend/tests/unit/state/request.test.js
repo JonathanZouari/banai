@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cleanNotes, cleanRoom, MAX_NOTES, MAX_ROOM_TEXT } from '../../../src/state/request.js';
+import { cleanNotes, cleanRoom, isEmptyRequest, MAX_NOTES, MAX_ROOM_TEXT } from '../../../src/state/request.js';
 
 const char = (code) => String.fromCodePoint(code);
 
@@ -52,3 +52,15 @@ describe('cleanRoom (the measured wall and the room description)', () => {
     expect(cleanRoom()).toEqual({ width: null, height: null, depth: null, obstacles: [], obstacleNotes: '', style: '' });
   });
 });
+
+describe('isEmptyRequest', () => {
+  it('is empty with nothing entered, and not empty with any one thing', () => {
+    expect(isEmptyRequest({ notes: '  ', room: cleanRoom() })).toBe(true);
+    expect(isEmptyRequest(undefined)).toBe(true);
+    expect(isEmptyRequest({ notes: 'ידיות', room: cleanRoom() })).toBe(false);
+    expect(isEmptyRequest({ notes: '', room: cleanRoom({ width: 2500 }) })).toBe(false);
+    expect(isEmptyRequest({ notes: '', room: cleanRoom({ obstacles: ['door'] }) })).toBe(false);
+    expect(isEmptyRequest({ notes: '', room: cleanRoom({ style: 'לבן' }) })).toBe(false);
+  });
+});
+

@@ -14,6 +14,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.api.agent import error
+from app.api.customer_request import CustomerRequest
 from app.domain.apply import apply_ops
 from app.domain.catalog import load_catalog
 from app.domain.errors import DomainError
@@ -43,6 +44,7 @@ class ExportRequest(BaseModel):
     design: dict
     language: Literal["he", "en"] = "he"
     image: Annotated[str, Field(max_length=2_700_000)] | None = None  # data:image/(png|jpeg);base64,...
+    request: CustomerRequest | None = None  # optional (stage 5): notes and the measured wall, never a photo
 
 
 async def read_capped(request: Request, limit: int = MAX_BODY_BYTES) -> bytes | None:
@@ -56,9 +58,9 @@ async def read_capped(request: Request, limit: int = MAX_BODY_BYTES) -> bytes | 
     return b"".join(chunks)
 
 
-def _build(design: dict, catalog: dict, language: str, image: str | None) -> bytes:
+def _build(design: dict, catalog: dict, language: str, image: str | None, request: dict | None = None) -> bytes:
     snapshot = clean_snapshot(image) if image else None
-    return render_pdf(design, catalog, language, date.today(), snapshot=snapshot)
+    return render_pdf(design, catalog, language, date.today(), snapshot=snapshot, request=request)
 
 
 @router.post("/export/pdf")
@@ -88,7 +90,8 @@ async def export_pdf(request: Request):
     _active_renders += 1
     try:
         # CPU-bound (image decode + render): keep it off the event loop.
-        pdf = await run_in_threadpool(_build, design, catalog, parsed.language, parsed.image)
+        customer = parsed.request.to_json() if parsed.request and not parsed.request.is_empty() else None
+        pdf = await run_in_threadpool(_build, design, catalog, parsed.language, parsed.image, customer)
     except InvalidImage:
         return error(422, "INVALID_IMAGE", MESSAGES["INVALID_IMAGE"][parsed.language], "image")
     finally:

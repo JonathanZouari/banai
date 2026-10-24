@@ -94,17 +94,18 @@ function pdfFilename(disposition) {
 }
 
 /**
- * The carpenter PDF: { design, language: 'he'|'en', image? } -> { blob, filename }. `image` is the
- * app's own 3D snapshot (a JPEG/PNG data URL); without it the PDF uses its drawn illustration.
+ * The carpenter PDF: { design, language: 'he'|'en', image?, request? } -> { blob, filename }. `image` is
+ * the app's own 3D snapshot (a JPEG/PNG data URL); without it the PDF uses its drawn illustration.
+ * `request` (notes + the measured wall, never the room photo) adds a customer-requirements page.
  */
-export async function exportPdf({ design, language, image = null }, fetchImpl = fetch) {
+export async function exportPdf({ design, language, image = null, request = null }, fetchImpl = fetch) {
   if (!API_BASE_URL) throw new Error('The API base URL is not configured');
   let response;
   try {
     response = await fetchImpl(`${API_BASE_URL}/api/export/pdf`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(image ? { design, language, image } : { design, language }),
+      body: JSON.stringify({ design, language, ...(image ? { image } : {}), ...(request ? { request } : {}) }),
     });
   } catch {
     throw new ApiError('Could not reach the design service.');
@@ -125,10 +126,13 @@ export async function exportPdf({ design, language, image = null }, fetchImpl = 
 const designPath = (designId) => `/api/designs/${encodeURIComponent(designId)}`;
 const bearer = (token) => ({ Authorization: `Bearer ${token}` });
 
-/** Save a new design: { design, language } -> { designId, accessToken, revision }. The token is shown only once. */
+/**
+ * Save a new design: { design, language, request? } -> { designId, accessToken, revision }. The token is
+ * shown only once. `request` is the customer's notes and measured wall (never the room photo).
+ */
 export const createSavedDesign = (payload, fetchImpl = fetch) => postJson('/api/designs', payload, fetchImpl);
 
-/** Reopen a saved design: { designId, token, language } -> { designId, name, design, revision }. 404 = not this link. */
+/** Reopen a saved design: { designId, token, language } -> { designId, name, design, revision, request? }. 404 = not this link. */
 export const getSavedDesign = ({ designId, token, language }, fetchImpl = fetch) => request(
   `${designPath(designId)}?language=${encodeURIComponent(language)}`,
   fetchImpl,
@@ -136,6 +140,7 @@ export const getSavedDesign = ({ designId, token, language }, fetchImpl = fetch)
 );
 
 /** Save over a saved design from `revision`: -> { designId, revision }. 409 STALE = someone saved in between. */
-export const updateSavedDesign = ({ designId, token, revision, design, language }, fetchImpl = fetch) => sendJson(
-  'PUT', designPath(designId), { design, language }, fetchImpl, { ...bearer(token), 'If-Match': String(revision) },
+export const updateSavedDesign = ({ designId, token, revision, design, language, request = null }, fetchImpl = fetch) => sendJson(
+  'PUT', designPath(designId), { design, language, ...(request ? { request } : {}) }, fetchImpl,
+  { ...bearer(token), 'If-Match': String(revision) },
 );

@@ -97,7 +97,8 @@ npm run build                                  # vite build -> dist/
   - `/api/voice/speech` reads replies aloud. It is opt-in and labelled as an AI voice.
   - Voice never applies a change by itself: it always ends in the same signed proposal and **Confirm**. OpenAI keys stay on the backend; there is no Realtime session in the browser.
 - **Carpenter PDF.**
-  - `POST /api/export/pdf` takes `{design, language}`. It validates the design with the domain engine and renders with reportlab (`backend/app/export/`).
+  - `POST /api/export/pdf` takes `{design, language, image?, request?}`. It validates the design with the domain engine and renders with reportlab (`backend/app/export/`).
+  - `request` (UX/UI stage 5, optional) is the customer's notes and measured wall (`backend/app/api/customer_request.py`). It adds a "customer requirements" page that states the input came from the customer and was not checked on site. It never contains the room photo.
   - It stores nothing, involves no AI, and caps concurrent renders per worker (503 `BUSY`).
   - The "Generate Style Profile" button sits next to "+ Add compartment". The chat also offers it in one pinned note after a confirmed proposal, or when the agent's `offer_style_profile` tool fires (the customer says they are done). That tool changes nothing in the design.
   - Hebrew goes through `bidi.algorithm`, the pure-Python version, which mirrors brackets. Number expressions stay left to right.

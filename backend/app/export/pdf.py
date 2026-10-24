@@ -65,9 +65,11 @@ def place(area: tuple[float, float, float, float], size: tuple[float, float],
 
 
 class Document:
-    def __init__(self, design: dict, catalog: dict, language: str, today: date, snapshot: bytes | None = None):
+    def __init__(self, design: dict, catalog: dict, language: str, today: date, snapshot: bytes | None = None,
+                 request: dict | None = None):
         register_fonts()
         self.snapshot = snapshot  # a cleaned JPEG of the app's 3D view, or None
+        self.request = request  # the customer's notes and measured wall (validated), or None
         self.d = design
         self.catalog = catalog
         self.lang = language
@@ -134,6 +136,8 @@ class Document:
         pages = [Page(self.s["sheetTitle"], self.s["asNoted"], self.page_sheet),
                  Page(self.s["illustration"], self.s["notToScale"], self.page_illustration),
                  Page(self.s["overview"], "—", self.page_summary)]
+        if self.request:
+            pages.append(Page(self.s["customerTitle"], "—", self.page_customer))
         if self.d["doors"]["type"] != "none":
             pages.append(self.page_front(doors=True))
         pages.append(self.page_front(doors=False))
@@ -373,6 +377,45 @@ class Document:
                 self.pen.text(start + sign * 10, y, line, 7.6)
                 y -= 10.5
             y -= 4
+
+    def page_customer(self) -> None:
+        """What the customer asked for: their notes and the wall they measured, compared with the
+        wardrobe by size only. Stated as the customer's input, never as a site survey."""
+        s, request = self.s, self.request
+        room = request.get("room") or {}
+        half = (X1 - X0 - 30) / 2
+        first, second = (X1 - half, X0) if self.rtl else (X0, X0 + half + 30)
+        wardrobe = {"width": self.W, "height": self.H, "depth": self.D}
+        rows = []
+        for field, key in (("width", "roomWidth"), ("height", "roomHeight"), ("depth", "roomDepth")):
+            space = room.get(field)
+            if space is None:
+                rows.append((s[key], s["notMeasured"]))
+                continue
+            over = wardrobe[field] - space
+            compare = s["fitOver"].format(o=over) if over > 0 else s["fitOk"].format(w=wardrobe[field], r=space)
+            rows.append((s[key], f"{space} · {compare}"))
+        obstacles = [s[f"obstacle_{name}"] for name in room.get("obstacles", [])]
+        rows.append((s["obstacles"], " · ".join(obstacles) if obstacles else "—"))
+        for key, value in (("obstacleNotes", room.get("obstacleNotes", "")), ("roomStyle", room.get("style", ""))):
+            if value.strip():
+                rows.append((s[key], value.strip()))
+        self.key_values(first, half, TOP, s["room"], rows)
+        start = second + half if self.rtl else second
+        self.pen.text(start, TOP - 4, s["customerNotes"], 10, bold=True, fill=ACCENT)
+        y = TOP - 22
+        notes = (request.get("notes") or "").strip() or "—"
+        for paragraph in notes.split("\n"):
+            for line in self.pen.wrap(paragraph, half, 8.5) or [""]:
+                if y < Y0 + 60:
+                    break
+                self.pen.text(start, y, line, 8.5)
+                y -= 12
+            y -= 4
+        y = min(y, TOP - 22 - 17 * (len(rows) + 1)) - 10
+        for line in self.pen.wrap(s["customerDisclaimer"], X1 - X0, 7.6):
+            self.pen.text(self.start_x, y, line, 7.6, fill=MUTED)
+            y -= 10.5
 
     def key_values(self, x: float, width: float, top: float, heading: str, rows: list[tuple[str, str]]) -> None:
         pen = self.pen
@@ -742,7 +785,9 @@ class Document:
             pen.line(a, y, a, TOP, HAIR, 0.3)
 
 
-def render_pdf(design: dict, catalog: dict, language: str, today: date, snapshot: bytes | None = None) -> bytes:
+def render_pdf(design: dict, catalog: dict, language: str, today: date, snapshot: bytes | None = None,
+               request: dict | None = None) -> bytes:
     """The carpenter PDF for a canonical design (validate it first with the domain engine). `snapshot`
-    is a JPEG already cleaned by app.export.image.clean_snapshot."""
-    return Document(design, catalog, language, today, snapshot).build()
+    is a JPEG already cleaned by app.export.image.clean_snapshot; `request` is a validated
+    CustomerRequest as JSON (it adds a customer-requirements page when not empty)."""
+    return Document(design, catalog, language, today, snapshot, request).build()

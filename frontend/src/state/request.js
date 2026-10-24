@@ -53,3 +53,11 @@ export function cleanRoom(raw = {}) {
     style: cleanNotes(raw.style).slice(0, MAX_ROOM_TEXT),
   };
 }
+
+/** True when the customer has entered nothing: no notes, no measurements, no obstacles, no description. */
+export function isEmptyRequest(request) {
+  const room = request?.room ?? {};
+  return !String(request?.notes ?? '').trim()
+    && room.width == null && room.height == null && room.depth == null
+    && !(room.obstacles ?? []).length && !String(room.obstacleNotes ?? '').trim() && !String(room.style ?? '').trim();
+}

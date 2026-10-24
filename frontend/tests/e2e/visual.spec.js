@@ -35,4 +35,12 @@ test.describe('visual regression (desktop 1440×900)', () => {
     await settle(page);
     await expect(page).toHaveScreenshot('room-fit.png');
   });
+
+  test('review and send', async ({ page }) => {
+    await openDesigner(page);
+    await page.getByTestId('open-review').click();
+    await expect(page.getByTestId('review-picture')).toBeVisible({ timeout: 20_000 });
+    await settle(page);
+    await expect(page).toHaveScreenshot('review.png');
+  });
 });
