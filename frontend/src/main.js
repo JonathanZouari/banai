@@ -1,10 +1,8 @@
-import '@fontsource/bricolage-grotesque/600.css';
-import '@fontsource/bricolage-grotesque/700.css';
-import '@fontsource/bricolage-grotesque/800.css';
-import '@fontsource/dm-sans/400.css';
-import '@fontsource/dm-sans/500.css';
-import '@fontsource/dm-sans/600.css';
-import '@fontsource/dm-sans/700.css';
+// Rubik: Hebrew + Latin in one family (each file carries both subsets via unicode-range).
+import '@fontsource/rubik/400.css';
+import '@fontsource/rubik/500.css';
+import '@fontsource/rubik/600.css';
+import '@fontsource/rubik/700.css';
 import {
   applyProposal, createSavedDesign, getCatalog, getDefaultDesign, getHealth, getSavedDesign, sendChat, updateSavedDesign,
 } from './api/client.js';
@@ -22,6 +20,8 @@ import { createExportDialog } from './export/exportDialog.js';
 import { createRenderDialog } from './render/renderDialog.js';
 import { createLogo } from './ui/logo.js';
 import { installRipple } from './ui/ripple.js';
+import { applyDocumentLanguage, createUiLanguage, getUiLanguage, t } from './ui/i18n.js';
+import { createLanguageSwitch } from './ui/languageSwitch.js';
 
 function showError(message) {
   const banner = document.getElementById('error-banner');
@@ -55,7 +55,7 @@ async function loadInitial(language) {
       const saved = await getSavedDesign({ ...link, language });
       return { initial: { design: saved.design, revision: 1 }, session: { ...link, revision: saved.revision } };
     } catch {
-      showError('This link did not open a saved design, so the basic wardrobe is shown instead.');
+      showError(t().app.errorLinkFailed);
     }
   }
   return { initial: await getDefaultDesign(), session: null };
@@ -77,15 +77,43 @@ function createSaver(store, language, initialSession) {
   };
 }
 
-function bindDialogs({ storage, onSave, link }) {
-  const save = createSaveDialog({ available: storage, onSave, link });
-  const render = createRenderDialog();
+/**
+ * A dialog built on first open and rebuilt when the UI language has changed since, so its text always
+ * matches the interface. `factory()` returns { element, open }.
+ */
+function lazyDialog(factory) {
+  let built = null;
+  let builtLanguage = null;
+  return {
+    open() {
+      if (!built || builtLanguage !== getUiLanguage()) {
+        built?.element.remove();
+        built = factory();
+        builtLanguage = getUiLanguage();
+      }
+      built.open();
+    },
+  };
+}
+
+function bindDialogs({ storage, onSave }) {
+  // The private link, once there is one, is in the address bar (saved now or reopened from it).
+  const currentLink = () => (parseShareHash(window.location.hash) ? window.location.href : '');
+  const save = lazyDialog(() => createSaveDialog({ available: storage, onSave, link: currentLink() }));
+  const render = lazyDialog(createRenderDialog);
   document.getElementById('open-save').addEventListener('click', save.open);
   document.getElementById('open-render').addEventListener('click', render.open);
 }
 
+function mountLogo() {
+  document.getElementById('topbar-logo').replaceChildren(createLogo({ size: 34, tagline: t().app.tagline }));
+}
+
 async function boot() {
-  document.getElementById('topbar-logo').append(createLogo({ size: 34, tagline: 'Wardrobe Designer' }));
+  const uiLanguage = createUiLanguage();
+  applyDocumentLanguage();
+  mountLogo();
+  document.getElementById('ui-language-slot').replaceWith(createLanguageSwitch(uiLanguage));
   installRipple();
   const language = createLanguage();
   let catalog;
@@ -98,7 +126,7 @@ async function boot() {
       getCatalog(), loadInitial(language.get()), getHealth().catch(() => null),
     ]);
   } catch {
-    showError('Could not reach the design service. Please check your connection and reload.');
+    showError(t().app.errorNoService);
     return;
   }
   // Validates the server data before anything is rendered (throws on invalid data).
@@ -106,16 +134,23 @@ async function boot() {
   const viewer = createViewer(document.getElementById('viewer'), store);
   bindInteriorToggle(store);
   bindSkipLink();
-  const exporter = createExportDialog({
+  const exporter = lazyDialog(() => createExportDialog({
     getDesign: () => store.getState().design,
     getLanguage: () => language.get(),
     getSnapshot: (design) => renderSnapshot(design, store.getState().catalog),
-  });
-  mountPanel(document.getElementById('properties-content'), store, { onExport: exporter.open });
+  }));
+  const panel = mountPanel(document.getElementById('properties-content'), store, { onExport: exporter.open });
   bindDialogs({
     storage: health?.data.storage === true,
     onSave: createSaver(store, language, session),
-    link: session ? window.location.href : '',
+  });
+  // Switching the interface language re-renders every text, and the chat follows it.
+  uiLanguage.subscribe((code) => {
+    applyDocumentLanguage();
+    mountLogo();
+    panel.refresh();
+    viewer.refreshLabels();
+    language.set(code);
   });
 
   // The agent is optional: without an OpenAI key on the server the panel says so honestly.
@@ -160,6 +195,7 @@ async function boot() {
 
   if (session) return; // reopened from a link: straight into the editor
   mountStartScreen({
+    language: uiLanguage,
     onChoose: (entry) => {
       // All three entry points open the same editor; the chat ones focus the composer, the manual
       // one the properties panel, so keyboard focus never falls out of the page when the modal closes.
@@ -170,5 +206,5 @@ async function boot() {
 }
 
 boot().catch(() => {
-  showError('The designer could not start. Please reload the page.');
+  showError(t().app.errorStart);
 });

@@ -5,6 +5,7 @@ import { compartmentsSection } from './compartmentsSection.js';
 import { componentSection } from './componentSection.js';
 import { partsSection } from './partsSection.js';
 import { wardrobeSection } from './wardrobeSection.js';
+import { getUiLanguage } from '../ui/i18n.js';
 
 export function mountPanel(root, store, { onExport } = {}) {
   const run = (ops) => {
@@ -15,11 +16,12 @@ export function mountPanel(root, store, { onExport } = {}) {
     }
   };
   const select = (id) => store.select(id);
-  let rendered = { design: null, selection: undefined };
+  let rendered = { design: null, selection: undefined, language: null };
 
   const render = (state) => {
-    if (state.design === rendered.design && state.selection === rendered.selection) return;
-    rendered = { design: state.design, selection: state.selection };
+    const language = getUiLanguage();
+    if (state.design === rendered.design && state.selection === rendered.selection && language === rendered.language) return;
+    rendered = { design: state.design, selection: state.selection, language };
     const context = { design: state.design, catalog: state.catalog, selection: state.selection, run, select, onExport };
     // Re-rendering replaces every control: put keyboard focus back on the same one (WCAG 2.4.3).
     const focused = root.contains(document.activeElement) ? document.activeElement.dataset.testid : undefined;
@@ -34,5 +36,6 @@ export function mountPanel(root, store, { onExport } = {}) {
 
   const unsubscribe = store.subscribe(render);
   render(store.getState());
-  return unsubscribe;
+  // refresh(): re-render with the current UI language (the store did not change).
+  return { unsubscribe, refresh: () => render(store.getState()) };
 }

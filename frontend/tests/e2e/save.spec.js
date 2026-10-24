@@ -67,7 +67,7 @@ test.describe('save and reopen', () => {
 
     test('a wrong token falls back to the basic wardrobe and says so', async ({ page }) => {
       await page.goto(`/#d=0b6f2a52-3c1e-4c8e-9a51-1f6f3f2b7d10.${'A'.repeat(43)}`);
-      await expect(page.locator('#error-banner')).toContainText('did not open a saved design');
+      await expect(page.locator('#error-banner')).toContainText('הקישור לא פתח עיצוב שמור');
       await expect(page.getByTestId('start-screen')).toBeVisible();
     });
   });

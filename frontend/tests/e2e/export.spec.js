@@ -6,14 +6,17 @@ import { expect, openDesigner, test } from './fixtures.js';
 test('Generate Style Profile sits next to Add compartment, not in the top bar', async ({ page }) => {
   await openDesigner(page);
   const button = page.getByTestId('open-export');
-  await expect(button).toHaveText('Generate Style Profile');
+  await expect(button).toHaveText('הפקת פרופיל סגנון');
   await expect(page.locator('.button-row').filter({ has: page.getByTestId('add-compartment') }).getByTestId('open-export')).toBeVisible();
   await expect(page.locator('.topbar').getByTestId('open-export')).toHaveCount(0);
   // Side by side on one line, not stacked.
   const add = await page.getByTestId('add-compartment').boundingBox();
   const generate = await button.boundingBox();
   expect(Math.abs(add.y - generate.y)).toBeLessThan(2);
-  expect(generate.x).toBeGreaterThan(add.x + add.width - 1);
+  // ...and after it in reading order: to its left in Hebrew (RTL), to its right in English.
+  const rtl = await page.evaluate(() => document.documentElement.dir === 'rtl');
+  expect(rtl).toBe(true);
+  expect(generate.x + generate.width).toBeLessThan(add.x + 1);
 });
 
 test('the export dialog defaults to the chat language and downloads a real PDF', async ({ page }) => {
@@ -34,7 +37,7 @@ test('the export dialog defaults to the chat language and downloads a real PDF',
   expect(file.suggestedFilename()).toMatch(/^[A-Za-z0-9._-]+\.pdf$/);
   const bytes = await readFile(await file.path());
   expect(bytes.subarray(0, 4).toString()).toBe('%PDF');
-  await expect(page.getByTestId('export-status')).toHaveText('Your PDF is downloading.');
+  await expect(page.getByTestId('export-status')).toHaveText('ה-PDF יורד.');
   await page.getByTestId('export-close').click();
   await expect(dialog).toBeHidden();
 });

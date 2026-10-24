@@ -1,6 +1,7 @@
 // Small DOM builders for the properties panel. Text is always set via textContent or
 // input.value, never innerHTML, so design data (e.g. custom names) cannot inject markup.
 import { friendlyError, parseCm, toCmText } from './opsFromForm.js';
+import { t } from '../ui/i18n.js';
 
 let fieldCounter = 0;
 const nextId = (prefix) => `${prefix}-${(fieldCounter += 1)}`;
@@ -53,7 +54,7 @@ function inputField({ label, value, testId, suffix, commit, inputMode = 'decimal
 /** A centimetre field backed by an integer-millimetre value. `onCommit(mm)` dispatches. */
 export function cmField({ label, mm, testId, onCommit }) {
   return inputField({
-    label, testId, suffix: 'cm', value: toCmText(mm),
+    label, testId, suffix: t().units.cm, value: toCmText(mm),
     commit: (text) => {
       const parsed = parseCm(text);
       return parsed.ok ? onCommit(parsed.mm) : parsed;
@@ -65,7 +66,7 @@ export function cmField({ label, mm, testId, onCommit }) {
 export function countField({ label, value, testId, onCommit }) {
   return inputField({
     label, testId, value: String(value), inputMode: 'numeric',
-    commit: (text) => (/^\d{1,2}$/.test(text.trim()) ? onCommit(Number(text.trim())) : { ok: false, message: 'Enter a whole number' }),
+    commit: (text) => (/^\d{1,2}$/.test(text.trim()) ? onCommit(Number(text.trim())) : { ok: false, message: t().editor.wholeNumber }),
   });
 }
 

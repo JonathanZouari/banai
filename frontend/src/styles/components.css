@@ -20,7 +20,7 @@
 
 .btn--tonal { border-color: transparent; background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
 .btn--tonal:hover:not(:disabled) { background: #f5cfc0; }
-.btn .icon { margin-right: 4px; }
+.btn .icon { margin-inline-end: 4px; }
 
 .chip {
   display: inline-block;
@@ -68,7 +68,7 @@
   background: var(--md-sys-color-surface-container-lowest);
   color: var(--md-sys-color-on-surface);
   font: var(--md-sys-typescale-body-medium);
-  text-align: left;
+  text-align: start;
   cursor: pointer;
   transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease;
 }
@@ -157,7 +157,7 @@
   color: var(--md-sys-color-on-surface);
 }
 .start[open] { display: flex; flex-direction: column; }
-.start__bar { height: 64px; flex: none; display: flex; align-items: center; padding: 0 var(--space-5); border-bottom: 1px solid var(--md-sys-color-outline-variant); }
+.start__bar { height: 64px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 var(--space-5); border-bottom: 1px solid var(--md-sys-color-outline-variant); }
 .start__main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: var(--space-5); text-align: center; }
 .start__title { margin: 0 0 var(--space-2); font: var(--md-sys-typescale-headline-large); }
 .start__subtitle { max-width: 560px; margin: 0 0 var(--space-5); color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-large); }
@@ -172,7 +172,7 @@
   border: 1px solid var(--md-sys-color-outline-variant);
   border-radius: var(--md-sys-shape-large);
   background: var(--md-sys-color-surface-container-lowest);
-  text-align: left;
+  text-align: start;
 }
 .entry-card__icon { display: grid; place-items: center; width: 48px; height: 48px; border-radius: var(--md-sys-shape-medium); background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); }
 .entry-card__title { margin: var(--space-2) 0 0; font: var(--md-sys-typescale-title-medium); }
@@ -182,7 +182,7 @@
 /* Logo */
 .logo { display: inline-flex; align-items: center; gap: 10px; }
 .logo__img, .logo__mark { display: block; flex: none; }
-.logo__tagline { padding-left: 10px; border-left: 1px solid var(--md-sys-color-outline-variant); color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-label-large); letter-spacing: 0.01em; }
+.logo__tagline { padding-inline-start: 10px; border-inline-start: 1px solid var(--md-sys-color-outline-variant); color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-label-large); letter-spacing: 0.01em; }
 
 /* Interaction: ripple, press, hover */
 .btn, .icon-btn, .segmented__option, .swatch { position: relative; overflow: hidden; }
@@ -258,3 +258,6 @@
 /* The pinned "design ready" note in the chat, with Generate Style Profile. */
 .chat__built-body { display: flex; flex-direction: column; gap: var(--space-2); }
 .chat__built .button-row { margin-top: 0; }
+
+/* Directional icons point the way the text reads. */
+[dir="rtl"] .icon--arrow { transform: scaleX(-1); }

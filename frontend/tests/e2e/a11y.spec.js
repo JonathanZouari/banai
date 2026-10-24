@@ -1,28 +1,21 @@
-import AxeBuilder from '@axe-core/playwright';
-import { test, expect, openDesigner, selection } from './fixtures.js';
+import { test, expect, openDesigner, selection, expectNoViolations } from './fixtures.js';
 
-// IS 5568 part 1 adopts WCAG at level AA.
-const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
-
-async function expectNoViolations(page) {
-  // Let entrance animations (fades) finish, or axe measures half-transparent text.
-  await page.evaluate(() => Promise.all(document.getAnimations()
-    .filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => {})))); // a cancelled animation rejects; that is fine
-  const { violations } = await new AxeBuilder({ page }).withTags(TAGS).analyze();
-  const summary = violations.map((v) => `${v.id}: ${v.nodes.map((n) => `${n.target.join(' ')} ${n.any[0]?.message ?? ''}`).join(', ')}`);
-  expect(summary, summary.join('\n')).toEqual([]);
-}
-
-test.describe('accessibility (axe, WCAG 2.1 AA)', () => {
+test.describe('accessibility (axe, WCAG 2.2 AA)', () => {
   test('start screen', async ({ page }) => {
     await page.goto('/');
     await page.getByTestId('start-screen').waitFor();
     await expectNoViolations(page);
   });
 
-  test('editor, with and without a selection', async ({ page }) => {
+  // One full-page scan per test: two scans of the live WebGL page in one test came within a few
+  // seconds of the 30 s timeout on a busy machine (software rendering keeps the CPU busy).
+  test('editor without a selection', async ({ page }) => {
     await openDesigner(page);
     await expectNoViolations(page);
+  });
+
+  test('editor with a shelf selected', async ({ page }) => {
+    await openDesigner(page);
     await page.getByTestId('part-shf_l1').click();
     await page.getByTestId('selected-section').waitFor();
     await expectNoViolations(page);
@@ -52,7 +45,7 @@ test.describe('keyboard only', () => {
     await shelf.focus();
     await page.keyboard.press('Enter');
     expect(await selection(page)).toEqual({ id: 'shf_l1', kind: 'shelf' });
-    await expect(page.getByTestId('selected-section')).toContainText('Shelf');
+    await expect(page.getByTestId('selected-section')).toContainText('מדף');
     await expect(page.getByTestId('part-shf_l1')).toBeFocused(); // focus survives the re-render
   });
 
@@ -68,8 +61,8 @@ test.describe('keyboard only', () => {
     await page.getByTestId('start-screen').waitFor();
     await page.evaluate(() => document.querySelector('[data-testid="start-screen"]').close());
     await page.keyboard.press('Tab');
-    await expect(page.getByRole('link', { name: 'Skip to properties' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Skip to properties' })).toBeFocused();
+    await expect(page.getByRole('link', { name: 'דילוג למאפיינים' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'דילוג למאפיינים' })).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(page.locator('#properties-panel')).toBeFocused();
     expect(new URL(page.url()).hash).toBe(''); // the hash is reserved for the private design link

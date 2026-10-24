@@ -1,35 +1,37 @@
 <!doctype html>
-<html lang="en">
+<html lang="he" dir="rtl">
   <head>
     <meta charset="UTF-8" />
     <meta name="referrer" content="no-referrer" /><!-- the share link carries a token -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>BanAI Wardrobe Designer</title>
+    <title>BanAI · מעצב ארונות</title>
     <link rel="icon" type="image/png" href="/src/assets/banai-mark.png" />
     <link rel="stylesheet" href="/src/styles/index.css" />
   </head>
   <body>
-    <a class="skip-link" href="#properties-panel">Skip to properties</a>
+    <!-- Hebrew is the default; ui/i18n.js rewrites every data-i18n text when the language changes. -->
+    <a class="skip-link" href="#properties-panel" data-i18n="app.skipLink">דילוג למאפיינים</a>
     <header class="topbar">
-      <h1 class="topbar__title" id="topbar-logo" aria-label="BanAI Wardrobe Designer"></h1>
+      <h1 class="topbar__title" id="topbar-logo" data-i18n-aria="app.logoLabel" aria-label="BanAI מעצב ארונות"></h1>
       <div class="topbar__actions">
         <label class="toggle">
           <input type="checkbox" id="toggle-interior" />
-          <span>Show interior</span>
+          <span data-i18n="app.showInterior">הצגת פנים הארון</span>
         </label>
-        <span class="topbar__units">cm</span>
-        <button type="button" class="btn btn--tonal" id="open-render" data-testid="open-render">Render</button>
-        <button type="button" class="btn btn--primary" id="open-save" data-testid="open-save">Save</button>
+        <span class="topbar__units" data-i18n="units.cm" data-i18n-aria="app.unitsLabel" aria-label="יחידות: סנטימטרים">ס״מ</span>
+        <button type="button" class="btn btn--tonal" id="open-render" data-testid="open-render" data-i18n="app.render">הדמיה</button>
+        <button type="button" class="btn btn--primary" id="open-save" data-testid="open-save" data-i18n="app.save">שמירה</button>
+        <span id="ui-language-slot"></span>
         <a class="btn btn--ghost" href="/accessibility.html" lang="he" data-testid="a11y-link">נגישות</a>
       </div>
     </header>
     <div class="banner banner--error" id="error-banner" role="alert" hidden></div>
     <main class="workspace">
-      <aside class="panel" id="chat-panel" lang="he" aria-label="מעצב AI"></aside>
-      <section class="viewer" id="viewer" aria-label="3D viewer"></section>
-      <aside class="panel panel--properties" id="properties-panel" aria-label="Properties" tabindex="-1">
-        <h2 class="panel__title">Properties</h2>
-        <p class="panel__hint">Select a component in the 3D view, or under All parts below, to edit it.</p>
+      <aside class="panel" id="chat-panel" lang="he" data-i18n-aria="app.chatLabel" aria-label="מעצב AI"></aside>
+      <section class="viewer" id="viewer" data-i18n-aria="app.viewerLabel" aria-label="תצוגת תלת-ממד של הארון"></section>
+      <aside class="panel panel--properties" id="properties-panel" data-i18n-aria="app.propertiesLabel" aria-label="מאפיינים" tabindex="-1">
+        <h2 class="panel__title" data-i18n="app.propertiesTitle">מאפיינים</h2>
+        <p class="panel__hint" data-i18n="app.propertiesHint">בחרו חלק בתצוגת התלת-ממד, או ברשימת "כל החלקים" למטה, כדי לערוך אותו.</p>
         <div id="properties-content"></div>
       </aside>
     </main>

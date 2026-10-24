@@ -116,18 +116,18 @@ export function detectLanguage(text) {
   return null;
 }
 
-function readStored(storage) {
+function readStored(storage, key) {
   try {
-    const value = storage?.getItem(STORAGE_KEY);
+    const value = storage?.getItem(key);
     return LANGUAGES.includes(value) ? value : null;
   } catch {
     return null; // private mode / blocked storage: just use the default
   }
 }
 
-/** The chosen chat language, remembered per browser (best effort). */
-export function createLanguage({ storage = globalThis.localStorage, initial } = {}) {
-  let language = LANGUAGES.includes(initial) ? initial : readStored(storage) ?? DEFAULT_LANGUAGE;
+/** A chosen language, remembered per browser (best effort). The chat and the app UI each keep one. */
+export function createLanguage({ storage = globalThis.localStorage, initial, storageKey = STORAGE_KEY } = {}) {
+  let language = LANGUAGES.includes(initial) ? initial : readStored(storage, storageKey) ?? DEFAULT_LANGUAGE;
   const listeners = new Set();
   return {
     get: () => language,
@@ -136,7 +136,7 @@ export function createLanguage({ storage = globalThis.localStorage, initial } = 
       if (!LANGUAGES.includes(next) || next === language) return;
       language = next;
       try {
-        storage?.setItem(STORAGE_KEY, next);
+        storage?.setItem(storageKey, next);
       } catch {
         // not persisted; the choice still applies for this visit
       }
