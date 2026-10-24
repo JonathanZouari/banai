@@ -1,32 +1,18 @@
 import { test, expect, openDesigner } from './fixtures.js';
 
-test.describe('start screen', () => {
-  test('is shown first with three entry points and the manufacturing disclaimer', async ({ page }) => {
-    await page.goto('/');
-    await expect(page.getByTestId('start-screen')).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'עצבו את הארון שלכם' })).toBeVisible();
-    for (const id of ['guided', 'freeText', 'basic']) await expect(page.getByTestId(`entry-${id}`)).toBeVisible();
-    await expect(page.getByText('אינם שרטוטי ייצור')).toBeVisible();
-  });
-
-  test('Escape does not dismiss it (a choice is required)', async ({ page }) => {
-    await page.goto('/');
-    await page.getByTestId('start-screen').waitFor();
-    await page.keyboard.press('Escape');
-    await expect(page.getByTestId('start-screen')).toBeVisible();
-  });
-
-  test('"Start from a basic wardrobe" opens the editor with the default wardrobe', async ({ page }) => {
+test.describe('homepage entry', () => {
+  test('"start from a basic wardrobe" opens the editor with the default wardrobe', async ({ page }) => {
     await openDesigner(page);
-    await expect(page.getByTestId('start-screen')).toHaveCount(0);
+    await expect(page.getByTestId('home')).toBeHidden();
     await expect(page.getByText('רוחב 200.0 ס״מ', { exact: true })).toBeVisible();
   });
 
-  test('"Describe it" opens the same editor and focuses the chat composer', async ({ page }) => {
+  test('an empty AI field opens the designer with the guided conversation', async ({ page }) => {
     await page.goto('/');
-    await page.getByTestId('entry-freeText').click();
+    await page.getByTestId('home-design').click();
     await expect(page.getByTestId('chat-input')).toBeFocused();
-    await expect(page.getByTestId('chat-input')).toHaveAttribute('placeholder', /ברוחב 240/);
+    await expect(page.getByTestId('chat-input')).toHaveAttribute('placeholder', /רוחב והגובה/);
+    await expect(page.getByTestId('chat-messages').locator('.chat__bubble')).toHaveCount(0); // nothing was sent
     await page.waitForFunction(() => window.__banai?.viewer.meshOf('shf_l1'));
   });
 });
@@ -72,7 +58,7 @@ test.describe('AI chat panel (agent not connected yet)', () => {
 test.describe('look and feel', () => {
   test('shows the BanAI logo in the top bar and on the start screen', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByTestId('start-screen').getByRole('img', { name: 'BanAI' })).toBeVisible();
+    await expect(page.getByTestId('home').getByRole('img', { name: 'BanAI' })).toBeVisible();
     await page.getByTestId('entry-basic').click();
     await expect(page.locator('.topbar').getByRole('img', { name: 'BanAI' })).toBeVisible();
     // The brand image actually loaded (not a broken image with alt text).

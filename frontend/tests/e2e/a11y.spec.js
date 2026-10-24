@@ -1,9 +1,9 @@
 import { test, expect, openDesigner, selection, expectNoViolations } from './fixtures.js';
 
 test.describe('accessibility (axe, WCAG 2.2 AA)', () => {
-  test('start screen', async ({ page }) => {
+  test('homepage', async ({ page }) => {
     await page.goto('/');
-    await page.getByTestId('start-screen').waitFor();
+    await page.getByTestId('home').waitFor();
     await expectNoViolations(page);
   });
 
@@ -56,16 +56,23 @@ test.describe('keyboard only', () => {
     await expect(page.getByTestId('dim-width')).toBeFocused();
   });
 
-  test('the skip link moves focus to the properties panel', async ({ page }) => {
-    await page.goto('/'); // a fresh load: the skip link is the first tab stop of the page
-    await page.getByTestId('start-screen').waitFor();
-    await page.evaluate(() => document.querySelector('[data-testid="start-screen"]').close());
-    await page.keyboard.press('Tab');
-    await expect(page.getByRole('link', { name: 'דילוג למאפיינים' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'דילוג למאפיינים' })).toBeFocused();
-    await page.keyboard.press('Enter');
-    await expect(page.locator('#properties-panel')).toBeFocused();
-    expect(new URL(page.url()).hash).toBe(''); // the hash is reserved for the private design link
+  test('the skip link moves focus to the properties panel and keeps the private link', async ({ page, context }) => {
+    // A design reopened from its private link loads straight into the editor with nothing focused,
+    // so the skip link is the first tab stop of the page.
+    await openDesigner(page);
+    await page.getByTestId('open-save').click();
+    await page.getByTestId('save-confirm').click();
+    await expect(page.getByTestId('share-link')).toHaveValue(/#d=/);
+    const link = await page.getByTestId('share-link').inputValue();
+    const reopened = await context.newPage();
+    await reopened.goto(link);
+    await reopened.waitForFunction(() => window.__banai?.viewer.meshOf('shf_l1'));
+    await reopened.keyboard.press('Tab');
+    await expect(reopened.getByRole('link', { name: 'דילוג למאפיינים' })).toBeVisible();
+    await expect(reopened.getByRole('link', { name: 'דילוג למאפיינים' })).toBeFocused();
+    await reopened.keyboard.press('Enter');
+    await expect(reopened.locator('#properties-panel')).toBeFocused();
+    expect(reopened.url()).toBe(link); // the hash holds the private design link and must not change
   });
 });
 

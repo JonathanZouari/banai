@@ -4,8 +4,10 @@ import '@fontsource/rubik/500.css';
 import '@fontsource/rubik/600.css';
 import '@fontsource/rubik/700.css';
 import {
-  applyProposal, createSavedDesign, getCatalog, getDefaultDesign, getHealth, getSavedDesign, sendChat, updateSavedDesign,
+  applyProposal, createSavedDesign, getCatalog, getDefaultDesign, getHealth, getSavedDesign, sendChat, transcribe, updateSavedDesign,
 } from './api/client.js';
+import { createRouter } from './app/router.js';
+import { canRecord } from './chat/voice.js';
 import { createStore } from './state/store.js';
 import { mountPanel } from './editor/panel.js';
 import { createViewer } from './viewer/viewer.js';
@@ -13,7 +15,7 @@ import { renderSnapshot } from './viewer/snapshot.js';
 import { createChatModel } from './chat/chatModel.js';
 import { createLanguage } from './chat/i18n.js';
 import { mountChat } from './chat/chatPanel.js';
-import { mountStartScreen } from './entry/startScreen.js';
+import { mountHome } from './entry/homeScreen.js';
 import { createSaveDialog } from './share/saveDialog.js';
 import { parseShareHash, shareHash } from './share/link.js';
 import { createExportDialog } from './export/exportDialog.js';
@@ -72,7 +74,7 @@ function createSaver(store, language, initialSession) {
       const created = await createSavedDesign({ design, language: language.get() });
       session = { designId: created.designId, token: created.accessToken, revision: created.revision };
     }
-    window.history.replaceState(null, '', shareHash(session));
+    window.history.replaceState({ ...(window.history.state ?? {}) }, '', shareHash(session));
     return window.location.href;
   };
 }
@@ -105,8 +107,23 @@ function bindDialogs({ storage, onSave }) {
   document.getElementById('open-render').addEventListener('click', render.open);
 }
 
+// Set once the router exists: the top-bar logo returns to the homepage.
+let goHome = null;
+
 function mountLogo() {
-  document.getElementById('topbar-logo').replaceChildren(createLogo({ size: 34, tagline: t().app.tagline }));
+  const home = document.createElement('button');
+  home.type = 'button';
+  home.className = 'topbar__home';
+  home.dataset.testid = 'go-home';
+  home.setAttribute('aria-label', t().home.goHome);
+  home.append(createLogo({ size: 34, tagline: t().app.tagline }));
+  home.addEventListener('click', () => goHome?.());
+  document.getElementById('topbar-logo').replaceChildren(home);
+}
+
+/** While the homepage is shown, the workspace under it is out of the tab order and the a11y tree. */
+function setWorkspaceInert(inert) {
+  document.querySelectorAll('.skip-link, .topbar, .workspace').forEach((node) => { node.inert = inert; });
 }
 
 async function boot() {
@@ -161,13 +178,13 @@ async function boot() {
     }
     : null;
   const chatModel = createChatModel({ getRevision: () => store.getState().revision, agent, getLanguage: language.get });
-  const t = () => language.strings();
+  const chatT = () => language.strings();
 
   let applying = false;
   const confirmProposal = async (proposal) => {
     if (applying) return;
     if (!proposal.signed) {
-      chatModel.resolveProposal(t().notApplied);
+      chatModel.resolveProposal(chatT().notApplied);
       return;
     }
     applying = true;
@@ -175,10 +192,10 @@ async function boot() {
     try {
       const result = await applyProposal({ design, revision, proposal: proposal.signed, language: language.get() });
       store.replaceDesign(result.design, result.revision);
-      chatModel.resolveProposal(t().applied);
+      chatModel.resolveProposal(chatT().applied);
       chatModel.noteDesignReady(); // the final step: Generate Style Profile
     } catch (error) {
-      chatModel.resolveProposal(error?.code === 'STALE' ? t().stale : t().notApplied);
+      chatModel.resolveProposal(error?.code === 'STALE' ? chatT().stale : chatT().notApplied);
     } finally {
       applying = false;
     }
@@ -193,16 +210,42 @@ async function boot() {
     window.__banai = Object.freeze({ store, viewer, chat: chatModel });
   }
 
-  if (session) return; // reopened from a link: straight into the editor
-  mountStartScreen({
+  // Homepage and designer. Every way in opens the same editor and data model; keyboard focus always
+  // lands somewhere useful, so it never falls out of the page when the homepage closes.
+  const startRevision = store.getState().revision;
+  let afterShow = null;
+  const home = mountHome({
     language: uiLanguage,
-    onChoose: (entry) => {
-      // All three entry points open the same editor; the chat ones focus the composer, the manual
-      // one the properties panel, so keyboard focus never falls out of the page when the modal closes.
-      if (entry.focusesChat) chat.focus(entry.id);
-      else document.getElementById('properties-panel').focus();
+    agentConnected: Boolean(agent),
+    voice: agent ? { ready: canRecord(), transcribe: (blob) => transcribe(blob, language.get()) } : null,
+    onPrompt: (intent) => enterDesigner(() => (intent.kind === 'message' ? chat.send(intent.text) : chat.focus('guided'))),
+    onManual: () => enterDesigner(() => {
+      const width = document.querySelector('[data-testid="dim-width"]');
+      width?.focus();
+      width?.select(); // typing replaces the value instead of appending to it
+    }),
+    onBasic: () => enterDesigner(() => document.getElementById('properties-panel').focus()),
+  });
+  const router = createRouter({
+    initial: session ? 'designer' : 'home', // reopened from a private link: straight into the editor
+    onShow: (view, { initial }) => {
+      if (view === 'home') {
+        setWorkspaceInert(true);
+        home.show({ canContinue: Boolean(session) || store.getState().revision !== startRevision });
+        return;
+      }
+      home.hide();
+      setWorkspaceInert(false);
+      if (initial) return;
+      (afterShow ?? (() => document.getElementById('properties-panel').focus()))();
+      afterShow = null;
     },
   });
+  function enterDesigner(focus) {
+    afterShow = focus;
+    router.go('designer');
+  }
+  goHome = () => router.go('home');
 }
 
 boot().catch(() => {

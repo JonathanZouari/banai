@@ -27,7 +27,7 @@ test.describe('save and reopen', () => {
     const reopened = await context.newPage();
     await reopened.goto(link);
     await reopened.waitForFunction(() => window.__banai?.viewer.meshOf('shf_l1'));
-    await expect(reopened.getByTestId('start-screen')).toHaveCount(0);
+    await expect(reopened.getByTestId('home')).toBeHidden();
     expect(await reopened.evaluate(() => window.__banai.store.getState().design.dimensions.height)).toBe(2300);
     await reopened.getByTestId('open-save').click();
     await expect(reopened.getByTestId('share-link')).toHaveValue(link);
@@ -68,7 +68,7 @@ test.describe('save and reopen', () => {
     test('a wrong token falls back to the basic wardrobe and says so', async ({ page }) => {
       await page.goto(`/#d=0b6f2a52-3c1e-4c8e-9a51-1f6f3f2b7d10.${'A'.repeat(43)}`);
       await expect(page.locator('#error-banner')).toContainText('הקישור לא פתח עיצוב שמור');
-      await expect(page.getByTestId('start-screen')).toBeVisible();
+      await expect(page.getByTestId('home')).toBeVisible();
     });
   });
 });

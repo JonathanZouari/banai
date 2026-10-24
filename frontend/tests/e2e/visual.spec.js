@@ -10,11 +10,11 @@ async function settle(page) {
 }
 
 test.describe('visual regression (desktop 1440×900)', () => {
-  test('start screen', async ({ page }) => {
+  test('homepage', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByTestId('start-screen')).toBeVisible();
+    await expect(page.getByTestId('home')).toBeVisible();
     await settle(page);
-    await expect(page).toHaveScreenshot('start-screen.png');
+    await expect(page).toHaveScreenshot('homepage.png');
   });
 
   test('designer with the basic wardrobe', async ({ page }) => {

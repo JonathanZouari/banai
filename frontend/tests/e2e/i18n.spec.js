@@ -56,16 +56,18 @@ test.describe('language switch', () => {
     await expect(page.getByTestId('save-dialog')).toContainText('שמירת העיצוב');
   });
 
-  test('the choice is remembered after a reload, and the start screen has its own switch', async ({ page }) => {
+  test('the choice is remembered after a reload, and the homepage has its own switch', async ({ page }) => {
     await page.goto('/');
-    await page.getByTestId('start-language-en').click();
-    await expect(page.getByRole('heading', { name: 'Design your wardrobe' })).toBeVisible();
+    await page.getByTestId('home-prompt').fill('טקסט שנשאר');
+    await page.getByTestId('home-language-en').click();
+    await expect(page.getByRole('heading', { name: 'Design a wardrobe that fits you' })).toBeVisible();
+    await expect(page.getByTestId('home-prompt')).toHaveValue('טקסט שנשאר'); // switching keeps what was typed
     await page.reload();
-    await expect(page.getByRole('heading', { name: 'Design your wardrobe' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Design a wardrobe that fits you' })).toBeVisible();
     await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
-    await page.getByTestId('start-language-he').click();
-    await expect(page.getByRole('heading', { name: 'עצבו את הארון שלכם' })).toBeVisible();
-    await expect(page.getByTestId('start-language-he')).toHaveAttribute('aria-pressed', 'true');
+    await page.getByTestId('home-language-he').click();
+    await expect(page.getByRole('heading', { name: 'עצבו ארון שמתאים בדיוק לכם' })).toBeVisible();
+    await expect(page.getByTestId('home-language-he')).toHaveAttribute('aria-pressed', 'true');
   });
 
   test('no accessibility violations in English either', async ({ page }) => {
