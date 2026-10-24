@@ -62,6 +62,7 @@ describe('UI language', () => {
   it('names catalog entries in the UI language, falling back to the catalog name', () => {
     expect(catalogName({ id: 'white', name: 'White' })).toBe('לבן');
     expect(catalogName({ id: 'unknown_new', name: 'New colour' })).toBe('New colour');
+    expect(catalogName({ id: 'sage_green', name: 'Sage green' })).toBe('ירוק מרווה'); // added on dev
     setUiLanguage('en');
     expect(catalogName({ id: 'white', name: 'White' })).toBe('White');
   });

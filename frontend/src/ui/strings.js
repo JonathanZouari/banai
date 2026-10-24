@@ -552,6 +552,8 @@ export const CATALOG_NAMES = Object.freeze({
     melamine: 'לוח מלמין', oak_veneer: 'פורניר אלון', lacquered_mdf: 'MDF בצבע',
     white: 'לבן', light_grey: 'אפור בהיר', anthracite: 'אנתרציט', black: 'שחור', natural_oak: 'אלון טבעי', walnut: 'אגוז',
     matte: 'מט', satin: 'סאטן', gloss: 'מבריק',
+    // Catalog entries added on dev (5ffbe83); same Hebrew names as the carpenter PDF.
+    birch_plywood: 'דיקט ליבנה', sage_green: 'ירוק מרווה', navy_blue: 'כחול נייבי', sand_beige: "בז' חול",
   },
   en: {},
 });
