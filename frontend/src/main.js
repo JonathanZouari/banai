@@ -24,6 +24,10 @@ import { createLogo } from './ui/logo.js';
 import { installRipple } from './ui/ripple.js';
 import { applyDocumentLanguage, createUiLanguage, getUiLanguage, t } from './ui/i18n.js';
 import { createLanguageSwitch } from './ui/languageSwitch.js';
+import { createViewSwitch } from './ui/viewSwitch.js';
+import { createPhotoStore } from './room/photo.js';
+import { mountRoomPanel } from './room/roomPanel.js';
+import { mountRoomStage } from './room/roomStage.js';
 
 function showError(message) {
   const banner = document.getElementById('error-banner');
@@ -107,8 +111,9 @@ function bindDialogs({ storage, onSave }) {
   document.getElementById('open-render').addEventListener('click', render.open);
 }
 
-// Set once the router exists: the top-bar logo returns to the homepage.
+// Set once the router exists: the top-bar logo returns to the homepage; the view switch changes view.
 let goHome = null;
+let goView = null;
 
 function mountLogo() {
   const home = document.createElement('button');
@@ -157,6 +162,16 @@ async function boot() {
     getSnapshot: (design) => renderSnapshot(design, store.getState().catalog),
   }));
   const panel = mountPanel(document.getElementById('properties-content'), store, { onExport: exporter.open });
+  // Room fit (ADR-008): the photo lives only in this browser tab's memory.
+  const photos = createPhotoStore();
+  const roomPanel = mountRoomPanel(document.getElementById('room-panel'), {
+    store, photos, onRecommend: (text) => chat.send(text),
+  });
+  const roomStage = mountRoomStage(document.getElementById('room-stage'), {
+    store, photos, render: renderSnapshot, onDropFile: (file) => roomPanel.usePhoto(file),
+  });
+  const viewSwitch = createViewSwitch({ onChange: (view) => goView?.(view) });
+  document.getElementById('view-switch-slot').replaceWith(viewSwitch.element);
   bindDialogs({
     storage: health?.data.storage === true,
     onSave: createSaver(store, language, session),
@@ -166,6 +181,9 @@ async function boot() {
     applyDocumentLanguage();
     mountLogo();
     panel.refresh();
+    roomPanel.refresh();
+    roomStage.refresh();
+    viewSwitch.refresh();
     viewer.refreshLabels();
     language.set(code);
   });
@@ -236,8 +254,17 @@ async function boot() {
       }
       home.hide();
       setWorkspaceInert(false);
+      const room = view === 'room';
+      document.body.classList.toggle('is-room', room);
+      document.getElementById('room-stage').hidden = !room;
+      document.getElementById('room-panel').hidden = !room;
+      document.getElementById('properties-panel').hidden = room;
+      viewSwitch.set(view);
+      if (room) roomStage.show();
+      else roomStage.hide();
       if (initial) return;
-      (afterShow ?? (() => document.getElementById('properties-panel').focus()))();
+      const focusDefault = () => document.getElementById(room ? 'room-panel' : 'properties-panel').focus();
+      (room ? focusDefault : afterShow ?? focusDefault)();
       afterShow = null;
     },
   });
@@ -246,6 +273,7 @@ async function boot() {
     router.go('designer');
   }
   goHome = () => router.go('home');
+  goView = (view) => router.go(view);
 }
 
 boot().catch(() => {

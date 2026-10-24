@@ -62,6 +62,21 @@ export function cmField({ label, mm, testId, onCommit }) {
   });
 }
 
+/**
+ * A centimetre field that may be left empty (e.g. a room measurement not taken yet).
+ * `onCommit(mm | null)` returns { ok } or { ok: false, message }.
+ */
+export function optionalCmField({ label, mm, testId, onCommit }) {
+  return inputField({
+    label, testId, suffix: t().units.cm, value: mm === null ? '' : toCmText(mm),
+    commit: (text) => {
+      if (!String(text).trim()) return onCommit(null);
+      const parsed = parseCm(text);
+      return parsed.ok ? onCommit(parsed.mm) : parsed;
+    },
+  });
+}
+
 /** A whole-number field (counts). */
 export function countField({ label, value, testId, onCommit }) {
   return inputField({

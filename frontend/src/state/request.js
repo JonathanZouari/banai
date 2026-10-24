@@ -32,3 +32,24 @@ export function cleanNotes(raw) {
   });
   return out.join('').slice(0, MAX_NOTES);
 }
+
+// ASSUMPTION: input-safety bounds for room measurements (1 cm to 20 m), not business rules.
+export const ROOM_LIMITS_MM = Object.freeze([10, 20_000]);
+export const OBSTACLES = Object.freeze(['window', 'door', 'socket', 'beam', 'radiator']);
+export const MAX_ROOM_TEXT = 300;
+export const EMPTY_ROOM = Object.freeze({ width: null, height: null, depth: null, obstacles: [], obstacleNotes: '', style: '' });
+
+const roomLength = (value) => (Number.isInteger(value) && value >= ROOM_LIMITS_MM[0] && value <= ROOM_LIMITS_MM[1] ? value : null);
+
+/** The room as the customer described it, cleaned: valid lengths or null, known obstacles, safe capped text. */
+export function cleanRoom(raw = {}) {
+  const obstacles = Array.isArray(raw.obstacles) ? OBSTACLES.filter((id) => raw.obstacles.includes(id)) : [];
+  return {
+    width: roomLength(raw.width),
+    height: roomLength(raw.height),
+    depth: roomLength(raw.depth),
+    obstacles,
+    obstacleNotes: cleanNotes(raw.obstacleNotes).slice(0, MAX_ROOM_TEXT),
+    style: cleanNotes(raw.style).slice(0, MAX_ROOM_TEXT),
+  };
+}

@@ -13,6 +13,7 @@
     <a class="skip-link" href="#properties-panel" data-i18n="app.skipLink">דילוג למאפיינים</a>
     <header class="topbar">
       <h1 class="topbar__title" id="topbar-logo" data-i18n-aria="app.logoLabel" aria-label="BanAI מעצב ארונות"></h1>
+      <span id="view-switch-slot"></span>
       <div class="topbar__actions">
         <label class="toggle">
           <input type="checkbox" id="toggle-interior" />
@@ -34,6 +35,9 @@
         <p class="panel__hint" data-i18n="app.propertiesHint">בחרו חלק בתצוגת התלת-ממד, או ברשימת "כל החלקים" למטה, כדי לערוך אותו.</p>
         <div id="properties-content"></div>
       </aside>
+      <!-- Room fit view: the photo with the wardrobe layer, and the room panel (stage 4, ADR-008). -->
+      <section class="room-stage" id="room-stage" data-i18n-aria="room.title" aria-label="התאמה לחדר" hidden></section>
+      <aside class="panel panel--properties panel--room" id="room-panel" data-i18n-aria="room.title" aria-label="התאמה לחדר" tabindex="-1" hidden></aside>
     </main>
     <script type="module" src="/src/main.js"></script>
   </body>

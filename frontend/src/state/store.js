@@ -7,7 +7,7 @@ import { parseCatalog } from '../domain/catalog.js';
 import { DomainError } from '../domain/errors.js';
 import { locate } from '../domain/lookup.js';
 import { deepFreeze } from '../domain/util.js';
-import { cleanNotes } from './request.js';
+import { cleanNotes, cleanRoom, EMPTY_ROOM } from './request.js';
 
 const KIND_BY_LOCATION = Object.freeze({
   compartment: 'compartment',
@@ -38,7 +38,7 @@ export function createStore({ design, revision = 1, catalog }) {
   }
   let state = deepFreeze({
     design: validDesign, revision, catalog: validCatalog, selection: null, ui: { doorsVisible: true },
-    request: { notes: '' },
+    request: { notes: '', room: EMPTY_ROOM },
   });
   const listeners = new Set();
 
@@ -95,6 +95,12 @@ export function createStore({ design, revision = 1, catalog }) {
     setNotes(text) {
       state = deepFreeze({ ...state, request: { ...state.request, notes: cleanNotes(text) } });
       return state.request.notes;
+    },
+
+    /** The room the customer measured (request data, like the notes: no revision, no notification). */
+    setRoom(patch) {
+      state = deepFreeze({ ...state, request: { ...state.request, room: cleanRoom({ ...state.request.room, ...patch }) } });
+      return state.request.room;
     },
 
     setDoorsVisible(doorsVisible) {

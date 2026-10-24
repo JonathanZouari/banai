@@ -144,3 +144,18 @@ describe('request notes', () => {
     expect(store.getState().request.notes).toBe('מראה על הדלת');
   });
 });
+
+describe('request room', () => {
+  it('merges patches, cleans them, and leaves the design and revision alone', () => {
+    const store = makeStore();
+    let notified = 0;
+    store.subscribe(() => { notified += 1; });
+    const before = store.getState();
+    store.setRoom({ width: 2500 });
+    const room = store.setRoom({ height: 2700, obstacles: ['window', 'nope'] });
+    expect(room).toMatchObject({ width: 2500, height: 2700, depth: null, obstacles: ['window'] });
+    expect(store.getState().revision).toBe(before.revision);
+    expect(store.getState().design).toBe(before.design);
+    expect(notified).toBe(0);
+  });
+});

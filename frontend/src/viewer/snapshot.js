@@ -90,22 +90,28 @@ function snapshotMaterials(catalog) {
   };
 }
 
-function studio(design, renderer) {
+function studio(design, renderer, { transparent = false } = {}) {
   const { width, height, depth } = design.dimensions;
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(WALL);
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  const environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-  pmrem.dispose();
-  scene.environment = environment;
-  scene.environmentIntensity = 0.4;
+  scene.background = transparent ? null : new THREE.Color(WALL);
+  // The cut-out skips the environment map and shadows: nothing behind it catches them, and it must
+  // render quickly (it runs on the main thread whenever the design changes in the room view).
+  let environment = null;
+  if (!transparent) {
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    pmrem.dispose();
+    scene.environment = environment;
+    scene.environmentIntensity = 0.4;
+  }
 
-  scene.add(new THREE.HemisphereLight('#ffffff', '#cfc6b8', 0.6));
+  // Without the environment map the cut-out needs more soft light, or white reads as grey.
+  scene.add(new THREE.HemisphereLight('#ffffff', '#cfc6b8', transparent ? 2.2 : 0.6));
   const sun = new THREE.DirectionalLight('#fff6ea', 2.2);
   const reach = toM(Math.max(width, height)) * 1.6;
   sun.position.set(toM(width / 2) - reach * 0.5, reach * 1.1, reach);
   sun.target.position.set(toM(width / 2), 0, toM(-depth / 2));
-  sun.castShadow = true;
+  sun.castShadow = !transparent;
   sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.radius = 6;
   sun.shadow.bias = -0.0004;
@@ -113,8 +119,9 @@ function studio(design, renderer) {
   scene.add(sun, sun.target);
 
   // A wall just behind the wardrobe and a floor: they catch the soft shadow, like a showroom photo.
+  // The transparent cut-out (the room overlay) has neither: only the wardrobe is drawn.
   const size = toM(Math.max(width, height)) * 6;
-  const surfaces = [
+  const surfaces = transparent ? [] : [
     [WALL, (mesh) => mesh.position.set(toM(width / 2), size / 2, toM(-depth) - 0.012)],
     [FLOOR, (mesh) => {
       mesh.rotation.x = -Math.PI / 2;
@@ -130,25 +137,40 @@ function studio(design, renderer) {
   return { scene, environment, surfaces };
 }
 
-function frameCamera(camera, design) {
+function frameCamera(camera, design, { front = false } = {}) {
   const { width, height, depth } = design.dimensions;
   const center = new THREE.Vector3(toM(width / 2), toM(height / 2), toM(-depth / 2));
   const vertical = toM(height) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
   const horizontal = toM(width) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect);
-  const distance = Math.max(vertical, horizontal) * 1.28;
-  camera.position.set(center.x + distance * 0.32, center.y + distance * 0.07, distance);
+  if (front) {
+    // Straight on, filling the frame: it is laid over a photo of a wall.
+    camera.position.set(center.x, center.y, Math.max(vertical, horizontal) * 1.06);
+  } else {
+    const distance = Math.max(vertical, horizontal) * 1.28;
+    camera.position.set(center.x + distance * 0.32, center.y + distance * 0.07, distance);
+  }
   camera.lookAt(center);
 }
 
+/** Pixel size of a front-on cut-out with the wardrobe's own proportions (long side = `long`). */
+export function cutoutSize(design, long = 900) {
+  const { width, height } = design.dimensions;
+  return width >= height
+    ? { width: long, height: Math.max(1, Math.round((long * height) / width)) }
+    : { width: Math.max(1, Math.round((long * width) / height)), height: long };
+}
+
 /**
- * Render the design to a JPEG data URL (smaller than PNG for a photo-like image).
+ * Render the design to a JPEG data URL (smaller than PNG for a photo-like image), or with
+ * `transparent: true` to a front-on PNG cut-out with a transparent background (the room overlay).
  * Throws when WebGL is unavailable; callers fall back to the PDF's own illustration.
  */
-export function renderSnapshot(design, catalog, { width, height } = SNAPSHOT_SIZE) {
+export function renderSnapshot(design, catalog, { width = SNAPSHOT_SIZE.width, height = SNAPSHOT_SIZE.height, transparent = false } = {}) {
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true, alpha: transparent });
+  if (transparent) renderer.setClearColor(0x000000, 0);
   // Everything after the context exists is inside try, so a failure never leaks a WebGL context.
   let materials = null;
   let group = null;
@@ -159,26 +181,26 @@ export function renderSnapshot(design, catalog, { width, height } = SNAPSHOT_SIZ
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.9;
-    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.enabled = !transparent;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.setPixelRatio(1);
     renderer.setSize(width, height, false);
-    staged = studio(design, renderer);
+    staged = studio(design, renderer, { transparent });
     group.traverse((object) => {
       if (object.isMesh) {
-        object.castShadow = true;
-        object.receiveShadow = true;
+        object.castShadow = !transparent;
+        object.receiveShadow = !transparent;
       }
     });
     staged.scene.add(group);
     const camera = new THREE.PerspectiveCamera(22, width / height, 0.05, 80);
-    frameCamera(camera, design);
+    frameCamera(camera, design, { front: transparent });
     renderer.render(staged.scene, camera);
-    return canvas.toDataURL('image/jpeg', 0.9);
+    return transparent ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.9);
   } finally {
     if (group) disposeWardrobe(group);
     if (staged) {
-      staged.environment.dispose();
+      staged.environment?.dispose();
       staged.surfaces.forEach((mesh) => {
         mesh.geometry.dispose();
         mesh.material.dispose();

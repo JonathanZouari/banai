@@ -14,7 +14,9 @@ export default defineConfig({
   reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }], ['json', { outputFile: 'test-results/results.json' }]],
   // Visual regression baselines are committed next to the specs and only updated after a human review.
   snapshotPathTemplate: 'tests/e2e/__screenshots__/{testFilePath}/{arg}{ext}',
-  expect: { toHaveScreenshot: { maxDiffPixelRatio: 0.01, animations: 'disabled', caret: 'hide' } },
+  // An absolute budget: repeated renders are pixel-identical (measured), and a ratio let a subtle new
+  // top-bar control (about 1,200 changed pixels) pass unnoticed.
+  expect: { toHaveScreenshot: { maxDiffPixels: 100, animations: 'disabled', caret: 'hide' } },
   use: {
     baseURL: `http://localhost:${WEB_PORT}`,
     trace: 'retain-on-failure',

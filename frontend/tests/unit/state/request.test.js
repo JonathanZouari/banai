@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cleanNotes, MAX_NOTES } from '../../../src/state/request.js';
+import { cleanNotes, cleanRoom, MAX_NOTES, MAX_ROOM_TEXT } from '../../../src/state/request.js';
 
 const char = (code) => String.fromCodePoint(code);
 
@@ -26,5 +26,29 @@ describe('cleanNotes (customer notes for the carpenter)', () => {
     expect(cleanNotes('א'.repeat(MAX_NOTES + 10))).toHaveLength(MAX_NOTES);
     expect(cleanNotes(undefined)).toBe('');
     expect(cleanNotes(null)).toBe('');
+  });
+});
+
+describe('cleanRoom (the measured wall and the room description)', () => {
+  it('keeps valid whole-millimetre lengths within 1 cm to 20 m, else null', () => {
+    expect(cleanRoom({ width: 2500, height: 10, depth: 20000 })).toMatchObject({ width: 2500, height: 10, depth: 20000 });
+    expect(cleanRoom({ width: 9, height: 20001, depth: 25.5 })).toMatchObject({ width: null, height: null, depth: null });
+    expect(cleanRoom({ width: '2500' }).width).toBeNull();
+  });
+
+  it('keeps only known obstacles, once each, in a fixed order', () => {
+    expect(cleanRoom({ obstacles: ['door', 'evil', 'window', 'door'] }).obstacles).toEqual(['window', 'door']);
+    expect(cleanRoom({ obstacles: 'window' }).obstacles).toEqual([]);
+  });
+
+  it('cleans and caps the free text', () => {
+    const hidden = String.fromCodePoint(0x202e);
+    const room = cleanRoom({ style: `קירות לבנים${hidden}`, obstacleNotes: 'א'.repeat(MAX_ROOM_TEXT + 5) });
+    expect(room.style).toBe('קירות לבנים');
+    expect(room.obstacleNotes).toHaveLength(MAX_ROOM_TEXT);
+  });
+
+  it('starts empty from nothing', () => {
+    expect(cleanRoom()).toEqual({ width: null, height: null, depth: null, obstacles: [], obstacleNotes: '', style: '' });
   });
 });
