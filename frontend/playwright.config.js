@@ -10,10 +10,15 @@ export default defineConfig({
   workers: 1, // WebGL (SwiftShader) is CPU-heavy: parallel workers time out on a busy machine
 
   retries: 0,
-  reporter: [['list']],
+  // list for the console, HTML for people, JSON for machines (both folders are gitignored).
+  reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }], ['json', { outputFile: 'test-results/results.json' }]],
+  // Visual regression baselines are committed next to the specs and only updated after a human review.
+  snapshotPathTemplate: 'tests/e2e/__screenshots__/{testFilePath}/{arg}{ext}',
+  expect: { toHaveScreenshot: { maxDiffPixelRatio: 0.01, animations: 'disabled', caret: 'hide' } },
   use: {
     baseURL: `http://localhost:${WEB_PORT}`,
     trace: 'retain-on-failure',
+    screenshot: 'only-on-failure',
     viewport: { width: 1440, height: 900 },
   },
   projects: [{

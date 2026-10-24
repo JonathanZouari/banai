@@ -39,6 +39,11 @@ BanAI is an MVP AI wardrobe designer for standard straight wardrobes only. Three
   - **Approved exceptions (2026-10-16):**
     - The **carpenter PDF** ("Generate Style Profile") is a design drawing that explains the intent. It is not a manufacturing export: no cut list, and construction details are left to the carpenter.
     - The PDF's **3D snapshot** is not an image upload. The app renders it from the design (`viewer/snapshot.js`) and sends it with the export. The server treats it as untrusted bytes (`backend/app/export/image.py`): PNG/JPEG only, at most 2 MB and 2400 px, fully decoded, then re-encoded. It is never stored.
+  - **Approved exception (2026-10-24, branch `uxui_nurit`):**
+    - **Room fit.** The customer enters wall measurements (width, available height, usable depth) and obstacles. A basic check compares them with the wardrobe dimensions. An optional room photo shows an approximate wardrobe overlay.
+    - The room photo **never leaves the browser**: it is an object URL only, never uploaded to the backend or OpenAI, and never stored.
+    - The check invents no clearances. Clearances, door swing and ceiling gaps are left for the carpenter to confirm. The overlay is labelled as an approximate visualization, and a photo is never proof of fit.
+    - Room design, a mobile-first layout, pricing and orders stay excluded. See Obsidian `07 - UX-UI Plan` and ADR-008.
 - **Mandatory stack.**
   - Frontend: vanilla JS ES modules + Three.js, bundled with Vite. **No React, Vue, or R3F.**
   - Backend: FastAPI + Pydantic.

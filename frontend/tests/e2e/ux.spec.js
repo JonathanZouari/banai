@@ -75,7 +75,9 @@ test.describe('look and feel', () => {
     await expect(page.getByTestId('start-screen').getByRole('img', { name: 'BanAI' })).toBeVisible();
     await page.getByTestId('entry-basic').click();
     await expect(page.locator('.topbar').getByRole('img', { name: 'BanAI' })).toBeVisible();
-    await expect(page.locator('.topbar .logo__word')).toHaveText('BanAI');
+    // The brand image actually loaded (not a broken image with alt text).
+    const width = await page.locator('.topbar .logo__img').evaluate((img) => img.complete && img.naturalWidth);
+    expect(width).toBeGreaterThan(0);
   });
 
   test('uses the display and body fonts', async ({ page }) => {
@@ -83,12 +85,12 @@ test.describe('look and feel', () => {
     const fonts = await page.evaluate(async () => {
       await document.fonts.ready;
       return {
-        logo: getComputedStyle(document.querySelector('.logo__word')).fontFamily,
+        display: getComputedStyle(document.querySelector('.panel__title')).fontFamily,
         body: getComputedStyle(document.body).fontFamily,
         loaded: [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family.replaceAll('"', '')),
       };
     });
-    expect(fonts.logo).toContain('Bricolage Grotesque');
+    expect(fonts.display).toContain('Bricolage Grotesque');
     expect(fonts.body).toContain('DM Sans');
     expect(fonts.loaded).toEqual(expect.arrayContaining(['Bricolage Grotesque', 'DM Sans']));
   });

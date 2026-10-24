@@ -181,10 +181,7 @@
 
 /* Logo */
 .logo { display: inline-flex; align-items: center; gap: 10px; }
-.logo__mark { flex: none; filter: drop-shadow(0 3px 6px rgba(180, 83, 42, 0.3)); transition: transform 240ms cubic-bezier(0.2, 0.9, 0.3, 1.4); }
-.logo:hover .logo__mark { transform: rotate(-6deg) scale(1.06); }
-.logo__word { font: 800 26px/1 var(--md-ref-typeface-display); letter-spacing: -0.045em; color: var(--md-sys-color-on-surface); }
-.logo__ai { background: linear-gradient(135deg, #e9814d, #b4532a 55%, #8f3a17); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.logo__img, .logo__mark { display: block; flex: none; }
 .logo__tagline { padding-left: 10px; border-left: 1px solid var(--md-sys-color-outline-variant); color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-label-large); letter-spacing: 0.01em; }
 
 /* Interaction: ripple, press, hover */
