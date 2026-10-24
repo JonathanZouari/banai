@@ -1,4 +1,4 @@
-import { clickComponent, expect, openDesigner, test } from './fixtures.js';
+import { clickComponent, expect, openDesigner, openStep, test } from './fixtures.js';
 
 const state = (page) => page.evaluate(() => {
   const { design, revision, selection } = window.__banai.store.getState();
@@ -47,6 +47,7 @@ test.describe('Phase 4: manual editing', () => {
   });
 
   test('adds a drawer to a compartment selected from the list', async ({ page }) => {
+    await openStep(page, 'interior');
     await page.getByTestId('select-cmp_middle').click();
     expect((await state(page)).selection).toEqual({ id: 'cmp_middle', kind: 'compartment' });
     await page.getByTestId('add-drawer').click();
@@ -54,17 +55,20 @@ test.describe('Phase 4: manual editing', () => {
   });
 
   test('changing the carcass colour updates the rendered material', async ({ page }) => {
+    await openStep(page, 'materials');
     await page.getByRole('button', { name: 'אגוז' }).first().click();
     await expect.poll(() => page.evaluate(() => window.__banai.viewer.meshOf('carcass').material.color.getHexString())).toBe('6b4a32');
   });
 
   test('switching to sliding doors rebuilds the doors', async ({ page }) => {
+    await openStep(page, 'doors');
     await page.getByTestId('door-type').getByRole('button', { name: 'הזזה' }).click();
     await expect.poll(async () => (await state(page)).design.doors.type).toBe('sliding');
     await expect(page.getByTestId('sliding-count')).toHaveValue('2');
   });
 
   test('custom colour names are rendered as text, never as markup', async ({ page }) => {
+    await openStep(page, 'materials');
     await page.getByText('צבע מותאם…').first().click();
     await page.getByLabel('שם הצבע המותאם').first().fill('<b>Sage</b>');
     await page.getByRole('button', { name: 'החלת הצבע המותאם' }).first().click();

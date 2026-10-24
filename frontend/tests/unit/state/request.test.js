@@ -1,0 +1,30 @@
+import { describe, expect, it } from 'vitest';
+import { cleanNotes, MAX_NOTES } from '../../../src/state/request.js';
+
+const char = (code) => String.fromCodePoint(code);
+
+describe('cleanNotes (customer notes for the carpenter)', () => {
+  it('keeps ordinary Hebrew and English text and newlines', () => {
+    const text = `ידיות שחורות${char(10)}Black handles, 2 mirrors`;
+    expect(cleanNotes(text)).toBe(text);
+  });
+
+  it('turns CRLF and lone CR into a single newline', () => {
+    expect(cleanNotes(`a${char(13)}${char(10)}b${char(13)}c`)).toBe(`a${char(10)}b${char(10)}c`);
+  });
+
+  it('drops control, zero-width and bidi-override characters that can hide or reorder text', () => {
+    const hostile = [0x00, 0x07, 0x1b, 0x7f, 0x85, 0x200b, 0x200d, 0x2028, 0x202e, 0x2066, 0xfeff].map(char).join('');
+    expect(cleanNotes(`ok${hostile}done`)).toBe('okdone');
+  });
+
+  it('keeps markup as plain text (it is only ever shown with textContent)', () => {
+    expect(cleanNotes('<img src=x onerror=alert(1)>')).toBe('<img src=x onerror=alert(1)>');
+  });
+
+  it('caps the length and copes with missing input', () => {
+    expect(cleanNotes('א'.repeat(MAX_NOTES + 10))).toHaveLength(MAX_NOTES);
+    expect(cleanNotes(undefined)).toBe('');
+    expect(cleanNotes(null)).toBe('');
+  });
+});

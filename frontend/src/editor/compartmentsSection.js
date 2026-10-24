@@ -1,5 +1,5 @@
 // Compartment list: widths, selection, add and remove, plus the carpenter PDF export.
-import { actionResult, button, cmField, el, section } from './fields.js';
+import { actionResult, button, cmField, el } from './fields.js';
 import { addCompartmentOps, removeOps } from './opsFromForm.js';
 import { t } from '../ui/i18n.js';
 
@@ -22,7 +22,7 @@ export function compartmentsSection({ design, selection, run, select, onExport }
     );
     list.append(row);
   });
-  const container = section(s.compartments, [list]);
+  const container = el('div', { className: 'prop-group', attrs: { role: 'group', 'aria-label': s.compartments } }, [list]);
   const actions = el('div', { className: onExport ? 'button-row button-row--pair' : 'button-row' }, [
     button(s.addCompartment, () => actionResult(container, run(addCompartmentOps(design))), { variant: 'secondary', testId: 'add-compartment' }),
   ]);

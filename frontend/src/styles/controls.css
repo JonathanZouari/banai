@@ -181,3 +181,26 @@ select.field__input {
 #properties-panel:focus { outline: none; }
 
 [dir="rtl"] select.field__input { background-position: left 12px center; }
+
+/* Panel steps (progressive disclosure): rounded cards with a number, a title and a live summary. */
+.step { margin: 0 0 var(--space-3); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-sys-shape-large); background: var(--md-sys-color-surface-container-lowest); }
+.step[open] { border-color: var(--md-sys-color-outline); }
+.step__summary { display: flex; align-items: center; gap: var(--space-3); min-height: 56px; padding: var(--space-2) var(--space-4); border-radius: var(--md-sys-shape-large); cursor: pointer; list-style: none; }
+.step__summary::-webkit-details-marker { display: none; }
+/* A chevron that points down when closed and up when open, the same in both directions. */
+.step__summary::after { content: ''; flex: none; width: 9px; height: 9px; margin-inline-start: auto; border-right: 2px solid var(--md-sys-color-on-surface-variant); border-bottom: 2px solid var(--md-sys-color-on-surface-variant); transform: translateY(-2px) rotate(45deg); transition: transform 160ms ease; }
+.step[open] > .step__summary::after { transform: translateY(2px) rotate(-135deg); }
+.step__summary:hover { background: var(--md-sys-color-surface-container-low); }
+.step__summary:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
+.step__number { display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 50%; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); font: var(--md-sys-typescale-label-large); }
+.step[open] .step__number { background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); }
+.step__text { display: flex; flex-direction: column; min-width: 0; }
+.step__title { font: var(--md-sys-typescale-title-small); }
+.step__value { overflow: hidden; color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-small); text-overflow: ellipsis; white-space: nowrap; }
+.step__body { padding: 0 var(--space-4) var(--space-4); }
+.prop-group + .prop-group { margin-top: var(--space-3); }
+.notes__input { height: auto; min-height: 96px; padding-block: var(--space-2); resize: vertical; text-align: start; font: var(--md-sys-typescale-body-medium); }
+.notes__count { margin: var(--space-1) 0 0; color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-small); text-align: end; }
+/* Inside a step card the three dimension fields share less width: keep the numbers fully visible. */
+.step__body { padding: 0 var(--space-3) var(--space-3); }
+.step .field-row--3 .field__input { padding-inline: 8px; }

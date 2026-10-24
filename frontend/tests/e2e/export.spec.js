@@ -1,10 +1,11 @@
 import { readFile } from 'node:fs/promises';
-import { expect, openDesigner, test } from './fixtures.js';
+import { expect, openDesigner, openStep, test } from './fixtures.js';
 
 // "PDF for your carpenter" against the real E2E backend (no mocking of the PDF endpoint).
 
 test('Generate Style Profile sits next to Add compartment, not in the top bar', async ({ page }) => {
   await openDesigner(page);
+  await openStep(page, 'interior'); // the PDF button sits next to "+ Add compartment"
   const button = page.getByTestId('open-export');
   await expect(button).toHaveText('הפקת פרופיל סגנון');
   await expect(page.locator('.button-row').filter({ has: page.getByTestId('add-compartment') }).getByTestId('open-export')).toBeVisible();
@@ -21,6 +22,7 @@ test('Generate Style Profile sits next to Add compartment, not in the top bar', 
 
 test('the export dialog defaults to the chat language and downloads a real PDF', async ({ page }) => {
   await openDesigner(page);
+  await openStep(page, 'interior'); // the PDF button sits next to "+ Add compartment"
   await page.getByTestId('open-export').click();
   const dialog = page.getByTestId('export-dialog');
   await expect(dialog).toBeVisible();
@@ -44,6 +46,7 @@ test('the export dialog defaults to the chat language and downloads a real PDF',
 
 test('choosing English sends language en', async ({ page }) => {
   await openDesigner(page);
+  await openStep(page, 'interior'); // the PDF button sits next to "+ Add compartment"
   await page.getByTestId('open-export').click();
   await page.getByTestId('export-language').selectOption('en');
   const request = page.waitForRequest('**/api/export/pdf');

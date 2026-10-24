@@ -68,3 +68,10 @@ export const paintedRatio = (page) => page.evaluate(() => {
   }
   return painted / (data.length / 4);
 });
+
+/** Open a properties-panel step ('dimensions' | 'doors' | 'interior' | 'materials' | 'notes'). */
+export async function openStep(page, id) {
+  const step = page.getByTestId(`step-${id}`);
+  if (!(await step.evaluate((details) => details.open))) await page.getByTestId(`step-${id}-toggle`).click();
+  await expect(step).toHaveJSProperty('open', true);
+}

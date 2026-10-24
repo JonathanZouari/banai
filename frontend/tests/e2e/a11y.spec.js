@@ -1,4 +1,4 @@
-import { test, expect, openDesigner, selection, expectNoViolations } from './fixtures.js';
+import { test, expect, openDesigner, openStep, selection, expectNoViolations } from './fixtures.js';
 
 test.describe('accessibility (axe, WCAG 2.2 AA)', () => {
   test('homepage', async ({ page }) => {
@@ -24,6 +24,7 @@ test.describe('accessibility (axe, WCAG 2.2 AA)', () => {
   for (const id of ['open-save', 'open-render', 'open-export']) {
     test(`dialog ${id}`, async ({ page }) => {
       await openDesigner(page);
+      if (id === 'open-export') await openStep(page, 'interior'); // it sits next to "+ Add compartment"
       await page.getByTestId(id).click();
       await page.locator('dialog[open]').waitFor();
       await expectNoViolations(page);
@@ -52,6 +53,8 @@ test.describe('keyboard only', () => {
   test('choosing the basic wardrobe moves focus into the properties panel', async ({ page }) => {
     await openDesigner(page);
     await expect(page.locator('#properties-panel')).toBeFocused();
+    await page.keyboard.press('Tab'); // the first step's toggle, then its first field
+    await expect(page.getByTestId('step-dimensions-toggle')).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(page.getByTestId('dim-width')).toBeFocused();
   });

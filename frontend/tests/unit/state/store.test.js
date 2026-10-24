@@ -120,3 +120,27 @@ describe('replaceDesign (applied AI proposal)', () => {
     expect(store.getState()).toBe(before);
   });
 });
+
+describe('request notes', () => {
+  it('are stored cleaned, outside the design, without a new revision or a notification', () => {
+    const store = makeStore();
+    let notified = 0;
+    store.subscribe(() => { notified += 1; });
+    const before = store.getState();
+    const saved = store.setNotes('ידיות שחורות' + String.fromCodePoint(0x202e));
+    expect(saved).toBe('ידיות שחורות');
+    expect(store.getState().request.notes).toBe('ידיות שחורות');
+    expect(store.getState().revision).toBe(before.revision);
+    expect(store.getState().design).toBe(before.design);
+    expect(notified).toBe(0);
+    expect(Object.isFrozen(store.getState().request)).toBe(true);
+  });
+
+  it('start empty and survive design edits', () => {
+    const store = makeStore();
+    expect(store.getState().request.notes).toBe('');
+    store.setNotes('מראה על הדלת');
+    store.dispatch([{ op: 'update_dimensions', width: 2400 }]);
+    expect(store.getState().request.notes).toBe('מראה על הדלת');
+  });
+});
