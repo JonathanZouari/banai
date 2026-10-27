@@ -132,6 +132,31 @@ def truncate(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[:limit].rstrip() + " …"
 
 
+ATX_HEADING = re.compile(r"^(\s{0,3})#{1,6}\s+(.*?)(\s+#+)?\s*$")
+SETEXT_UNDERLINE = re.compile(r"^\s{0,3}(=+|-+)\s*$")
+FENCE = re.compile(r"^\s{0,3}(```|~~~)")
+
+
+def flatten_headings(text: str) -> str:
+    """Turn Markdown headings in copied text into bold lines, so each entry stays one section in the
+    note's outline (copied `## ...` headings used to nest later entries under them). Code fences are
+    left alone; a setext underline (`---`/`===` right under text) becomes a blank line."""
+    lines, in_fence, previous = [], False, ""
+    for line in text.splitlines():
+        if FENCE.match(line):
+            in_fence = not in_fence
+        elif not in_fence:
+            heading = ATX_HEADING.match(line)
+            if heading:
+                title = heading.group(2).strip()
+                line = f"{heading.group(1)}**{title}**" if title else ""
+            elif SETEXT_UNDERLINE.match(line) and previous.strip():
+                line = ""
+        lines.append(line)
+        previous = line
+    return "\n".join(lines)
+
+
 def quote(text: str) -> str:
     return "\n".join(f"> {line}" if line else ">" for line in text.splitlines())
 
@@ -151,10 +176,10 @@ def build_entry(prompt: str, reply: str, cwd: str, session_id: str) -> str:
         f"*Session `{session_id[:8]}` · branch `{branch}` · HEAD `{head}`*",
         "",
         "**Request**",
-        quote(truncate(prompt, MAX_PROMPT_CHARS)),
+        quote(flatten_headings(truncate(prompt, MAX_PROMPT_CHARS))),
         "",
         "**Outcome**",
-        truncate(reply, MAX_REPLY_CHARS) or "_(no text reply)_",
+        flatten_headings(truncate(reply, MAX_REPLY_CHARS)) or "_(no text reply)_",
     ]
     if changed_list:
         lines += ["", "**Uncommitted changes**", "```", *changed_list, "```"]

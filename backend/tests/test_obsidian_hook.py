@@ -62,3 +62,26 @@ def test_no_config_file_or_broken_json_gives_no_key(hook, tmp_path):
     assert hook.load_api_key() is None
     (tmp_path / ".claude.json").write_text(json.dumps({"mcpServers": {}}), encoding="utf-8")
     assert hook.load_api_key() is None
+
+
+def test_copied_headings_become_bold_lines(hook):
+    reply = "## Checkpoint 2\nSome text\n### Group 2: Agent ###\n#not a heading\n- a list"
+    assert hook.flatten_headings(reply) == "**Checkpoint 2**\nSome text\n**Group 2: Agent**\n#not a heading\n- a list"
+
+
+def test_code_fences_are_left_alone(hook):
+    reply = "```bash\n# a shell comment\n```\n# Title"
+    assert hook.flatten_headings(reply) == "```bash\n# a shell comment\n```\n**Title**"
+
+
+def test_setext_underlines_are_dropped_but_rules_and_tables_stay(hook):
+    assert hook.flatten_headings("Title\n---\nbody") == "Title\n\nbody"
+    assert hook.flatten_headings("text\n\n---\n\nmore") == "text\n\n---\n\nmore"
+    assert hook.flatten_headings("| a | b |\n|---|---|") == "| a | b |\n|---|---|"
+
+
+def test_an_entry_has_exactly_one_heading(hook):
+    entry = hook.build_entry("# my request", "## Result\n### Details\nDone.", ".", "abcdef1234")
+    headings = [line for line in entry.splitlines() if line.lstrip("> ").startswith("#")]
+    assert len(headings) == 1 and headings[0].startswith("### ") and headings[0].endswith("· auto")
+    assert "**Result**" in entry and "**my request**" in entry
