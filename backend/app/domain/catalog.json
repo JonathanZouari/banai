@@ -4,14 +4,15 @@
     { "id": "melamine", "name": "Melamine board" },
     { "id": "oak_veneer", "name": "Oak veneer" },
     { "id": "walnut_veneer", "name": "Walnut veneer" },
-    { "id": "lacquered_mdf", "name": "Lacquered MDF" }
+    { "id": "lacquered_mdf", "name": "Lacquered MDF" },
+    { "id": "birch_plywood", "name": "Birch plywood" }
   ],
   "colors": [
-    { "id": "white", "name": "White", "hex": "#f2f1ed", "kind": "solid", "materials": ["melamine", "lacquered_mdf"] },
-    { "id": "light_grey", "name": "Light grey", "hex": "#c9c8c4", "kind": "solid", "materials": ["melamine", "lacquered_mdf"] },
-    { "id": "sand", "name": "Sand", "hex": "#d6c7ae", "kind": "solid", "materials": ["melamine", "lacquered_mdf"] },
+    { "id": "white", "name": "White", "hex": "#f2f1ed", "kind": "solid", "materials": ["melamine", "lacquered_mdf", "birch_plywood"] },
+    { "id": "light_grey", "name": "Light grey", "hex": "#c9c8c4", "kind": "solid", "materials": ["melamine", "lacquered_mdf", "birch_plywood"] },
+    { "id": "sand", "name": "Sand", "hex": "#d6c7ae", "kind": "solid", "materials": ["melamine", "lacquered_mdf", "birch_plywood"] },
     { "id": "anthracite", "name": "Anthracite", "hex": "#3b3d40", "kind": "solid", "materials": ["melamine", "lacquered_mdf"] },
-    { "id": "black", "name": "Black", "hex": "#1d1d1f", "kind": "solid", "materials": ["melamine", "lacquered_mdf"] },
+    { "id": "black", "name": "Black", "hex": "#1d1d1f", "kind": "solid", "materials": ["melamine", "lacquered_mdf", "birch_plywood"] },
     { "id": "sage", "name": "Sage green", "hex": "#9caf88", "kind": "solid", "materials": ["lacquered_mdf"] },
     { "id": "navy", "name": "Navy blue", "hex": "#2f3e55", "kind": "solid", "materials": ["lacquered_mdf"] },
     { "id": "clay", "name": "Clay", "hex": "#b5654a", "kind": "solid", "materials": ["lacquered_mdf"] },

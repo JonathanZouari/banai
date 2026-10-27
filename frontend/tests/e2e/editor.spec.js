@@ -98,3 +98,17 @@ test.describe('Phase 4: manual editing', () => {
     expect((await state(page)).selection).toBeNull();
   });
 });
+
+test('the added catalog material and its colours reach the editor and the 3D view', async ({ page }) => {
+  await openDesigner(page);
+  const material = page.getByLabel('Material').first();
+  await expect(material.locator('option[value="birch_plywood"]')).toHaveText('Birch plywood');
+  await material.selectOption('birch_plywood');
+  for (const [id, hex] of [['sand', 'd6c7ae'], ['black', '1d1d1f'], ['white', 'f2f1ed']]) {
+    await page.getByTestId(`swatch-carcass-${id}`).click();
+    await expect.poll(() => page.evaluate(() => window.__banai.viewer.meshOf('carcass').material.color.getHexString())).toBe(hex);
+  }
+  const { appearance } = await page.evaluate(() => window.__banai.store.getState().design.carcass);
+  expect(appearance.material).toEqual({ catalogId: 'birch_plywood' });
+  expect(appearance.color).toEqual({ catalogId: 'white' });
+});

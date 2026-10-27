@@ -82,6 +82,22 @@ Revision and persistence metadata (`revision`, `designId`) stay **outside** the 
 6. **Cancel** discards the proposal on the client only, and a "cancelled" note goes into the chat history.
 7. Any manual edit made while a proposal is pending bumps the revision. The card then shows "design changed – ask agent to re-propose".
 
+### 5a. Voice (chained pipeline, added 2026-10-16; merged 2026-10-27, details in §11)
+Voice was originally an excluded feature. It was added on request, following OpenAI's voice-agents guide, as a **chained pipeline**: speech-to-text, then the existing agent, then optional text-to-speech.
+- **Mic → `POST /api/voice/transcribe`.**
+  - The request is a raw audio body with a content-type allowlist, a magic-byte check and a streamed cap (about 600 KB, 20 s).
+  - It returns `{text}` (silence is a 422 `NO_SPEECH`). No language hint is sent, so either language is transcribed as spoken.
+  - The text lands in the composer; Send detects the language and calls `/api/chat`.
+- **Read replies aloud** (the Voice switch): `POST /api/voice/speech {text, signature, piece?, language}` streams raw PCM.
+  - `signature` is the `replySignature` from `/api/chat`: only the agent's own replies are spoken, and each `piece` must be part of that signed text.
+  - The switch and its note disclose that the voice is AI-generated, as OpenAI's usage policies require.
+- **Why chained and not Realtime speech-to-speech.** A Realtime session would need its own tool loop and browser ephemeral keys, and it would bypass the signed-proposal protocol. Chained keeps one agent, one scope policy, and one Confirm step.
+- **Defaults (configurable):**
+  - `OPENAI_TRANSCRIBE_MODEL=gpt-4o-mini-transcribe`
+  - `OPENAI_TTS_MODEL=gpt-4o-mini-tts`
+  - `OPENAI_TTS_VOICE=marin`
+  - The voices are optimized for English, so Hebrew read-aloud may sound accented.
+
 ## 6. API contracts (FastAPI, Pydantic, `{success, data, error}` envelope)
 | Method | Route | Purpose |
 |---|---|---|
@@ -90,6 +106,10 @@ Revision and persistence metadata (`revision`, `designId`) stay **outside** the 
 | GET | `/api/designs/default` | basic wardrobe template |
 | POST | `/api/chat` | agent turn → reply + optional signed proposal |
 | POST | `/api/proposals/apply` | verify, check stale, apply → new design |
+| GET | `/api/voice/status` | `{enabled, maxSeconds}` |
+| POST | `/api/voice/transcribe` | raw audio (≤ 600 KB) → `{text}` |
+| POST | `/api/voice/speech` | `{text, signature, piece?, language}` → streamed PCM |
+| POST | `/api/export/pdf` | `{design, language, image?}` → the carpenter PDF |
 | POST | `/api/designs/validate` | server validation of a manual design (used before save) |
 | POST | `/api/designs` | create → `{designId, accessToken, revision}` |
 | GET | `/api/designs/{id}` | header `Authorization: Bearer <token>` → design |
@@ -114,7 +134,7 @@ Migration `supabase/migrations/<ts>_designs.sql`, created with `supabase migrati
   - dev: source `dev`, same root directories. Wired with `railway environment edit --json`.
 - Per-service `railway.json`:
   - backend: start command `uvicorn app.main:app --host 0.0.0.0 --port $PORT`, healthcheck `/api/health`.
-  - frontend: `npm run build`, then `npx serve -s dist -l $PORT`.
+  - frontend: `npm run build`, then `npx serve dist -l $PORT` (no `-s`: the app routes by hash only, and `-s` would hide `accessibility.html`).
 - Per-environment variables, never shared:
   - backend: `OPENAI_API_KEY, OPENAI_CHAT_MODEL, OPENAI_IMAGE_MODEL, SUPABASE_URL, SUPABASE_SECRET_KEY, PROPOSAL_SIGNING_KEY, CORS_ORIGINS`
   - frontend: `VITE_API_BASE_URL=https://${{backend.RAILWAY_PUBLIC_DOMAIN}}`
@@ -191,10 +211,10 @@ Chosen option: a chained pipeline, not Realtime speech-to-speech or GPT-Live. Th
 | Method | Route | Purpose |
 |---|---|---|
 | GET | `/api/voice/status` | `{enabled, maxSeconds}`; the mic is shown only when enabled |
-| POST | `/api/voice/transcribe` | raw audio body (`audio/webm`, `ogg`, `mp4`, `mpeg`, `wav`) → `{text, noSpeech}` |
-| POST | `/api/voice/speak` | `{text}` → streamed raw PCM (16-bit mono, 24 kHz, header `X-Audio-Format`); the spoken part is at most 400 characters |
+| POST | `/api/voice/transcribe` | raw audio body (`audio/webm`, `ogg`, `mp4`, `mpeg`, `wav`) → `{text}`; silence is 422 `NO_SPEECH` (the client turns it into `{noSpeech: true}`) |
+| POST | `/api/voice/speech` | `{text, signature, piece?, language}` → streamed raw PCM (16-bit mono, 24 kHz, header `X-Audio-Format`); `text` must carry the reply signature from `/api/chat` and `piece` must be part of it; at most 400 characters are spoken per request |
 
-Flow: the **Voice switch** (its own row above the composer, not in the header) is off by default. When on, the microphone appears and **every** assistant reply is read aloud (typed or dictated). Mic → record (at most 20 s; the button becomes a red Stop button while recording) → transcribe (the selected language is sent as a hint) → text lands in the composer, **not sent** → the customer edits and presses Send → the normal `/api/chat` turn → the reply is spoken. Turning the switch off drops any recording and stops playback.
+Flow: the **Voice switch** (its own row above the composer, not in the header) is off by default. When on, the microphone appears and **every** assistant reply is read aloud (typed or dictated). Mic → record (at most 20 s; the button becomes a red Stop button while recording) → transcribe (no language hint; the domain vocabulary is sent as a prompt) → text lands in the composer, **not sent** → the customer edits and presses Send → the normal `/api/chat` turn → the reply is spoken. Turning the switch off drops any recording and stops playback.
 
 Rules: voice never confirms, applies or undoes; audio and transcripts are not stored or logged; the audio is validated by size (streamed, so chunked bodies are capped too) and by magic bytes, not only by `Content-Type`.
 
@@ -212,7 +232,7 @@ The English / Hebrew switch controls the whole interface, not only the chat: the
 
 
 ## 14. Export and Share (added 2026-10-20)
-Save, Export and Share are three equal actions in the header. Only Export is fully working today.
+Save, Export and Share are equal actions in the header. Save stores the design (Supabase, `/api/designs`) and puts its private link in the URL; Share is enabled once a link exists. A second, server-built PDF (the carpenter "Style Profile", `/api/export/pdf`) is opened from the chat, not from the header.
 - **Export PDF** is built entirely in the browser (`frontend/src/export/`), so nothing is uploaded and the design is never changed. `specModel.js` turns the design into plain data in the selected language and units. `elevation.js` makes the drawing geometry (front elevations with dimension chains, a plan view). `pdfWriter.js` draws an A4 landscape PDF with jsPDF, which is loaded on demand together with the Rubik font (`frontend/public/fonts/`, SIL OFL, Latin and Hebrew). `viewer.capture()` renders the two 3D views off-screen.
 - **Content:** cover with a 3D view, front elevation (doors closed), front elevation (interior) with a plan view, interior 3D view, then schedules for general data, compartments, doors, materials, hardware and notes. A title block (document number, date, units, scale, page) and the disclaimer are on every page.
 - **Limits, by design:** it is a description of the design, not a manufacturing document. No parts list or cut list (manufacturing export stays out of scope), and every page says it does not state that the design can be manufactured. Handle, door-gap and back-panel sizes in the drawings are the viewer's illustrative values.

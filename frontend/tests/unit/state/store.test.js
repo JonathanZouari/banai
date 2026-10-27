@@ -164,3 +164,27 @@ describe('store undo', () => {
     expect(store.canRedo()).toBe(false);
   });
 });
+
+describe('replace (applied AI proposal)', () => {
+  it('commits a valid server design with the new revision and keeps a still-valid selection', () => {
+    const store = makeStore();
+    store.select('shf_l1');
+    const next = structuredClone(loadDesign('basic'));
+    next.dimensions.depth = 550;
+    store.replace(next, 2);
+    const state = store.getState();
+    expect(state.revision).toBe(2);
+    expect(state.design.dimensions.depth).toBe(550);
+    expect(state.selection).toEqual({ id: 'shf_l1', kind: 'shelf' });
+  });
+
+  it('rejects an invalid design or a non-increasing revision and leaves the state untouched', () => {
+    const store = makeStore();
+    const before = store.getState();
+    const bad = structuredClone(loadDesign('basic'));
+    bad.dimensions.width = 10;
+    expect(() => store.replace(bad, 2)).toThrow();
+    expect(() => store.replace(loadDesign('basic'), 1)).toThrow();
+    expect(store.getState()).toBe(before);
+  });
+});

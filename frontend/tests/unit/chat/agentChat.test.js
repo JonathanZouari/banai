@@ -19,7 +19,7 @@ describe('chat model with an agent', () => {
     expect(model.isBusy()).toBe(true);
     expect(model.send('again')).toEqual({ ok: false, reason: 'busy' });
     await flush();
-    expect(agent).toHaveBeenCalledWith({ messages: [{ role: 'user', content: 'wider' }], design: { d: 1 }, revision: 1 });
+    expect(agent).toHaveBeenCalledWith({ messages: [{ role: 'user', text: 'wider' }], design: { d: 1 }, revision: 1 });
     expect(model.getMessages().map((m) => m.role)).toEqual(['user', 'assistant']);
     expect(model.getProposal().summary).toBe('Wider');
     expect(model.isBusy()).toBe(false);
@@ -34,7 +34,7 @@ describe('chat model with an agent', () => {
   });
 
   it('shows honest system messages for errors and never a proposal', async () => {
-    const { model } = setup(async () => { throw Object.assign(new Error('x'), { code: 'AGENT_NOT_CONFIGURED' }); });
+    const { model } = setup(async () => { throw Object.assign(new Error('x'), { code: 'AGENT_UNAVAILABLE' }); });
     model.send('x');
     await flush();
     expect(model.getMessages().at(-1)).toMatchObject({ role: 'system', text: NOT_CONNECTED_MESSAGE });
@@ -98,7 +98,7 @@ describe('postChat / applyProposal', () => {
     expect(error).toBeInstanceOf(ApiError);
     expect([error.status, error.code]).toEqual([409, 'STALE']);
     const network = await postChat({}, vi.fn().mockRejectedValue(new Error('x'))).catch((e) => e);
-    expect(network.code).toBe('NETWORK');
+    expect(network.code).toBe('NETWORK_ERROR');
   });
 });
 

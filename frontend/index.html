@@ -2,11 +2,13 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="referrer" content="no-referrer" /><!-- the share link carries a token -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BanAI Wardrobe Designer</title>
     <link rel="stylesheet" href="/src/styles/index.css" />
   </head>
   <body>
+    <a class="skip-link" href="#properties-panel">Skip to properties</a>
     <header class="topbar">
       <h1 class="topbar__title" id="topbar-logo" aria-label="BanAI Wardrobe Designer"></h1>
       <div class="topbar__actions">
@@ -25,7 +27,7 @@
               <button type="button" role="menuitem" class="menu__item" id="share-copy" data-testid="share-copy" data-icon="copy" disabled><span data-i18n="uiCopyLink">Copy link</span></button>
               <button type="button" role="menuitem" class="menu__item" id="share-whatsapp" data-testid="share-whatsapp" data-icon="chat" disabled><span data-i18n="uiShareWhatsapp">WhatsApp</span></button>
               <button type="button" role="menuitem" class="menu__item" id="share-email" data-testid="share-email" data-icon="mail" disabled><span data-i18n="uiShareEmail">Email</span></button>
-              <p class="menu__note" id="share-note" data-testid="share-note" role="status" data-i18n="uiShareNeedsSave">Sharing needs a saved design. Saving with a private link is coming soon.</p>
+              <p class="menu__note" id="share-note" data-testid="share-note" role="status" data-i18n="uiShareNeedsSave">Sharing needs a saved design. Save it first to get a private link.</p>
             </div>
           </div>
         </div>
@@ -42,6 +44,7 @@
               <button type="button" role="radio" class="lang-switch__btn" data-unit="cm" data-testid="unit-cm" data-i18n-title="uiCentimetres">cm</button>
               <button type="button" role="radio" class="lang-switch__btn" data-unit="in" data-testid="unit-in" data-i18n-title="uiInches">in</button>
             </div>
+            <a class="menu__link" href="/accessibility.html" lang="he" data-testid="a11y-link">הצהרת נגישות</a>
           </div>
         </div>
       </div>
@@ -50,9 +53,9 @@
     <main class="workspace">
       <aside class="panel" id="chat-panel" aria-label="AI designer"></aside>
       <section class="viewer" id="viewer" aria-label="3D viewer" data-i18n-aria="uiViewerAria"></section>
-      <aside class="panel panel--properties" id="properties-panel" aria-label="Properties" data-i18n-aria="uiProperties">
+      <aside class="panel panel--properties" id="properties-panel" aria-label="Properties" data-i18n-aria="uiProperties" tabindex="-1">
         <h2 class="panel__title" data-i18n="uiProperties">Properties</h2>
-        <p class="panel__hint" data-i18n="uiPropertiesHint">Click a component in the 3D view to edit it.</p>
+        <p class="panel__hint" data-i18n="uiPropertiesHint">Select a component in the 3D view, or under All parts below, to edit it.</p>
         <div id="properties-content"></div>
       </aside>
     </main>

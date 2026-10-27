@@ -1,4 +1,4 @@
-import { test, expect, openDesigner, chooseSetting } from './fixtures.js';
+import { test, expect, mockAgentOnline, openDesigner, chooseSetting } from './fixtures.js';
 
 // Voice endpoints are mocked: this suite checks the UI and safety rules, and costs nothing.
 // Chromium runs with a fake microphone (see playwright.config.js).
@@ -13,14 +13,16 @@ const pcmReply = () => {
 };
 
 async function mockVoice(page, { enabled = true, transcript = { text: 'make it 240 cm wide', noSpeech: false }, transcribe = null } = {}) {
-  const calls = { transcribe: 0, speak: 0, chat: 0, apply: 0 };
+  const calls = { transcribe: 0, speak: 0, chat: 0, apply: 0, speech: [] };
+  await mockAgentOnline(page);
   await page.route('**/api/voice/status', (route) => route.fulfill(ok({ enabled, maxSeconds: 20 })));
   await page.route('**/api/voice/transcribe**', (route) => {
     calls.transcribe += 1;
     return route.fulfill(transcribe ?? ok(transcript));
   });
-  await page.route('**/api/voice/speak', (route) => {
+  await page.route('**/api/voice/speech', (route) => {
     calls.speak += 1;
+    calls.speech.push(route.request().postDataJSON());
     return route.fulfill({ status: 200, contentType: 'application/octet-stream', headers: { 'X-Audio-Format': 'pcm16;rate=24000;channels=1' }, body: pcmReply() });
   });
   await page.route('**/api/chat', (route) => {
@@ -28,7 +30,8 @@ async function mockVoice(page, { enabled = true, transcript = { text: 'make it 2
     const { revision } = route.request().postDataJSON();
     return route.fulfill(ok({
       reply: 'Here you go.',
-      proposal: { ops: [{ op: 'update_dimensions', width: 2400 }], summary: 'Make it 240 cm wide', baseRevision: revision, baseHash: 'a'.repeat(64), signature: 'b'.repeat(64) },
+      replySignature: 'c'.repeat(64),
+      proposal: { proposalId: 'prp_0123456789abcdef', ops: [{ op: 'update_dimensions', width: 2400 }], summary: 'Make it 240 cm wide', baseRevision: revision, baseHash: 'a'.repeat(64), signature: 'b'.repeat(64) },
     }));
   });
   await page.route('**/api/proposals/apply', (route) => { calls.apply += 1; return route.abort(); });

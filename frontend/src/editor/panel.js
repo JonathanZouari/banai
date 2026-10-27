@@ -8,6 +8,7 @@ import { doorsSection, handlesSection } from './doorsSection.js';
 import { materialsSection, wardrobeSection } from './wardrobeSection.js';
 import { units } from '../ui/units.js';
 import { language } from '../i18n/strings.js';
+import { partsSection } from './partsSection.js';
 
 export function mountPanel(root, store) {
   const run = (ops) => {
@@ -24,6 +25,8 @@ export function mountPanel(root, store) {
     if (state.design === rendered.design && state.selection === rendered.selection) return;
     rendered = { design: state.design, selection: state.selection };
     const context = { design: state.design, catalog: state.catalog, selection: state.selection, run, select };
+    // Re-rendering replaces every control: put keyboard focus back on the same one (WCAG 2.4.3).
+    const focused = root.contains(document.activeElement) ? document.activeElement.dataset.testid : undefined;
     root.replaceChildren(
       ...(state.selection ? [componentSection(context)] : []),
       ...wardrobeSection(context),
@@ -32,7 +35,9 @@ export function mountPanel(root, store) {
       ...materialsSection(context),
       compartmentsSection(context),
       interiorSection(context),
+      partsSection(context),
     );
+    if (focused) root.querySelector(`[data-testid="${CSS.escape(focused)}"]`)?.focus();
   };
 
   const unsubscribe = store.subscribe(render);

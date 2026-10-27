@@ -1,4 +1,4 @@
-import { test, expect, openDesigner, chooseSetting } from './fixtures.js';
+import { test, expect, mockAgentOnline, openDesigner, chooseSetting } from './fixtures.js';
 
 const ok = (data) => ({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data }) });
 const send = async (page, text) => { await page.getByTestId('chat-input').fill(text); await page.getByTestId('chat-send').click(); };
@@ -6,6 +6,7 @@ const send = async (page, text) => { await page.getByTestId('chat-input').fill(t
 test.describe('assistant language switch', () => {
   test('Hebrew makes the chat panel RTL, sends language=he and survives a reload', async ({ page }) => {
     const bodies = [];
+    await mockAgentOnline(page);
     await page.route('**/api/chat', (route) => {
       bodies.push(route.request().postDataJSON());
       return route.fulfill(ok({ reply: 'שלום!', proposal: null }));
@@ -32,6 +33,7 @@ test.describe('assistant language switch', () => {
 
   test('switching back to English restores the English panel and sends language=en', async ({ page }) => {
     const bodies = [];
+    await mockAgentOnline(page);
     await page.route('**/api/chat', (route) => {
       bodies.push(route.request().postDataJSON());
       return route.fulfill(ok({ reply: 'Hello', proposal: null }));

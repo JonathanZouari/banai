@@ -106,15 +106,17 @@ export function createVoiceModel({ recorder, api, player, onTranscript, minBytes
     /**
      * Read an assistant reply aloud (when Voice is on). The reply is cut into short pieces that are
      * requested together and played in order. A newer reply or a new recording replaces it.
+     * `reply` (the chat message: its signature and language) goes with every piece, because the
+     * server only speaks text it signed.
      */
-    async speakReply(text) {
+    async speakReply(text, reply = null) {
       const pieces = planSpeech(text);
       if (!enabled || pieces.length === 0 || state !== 'idle') return;
       stopSpeaking();
       const mine = speakToken;
       speaking = true;
       notify();
-      const requests = pieces.map((piece) => Promise.resolve().then(() => api.speak(piece)));
+      const requests = pieces.map((piece) => Promise.resolve().then(() => api.speak(piece, reply)));
       requests.forEach((request) => request.catch(() => {})); // an unplayed failure is reported once, below
       try {
         await player.play(requests.map((response, i) => ({ response, expectedSeconds: estimateSeconds(pieces[i]) })));

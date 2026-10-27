@@ -1,13 +1,16 @@
 // Left column: header, a welcome with starter prompts, the conversation, the proposal card and
-// the composer. The agent is not connected until Phase 5, so this panel never changes the design
-// by itself and says so plainly.
+// the composer. This panel never changes the design by itself: the agent only proposes, and the host
+// applies a proposal when the customer confirms it.
 import { el } from '../editor/fields.js';
 import { icon } from '../ui/icons.js';
 import { MAX_MESSAGE_LENGTH } from './chatModel.js';
-import { translate, voiceErrorMessage } from '../i18n/strings.js';
+import { DIRECTIONS, detectLanguage, translate, voiceErrorMessage } from '../i18n/strings.js';
 import { renderProposalCard } from './proposalCard.js';
 
-export function mountChat(container, { model, onConfirm, connected = false, language = null, voice = null }) {
+/** onStyleProfile() opens the carpenter PDF dialog (Generate Style Profile); without it no note is shown. */
+export function mountChat(container, {
+  model, onConfirm, connected = false, language = null, voice = null, onStyleProfile = null,
+}) {
   container.classList.add('panel--chat');
   const t = (key) => (language ? language.t(key) : translate('en', key));
 
@@ -62,14 +65,38 @@ export function mountChat(container, { model, onConfirm, connected = false, lang
   const list = el('div', { className: 'chat__messages', attrs: { role: 'log', 'aria-live': 'polite' } });
   list.dataset.testid = 'chat-messages';
   const proposalSlot = el('div', { className: 'chat__proposal' });
+  const builtSlot = el('div', { className: 'chat__built-slot' });
+  let renderedBuiltKey = '';
+  let hintKey = null; // a localized placeholder chosen on the start screen
   const typing = el('div', { className: 'chat__bubble chat__bubble--assistant chat__typing', attrs: { role: 'status' } });
   typing.dataset.testid = 'chat-typing';
   typing.hidden = true;
 
   const submit = () => {
+    if (model.isBusy() || !input.value.trim()) return;
+    // Writing in Hebrew or English switches the app to that language first, so the reply (and the
+    // UI) come back in the language the customer wrote in. Messages without letters keep the switch.
+    const written = detectLanguage(input.value);
+    if (language && written && written !== language.get()) language.set(written);
     if (model.send(input.value).ok) input.value = '';
     sendButton.disabled = model.isBusy();
   };
+
+  /** The final step: one pinned note with Generate Style Profile (the carpenter PDF). */
+  function profileNote(code) {
+    const profile = el('button', { className: 'btn btn--primary', text: translate(code, 'generateProfile'), attrs: { type: 'button' } });
+    profile.dataset.testid = 'chat-style-profile';
+    profile.addEventListener('click', () => onStyleProfile());
+    const note = el('div', { className: 'chat__bubble chat__bubble--system chat__built', attrs: { dir: DIRECTIONS[code], lang: code } }, [
+      icon('check', { size: 16 }),
+      el('div', { className: 'chat__built-body' }, [
+        el('span', { text: translate(code, 'readyForProfile') }),
+        el('div', { className: 'button-row' }, [profile]),
+      ]),
+    ]);
+    note.dataset.testid = 'profile-note';
+    return note;
+  }
   composer.addEventListener('submit', (event) => {
     event.preventDefault();
     submit();
@@ -85,7 +112,7 @@ export function mountChat(container, { model, onConfirm, connected = false, lang
   let renderedProposalKey = '';
   function render() {
     const messages = model.getMessages();
-    welcome.hidden = messages.length > 0 || model.getProposal() !== null;
+    welcome.hidden = messages.length > 0 || model.getProposal() !== null || model.getBuilt() !== null;
     list.hidden = messages.length === 0;
     // Only newly added bubbles are created (and animate in); existing ones stay untouched.
     if (messages.length < renderedCount) {
@@ -93,12 +120,25 @@ export function mountChat(container, { model, onConfirm, connected = false, lang
       renderedCount = 0;
     }
     messages.slice(renderedCount).forEach((message) => {
-      const bubble = el('div', { className: `chat__bubble chat__bubble--${message.role}`, attrs: { dir: 'auto' } });
+      // Designer and system bubbles keep the language (and direction) they were written in; the
+      // customer's own text takes its direction from its content. Switching language changes neither.
+      const written = message.role !== 'user' && DIRECTIONS[message.language] ? message.language : null;
+      const bubble = el('div', {
+        className: `chat__bubble chat__bubble--${message.role}`,
+        attrs: written ? { dir: DIRECTIONS[written], lang: written } : { dir: 'auto' },
+      });
       if (message.role === 'system') bubble.append(icon('info', { size: 16 }));
       bubble.append(el('span', { text: message.text, attrs: { dir: 'auto' } }));
       list.append(bubble);
     });
     renderedCount = messages.length;
+    // One pinned note offering the PDF step: replaced, never added, so it never piles up.
+    const built = model.getBuilt();
+    const builtKey = built && onStyleProfile ? built.language : '';
+    if (builtKey !== renderedBuiltKey) {
+      renderedBuiltKey = builtKey;
+      builtSlot.replaceChildren(...(builtKey ? [profileNote(built.language)] : []));
+    }
     typing.hidden = !model.isBusy();
     sendButton.disabled = model.isBusy();
     if (!typing.hidden) list.append(typing); // keep the indicator last
@@ -172,7 +212,7 @@ export function mountChat(container, { model, onConfirm, connected = false, lang
     subtitle.textContent = t('chatSubtitle');
     status.textContent = connected ? t('statusOnline') : t('statusOffline');
     status.title = connected ? t('statusOnlineTitle') : t('statusOfflineTitle');
-    input.placeholder = t('placeholder');
+    input.placeholder = (hintKey && t(hintKey)) || t('placeholder');
     input.setAttribute('aria-label', t('inputLabel'));
     sendButton.setAttribute('aria-label', t('sendLabel'));
     hint.textContent = t('hint');
@@ -196,15 +236,17 @@ export function mountChat(container, { model, onConfirm, connected = false, lang
     document.addEventListener('visibilitychange', () => { if (document.hidden) voice.cancel(); });
   }
 
-  container.replaceChildren(header, el('div', { className: 'chat__body' }, [welcome, list, proposalSlot]), el('div', { className: 'chat__footer' }, voice ? [voiceRow, composer, hint, voiceNote] : [composer, hint]));
+  container.replaceChildren(header, el('div', { className: 'chat__body' }, [welcome, list, builtSlot, proposalSlot]), el('div', { className: 'chat__footer' }, voice ? [voiceRow, composer, hint, voiceNote] : [composer, hint]));
   applyLanguage();
   model.subscribe(render);
   language?.subscribe(() => { applyLanguage(); render(); });
   render();
 
   return {
-    focus: (placeholder) => {
-      if (placeholder && (!language || language.get() === 'en')) input.placeholder = placeholder;
+    /** Focus the composer. `entryId` picks a localized placeholder ('guided' | 'freeText'). */
+    focus: (entryId) => {
+      hintKey = { guided: 'hintGuided', freeText: 'hintFreeText' }[entryId] ?? null;
+      input.placeholder = (hintKey && t(hintKey)) || t('placeholder');
       input.focus();
     },
     /** Dictated text goes into the composer for the customer to check and send; it is never sent for them. */

@@ -39,7 +39,7 @@ test.describe('AI chat panel (agent not connected yet)', () => {
     await page.getByTestId('chat-send').click();
     const messages = page.getByTestId('chat-messages');
     await expect(messages).toContainText('make it 3 m wide');
-    await expect(messages).toContainText("isn't connected yet");
+    await expect(messages).toContainText("isn't connected");
     expect(await page.evaluate(() => window.__banai.store.getState().revision)).toBe(before);
   });
 
@@ -159,19 +159,7 @@ test.describe('door configurations render with hardware', () => {
   });
 });
 
-test.describe('save and render dialogs (backend phases not built yet)', () => {
-  test('Save opens a dialog that is honest about being unavailable, with no fake link', async ({ page }) => {
-    await openDesigner(page);
-    await page.getByTestId('open-save').click();
-    const dialog = page.getByTestId('save-dialog');
-    await expect(dialog).toBeVisible();
-    await expect(dialog).toContainText('Saving and private links are coming soon');
-    await expect(page.getByTestId('share-link')).toHaveValue('');
-    await expect(page.getByTestId('save-confirm')).toBeDisabled();
-    await page.getByTestId('save-close').click();
-    await expect(dialog).toBeHidden();
-  });
-
+test.describe('render dialog (backend phase not built yet)', () => {
   test('Render opens a dialog labelled as illustrative, with generation disabled', async ({ page }) => {
     await openDesigner(page);
     await openRender(page);

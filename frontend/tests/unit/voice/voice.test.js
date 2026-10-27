@@ -333,8 +333,8 @@ describe('voice model', () => {
   });
 
   it('turns failures into codes (the panel shows them in the selected language)', () => {
-    expect(describeVoiceError(new ApiError(429, 'VOICE_BUDGET', 'Voice is paused for today.'))).toBe('VOICE_BUDGET');
-    expect(describeVoiceError(new ApiError(0, 'NETWORK', 'Could not reach the server.'))).toBe('NETWORK');
+    expect(describeVoiceError(new ApiError('Voice is paused for today.', { status: 429, code: 'VOICE_BUDGET' }))).toBe('VOICE_BUDGET');
+    expect(describeVoiceError(new ApiError('Could not reach the server.', { status: 0, code: 'NETWORK' }))).toBe('NETWORK');
     expect(describeVoiceError(Object.assign(new Error('x'), { name: 'NotFoundError' }))).toBe('NO_MIC');
     expect(describeVoiceError(Object.assign(new Error('x'), { code: 'UNSUPPORTED' }))).toBe('UNSUPPORTED');
     expect(describeVoiceError(new Error('weird'))).toBe('FAILED');
@@ -373,13 +373,13 @@ describe('voice model', () => {
     voice.setEnabled(true);
     expect(player.prime).toHaveBeenCalled(); // audio is unlocked by the click on the switch
     await voice.speakReply('hello');
-    expect(api.speak).toHaveBeenCalledWith('hello');
+    expect(api.speak).toHaveBeenCalledWith('hello', null);
   });
 
   it('reads every reply aloud while on, and a new recording or turning it off stops playback', async () => {
     const { voice, api, player, recorder } = setup();
     await voice.speakReply('Done.');
-    expect(api.speak).toHaveBeenCalledWith('Done.');
+    expect(api.speak).toHaveBeenCalledWith('Done.', null);
     expect(player.play).toHaveBeenCalledTimes(1);
     await voice.toggle();
     expect(player.stop).toHaveBeenCalled();
@@ -401,7 +401,7 @@ describe('voice model', () => {
 
   it('a failed spoken reply shows a note but never throws', async () => {
     const { voice, api } = setup();
-    api.speak.mockRejectedValue(new ApiError(429, 'VOICE_BUDGET', 'Voice is paused for today. You can keep typing.'));
+    api.speak.mockRejectedValue(new ApiError('Voice is paused for today. You can keep typing.', { status: 429, code: 'VOICE_BUDGET' }));
     await voice.speakReply('hello');
     expect(voice.getState()).toMatchObject({ speaking: false, error: 'VOICE_BUDGET' });
   });
@@ -438,7 +438,7 @@ describe('chat model with voice', () => {
     const model = createChatModel({ getRevision: () => 1, getDesign: () => ({}), agent, onAssistantReply });
     model.send('typed');
     await flush();
-    expect(onAssistantReply).toHaveBeenCalledWith('Wider.');
+    expect(onAssistantReply.mock.calls[0][0]).toMatchObject({ role: 'assistant', text: 'Wider.' });
     model.send('dictated');
     await flush();
     expect(onAssistantReply).toHaveBeenCalledTimes(2);
@@ -457,7 +457,7 @@ describe('chat model with voice', () => {
 
 describe('voice api client', () => {
   it('posts the recording as a raw body and returns the transcript', async () => {
-    const fetchImpl = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ success: true, data: { text: 'hi', noSpeech: false } }) });
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ success: true, data: { text: 'hi' } }) });
     const blob = new Blob(['a'], { type: 'audio/webm' });
     await expect(transcribeAudio(blob, 'he', fetchImpl)).resolves.toEqual({ text: 'hi', noSpeech: false });
     const [url, init] = fetchImpl.mock.calls[0];
@@ -469,13 +469,20 @@ describe('voice api client', () => {
   it('turns server and network failures into ApiError', async () => {
     const down = vi.fn().mockResolvedValue({ ok: false, status: 429, json: async () => ({ success: false, error: { code: 'VOICE_BUDGET', message: 'Voice is paused for today.' } }) });
     await expect(transcribeAudio(new Blob(['a']), undefined, down)).rejects.toMatchObject({ status: 429, code: 'VOICE_BUDGET' });
-    await expect(speak('hi', vi.fn().mockRejectedValue(new Error('x')))).rejects.toMatchObject({ code: 'NETWORK' });
+    await expect(speak({ text: 'hi', signature: 'a'.repeat(64), piece: 'hi' }, vi.fn().mockRejectedValue(new Error('x')))).rejects.toMatchObject({ code: 'NETWORK' });
   });
 
   it('speak returns the streaming response', async () => {
     const reply = { ok: true, status: 200, body: {} };
     const fetchImpl = vi.fn().mockResolvedValue(reply);
-    await expect(speak('Done.', fetchImpl)).resolves.toBe(reply);
-    expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).toEqual({ text: 'Done.' });
+    const signed = { text: 'All done. Anything else?', signature: 'a'.repeat(64), piece: 'All done.', language: 'en' };
+    await expect(speak(signed, fetchImpl)).resolves.toBe(reply);
+    expect(fetchImpl.mock.calls[0][0]).toBe('http://localhost:8000/api/voice/speech');
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).toEqual(signed);
+  });
+
+  it('turns the server\'s NO_SPEECH into an empty transcript, not an error', async () => {
+    const silent = vi.fn().mockResolvedValue({ ok: false, status: 422, json: async () => ({ success: false, error: { code: 'NO_SPEECH', message: 'x' } }) });
+    await expect(transcribeAudio(new Blob(['a'], { type: 'audio/webm' }), 'en', silent)).resolves.toEqual({ text: '', noSpeech: true });
   });
 });

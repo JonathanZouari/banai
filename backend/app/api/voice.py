@@ -1,36 +1,63 @@
-"""Voice endpoints: speech to text, text to speech, status.
+"""Voice for the AI designer: speech-to-text in, text-to-speech out. A chained pipeline: the
+transcript goes through the normal /api/chat turn, so voice never bypasses the signed proposal
+and its Confirm step. The server stores nothing.
 
-Voice only turns speech into text for the chat composer and reads replies aloud. It never changes
-a design and never confirms a proposal. Audio and text are not stored or logged.
+Off by default (VOICE_ENABLED). Spend guards: a clip size cap, a per-IP rate limit, an hourly
+cap and an in-memory daily budget (it resets on restart; the OpenAI dashboard budget is the backstop).
 """
 
 from __future__ import annotations
 
+import logging
 import re
 import time
-from functools import lru_cache
 from collections import deque
 from threading import Lock
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import StreamingResponse
-from fastapi.concurrency import run_in_threadpool
-from openai import APIError, OpenAI
+from fastapi.responses import JSONResponse, StreamingResponse
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.api.chat import limiter
-from app.api.errors import api_error, map_openai_error
-from app.config import Settings, get_settings
+from app.agent.language import Language
+from app.api.agent import MESSAGE_TEXT_PATTERN, get_llm_client, localized, provider_error
+from app.api.limits import limiter
+from app.config import Settings, get_settings, get_signing_key
+from app.services import signing
 
 router = APIRouter(prefix="/api/voice")
+log = logging.getLogger(__name__)
 
-MAX_TRANSCRIPT_CHARS = 2000  # same limit as a typed chat message
+# ASSUMPTION: configurable defaults (OPENAI_TRANSCRIBE_MODEL / OPENAI_TTS_MODEL / OPENAI_TTS_VOICE).
+DEFAULT_TRANSCRIBE_MODEL = "gpt-4o-mini-transcribe"
+DEFAULT_TTS_MODEL = "gpt-4o-mini-tts"
+DEFAULT_TTS_VOICE = "marin"
+
+MAX_TRANSCRIPT_CHARS = 2000  # the chat message limit
+MAX_SPEECH_CHARS = 1000
 MIN_AUDIO_BYTES = 800  # shorter than this is a tap, not speech
 AUDIO_TYPES = {
     "audio/webm": "webm", "video/webm": "webm", "audio/ogg": "ogg", "audio/mp4": "mp4",
     "audio/mpeg": "mp3", "audio/wav": "wav", "audio/x-wav": "wav", "audio/wave": "wav",
 }
+# Measured on real Hebrew audio (2026-10-16): English instructions that name Hebrew speak it most
+# clearly; instructions written in Hebrew made the speech worse.
+SPEECH_STYLE = (
+    "Speak in the language of the text. For Hebrew, use fluent native Israeli Hebrew pronunciation. "
+    "Calm, friendly furniture designer; clear and concise."
+)
+# Domain vocabulary in both languages: fixes Hebrew misrecognitions and writes sizes as digits,
+# without forcing a language (English speech stays English).
+TRANSCRIBE_PROMPT = (
+    "שיחה על עיצוב ארון בגדים, בעברית או באנגלית: ארון, תא, מדף, מגירה, מוט תלייה, מחיצה, "
+    "דלתות הזזה, דלתות ציר, רוחב, גובה, עומק, סנטימטר, מט, מבריק. "
+    "Wardrobe design in Hebrew or English: shelf, drawer, hanging rail, sliding doors, width, cm."
+)
+PROMPTABLE_MODELS = {"gpt-4o-transcribe", "gpt-4o-mini-transcribe", "whisper-1"}
+# Abbreviations TTS reads letter by letter; spoken as words instead.
+SPOKEN_UNITS = {'ס"מ': "סנטימטר", "ס״מ": "סנטימטר", 'מ"מ': "מילימטר", "מ״מ": "מילימטר"}
+
 # Conservative cost estimates for the in-app budget guard (not accounting).
 STT_USD_PER_MIN = 0.006
 TTS_USD_PER_MIN = 0.015
@@ -39,11 +66,21 @@ TTS_USD_PER_MIN = 0.015
 ASSUMED_BYTES_PER_SECOND = 1000
 MAX_CHARGED_SECONDS = 600
 SPOKEN_CHARS_PER_SECOND = 14
-_SENTENCE_END = re.compile(r"[.!?…](?=\s|$)")
+PCM_FORMAT = "pcm16;rate=24000;channels=1"  # raw 16-bit little-endian mono, so playback can start at the first bytes
+
+VOICE_MESSAGES: dict[str, dict[str, str]] = {
+    "VOICE_DISABLED": {"he": "הקול לא מופעל בשרת הזה.", "en": "Voice is not enabled on this server."},
+    "VOICE_BUSY": {"he": "הקול עמוס כרגע. נסה שוב מאוחר יותר.", "en": "Voice is busy right now. Please try again later."},
+    "VOICE_BUDGET": {"he": "הקול מושהה להיום. אפשר להמשיך להקליד.", "en": "Voice is paused for today. You can keep typing."},
+}
 
 _lock = Lock()
 _recent: deque[float] = deque()
 _spend: deque[tuple[float, float]] = deque()
+
+
+def _voice_error(status: int, code: str, language: str) -> JSONResponse:
+    return JSONResponse(status_code=status, content={"success": False, "error": {"code": code, "message": VOICE_MESSAGES[code][language]}})
 
 
 def _prune(now: float) -> None:
@@ -53,17 +90,18 @@ def _prune(now: float) -> None:
         _spend.popleft()
 
 
-def reserve(settings: Settings, estimated_usd: float) -> None:
-    """Count this request against the hourly cap and daily budget, or refuse it."""
+def reserve(settings: Settings, estimated_usd: float) -> str | None:
+    """Count this request against the hourly cap and daily budget; returns the refusal code, if any."""
     now = time.monotonic()
     with _lock:
         _prune(now)
         if len(_recent) >= settings.voice_hourly_cap:
-            raise api_error(429, "VOICE_BUSY", "Voice is busy right now. Please try again later.")
+            return "VOICE_BUSY"
         if sum(usd for _, usd in _spend) + estimated_usd > settings.voice_daily_budget_usd:
-            raise api_error(429, "VOICE_BUDGET", "Voice is paused for today. You can keep typing.")
+            return "VOICE_BUDGET"
         _recent.append(now)
         _spend.append((now, estimated_usd))
+        return None
 
 
 def reset_guards() -> None:
@@ -72,22 +110,18 @@ def reset_guards() -> None:
         _spend.clear()
 
 
-def require_voice(settings: Annotated[Settings, Depends(get_settings)]) -> Settings:
-    if not settings.voice_enabled:
-        raise api_error(503, "VOICE_DISABLED", "Voice is not enabled.")
-    if not settings.agent_configured:
-        raise api_error(503, "AGENT_NOT_CONFIGURED", "The AI agent is not configured on the server.")
-    return settings
+def spoken(text: str) -> str:
+    for short, word in SPOKEN_UNITS.items():
+        text = text.replace(short, word)
+    return text
 
 
-@lru_cache(maxsize=2)
-def _audio_client(api_key: str, timeout: float):
-    """One client per process, so connections are reused (a new TLS handshake per request costs about 0.3 s)."""
-    return OpenAI(api_key=api_key, timeout=timeout, max_retries=1).audio
+def _model(value: str, default: str) -> str:
+    return value.strip() or default
 
 
-def get_voice_client(settings: Annotated[Settings, Depends(require_voice)]):
-    return _audio_client(settings.openai_api_key.get_secret_value(), settings.chat_timeout_s)
+def _normalized(text: str) -> str:
+    return " ".join(text.split())
 
 
 def sniff_audio(data: bytes) -> str | None:
@@ -105,30 +139,12 @@ def sniff_audio(data: bytes) -> str | None:
     return None
 
 
-def clean_transcript(text: str) -> str:
-    text = re.sub(r"[\x00-\x08\x0b-\x1f\x7f-\x9f​-‍  ‪-‮⁦-⁩﻿]", "", text or "")
-    return re.sub(r"\s+", " ", text).strip()[:MAX_TRANSCRIPT_CHARS]
-
-
-def shorten_for_speech(text: str, limit: int) -> str:
-    """At most `limit` characters, cut at the last sentence end (else the last space)."""
-    text = re.sub(r"\s+", " ", text).strip()
-    if len(text) <= limit:
-        return text
-    window = text[:limit]
-    ends = [m.end() for m in _SENTENCE_END.finditer(window)]
-    if ends and ends[-1] >= limit // 3:
-        return window[: ends[-1]].strip()
-    return window[: window.rfind(" ")].strip() if " " in window else window
-
-
-async def read_capped(request: Request, limit: int) -> bytes | None:
-    """Read the body in chunks and stop as soon as it passes `limit` (None = too large)."""
-    chunks: list[bytes] = []
-    total = 0
+async def _read_capped(request: Request, limit: int) -> bytes | None:
+    """The body, or None once it passes `limit` bytes (stops reading early)."""
+    chunks, size = [], 0
     async for chunk in request.stream():
-        total += len(chunk)
-        if total > limit:
+        size += len(chunk)
+        if size > limit:
             return None
         chunks.append(chunk)
     return b"".join(chunks)
@@ -136,7 +152,7 @@ async def read_capped(request: Request, limit: int) -> bytes | None:
 
 @router.get("/status")
 def status(settings: Annotated[Settings, Depends(get_settings)]) -> dict:
-    enabled = settings.voice_enabled and settings.agent_configured
+    enabled = settings.voice_enabled and settings.agent_enabled
     return {"success": True, "data": {"enabled": enabled, "maxSeconds": settings.voice_max_seconds}}
 
 
@@ -144,63 +160,85 @@ def status(settings: Annotated[Settings, Depends(get_settings)]) -> dict:
 @limiter.limit(lambda: get_settings().voice_rate_limit)
 async def transcribe(
     request: Request,
-    settings: Annotated[Settings, Depends(require_voice)],
-    client=Depends(get_voice_client),
-    language: Annotated[str | None, Query(pattern="^(en|he)$")] = None,
-) -> dict:
-    content_type = (request.headers.get("content-type") or "").split(";")[0].strip().lower()
-    if content_type not in AUDIO_TYPES:
-        raise api_error(415, "UNSUPPORTED_AUDIO", "This audio format is not supported.")
-    data = await read_capped(request, settings.voice_max_audio_bytes)
-    if data is None:
-        raise api_error(413, "AUDIO_TOO_LONG", f"Recordings can be up to {settings.voice_max_seconds} seconds.")
-    if len(data) < MIN_AUDIO_BYTES:
-        return {"success": True, "data": {"text": "", "noSpeech": True}}
-    kind = sniff_audio(data)
+    settings: Annotated[Settings, Depends(get_settings)],
+    client: Annotated[Any, Depends(get_llm_client)],
+    language: Annotated[Language, Query()] = "he",
+):
+    if client is None:
+        return localized(503, "AGENT_UNAVAILABLE", language)
+    if not settings.voice_enabled:
+        return _voice_error(503, "VOICE_DISABLED", language)
+    media_type = request.headers.get("content-type", "").split(";")[0].strip().lower()
+    if media_type not in AUDIO_TYPES:
+        return localized(415, "UNSUPPORTED_AUDIO", language)
+    audio = await _read_capped(request, settings.voice_max_audio_bytes)
+    if audio is None:
+        return localized(413, "AUDIO_TOO_LARGE", language)
+    if len(audio) < MIN_AUDIO_BYTES:
+        return localized(422, "NO_SPEECH", language)
+    kind = sniff_audio(audio)
     if kind is None:
-        raise api_error(415, "UNSUPPORTED_AUDIO", "This audio format is not supported.")
-    seconds = min(len(data) / ASSUMED_BYTES_PER_SECOND, MAX_CHARGED_SECONDS)
-    reserve(settings, seconds / 60 * STT_USD_PER_MIN)
-
-    def call() -> str:
-        options = {"language": language} if language else {}
-        result = client.transcriptions.create(
-            model=settings.openai_stt_model, file=(f"voice.{kind}", data, f"audio/{kind}"), response_format="json", **options
-        )
-        return getattr(result, "text", "") or ""
-
+        return localized(415, "UNSUPPORTED_AUDIO", language)
+    seconds = min(len(audio) / ASSUMED_BYTES_PER_SECOND, MAX_CHARGED_SECONDS)
+    if refused := reserve(settings, seconds / 60 * STT_USD_PER_MIN):
+        return _voice_error(429, refused, language)
+    # No language hint: the customer may speak either language, and the chat switches to whichever
+    # the transcript is written in. `language` only localizes the error messages.
+    model = _model(settings.openai_transcribe_model, DEFAULT_TRANSCRIBE_MODEL)
     try:
-        text = clean_transcript(await run_in_threadpool(call))
-    except APIError as error:
-        raise map_openai_error(error, "VOICE") from None
-    return {"success": True, "data": {"text": text, "noSpeech": not text}}
+        # The OpenAI client is synchronous: run it off the event loop, or one slow upstream call
+        # would stall every other request (health checks included).
+        result = await run_in_threadpool(
+            client.audio.transcriptions.create,
+            model=model,
+            file=(f"speech.{kind}", audio, f"audio/{kind}"),
+            **({"prompt": TRANSCRIBE_PROMPT} if model in PROMPTABLE_MODELS else {}),
+        )
+    except Exception as exc:  # never echo upstream error text to the customer
+        log.warning("transcription failed: %s", type(exc).__name__)
+        return provider_error(exc, language)
+    text = " ".join((getattr(result, "text", "") or "").split())[:MAX_TRANSCRIPT_CHARS]
+    if not text or not re.fullmatch(MESSAGE_TEXT_PATTERN, text):  # must be sendable as a chat message
+        return localized(422, "NO_SPEECH", language)
+    return {"success": True, "data": {"text": text}}
 
 
-class SpeakRequest(BaseModel):
+class SpeechRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    text: str = Field(min_length=1, max_length=1500)
+    text: Annotated[str, Field(min_length=1, max_length=MAX_SPEECH_CHARS, pattern=MESSAGE_TEXT_PATTERN)]
+    language: Language = "he"
+    signature: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]  # replySignature from /api/chat
+    # One piece of `text` to speak now (the client splits long replies, see voice/speechPlan.js).
+    piece: Annotated[str | None, Field(min_length=1, max_length=MAX_SPEECH_CHARS, pattern=MESSAGE_TEXT_PATTERN)] = None
 
 
-PCM_FORMAT = "pcm16;rate=24000;channels=1"  # raw 16-bit little-endian mono, so playback can start at the first bytes
-
-
-@router.post("/speak")
+@router.post("/speech")
 @limiter.limit(lambda: get_settings().voice_rate_limit)
-async def speak(
+async def speech(
     request: Request,
-    body: SpeakRequest,
-    settings: Annotated[Settings, Depends(require_voice)],
-    client=Depends(get_voice_client),
-) -> StreamingResponse:
-    """Streams the spoken reply. The first audio arrives about 1 s after the request, instead of the whole clip after 3 to 5 s."""
-    text = shorten_for_speech(body.text, settings.voice_tts_max_chars)
-    if not text:
-        raise api_error(422, "INVALID_REQUEST", "The request is invalid.")
-    reserve(settings, len(text) / SPOKEN_CHARS_PER_SECOND / 60 * TTS_USD_PER_MIN)
+    body: SpeechRequest,
+    settings: Annotated[Settings, Depends(get_settings)],
+    client: Annotated[Any, Depends(get_llm_client)],
+):
+    """Streams one spoken piece of a signed agent reply as raw PCM, so playback starts at the first bytes."""
+    if client is None:
+        return localized(503, "AGENT_UNAVAILABLE", body.language)
+    if not settings.voice_enabled:
+        return _voice_error(503, "VOICE_DISABLED", body.language)
+    # Only the agent's own replies are spoken: this is not an open text-to-speech proxy.
+    if not signing.verify_reply(get_signing_key(), body.signature, body.text):
+        return localized(403, "BAD_REPLY_SIGNATURE", body.language)
+    text = _normalized(body.piece if body.piece is not None else body.text)
+    if not text or text not in _normalized(body.text) or len(text) > settings.voice_tts_max_chars:
+        return localized(403, "BAD_REPLY_SIGNATURE", body.language)
+    if refused := reserve(settings, len(text) / SPOKEN_CHARS_PER_SECOND / 60 * TTS_USD_PER_MIN):
+        return _voice_error(429, refused, body.language)
 
     def open_stream():
-        manager = client.speech.with_streaming_response.create(
-            model=settings.openai_tts_model, voice=settings.openai_tts_voice, input=text, response_format="pcm"
+        manager = client.audio.speech.with_streaming_response.create(
+            model=_model(settings.openai_tts_model, DEFAULT_TTS_MODEL),
+            voice=_model(settings.openai_tts_voice, DEFAULT_TTS_VOICE),
+            input=spoken(text), instructions=SPEECH_STYLE, response_format="pcm",
         )
         response = manager.__enter__()
         chunks = response.iter_bytes(4096)
@@ -213,8 +251,9 @@ async def speak(
 
     try:
         manager, chunks, first = await run_in_threadpool(open_stream)
-    except APIError as error:
-        raise map_openai_error(error, "VOICE") from None
+    except Exception as exc:
+        log.warning("speech synthesis failed: %s", type(exc).__name__)
+        return provider_error(exc, body.language)
 
     def body_iter():
         try:

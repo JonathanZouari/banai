@@ -1,15 +1,16 @@
-import { test, expect, openDesigner } from './fixtures.js';
+import { test, expect, mockAgentOnline, openDesigner } from './fixtures.js';
 
 // The agent endpoints are mocked here: this suite checks the UI <-> state sync, not OpenAI.
 const ok = (data) => ({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data }) });
 const fail = (status, code, message) => ({ status, contentType: 'application/json', body: JSON.stringify({ success: false, data: null, error: { code, message } }) });
 const proposalFor = (revision) => ({
-  ops: [{ op: 'update_dimensions', width: 2400 }], summary: 'Make it 240 cm wide', baseRevision: revision,
+  proposalId: 'prp_0123456789abcdef', ops: [{ op: 'update_dimensions', width: 2400 }], summary: 'Make it 240 cm wide', baseRevision: revision,
   baseHash: 'a'.repeat(64), signature: 'b'.repeat(64),
 });
 const state = (page) => page.evaluate(() => { const s = window.__banai.store.getState(); return { revision: s.revision, width: s.design.dimensions.width }; });
 
 async function mockChat(page, revision = 1) {
+  await mockAgentOnline(page);
   await page.route('**/api/chat', (route) => route.fulfill(ok({ reply: 'Here you go.', proposal: proposalFor(revision) })));
 }
 const send = async (page, text) => { await page.getByTestId('chat-input').fill(text); await page.getByTestId('chat-send').click(); };
@@ -71,7 +72,8 @@ test.describe('AI chat <-> design sync', () => {
   });
 
   test('a backend failure is reported honestly and the design is untouched', async ({ page }) => {
-    await page.route('**/api/chat', (route) => route.fulfill(fail(502, 'AGENT_UNAVAILABLE', 'The AI agent is unavailable. Please try again.')));
+    await mockAgentOnline(page);
+    await page.route('**/api/chat', (route) => route.fulfill(fail(502, 'AGENT_ERROR', 'The AI agent is unavailable. Please try again.')));
     await openDesigner(page);
     await send(page, 'hello');
     await expect(page.getByTestId('chat-messages')).toContainText('unavailable');
@@ -82,6 +84,7 @@ test.describe('AI chat <-> design sync', () => {
 
 test.describe('Undo', () => {
   test('is disabled at the start, reverses a manual edit and an applied proposal, and stales a pending proposal', async ({ page }) => {
+    await mockAgentOnline(page);
     await page.route('**/api/chat', (route) => route.fulfill(ok({ reply: 'Here you go.', proposal: proposalFor(route.request().postDataJSON().revision) })));
     await page.route('**/api/proposals/apply', async (route) => {
       const sent = route.request().postDataJSON();

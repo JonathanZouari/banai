@@ -1,23 +1,24 @@
-// Pure chat view-model (no DOM). The agent arrives in Phase 5; until then a sent message gets
-// an honest "not connected" reply and nothing is ever applied to the design.
+// Pure chat view-model (no DOM). With an `agent` a sent message goes to the AI designer; without one,
+// it gets an honest "not connected" reply. Either way nothing is ever applied to the design from here:
+// a proposal only changes the design after the customer confirms it.
 //
 // A proposal is { id, baseRevision, summary, changes: [{ title, detail }] }. It is kept apart from
 // the committed design and is only ever "pending" or "stale" (the design changed after it was made).
+//
+// Once the chat changed the design (a confirmed proposal) or the customer said they are done, one
+// pinned note ({ kind: 'design' }) offers Generate Style Profile. It is replaced, never added, so it
+// never piles up.
 
 import { errorMessage, translate } from '../i18n/strings.js';
 
-export const NOT_CONNECTED_MESSAGE =
-  "The AI agent isn't connected yet (planned for Phase 5). You can design manually in the Properties panel.";
-export const UNAVAILABLE_MESSAGE = "The AI agent isn't available right now. You can keep designing manually in the Properties panel.";
-export const STALE_MESSAGE = 'Design changed. Ask the agent to re-propose.';
+export const NOT_CONNECTED_MESSAGE = translate('en', 'notConnected');
+export const UNAVAILABLE_MESSAGE = translate('en', 'unavailable');
+export const STALE_MESSAGE = translate('en', 'stale');
 export const MAX_MESSAGE_LENGTH = 2000;
+export const MAX_HISTORY = 30; // mirrors the backend cap on messages per request
 
 // Starter prompts shown before the first message. Picking one only fills the composer.
-export const SUGGESTIONS = Object.freeze([
-  '240 cm wide, 260 cm tall, white, three compartments',
-  'Tall wardrobe with sliding doors and a hanging rail',
-  'Four shelves on the left, hanging in the middle, three drawers on the right',
-]);
+export const SUGGESTIONS = Object.freeze(translate('en', 'suggestions'));
 
 export function proposalStatus(proposal, currentRevision) {
   if (!proposal) return null;
@@ -25,8 +26,10 @@ export function proposalStatus(proposal, currentRevision) {
 }
 
 /**
- * `agent` (optional) is async ({ messages, design, revision }) -> { reply, proposal | null } and may
- * throw an error with `.code`. Without it the panel stays honest and says the agent isn't connected.
+ * `agent` (optional) is async ({ messages: [{ role, text }], design, revision })
+ * -> { reply, replySignature?, proposal | null, offerProfile? } and may throw an error with `.code`.
+ * Without it the panel stays honest and says the agent isn't connected.
+ * `onAssistantReply(message)` gets each new reply ({ text, signature, language }), e.g. to read it aloud.
  */
 export function createChatModel({ getRevision, getDesign, agent = null, language = null, onAssistantReply = null }) {
   const t = (key) => (language ? language.t(key) : translate('en', key));
@@ -34,12 +37,17 @@ export function createChatModel({ getRevision, getDesign, agent = null, language
   let busy = false;
   let nextId = 1;
   let proposal = null;
+  let built = null;
   const messages = [];
   const listeners = new Set();
   const notify = () => listeners.forEach((listener) => listener());
-  const push = (role, text) => {
-    messages.push(Object.freeze({ id: nextId, role, text }));
+  // Every message remembers the language it was written in, so switching language later never
+  // changes how earlier messages look. A reply also keeps its server signature, which read-aloud needs.
+  const push = (role, text, written = lang(), signature = null) => {
+    const message = Object.freeze({ id: nextId, role, text, language: written, ...(signature && { signature }) });
+    messages.push(message);
     nextId += 1;
+    return message;
   };
 
   return {
@@ -49,7 +57,9 @@ export function createChatModel({ getRevision, getDesign, agent = null, language
     },
     getMessages: () => [...messages],
     getProposal: () => proposal,
+    getBuilt: () => built,
     getProposalStatus: () => proposalStatus(proposal, getRevision()),
+    isConnected: () => agent !== null,
 
     isBusy: () => busy,
 
@@ -63,6 +73,7 @@ export function createChatModel({ getRevision, getDesign, agent = null, language
     reset() {
       messages.length = 0;
       proposal = null;
+      built = null;
       notify();
     },
 
@@ -81,23 +92,26 @@ export function createChatModel({ getRevision, getDesign, agent = null, language
       busy = true;
       proposal = null; // a new turn supersedes any pending proposal
       notify();
-      const history = messages.filter((m) => m.role !== 'system').slice(-20)
-        .map((m) => ({ role: m.role, content: m.text }));
+      // The reply is written in the language chosen when the message was sent.
+      const written = lang();
+      const history = messages.filter((m) => m.role === 'user' || m.role === 'assistant').slice(-MAX_HISTORY)
+        .map((m) => ({ role: m.role, text: m.text }));
       const revision = getRevision();
       agent({ messages: history, design: getDesign(), revision })
         .then((result) => {
-          push('assistant', result.reply);
-          onAssistantReply?.(result.reply); // read aloud only while the Voice switch is on
+          const reply = push('assistant', result.reply, written, result.replySignature ?? null);
+          onAssistantReply?.(reply); // read aloud only while the Voice switch is on
           // A manual edit during the request makes the answer stale: only keep it if still current.
           if (result.proposal && result.proposal.baseRevision === getRevision()) proposal = result.proposal;
           else if (result.proposal) push('system', t('stale'));
+          if (result.offerProfile === true) built = Object.freeze({ kind: 'design', language: written });
         })
         .catch((error) => push('system', errorMessage(lang(), error)))
         .finally(() => { busy = false; notify(); });
       return { ok: true };
     },
 
-    /** Set by the agent integration (Phase 5) or the dev-only demo. */
+    /** Set by the agent integration or the dev-only demo. */
     setProposal(next) {
       proposal = next;
       notify();
@@ -110,6 +124,12 @@ export function createChatModel({ getRevision, getDesign, agent = null, language
       push('system', t('cancelled'));
       notify();
       return true;
+    },
+
+    /** The design changed through the chat (a confirmed proposal): offer the PDF step. */
+    noteDesignReady() {
+      built = Object.freeze({ kind: 'design', language: lang() });
+      notify();
     },
 
     /** Called after the host applied (or refused) the proposal. */

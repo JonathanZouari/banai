@@ -1,14 +1,17 @@
 import { test as base, expect } from '@playwright/test';
 
-// Every E2E test fails on uncaught page errors or console errors.
+// Every E2E test fails on uncaught page errors or console errors. A test that provokes an
+// expected HTTP error can allow exactly that console line via `test.use({ allowedConsoleErrors })`.
 export const test = base.extend({
-  page: async ({ page }, use) => {
+  allowedConsoleErrors: [[], { option: true }],
+  page: async ({ page, allowedConsoleErrors }, use) => {
     const problems = [];
     page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`));
     page.on('console', (message) => {
       if (message.type() !== 'error') return;
       // The browser logs every non-2xx response; the agent's handled API errors are expected.
       if (/Failed to load resource: the server responded with a status of (409|429|502|503|504)\b/.test(message.text())) return;
+      if (allowedConsoleErrors.some((pattern) => pattern.test(message.text()))) return;
       problems.push(`console: ${message.text()}`);
     });
     await use(page);
@@ -17,6 +20,13 @@ export const test = base.extend({
 });
 
 export { expect };
+
+/** The E2E backend has no OpenAI key: tests that mock the agent also report it as connected. */
+export async function mockAgentOnline(page, { storage = true } = {}) {
+  await page.route('**/api/health', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: { status: 'ok', env: 'e2e', agent: true, storage } }),
+  }));
+}
 
 export async function openDesigner(page) {
   await page.goto('/');
