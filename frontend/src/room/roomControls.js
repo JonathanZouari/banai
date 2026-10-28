@@ -5,9 +5,18 @@
 import { el } from '../editor/fields.js';
 import { icon } from '../ui/icons.js';
 import { minimumRoom, roomBox } from './layout.js';
+import { placeFurniture, PRESET_IDS } from './placement.js';
 import { ROOM_SIZE_LIMITS, WARDROBE_POSITIONS } from './roomState.js';
 
 const toCm = (mm) => Math.round(mm / 10);
+
+/** Pieces of the chosen style that have no room in this room size (said plainly, never a rule). */
+function notFitting(design, room, s) {
+  const { omitted } = placeFurniture(design, room, room.preset);
+  if (!omitted.length) return [];
+  const names = [...new Set(omitted)].map((kind) => s.furniture[kind]).join(', ');
+  return [el('p', { className: 'room-panel__notice', text: s.notFit(names), attrs: { role: 'status' } })];
+}
 
 function segmented(name, options, current, onPick) {
   const group = el('div', { className: 'room-seg', attrs: { role: 'group', 'aria-label': name } });
@@ -134,6 +143,9 @@ export function mountRoomControls({ buttonHost, viewerHost, roomState, language,
       ...(box.clamped.length ? [el('p', { className: 'room-panel__notice', text: s.clamped, attrs: { role: 'status' } })] : []),
       el('h3', { className: 'room-panel__section', text: s.wardrobeAt }),
       segmented(s.wardrobeAt, WARDROBE_POSITIONS.map((p) => [p, s.positions[p]]), room.wardrobeAt, (value) => roomState.set({ wardrobeAt: value })),
+      el('h3', { className: 'room-panel__section', text: s.style }),
+      segmented(s.style, PRESET_IDS.map((p) => [p, s.presets[p]]), room.preset, (value) => roomState.set({ preset: value })),
+      ...notFitting(design, room, s),
     ]);
     body.hidden = collapsed;
     panel.setAttribute('dir', t.dir);

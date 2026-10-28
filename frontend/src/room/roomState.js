@@ -2,6 +2,8 @@
 // not part of the design, not saved with it, not sent to the server and never in the PDF or the
 // template thumbnails. The setup is remembered per browser (best effort) and validated on read.
 
+import { PRESET_IDS } from './placement.js';
+
 const STORAGE_KEY = 'banai.room.v1';
 
 // ASSUMPTION: visual defaults (mm), not business rules.
@@ -9,6 +11,7 @@ export const ROOM_DEFAULTS = Object.freeze({
   enabled: false, // off by default: the existing viewer is unchanged until someone opens the room
   size: Object.freeze({ width: 4000, length: 4400, height: 2600 }),
   wardrobeAt: 'centre',
+  preset: 'couple',
   hintSeen: false,
 });
 export const ROOM_SIZE_LIMITS = Object.freeze({ width: [2000, 8000], length: [2000, 8000], height: [2200, 4000] });
@@ -27,6 +30,7 @@ export function sanitizeRoom(raw) {
       key, inRange(size[key], ROOM_SIZE_LIMITS[key]) ? size[key] : fallback,
     ])),
     wardrobeAt: WARDROBE_POSITIONS.includes(room.wardrobeAt) ? room.wardrobeAt : ROOM_DEFAULTS.wardrobeAt,
+    preset: PRESET_IDS.includes(room.preset) ? room.preset : ROOM_DEFAULTS.preset,
     hintSeen: room.hintSeen === true,
   };
 }

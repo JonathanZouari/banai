@@ -7,6 +7,9 @@ import * as THREE from 'three';
 import { toM } from '../viewer/units.js';
 import { roomBox, wardrobeFootprint } from './layout.js';
 import { FLOOR_TILE_M, floorTexture, softShadowTexture, viewTexture } from './textures.js';
+import { FURNITURE } from './catalog.js';
+import { buildFurniture, createFurnitureMaterials } from './furniture.js';
+import { placeFurniture } from './placement.js';
 
 // ASSUMPTION: visual palette, chosen so the white wardrobe stays clearly lighter than the walls.
 export const ROOM_LOOK = Object.freeze({
@@ -163,7 +166,24 @@ function buildRoom(design, room, look, textures) {
   shadow.position.set(m(foot.x0 + foot.x1) / 2, 0.002, m(foot.z0 + foot.z1) / 2);
   group.add(shadow);
 
-  return { group, walls, ceiling, box, materials };
+  // Furniture for the chosen style, placed by the solver: clear of the wardrobe, the walls, the
+  // doorway and every sightline from the doorway to the wardrobe's front.
+  const furnitureMaterials = createFurnitureMaterials();
+  const { placed } = placeFurniture(design, room, room.preset);
+  placed.forEach((piece) => {
+    const item = buildFurniture(piece.kind, furnitureMaterials);
+    item.position.set(m(piece.x), 0, m(piece.z));
+    item.rotation.y = THREE.MathUtils.degToRad(piece.rotation);
+    group.add(item);
+    if (FURNITURE[piece.kind].underlay) return;
+    const { rect } = piece;
+    const soft = plane(materials.shadow, m(rect.x1 - rect.x0) + 0.14, m(rect.z1 - rect.z0) + 0.14);
+    soft.rotation.x = -Math.PI / 2;
+    soft.position.set(m(rect.x0 + rect.x1) / 2, 0.003, m(rect.z0 + rect.z1) / 2);
+    group.add(soft);
+  });
+
+  return { group, walls, ceiling, box, materials, furniture: placed };
 }
 
 /** All geometries and materials of a group (textures are owned and disposed separately). */
@@ -276,6 +296,9 @@ export function createRoomScene({ scene, lights, grid }) {
     },
     get box() {
       return built?.box ?? null;
+    },
+    get furniture() {
+      return built?.furniture ?? [];
     },
     dispose() {
       remove();
