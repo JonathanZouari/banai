@@ -5,6 +5,7 @@ import { compartmentsSection } from './compartmentsSection.js';
 import { componentSection } from './componentSection.js';
 import { partsSection } from './partsSection.js';
 import { wardrobeSection } from './wardrobeSection.js';
+import { onSiteLanguageChange } from '../ui/i18n.js';
 
 export function mountPanel(root, store, { onExport } = {}) {
   const run = (ops) => {
@@ -33,6 +34,14 @@ export function mountPanel(root, store, { onExport } = {}) {
   };
 
   const unsubscribe = store.subscribe(render);
+  // A new site language re-renders everything, even though the state did not change.
+  const unsubscribeLanguage = onSiteLanguageChange(() => {
+    rendered = { design: null, selection: undefined };
+    render(store.getState());
+  });
   render(store.getState());
-  return unsubscribe;
+  return () => {
+    unsubscribe();
+    unsubscribeLanguage();
+  };
 }

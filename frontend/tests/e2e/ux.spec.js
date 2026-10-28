@@ -9,6 +9,27 @@ test.describe('start screen', () => {
     await expect(page.getByText('not manufacturing drawings')).toBeVisible();
   });
 
+  test('every card has a decorative illustration that animates on hover', async ({ page }) => {
+    await page.goto('/');
+    const art = page.getByTestId('start-screen').locator('.entry-card .ill');
+    await expect(art).toHaveCount(6);
+    for (const svg of await art.all()) await expect(svg).toHaveAttribute('aria-hidden', 'true');
+    const door = page.locator('.ill--basic .ill-door').first();
+    const transform = () => door.evaluate((node) => getComputedStyle(node).transform);
+    const rest = await transform();
+    await page.getByTestId('entry-basic').hover();
+    await expect.poll(transform).not.toBe(rest);
+    await page.mouse.move(2, 2);
+    await expect.poll(transform).toBe(rest);
+  });
+
+  test('with the illustrations, the start screen still fits a 1440×900 window', async ({ page }) => {
+    await page.goto('/');
+    await page.getByTestId('start-screen').waitFor();
+    await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {})))); // cards rise in
+    expect(await page.getByTestId('start-screen').evaluate((node) => node.scrollHeight <= node.clientHeight)).toBe(true);
+  });
+
   test('Escape does not dismiss it (a choice is required)', async ({ page }) => {
     await page.goto('/');
     await page.getByTestId('start-screen').waitFor();
@@ -110,7 +131,7 @@ test.describe('look and feel', () => {
     await expect(page.locator('.topbar .logo__word')).toHaveText('BanAI');
   });
 
-  test('uses the display and body fonts', async ({ page }) => {
+  test('uses Varela Round everywhere', async ({ page }) => {
     await openDesigner(page);
     const fonts = await page.evaluate(async () => {
       await document.fonts.ready;
@@ -120,9 +141,9 @@ test.describe('look and feel', () => {
         loaded: [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family.replaceAll('"', '')),
       };
     });
-    expect(fonts.logo).toContain('Bricolage Grotesque');
-    expect(fonts.body).toContain('DM Sans');
-    expect(fonts.loaded).toEqual(expect.arrayContaining(['Bricolage Grotesque', 'DM Sans']));
+    expect(fonts.logo).toContain('Varela Round');
+    expect(fonts.body).toContain('Varela Round');
+    expect(fonts.loaded).toContain('Varela Round');
   });
 
   test('dropdowns keep their text clear of the chevron', async ({ page }) => {

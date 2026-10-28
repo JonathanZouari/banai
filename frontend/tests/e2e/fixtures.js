@@ -4,7 +4,13 @@ import { test as base, expect } from '@playwright/test';
 // expected HTTP error can allow exactly that console line via `test.use({ allowedConsoleErrors })`.
 export const test = base.extend({
   allowedConsoleErrors: [[], { option: true }],
-  page: async ({ page, allowedConsoleErrors }, use) => {
+  // Site language on first load. Most tests assert English text; Hebrew (the real default) opts in
+  // with test.use({ siteLanguage: 'he' }). A choice made during a test survives reloads.
+  siteLanguage: ['en', { option: true }],
+  page: async ({ page, allowedConsoleErrors, siteLanguage }, use) => {
+    await page.addInitScript((language) => {
+      if (localStorage.getItem('banai.site.language') === null) localStorage.setItem('banai.site.language', language);
+    }, siteLanguage);
     const problems = [];
     page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`));
     page.on('console', (message) => {

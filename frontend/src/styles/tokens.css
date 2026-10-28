@@ -68,9 +68,10 @@
   --md-sys-state-focus: 0.1;
   --md-sys-state-pressed: 0.1;
 
-  /* Type: Bricolage Grotesque for display (headings, wordmark), DM Sans for UI and body. */
-  --md-ref-typeface-display: 'Bricolage Grotesque', 'DM Sans', system-ui, sans-serif;
-  --md-ref-typeface-body: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Type: Varela Round everywhere (headings, wordmark, UI, body), in Latin and Hebrew. It has one
+     weight, so bolder text is synthesized by the browser. */
+  --md-ref-typeface-display: 'Varela Round', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --md-ref-typeface-body: 'Varela Round', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --md-ref-typeface: var(--md-ref-typeface-body);
   --md-sys-typescale-headline-small: 700 24px/32px var(--md-ref-typeface-display);
   --md-sys-typescale-headline-medium: 700 28px/36px var(--md-ref-typeface-display);

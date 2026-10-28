@@ -1,48 +1,60 @@
 // Start screen: three ways in (plus ready-made templates), one editor. Shown on load as a modal;
-// choosing an option closes it.
+// choosing an option closes it. It has its own language button (the top bar is behind the modal).
 import { el } from '../editor/fields.js';
 import { icon } from '../ui/icons.js';
 import { createLogo } from '../ui/logo.js';
+import { onSiteLanguageChange, strings } from '../ui/i18n.js';
 import { ENTRY_POINTS, TEMPLATE_ENTRIES } from './entryPoints.js';
+import { illustration } from './illustrations.js';
 
-export const START_FOOTNOTE = 'Designs are illustrative previews and are not manufacturing drawings.';
-
-export function mountStartScreen({ onChoose }) {
-  const card = (entry, { heading, compact }) => {
+export function mountStartScreen({ onChoose, languageButton }) {
+  const dialog = el('dialog', { className: 'start', attrs: { 'aria-labelledby': 'start-title' } });
+  const choose = (entry) => {
+    unsubscribe();
+    dialog.close();
+    dialog.remove();
+    onChoose(entry);
+  };
+  const card = (entry, text, { heading, compact }) => {
     const action = el('button', { className: 'btn', attrs: { type: 'button' } }, [
-      document.createTextNode(`${entry.action} `),
+      document.createTextNode(`${text.action} `),
       icon('arrow', { size: 18 }),
     ]);
     action.dataset.testid = `entry-${entry.id}`;
-    action.addEventListener('click', () => {
-      dialog.close();
-      dialog.remove();
-      onChoose(entry);
-    });
+    action.addEventListener('click', () => choose(entry));
     return el('article', { className: compact ? 'entry-card entry-card--compact' : 'entry-card' }, [
-      ...(entry.icon ? [el('span', { className: 'entry-card__icon' }, [icon(entry.icon, { size: 24 })])] : []),
-      el(heading, { className: 'entry-card__title', text: entry.title }),
-      el('p', { className: 'entry-card__text', text: entry.description }),
+      el('div', { className: 'entry-card__art' }, [illustration(entry.templateId ?? entry.id)]),
+      el(heading, { className: 'entry-card__title', text: text.title }),
+      el('p', { className: 'entry-card__text', text: text.description }),
       action,
     ]);
   };
-  const cards = ENTRY_POINTS.map((entry) => card(entry, { heading: 'h2' }));
-  const templates = TEMPLATE_ENTRIES.map((entry) => card(entry, { heading: 'h3', compact: true }));
 
-  const dialog = el('dialog', { className: 'start', attrs: { 'aria-labelledby': 'start-title' } }, [
-    el('header', { className: 'start__bar' }, [createLogo({ size: 36 })]),
-    el('main', { className: 'start__main' }, [
-      el('h1', { className: 'start__title', text: 'Design your wardrobe', attrs: { id: 'start-title' } }),
-      el('p', { className: 'start__subtitle', text: 'Choose how you would like to begin. You can switch between the AI designer and manual editing at any time.' }),
-      el('div', { className: 'start__cards' }, cards),
-      el('section', { className: 'start__templates', attrs: { 'aria-labelledby': 'start-templates-title' } }, [
-        el('h2', { className: 'start__templates-title', text: 'Or start from a template', attrs: { id: 'start-templates-title' } }),
-        el('div', { className: 'start__cards' }, templates),
+  const render = () => {
+    const t = strings();
+    const focusedId = dialog.contains(document.activeElement) ? document.activeElement.dataset.testid : undefined;
+    const cards = ENTRY_POINTS.map((entry) => card(entry, t.entries[entry.id], { heading: 'h2' }));
+    const templates = TEMPLATE_ENTRIES.map((entry) => card(entry, { ...t.templates[entry.templateId], action: t.useTemplate }, { heading: 'h3', compact: true }));
+    dialog.replaceChildren(
+      el('header', { className: 'start__bar' }, [createLogo({ size: 36 }), ...(languageButton ? [languageButton()] : [])]),
+      el('main', { className: 'start__main' }, [
+        el('h1', { className: 'start__title', text: t.startTitle, attrs: { id: 'start-title' } }),
+        el('p', { className: 'start__subtitle', text: t.startSubtitle }),
+        el('div', { className: 'start__cards' }, cards),
+        el('section', { className: 'start__templates', attrs: { 'aria-labelledby': 'start-templates-title' } }, [
+          el('h2', { className: 'start__templates-title', text: t.templatesTitle, attrs: { id: 'start-templates-title' } }),
+          el('div', { className: 'start__cards' }, templates),
+        ]),
+        el('p', { className: 'start__footnote', text: t.startFootnote }),
+        el('a', { className: 'start__footnote', text: t.accessibilityStatement, attrs: { href: '/accessibility.html', hreflang: 'he' } }),
       ]),
-      el('p', { className: 'start__footnote', text: START_FOOTNOTE }),
-      el('a', { className: 'start__footnote', text: 'הצהרת נגישות', attrs: { href: '/accessibility.html', lang: 'he' } }),
-    ]),
-  ]);
+    );
+    // Re-rendering replaces every control: keep keyboard focus on the same one (WCAG 2.4.3).
+    if (focusedId) dialog.querySelector(`[data-testid="${CSS.escape(focusedId)}"]`)?.focus();
+  };
+  const unsubscribe = onSiteLanguageChange(render);
+  render();
+
   dialog.dataset.testid = 'start-screen';
   // A choice is required: Esc must not leave the user on a blank workspace.
   dialog.addEventListener('cancel', (event) => event.preventDefault());

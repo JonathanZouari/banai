@@ -1,12 +1,9 @@
 // Colour themes. The first is the original look; the rest are alternatives (two of them extreme).
 // The palettes live in styles/tokens.css as :root[data-theme="..."]; this module only picks one,
 // remembers it per browser (best effort) and applies it to <html>.
+// Display names per language live in ui/i18n.js (strings().themeNames).
 export const THEMES = Object.freeze([
-  { id: 'terracotta', name: 'Terracotta' },
-  { id: 'sage', name: 'Sage' },
-  { id: 'slate', name: 'Slate' },
-  { id: 'midnight', name: 'Midnight' },
-  { id: 'neon', name: 'Neon' },
+  { id: 'terracotta' }, { id: 'sage' }, { id: 'slate' }, { id: 'midnight' }, { id: 'neon' },
 ]);
 export const DEFAULT_THEME = THEMES[0].id;
 const STORAGE_KEY = 'banai.theme';
@@ -34,7 +31,6 @@ export function createTheme({ storage = globalThis.localStorage, root = globalTh
   return {
     get: () => theme,
     index: () => IDS.indexOf(theme),
-    nameOf: (id) => THEMES.find((entry) => entry.id === id)?.name ?? '',
     set(next) {
       if (!IDS.includes(next) || next === theme) return;
       theme = next;
