@@ -2,9 +2,12 @@ import { test as base, expect } from '@playwright/test';
 
 // Every E2E test fails on uncaught page errors or console errors. A test that provokes an
 // expected HTTP error can allow exactly that console line via `test.use({ allowedConsoleErrors })`.
+// Every page load starts without a saved draft unless a spec opts in with `test.use({ keepDraft: true })`.
 export const test = base.extend({
   allowedConsoleErrors: [[], { option: true }],
-  page: async ({ page, allowedConsoleErrors }, use) => {
+  keepDraft: [false, { option: true }],
+  page: async ({ page, allowedConsoleErrors, keepDraft }, use) => {
+    if (!keepDraft) await page.context().addInitScript(() => window.localStorage.removeItem('banai.draft'));
     const problems = [];
     page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`));
     page.on('console', (message) => {
