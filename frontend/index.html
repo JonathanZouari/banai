@@ -12,6 +12,11 @@
     <header class="topbar">
       <h1 class="topbar__title" id="topbar-logo" aria-label="BanAI Wardrobe Designer"></h1>
       <div class="topbar__actions">
+        <div class="theme-slider">
+          <label class="theme-slider__label" for="theme-slider">Theme</label>
+          <input type="range" id="theme-slider" min="0" max="4" step="1" value="0" />
+          <output class="theme-slider__name" id="theme-name" for="theme-slider">Terracotta</output>
+        </div>
         <label class="toggle">
           <input type="checkbox" id="toggle-interior" />
           <span>Show interior</span>

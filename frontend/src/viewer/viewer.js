@@ -13,6 +13,14 @@ import { createMaterials } from './materials.js';
 import { attachPicking } from './picking.js';
 
 const BACKGROUND = '#eceeec';
+// Scene colours that follow the UI theme, read from CSS custom properties (styles/tokens.css).
+const THEME_COLORS = {
+  background: ['--md-sys-color-viewer', BACKGROUND],
+  grid: ['--theme-viewer-grid', '#c9ccc8'],
+  gridMinor: ['--theme-viewer-grid-minor', '#dcdfdb'],
+  highlight: ['--theme-viewer-highlight', '#c2410c'],
+  dimension: ['--theme-viewer-dimension', '#5b6470'],
+};
 // Showcase turntable: OrbitControls turns 60 / speed seconds per orbit, so 0.75 is one turn in 80 s.
 const AUTO_ROTATE_SPEED = 0.75;
 
@@ -28,10 +36,15 @@ function createScene() {
   const fill = new THREE.DirectionalLight('#ffffff', 0.9);
   fill.position.set(-2, 2, 5);
   scene.add(fill);
-  const grid = new THREE.GridHelper(12, 24, '#c9ccc8', '#dcdfdb');
-  grid.position.y = -0.0005;
-  scene.add(grid);
+  scene.add(createGrid(THEME_COLORS.grid[1], THEME_COLORS.gridMinor[1]));
   return scene;
+}
+
+function createGrid(color, minorColor) {
+  const grid = new THREE.GridHelper(12, 24, color, minorColor);
+  grid.name = 'grid';
+  grid.position.y = -0.0005;
+  return grid;
 }
 
 /** Map a raycast hit to a selectable component id (the back panel selects its compartment). */
@@ -67,6 +80,20 @@ export function createViewer(container, store, { onAutoRotateChange = () => {} }
   const dimensions = createDimensions(scene);
   let group = null;
   let rendered = { design: null, doorsVisible: null, selection: undefined, dimsKey: null };
+
+  /** Re-read the theme's scene colours (call after the UI theme changes). */
+  const applyTheme = () => {
+    const style = getComputedStyle(container);
+    const read = ([property, fallback]) => style.getPropertyValue(property).trim() || fallback;
+    scene.background.set(read(THEME_COLORS.background));
+    const oldGrid = scene.getObjectByName('grid');
+    scene.remove(oldGrid);
+    oldGrid.dispose();
+    scene.add(createGrid(read(THEME_COLORS.grid), read(THEME_COLORS.gridMinor)));
+    highlighter.setColor(read(THEME_COLORS.highlight));
+    dimensions.setColor(read(THEME_COLORS.dimension));
+  };
+  applyTheme();
 
   // Camera presets move only the camera: the design and the store are never touched.
   let flight = null; // { from, to, start } while easing to a preset view
@@ -190,6 +217,8 @@ export function createViewer(container, store, { onAutoRotateChange = () => {} }
     canvas: renderer.domElement,
     /** Move the camera to a preset view: 'front', 'side', 'threeQuarter' or 'reset'. */
     setView,
+    /** Re-read the scene colours from the current UI theme. */
+    applyTheme,
     /** Start or stop the slow showcase rotation. Ignored (stays off) under prefers-reduced-motion. */
     setAutoRotate,
     get autoRotating() { return controls.autoRotate; },
