@@ -16,6 +16,7 @@ import { createChatModel } from './chat/chatModel.js';
 import { createLanguage } from './chat/i18n.js';
 import { mountChat } from './chat/chatPanel.js';
 import { mountStartScreen } from './entry/startScreen.js';
+import { TEMPLATE_OPS } from './domain/presets.js';
 import { createSaveDialog } from './share/saveDialog.js';
 import { parseShareHash, shareHash } from './share/link.js';
 import { createExportDialog } from './export/exportDialog.js';
@@ -160,9 +161,13 @@ async function boot() {
 
   if (session) return; // reopened from a link: straight into the editor
   mountStartScreen({
+    language,
+    catalog: store.getState().catalog,
     onChoose: (entry) => {
-      // All three entry points open the same editor; the chat ones focus the composer, the manual
-      // one the properties panel, so keyboard focus never falls out of the page when the modal closes.
+      // A template other than the basic wardrobe (already open) replaces the design through its ops.
+      if (entry.templateId && entry.templateId !== 'basic') store.dispatch(TEMPLATE_OPS[entry.templateId]);
+      // All entry points open the same editor; the chat ones focus the composer, the others the
+      // properties panel, so keyboard focus never falls out of the page when the modal closes.
       if (entry.focusesChat) chat.focus(entry.id);
       else document.getElementById('properties-panel').focus();
     },

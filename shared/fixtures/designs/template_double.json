@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "units": "mm",
+  "dimensions": {
+    "width": 2200,
+    "height": 2400,
+    "depth": 650
+  },
+  "carcass": {
+    "panelThickness": 18,
+    "appearance": {
+      "material": {
+        "catalogId": "melamine"
+      },
+      "color": {
+        "catalogId": "white"
+      },
+      "finish": {
+        "catalogId": "matte"
+      }
+    }
+  },
+  "compartments": [
+    {
+      "id": "cmp_dl",
+      "width": 1073,
+      "shelves": [
+        {
+          "id": "shf_dl",
+          "y": 2000,
+          "thickness": 18,
+          "appearance": null
+        }
+      ],
+      "drawers": [],
+      "rails": [
+        {
+          "id": "rail_dl",
+          "y": 1900
+        }
+      ]
+    },
+    {
+      "id": "cmp_dr",
+      "width": 1073,
+      "shelves": [
+        {
+          "id": "shf_dr",
+          "y": 2050,
+          "thickness": 18,
+          "appearance": null
+        }
+      ],
+      "drawers": [],
+      "rails": [
+        {
+          "id": "rail_dd",
+          "y": 950
+        },
+        {
+          "id": "rail_du",
+          "y": 1950
+        }
+      ]
+    }
+  ],
+  "partitions": [
+    {
+      "id": "prt_d1",
+      "thickness": 18
+    }
+  ],
+  "doors": {
+    "type": "sliding",
+    "appearance": {
+      "material": {
+        "catalogId": "oak_veneer"
+      },
+      "color": {
+        "catalogId": "natural_oak"
+      },
+      "finish": {
+        "catalogId": "matte"
+      }
+    },
+    "items": [
+      {
+        "id": "dr_s1",
+        "compartmentIds": [],
+        "hingeSide": null,
+        "appearance": null
+      },
+      {
+        "id": "dr_s2",
+        "compartmentIds": [],
+        "hingeSide": null,
+        "appearance": null
+      }
+    ]
+  }
+}

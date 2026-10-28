@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "units": "mm",
+  "dimensions": {
+    "width": 1000,
+    "height": 1500,
+    "depth": 500
+  },
+  "carcass": {
+    "panelThickness": 18,
+    "appearance": {
+      "material": {
+        "catalogId": "melamine"
+      },
+      "color": {
+        "catalogId": "white"
+      },
+      "finish": {
+        "catalogId": "matte"
+      }
+    }
+  },
+  "compartments": [
+    {
+      "id": "cmp_kl",
+      "width": 473,
+      "shelves": [
+        {
+          "id": "shf_k1",
+          "y": 1150,
+          "thickness": 18,
+          "appearance": null
+        }
+      ],
+      "drawers": [
+        {
+          "id": "drw_k1",
+          "y": 0,
+          "height": 250,
+          "appearance": null
+        }
+      ],
+      "rails": [
+        {
+          "id": "rail_k1",
+          "y": 1050
+        }
+      ]
+    },
+    {
+      "id": "cmp_kr",
+      "width": 473,
+      "shelves": [
+        {
+          "id": "shf_k2",
+          "y": 350,
+          "thickness": 18,
+          "appearance": null
+        },
+        {
+          "id": "shf_k3",
+          "y": 700,
+          "thickness": 18,
+          "appearance": null
+        },
+        {
+          "id": "shf_k4",
+          "y": 1050,
+          "thickness": 18,
+          "appearance": null
+        }
+      ],
+      "drawers": [],
+      "rails": []
+    }
+  ],
+  "partitions": [
+    {
+      "id": "prt_k1",
+      "thickness": 18
+    }
+  ],
+  "doors": {
+    "type": "hinged",
+    "appearance": {
+      "material": {
+        "catalogId": "melamine"
+      },
+      "color": {
+        "catalogId": "sage_green"
+      },
+      "finish": {
+        "catalogId": "matte"
+      }
+    },
+    "items": [
+      {
+        "id": "dr_kl",
+        "compartmentIds": [
+          "cmp_kl"
+        ],
+        "hingeSide": "left",
+        "appearance": null
+      },
+      {
+        "id": "dr_kr",
+        "compartmentIds": [
+          "cmp_kr"
+        ],
+        "hingeSide": "right",
+        "appearance": null
+      }
+    ]
+  }
+}

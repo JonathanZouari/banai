@@ -10,6 +10,14 @@ import { toM } from './units.js';
 
 // About the shape of the picture box on the PDF's first page, so the wardrobe fills it.
 export const SNAPSHOT_SIZE = Object.freeze({ width: 1200, height: 1300 });
+
+// The default picture (carpenter PDF). Never changed by the thumbnail mode below.
+export const SNAPSHOT_SETTINGS = Object.freeze({ shadowMapSize: 2048, environment: true, quality: 0.9, framing: 'fit' });
+// Opt-in only (start-screen thumbnails): cheaper shadows, no environment map, and one fixed framing
+// for every design so sizes compare honestly (a 150 cm wardrobe looks smaller than a 240 cm one).
+export const THUMBNAIL_SETTINGS = Object.freeze({ shadowMapSize: 512, environment: false, quality: 0.82, framing: 'reference' });
+// ASSUMPTION: visual only. The box every thumbnail is framed to (mm); larger designs still fit.
+export const THUMBNAIL_REFERENCE = Object.freeze({ width: 2400, height: 2500 });
 const WALL = '#ebe7e0';
 const FLOOR = '#d8d1c6';
 // ASSUMPTION: which catalog entries read as wood in the picture (visual only).
@@ -90,23 +98,27 @@ function snapshotMaterials(catalog) {
   };
 }
 
-function studio(design, renderer) {
+function studio(design, renderer, settings) {
   const { width, height, depth } = design.dimensions;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(WALL);
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  const environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-  pmrem.dispose();
-  scene.environment = environment;
-  scene.environmentIntensity = 0.4;
+  let environment = null;
+  if (settings.environment) {
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    pmrem.dispose();
+    scene.environment = environment;
+    scene.environmentIntensity = 0.4;
+  }
 
-  scene.add(new THREE.HemisphereLight('#ffffff', '#cfc6b8', 0.6));
+  // Without the environment map, a brighter sky light keeps the thumbnail close to the PDF look.
+  scene.add(new THREE.HemisphereLight('#ffffff', '#cfc6b8', settings.environment ? 0.6 : 1.5));
   const sun = new THREE.DirectionalLight('#fff6ea', 2.2);
   const reach = toM(Math.max(width, height)) * 1.6;
   sun.position.set(toM(width / 2) - reach * 0.5, reach * 1.1, reach);
   sun.target.position.set(toM(width / 2), 0, toM(-depth / 2));
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.mapSize.set(settings.shadowMapSize, settings.shadowMapSize);
   sun.shadow.radius = 6;
   sun.shadow.bias = -0.0004;
   Object.assign(sun.shadow.camera, { left: -reach, right: reach, top: reach, bottom: -reach, near: 0.1, far: reach * 4 });
@@ -130,9 +142,17 @@ function studio(design, renderer) {
   return { scene, environment, surfaces };
 }
 
-function frameCamera(camera, design) {
-  const { width, height, depth } = design.dimensions;
-  const center = new THREE.Vector3(toM(width / 2), toM(height / 2), toM(-depth / 2));
+/**
+ * Point the camera at the design. 'fit' fills the picture with the wardrobe (the PDF); 'reference'
+ * frames THUMBNAIL_REFERENCE instead, standing on the same floor, so every thumbnail shares one scale.
+ */
+export function frameCamera(camera, design, framing = 'fit') {
+  const { depth } = design.dimensions;
+  const box = framing === 'reference'
+    ? { width: Math.max(design.dimensions.width, THUMBNAIL_REFERENCE.width), height: Math.max(design.dimensions.height, THUMBNAIL_REFERENCE.height) }
+    : design.dimensions;
+  const { width, height } = box;
+  const center = new THREE.Vector3(toM(design.dimensions.width / 2), toM(height / 2), toM(-depth / 2));
   const vertical = toM(height) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
   const horizontal = toM(width) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect);
   const distance = Math.max(vertical, horizontal) * 1.28;
@@ -140,11 +160,16 @@ function frameCamera(camera, design) {
   camera.lookAt(center);
 }
 
+/** The settings a render uses: the default picture unless `thumbnail` is opted in. */
+export const snapshotSettings = ({ thumbnail = false } = {}) => (thumbnail === true ? THUMBNAIL_SETTINGS : SNAPSHOT_SETTINGS);
+
 /**
  * Render the design to a JPEG data URL (smaller than PNG for a photo-like image).
  * Throws when WebGL is unavailable; callers fall back to the PDF's own illustration.
+ * `thumbnail: true` opts in to the lighter start-screen mode; without it nothing changes.
  */
-export function renderSnapshot(design, catalog, { width, height } = SNAPSHOT_SIZE) {
+export function renderSnapshot(design, catalog, { width = SNAPSHOT_SIZE.width, height = SNAPSHOT_SIZE.height, thumbnail = false } = {}) {
+  const settings = snapshotSettings({ thumbnail });
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
@@ -163,7 +188,7 @@ export function renderSnapshot(design, catalog, { width, height } = SNAPSHOT_SIZ
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.setPixelRatio(1);
     renderer.setSize(width, height, false);
-    staged = studio(design, renderer);
+    staged = studio(design, renderer, settings);
     group.traverse((object) => {
       if (object.isMesh) {
         object.castShadow = true;
@@ -172,13 +197,13 @@ export function renderSnapshot(design, catalog, { width, height } = SNAPSHOT_SIZ
     });
     staged.scene.add(group);
     const camera = new THREE.PerspectiveCamera(22, width / height, 0.05, 80);
-    frameCamera(camera, design);
+    frameCamera(camera, design, settings.framing);
     renderer.render(staged.scene, camera);
-    return canvas.toDataURL('image/jpeg', 0.9);
+    return canvas.toDataURL('image/jpeg', settings.quality);
   } finally {
     if (group) disposeWardrobe(group);
     if (staged) {
-      staged.environment.dispose();
+      staged.environment?.dispose();
       staged.surfaces.forEach((mesh) => {
         mesh.geometry.dispose();
         mesh.material.dispose();
