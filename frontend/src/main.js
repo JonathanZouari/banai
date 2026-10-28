@@ -109,7 +109,7 @@ async function boot() {
   const exporter = createExportDialog({
     getDesign: () => store.getState().design,
     getLanguage: () => language.get(),
-    getSnapshot: (design) => renderSnapshot(design, store.getState().catalog),
+    getSnapshot: (design, options) => renderSnapshot(design, store.getState().catalog, options),
   });
   mountPanel(document.getElementById('properties-content'), store, { onExport: exporter.open });
   bindDialogs({
