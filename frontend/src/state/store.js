@@ -36,7 +36,7 @@ export function createStore({ design, revision = 1, catalog }) {
     throw new DomainError('SCHEMA_INVALID', 'revision', 'invalid revision');
   }
   let state = deepFreeze({
-    design: validDesign, revision, catalog: validCatalog, selection: null, ui: { doorsVisible: true },
+    design: validDesign, revision, catalog: validCatalog, selection: null, ui: { doorsVisible: true, doorsOpen: false },
   });
   const listeners = new Set();
 
@@ -88,6 +88,11 @@ export function createStore({ design, revision = 1, catalog }) {
 
     setDoorsVisible(doorsVisible) {
       commit({ ui: { ...state.ui, doorsVisible } });
+    },
+
+    /** View only: swing hinged doors open. Not part of the design, so no revision and no ops. */
+    setDoorsOpen(doorsOpen) {
+      commit({ ui: { ...state.ui, doorsOpen } });
     },
   };
 }
