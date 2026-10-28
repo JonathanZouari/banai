@@ -18,4 +18,6 @@ export const VISUAL = Object.freeze({
   handleLength: 400,
   handleHeightFromFloor: 1050,
   handleInset: 40,
+  doorOpenAngle: 95, // degrees a hinged door swings out when "Doors open" is on
+  doorOpenMs: 400, // duration of the open/close animation
 });

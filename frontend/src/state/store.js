@@ -36,9 +36,16 @@ export function createStore({ design, revision = 1, catalog }) {
     throw new DomainError('SCHEMA_INVALID', 'revision', 'invalid revision');
   }
   let state = deepFreeze({
-    design: validDesign, revision, catalog: validCatalog, selection: null, ui: { doorsVisible: true },
+    design: validDesign, revision, catalog: validCatalog, selection: null, ui: { doorsVisible: true, doorsOpen: false, prints: {} },
   });
   const listeners = new Set();
+
+  /** Printed images are kept per door id; drop the ones whose door no longer exists. */
+  const prunePrints = (ui, design) => {
+    const ids = new Set(design.doors.items.map((door) => door.id));
+    const kept = Object.fromEntries(Object.entries(ui.prints).filter(([id]) => ids.has(id)));
+    return Object.keys(kept).length === Object.keys(ui.prints).length ? ui : { ...ui, prints: kept };
+  };
 
   const commit = (patch) => {
     state = deepFreeze({ ...state, ...patch });
@@ -63,13 +70,14 @@ export function createStore({ design, revision = 1, catalog }) {
         throw error;
       }
       const selection = state.selection && resolveSelection(next, state.selection.id);
-      commit({ design: next, revision: state.revision + 1, selection });
+      commit({ design: next, revision: state.revision + 1, selection, ui: prunePrints(state.ui, next) });
       return { ok: true };
     },
 
     select(id) {
       const selection = id === null ? null : resolveSelection(state.design, id);
-      const hideDoors = selection !== null && INTERIOR_KINDS.has(selection.kind) && state.ui.doorsVisible;
+      // Picking an interior part hides closed doors; open doors stay, since the inside is visible.
+      const hideDoors = selection !== null && INTERIOR_KINDS.has(selection.kind) && state.ui.doorsVisible && !state.ui.doorsOpen;
       commit({ selection, ui: hideDoors ? { ...state.ui, doorsVisible: false } : state.ui });
     },
 
@@ -83,11 +91,26 @@ export function createStore({ design, revision = 1, catalog }) {
         throw new DomainError('SCHEMA_INVALID', 'revision', 'invalid revision');
       }
       const selection = state.selection && resolveSelection(next, state.selection.id);
-      commit({ design: next, revision, selection });
+      commit({ design: next, revision, selection, ui: prunePrints(state.ui, next) });
     },
 
     setDoorsVisible(doorsVisible) {
       commit({ ui: { ...state.ui, doorsVisible } });
+    },
+
+    /**
+     * A printed image on a door front ({ printId, name, width, height }, or null to remove it).
+     * A browser-only preview: never part of the design, never changes the revision.
+     */
+    setPrint(doorId, print) {
+      if (!state.design.doors.items.some((door) => door.id === doorId)) return;
+      const { [doorId]: _old, ...rest } = state.ui.prints;
+      commit({ ui: { ...state.ui, prints: print ? { ...rest, [doorId]: { ...print } } : rest } });
+    },
+
+    /** "Doors open" is a view setting only: it never touches the design or its revision. */
+    setDoorsOpen(doorsOpen) {
+      commit({ ui: { ...state.ui, doorsOpen: Boolean(doorsOpen) } });
     },
   };
 }
