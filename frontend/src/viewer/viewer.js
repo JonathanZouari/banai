@@ -15,11 +15,11 @@ import { describeSelection } from './format.js';
 import { resolveSelection } from '../state/store.js';
 
 const BACKGROUND = '#eceeec';
+// Showcase turntable: OrbitControls turns 60 / speed seconds per orbit, so 0.75 is one turn in 80 s.
+const AUTO_ROTATE_SPEED = 0.75;
 // Components that get a hover tooltip, and its offset from the pointer (above-right, clear of the cursor).
 const TOOLTIP_KINDS = new Set(['shelf', 'drawer', 'compartment']);
 const TOOLTIP_OFFSET_PX = 14;
-// Showcase turntable: OrbitControls turns 60 / speed seconds per orbit, so 0.75 is one turn in 80 s.
-const AUTO_ROTATE_SPEED = 0.75;
 
 const prefersReducedMotion = () => Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
 
