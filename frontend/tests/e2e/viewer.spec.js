@@ -66,3 +66,82 @@ test.describe('Phase 3: 3D viewer', () => {
     expect(selected).toBe('shf_r1');
   });
 });
+
+test.describe('camera angle buttons', () => {
+  test.beforeEach(async ({ page }) => openDesigner(page));
+
+  const cameraPose = (page) => page.evaluate(() => {
+    const { camera, controls } = window.__banai.viewer;
+    return { position: camera.position.toArray(), target: controls.target.toArray() };
+  });
+  // The pose a preset should end at, from the same module the viewer uses (served by Vite).
+  const expectedPose = (page, view) => page.evaluate(async (name) => {
+    const { cameraPose: poseFor } = await import('/src/viewer/cameraViews.js');
+    const { store, viewer } = window.__banai;
+    return poseFor(name, store.getState().design.dimensions, viewer.camera.fov);
+  }, view);
+  const near = (a, b) => a.every((value, i) => Math.abs(value - b[i]) < 1e-3);
+  // Clicks in the page and reads the camera in the same tick, before any frame can render.
+  const clickAndRead = (page, view) => page.evaluate((name) => {
+    document.querySelector(`#view-presets [data-view="${name}"]`).click();
+    return window.__banai.viewer.camera.position.toArray();
+  }, view);
+
+  test('shows the camera buttons as one labelled group', async ({ page }) => {
+    const group = page.getByRole('group', { name: 'זווית מצלמה' });
+    for (const label of ['חזית', 'צד ימין', 'צד שמאל', '3/4', 'איפוס']) await expect(group.getByRole('button', { name: label, exact: true })).toBeVisible();
+  });
+
+  for (const [label, view] of [['חזית', 'front'], ['צד ימין', 'side'], ['צד שמאל', 'sideLeft'], ['3/4', 'threeQuarter']]) {
+    test(`"${label}" flies the camera to the ${view} view`, async ({ page }) => {
+      const expected = await expectedPose(page, view);
+      await page.getByRole('button', { name: label, exact: true }).click();
+      await expect.poll(async () => near((await cameraPose(page)).position, expected.position), { timeout: 3000 }).toBe(true);
+      expect(near((await cameraPose(page)).target, expected.target)).toBe(true);
+    });
+  }
+
+  test('"איפוס" returns to the opening view after the user orbits away', async ({ page }) => {
+    const opening = await expectedPose(page, 'reset');
+    const box = await page.locator('#viewer canvas').boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + 220, box.y + box.height / 2 + 30, { steps: 10 });
+    await page.mouse.up();
+    await page.getByRole('button', { name: 'איפוס', exact: true }).click();
+    await expect.poll(async () => near((await cameraPose(page)).position, opening.position), { timeout: 4000 }).toBe(true);
+  });
+
+  test('the move is gradual: the camera passes through in-between positions', async ({ page }) => {
+    const start = (await cameraPose(page)).position;
+    const expected = await expectedPose(page, 'side');
+    expect(near(await clickAndRead(page, 'side'), start)).toBe(true); // nothing jumps on click
+    const seen = await page.evaluate(() => new Promise((resolve) => {
+      const positions = [];
+      const sample = () => {
+        positions.push(window.__banai.viewer.camera.position.toArray());
+        if (positions.length < 40) requestAnimationFrame(sample); else resolve(positions);
+      };
+      requestAnimationFrame(sample);
+    }));
+    expect(seen.some((p) => !near(p, start) && !near(p, expected.position))).toBe(true);
+  });
+
+  test('with prefers-reduced-motion the camera jumps straight to the view', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const expected = await expectedPose(page, 'front');
+    expect(near(await clickAndRead(page, 'front'), expected.position)).toBe(true);
+  });
+
+  test('camera moves never change the design state', async ({ page }) => {
+    await page.getByTestId('part-shf_l1').click();
+    const snapshot = () => page.evaluate(() => {
+      const { design, revision, selection, ui } = window.__banai.store.getState();
+      return JSON.stringify({ design, revision, selection, ui });
+    });
+    const before = await snapshot();
+    for (const label of ['חזית', 'צד ימין', 'צד שמאל', '3/4', 'איפוס']) await page.getByRole('button', { name: label, exact: true }).click();
+    await page.waitForTimeout(800);
+    expect(await snapshot()).toBe(before);
+  });
+});
