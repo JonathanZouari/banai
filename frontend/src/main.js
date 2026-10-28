@@ -22,6 +22,7 @@ import { createExportDialog } from './export/exportDialog.js';
 import { createRenderDialog } from './render/renderDialog.js';
 import { createLogo } from './ui/logo.js';
 import { installRipple } from './ui/ripple.js';
+import { THEMES, createTheme } from './ui/theme.js';
 
 function showError(message) {
   const banner = document.getElementById('error-banner');
@@ -44,6 +45,21 @@ function bindAutoRotate(viewer) {
   syncVisibility();
   reducedMotion?.addEventListener('change', syncVisibility);
   button.addEventListener('click', () => viewer.setAutoRotate(!viewer.autoRotating));
+}
+
+// Theme slider: one stop per theme; the name is shown next to it and read out as the value.
+function bindThemeSlider(theme) {
+  const slider = document.getElementById('theme-slider');
+  const name = document.getElementById('theme-name');
+  slider.max = String(THEMES.length - 1);
+  const sync = () => {
+    slider.value = String(theme.index());
+    name.textContent = theme.nameOf(theme.get());
+    slider.setAttribute('aria-valuetext', name.textContent);
+  };
+  slider.addEventListener('input', () => theme.set(THEMES[Number(slider.value)].id));
+  theme.subscribe(sync);
+  sync();
 }
 
 // The skip link moves focus without touching the hash: the hash may hold the private design link.
@@ -102,6 +118,8 @@ function bindDialogs({ storage, onSave, link }) {
 }
 
 async function boot() {
+  const theme = createTheme(); // applied first, so nothing renders in the wrong colours
+  bindThemeSlider(theme);
   document.getElementById('topbar-logo').append(createLogo({ size: 34, tagline: 'Wardrobe Designer' }));
   installRipple();
   const language = createLanguage();
@@ -126,6 +144,7 @@ async function boot() {
   bindInteriorToggle(store);
   bindViewPresets(viewer);
   bindAutoRotate(viewer);
+  theme.subscribe(() => viewer.applyTheme());
   bindSkipLink();
   const exporter = createExportDialog({
     getDesign: () => store.getState().design,
