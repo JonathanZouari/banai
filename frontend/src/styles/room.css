@@ -61,6 +61,8 @@
 .room-size__box { display: flex; align-items: center; gap: var(--space-1); }
 .room-size__input { width: 100%; min-width: 0; padding: 6px var(--space-2); font-variant-numeric: tabular-nums; appearance: textfield; -moz-appearance: textfield; }
 .room-size__input::-webkit-inner-spin-button, .room-size__input::-webkit-outer-spin-button { appearance: none; margin: 0; }
+.room-size__message { margin: 2px 0 0; color: var(--md-sys-color-error); font: var(--md-sys-typescale-body-small); }
+.room-size__message:empty { display: none; }
 .room-size__unit { color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-small); }
 
 .room-seg { display: flex; flex-wrap: wrap; gap: 6px; }

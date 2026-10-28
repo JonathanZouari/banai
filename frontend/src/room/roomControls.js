@@ -4,14 +4,24 @@
 // buttons and inputs, so they work by keyboard with the app's focus ring.
 import { el } from '../editor/fields.js';
 import { icon } from '../ui/icons.js';
-import { minimumRoom, roomBox } from './layout.js';
+import { roomBox } from './layout.js';
 import { placeFurniture, PRESET_IDS } from './placement.js';
 import { ROOM_SIZE_LIMITS, WARDROBE_POSITIONS } from './roomState.js';
 import { VIEW_IDS } from './views.js';
 import { FLOOR_IDS, LIGHT_IDS, WALL_COLORS, WALL_IDS } from './look.js';
 import { STRINGS } from '../chat/i18n.js';
+import { DEFAULT_UNIT, formatLength, parseLength } from '../units/displayUnits.js';
 
-const toCm = (mm) => Math.round(mm / 10);
+/** A room size as shown in the display unit: '400', '4000', '157.48' (no trailing '.0'). */
+const shownLength = (mm, unit) => formatLength(mm, unit).replace(/\.0+$/, '');
+
+/** Typed room size in the display unit -> integer mm within the room limits, or null if not a number. */
+export function parseRoomSize(text, unit, key) {
+  const parsed = parseLength(text, unit);
+  if (!parsed.ok) return null;
+  const [lo, hi] = ROOM_SIZE_LIMITS[key];
+  return Math.min(Math.max(parsed.mm, lo), hi);
+}
 
 /**
  * The room's words in this language, any missing one taken from English (nested groups too), so
@@ -72,8 +82,9 @@ function segmented(name, options, current, onPick) {
  * getDesign(): the committed design (read only: the room adapts to its size).
  * onView(view): frame a camera view (also when it is already the chosen one).
  * onInset({ left, right }): pixels of the view the open panel covers (the camera frames the rest).
+ * units: the display-unit preference (cm/mm/in); room sizes are shown and typed in it, kept in mm.
  */
-export function mountRoomControls({ buttonHost, viewerHost, roomState, language, getDesign, onView = () => {}, onInset = () => {} }) {
+export function mountRoomControls({ buttonHost, viewerHost, roomState, language, getDesign, onView = () => {}, onInset = () => {}, units = null }) {
   const button = el('button', { className: 'btn btn--tonal room-button', attrs: { type: 'button' } });
   button.dataset.testid = 'room-toggle';
   button.addEventListener('click', () => {
@@ -128,22 +139,26 @@ export function mountRoomControls({ buttonHost, viewerHost, roomState, language,
     );
   }
 
-  function sizeField(key, label, s, room, min) {
+  function sizeField(key, label, s, room, unit) {
     const id = `room-size-${key}`;
     const input = el('input', {
       className: 'field__input room-size__input',
-      attrs: { id, type: 'number', inputmode: 'numeric', min: String(Math.max(toCm(ROOM_SIZE_LIMITS[key][0]), toCm(min[key]))), max: String(toCm(ROOM_SIZE_LIMITS[key][1])), step: '1' },
+      attrs: { id, type: 'text', inputmode: 'decimal', autocomplete: 'off', 'aria-describedby': `${id}-unit ${id}-message` },
     });
-    input.value = String(toCm(room.size[key]));
+    input.value = shownLength(room.size[key], unit);
     input.dataset.testid = id;
+    const message = el('p', { className: 'room-size__message', attrs: { id: `${id}-message`, role: 'alert' } });
     const commit = () => {
-      const cm = Number.parseInt(input.value, 10);
-      if (!Number.isFinite(cm)) {
-        input.value = String(toCm(room.size[key]));
+      const mm = parseRoomSize(input.value, unit, key);
+      if (mm === null) {
+        message.textContent = s.invalidSize;
+        input.setAttribute('aria-invalid', 'true');
         return;
       }
-      const [lo, hi] = ROOM_SIZE_LIMITS[key];
-      roomState.set({ size: { [key]: Math.min(Math.max(cm * 10, lo), hi) } });
+      message.textContent = '';
+      input.removeAttribute('aria-invalid');
+      if (mm === room.size[key]) input.value = shownLength(mm, unit);
+      else roomState.set({ size: { [key]: mm } });
     };
     input.addEventListener('change', commit);
     input.addEventListener('keydown', (event) => {
@@ -151,7 +166,8 @@ export function mountRoomControls({ buttonHost, viewerHost, roomState, language,
     });
     return el('div', { className: 'room-size__field' }, [
       el('label', { text: label, attrs: { for: id } }),
-      el('div', { className: 'room-size__box' }, [input, el('span', { className: 'room-size__unit', text: s.cm, attrs: { 'aria-hidden': 'true' } })]),
+      el('div', { className: 'room-size__box' }, [input, el('span', { className: 'room-size__unit', text: s.units[unit], attrs: { id: `${id}-unit` } })]),
+      message,
     ]);
   }
 
@@ -162,7 +178,7 @@ export function mountRoomControls({ buttonHost, viewerHost, roomState, language,
     const s = t.room;
     const design = getDesign();
     const box = roomBox(design, room);
-    const min = minimumRoom(design);
+    const unit = units?.get() ?? DEFAULT_UNIT;
     const toggle = el('button', {
       className: 'icon-btn room-panel__collapse',
       attrs: { type: 'button', 'aria-expanded': String(!collapsed), 'aria-controls': 'room-panel-body', 'aria-label': collapsed ? s.expand : s.collapse },
@@ -176,9 +192,9 @@ export function mountRoomControls({ buttonHost, viewerHost, roomState, language,
       el('p', { className: 'room-panel__note', text: s.note }),
       el('h3', { className: 'room-panel__section', text: s.size }),
       el('div', { className: 'room-size' }, [
-        sizeField('width', s.width, s, room, min),
-        sizeField('length', s.length, s, room, min),
-        sizeField('height', s.ceiling, s, room, min),
+        sizeField('width', s.width, s, room, unit),
+        sizeField('length', s.length, s, room, unit),
+        sizeField('height', s.ceiling, s, room, unit),
       ]),
       ...(box.clamped.length ? [el('p', { className: 'room-panel__notice', text: s.clamped, attrs: { role: 'status' } })] : []),
       el('h3', { className: 'room-panel__section', text: s.wardrobeAt }),
@@ -248,6 +264,7 @@ export function mountRoomControls({ buttonHost, viewerHost, roomState, language,
   new ResizeObserver(reportInset).observe(viewerHost);
   roomState.subscribe(render);
   language.subscribe(render);
+  units?.subscribe(render);
   render();
 
   return {
