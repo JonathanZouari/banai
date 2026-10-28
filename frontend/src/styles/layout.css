@@ -79,6 +79,10 @@ body {
   box-shadow: 0 1px 4px rgba(35, 25, 23, 0.12);
 }
 .view-presets__btn { height: 32px; padding: 0 var(--space-3); border-color: transparent; }
+.view-presets__btn[hidden] { display: none; }
+.view-presets__btn[aria-pressed="true"] { background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); }
+.view-presets__btn[aria-pressed="true"]:hover:not(:disabled) { background: var(--color-accent-hover); }
+@media (prefers-reduced-motion: reduce) { #auto-rotate { display: none; } }
 
 .dim-label {
   padding: 2px var(--space-2);
