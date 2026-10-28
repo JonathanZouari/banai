@@ -55,6 +55,46 @@ export const STRINGS = Object.freeze({
       guided: 'ספר לי על החלל: מה הרוחב והגובה של הארון?',
       freeText: 'לדוגמה: ארון ברוחב 240 ס"מ וגובה 260 ס"מ, לבן, עם שלושה תאים',
     }),
+    // Start screen (entry/startScreen.js). Gender-neutral wording.
+    start: Object.freeze({
+      title: 'עיצוב הארון שלך',
+      subtitle: 'אפשר להתחיל בשיחה עם מעצב ה־AI או מתבנית מוכנה, ובכל שלב לעבור לעריכה ידנית.',
+      languageLabel: 'שפה',
+      entries: Object.freeze({
+        guided: Object.freeze({ title: 'שיחה מודרכת', description: 'כמה שאלות, והמעצב מציע ארון לאישור.' }),
+        freeText: Object.freeze({ title: 'תיאור חופשי', description: 'מתארים במילים, והמעצב הופך את זה להצעה.' }),
+      }),
+      galleryTitle: 'התחלה מתבנית',
+      galleryHint: (n) => `${n} תבניות · אפשר לשנות הכול אחר כך`,
+      cm: 'ס״מ',
+      insideView: 'מבט פנימה',
+      rendering: 'מכין תצוגה…',
+      footnote: 'העיצובים הם תצוגה להמחשה בלבד ואינם שרטוטי ייצור.',
+      accessibility: 'הצהרת נגישות',
+      templates: Object.freeze({
+        basic: Object.freeze({ name: 'ארון בסיסי', story: 'התחלה מאוזנת: מדפים, תלייה ומגירות.' }),
+        kids: Object.freeze({ name: 'ארון ילדים 150 ס״מ', story: 'מוט ומדפים נמוכים שילד יכול להגיע אליהם.' }),
+        double: Object.freeze({ name: 'ארון כפול עם דלתות הזזה', story: 'תלייה ארוכה וקצרה זו לצד זו, מאחורי דלתות הזזה.' }),
+        minimal: Object.freeze({ name: 'ארון מינימליסטי', story: 'קווים נקיים ומעט חלקים: מוט אחד ושלושה מדפים.' }),
+      }),
+      features: Object.freeze({
+        hinged: 'דלתות ציר', sliding: 'דלתות הזזה', open: 'ללא דלתות', drawers: 'מגירות',
+        double: 'תלייה כפולה', long: 'תלייה ארוכה', child: 'בגובה ילד',
+      }),
+      // The thumbnail's alt text, built from the design itself.
+      alt: ({ size, compartments, doors, rails, shelves, drawers }) => {
+        const count = (n, one, many) => (n === 1 ? one : `${n} ${many}`);
+        const parts = [
+          count(compartments, 'תא אחד', 'תאים'),
+          { hinged: 'דלתות ציר', sliding: 'דלתות הזזה', none: 'ללא דלתות' }[doors],
+          ...(rails ? [count(rails, 'מוט תלייה אחד', 'מוטות תלייה')] : []),
+          ...(shelves ? [count(shelves, 'מדף אחד', 'מדפים')] : []),
+          ...(drawers ? [count(drawers, 'מגירה אחת', 'מגירות')] : []),
+        ];
+        const last = parts.at(-1);
+        return `תצוגה תלת־ממדית: ארון ${size} עם ${parts.slice(0, -1).join(', ')} ${/^[א-ת]/.test(last) ? 'ו' : 'ו־'}${last}.`;
+      },
+    }),
   }),
   en: Object.freeze({
     dir: 'ltr',
@@ -103,6 +143,43 @@ export const STRINGS = Object.freeze({
     composerHints: Object.freeze({
       guided: 'Tell me about the space: how wide and tall should the wardrobe be?',
       freeText: 'e.g. 240 cm wide, 260 cm tall, white, three compartments',
+    }),
+    start: Object.freeze({
+      title: 'Design your wardrobe',
+      subtitle: 'Start with the AI designer or from a ready template, and switch to manual editing at any time.',
+      languageLabel: 'Language',
+      entries: Object.freeze({
+        guided: Object.freeze({ title: 'Guide me', description: 'A few questions, then a wardrobe to confirm.' }),
+        freeText: Object.freeze({ title: 'Describe it', description: 'Say it in your own words; the designer proposes it.' }),
+      }),
+      galleryTitle: 'Start from a template',
+      galleryHint: (n) => `${n} templates · change anything later`,
+      cm: 'cm',
+      insideView: 'Inside view',
+      rendering: 'Rendering preview…',
+      footnote: 'Designs are illustrative previews and are not manufacturing drawings.',
+      accessibility: 'Accessibility statement',
+      templates: Object.freeze({
+        basic: Object.freeze({ name: 'Basic wardrobe', story: 'A balanced start: shelves, hanging and drawers.' }),
+        kids: Object.freeze({ name: "Kids' wardrobe 150 cm", story: 'Low rail and shelves a child can reach.' }),
+        double: Object.freeze({ name: 'Double wardrobe with sliding doors', story: 'Long and short hanging side by side, behind sliding doors.' }),
+        minimal: Object.freeze({ name: 'Minimalist wardrobe', story: 'Clean lines and few parts: one rail and three shelves.' }),
+      }),
+      features: Object.freeze({
+        hinged: 'Hinged doors', sliding: 'Sliding doors', open: 'No doors', drawers: 'Drawers',
+        double: 'Double hanging', long: 'Long hanging', child: 'Child height',
+      }),
+      alt: ({ size, compartments, doors, rails, shelves, drawers }) => {
+        const count = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+        const parts = [
+          count(compartments, 'compartment', 'compartments'),
+          { hinged: 'hinged doors', sliding: 'sliding doors', none: 'no doors' }[doors],
+          ...(rails ? [count(rails, 'hanging rail', 'hanging rails')] : []),
+          ...(shelves ? [count(shelves, 'shelf', 'shelves')] : []),
+          ...(drawers ? [count(drawers, 'drawer', 'drawers')] : []),
+        ];
+        return `3D preview: a ${size} wardrobe with ${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}.`;
+      },
     }),
   }),
 });
