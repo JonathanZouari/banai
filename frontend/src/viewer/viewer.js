@@ -107,6 +107,30 @@ export function createViewer(container, store) {
   resizeObserver.observe(container);
   resize();
 
+  // Auto-rotate button (hidden when prefers-reduced-motion is active)
+  const rotateBtn = document.createElement('button');
+  rotateBtn.className = 'viewer-rotate-btn';
+  rotateBtn.setAttribute('aria-label', 'Auto-rotate');
+  rotateBtn.setAttribute('aria-pressed', 'false');
+  rotateBtn.title = 'Auto-rotate';
+  rotateBtn.textContent = '360°';
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    rotateBtn.hidden = true;
+  }
+  container.appendChild(rotateBtn);
+
+  const stopRotate = () => {
+    controls.autoRotate = false;
+    rotateBtn.setAttribute('aria-pressed', 'false');
+    rotateBtn.classList.remove('viewer-rotate-btn--active');
+  };
+  rotateBtn.addEventListener('click', () => {
+    controls.autoRotate = !controls.autoRotate;
+    rotateBtn.setAttribute('aria-pressed', String(controls.autoRotate));
+    rotateBtn.classList.toggle('viewer-rotate-btn--active', controls.autoRotate);
+  });
+  renderer.domElement.addEventListener('pointerdown', stopRotate);
+
   const detachPicking = attachPicking({
     dom: renderer.domElement,
     camera,
@@ -140,6 +164,8 @@ export function createViewer(container, store) {
       renderer.setAnimationLoop(null);
       unsubscribe();
       detachPicking();
+      renderer.domElement.removeEventListener('pointerdown', stopRotate);
+      rotateBtn.remove();
       resizeObserver.disconnect();
       if (group) disposeWardrobe(group);
       highlighter.dispose();

@@ -49,9 +49,63 @@ BASIC_WARDROBE_OPS: list[dict] = [
 ]
 
 
+KIDS_WARDROBE_OPS: list[dict] = [
+    {"op": "create_wardrobe", "width": 1500, "height": 2200, "depth": 580, "compartmentCount": 2,
+     "compartmentIds": ["cmp_k_l", "cmp_k_r"], "partitionIds": ["prt_k_1"]},
+    {"op": "add_rail", "compartmentId": "cmp_k_l", "y": 1400, "id": "rail_k_1"},
+    {"op": "add_shelf", "compartmentId": "cmp_k_l", "y": 1800, "id": "shf_k_l1"},
+    {"op": "add_shelf", "compartmentId": "cmp_k_r", "y": 400, "id": "shf_k_r1"},
+    {"op": "add_shelf", "compartmentId": "cmp_k_r", "y": 800, "id": "shf_k_r2"},
+    {"op": "add_shelf", "compartmentId": "cmp_k_r", "y": 1200, "id": "shf_k_r3"},
+    {"op": "add_shelf", "compartmentId": "cmp_k_r", "y": 1600, "id": "shf_k_r4"},
+]
+
+COUPLE_WARDROBE_OPS: list[dict] = [
+    {"op": "create_wardrobe", "width": 2400, "height": 2400, "depth": 600, "compartmentCount": 4,
+     "compartmentIds": ["cmp_c1", "cmp_c2", "cmp_c3", "cmp_c4"],
+     "partitionIds": ["prt_c1", "prt_c2", "prt_c3"]},
+    {"op": "add_rail", "compartmentId": "cmp_c1", "y": 2100, "id": "rail_c1"},
+    {"op": "add_rail", "compartmentId": "cmp_c2", "y": 2100, "id": "rail_c2"},
+    {"op": "add_rail", "compartmentId": "cmp_c3", "y": 1600, "id": "rail_c3"},
+    {"op": "add_shelf", "compartmentId": "cmp_c3", "y": 1700, "id": "shf_c1"},
+    {"op": "add_drawer", "compartmentId": "cmp_c4", "y": 0, "height": 200, "id": "drw_c1"},
+    {"op": "add_drawer", "compartmentId": "cmp_c4", "y": 200, "height": 200, "id": "drw_c2"},
+    {"op": "add_shelf", "compartmentId": "cmp_c4", "y": 600, "id": "shf_c2"},
+    {"op": "add_shelf", "compartmentId": "cmp_c4", "y": 1000, "id": "shf_c3"},
+    {"op": "add_shelf", "compartmentId": "cmp_c4", "y": 1500, "id": "shf_c4"},
+    {"op": "add_shelf", "compartmentId": "cmp_c4", "y": 2000, "id": "shf_c5"},
+    {"op": "configure_doors", "type": "sliding", "ids": ["dr_c1", "dr_c2"]},
+]
+
+MINIMAL_WARDROBE_OPS: list[dict] = [
+    {"op": "create_wardrobe", "width": 1800, "height": 2200, "depth": 600, "compartmentCount": 2,
+     "compartmentIds": ["cmp_m1", "cmp_m2"], "partitionIds": ["prt_m1"]},
+    {"op": "add_rail", "compartmentId": "cmp_m1", "y": 2000, "id": "rail_m1"},
+    {"op": "add_rail", "compartmentId": "cmp_m2", "y": 2000, "id": "rail_m2"},
+]
+
+TEMPLATES: list[dict] = [
+    {"id": "basic",   "label": "Basic wardrobe · 200 cm",  "ops": BASIC_WARDROBE_OPS},
+    {"id": "kids",    "label": "Kids' wardrobe · 150 cm",  "ops": KIDS_WARDROBE_OPS},
+    {"id": "couple",  "label": "Couple wardrobe · 240 cm", "ops": COUPLE_WARDROBE_OPS},
+    {"id": "minimal", "label": "Minimal wardrobe · 180 cm","ops": MINIMAL_WARDROBE_OPS},
+]
+
+
 def basic_wardrobe() -> dict:
     """The predefined starting wardrobe (entry option 3). Built through the op protocol."""
     from app.domain.apply import apply_ops  # local import: apply depends on this module
     from app.domain.catalog import load_catalog
 
     return apply_ops(None, BASIC_WARDROBE_OPS, load_catalog())
+
+
+def template_wardrobe(template_id: str) -> dict:
+    """Build any template by id. Raises ValueError if id is unknown."""
+    from app.domain.apply import apply_ops
+    from app.domain.catalog import load_catalog
+
+    tmpl = next((t for t in TEMPLATES if t["id"] == template_id), None)
+    if tmpl is None:
+        raise ValueError(f"Unknown template: {template_id}")
+    return apply_ops(None, tmpl["ops"], load_catalog())
