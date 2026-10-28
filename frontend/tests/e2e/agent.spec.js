@@ -179,7 +179,9 @@ test.describe('AI designer (agent connected)', () => {
     const rows = card.getByTestId('proposal-change');
     await expect(card).toContainText('7 changes');
     await expect(rows.filter({ visible: true })).toHaveCount(5);
-    await expect(card.locator('.diff__group-label')).toHaveText(['Wardrobe', 'Compartment 1', 'Compartment 2', 'Compartment 3']);
+    // Every group label, hidden ones included (Doors is folded under "+ 2 more" until expanded).
+    await expect(card.locator('.diff__group-label')).toHaveText(['Wardrobe', 'Compartment 1', 'Compartment 2', 'Compartment 3', 'Doors']);
+    await expect(card.locator('.diff__group-label').filter({ visible: true })).toHaveCount(4);
     await expect(rows.first()).toContainText('Width changes from 200 cm to 240 cm'); // the screen-reader sentence
     await expect(rows.first().locator('.diff__body')).toHaveAttribute('aria-hidden', 'true');
 
@@ -187,6 +189,8 @@ test.describe('AI designer (agent connected)', () => {
     await expect(more).toHaveText('+ 2 more changes');
     await more.press('Enter'); // keyboard
     await expect(more).toHaveAttribute('aria-expanded', 'true');
+    await expect(more).toBeFocused(); // expands in place, focus stays on the toggle
+    await expect(more).toHaveText('Show fewer');
     await expect(rows.filter({ visible: true })).toHaveCount(7);
     await expect(card.locator('.diff__row--removed')).toContainText('Drawer removed from compartment 3, at the bottom');
     await expect(card.locator('.diff__row--added')).toContainText('+2 shelves');
