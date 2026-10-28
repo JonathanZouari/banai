@@ -65,6 +65,19 @@ body {
 .viewer { position: relative; min-width: 0; overflow: hidden; background: var(--md-sys-color-viewer); }
 .viewer canvas { display: block; }
 .viewer-labels { position: absolute; inset: 0; pointer-events: none; }
+.viewer-measure { position: absolute; left: var(--space-3); top: var(--space-3); z-index: 1; display: flex; align-items: center; gap: var(--space-2); }
+.viewer-measure__btn {
+  padding: 4px var(--space-3);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  font: inherit; font-size: 0.8125rem; cursor: pointer;
+}
+.viewer-measure__btn[aria-pressed="true"] { background: var(--md-sys-color-secondary-container); }
+.viewer-measure__btn:focus-visible { outline: 2px solid var(--md-sys-color-primary); outline-offset: 2px; }
+.viewer-measure__readout { margin: 0; font-size: 0.8125rem; color: var(--md-sys-color-on-surface-variant); }
+.viewer-measure__readout:empty { display: none; }
+.dim-label--measure { border-color: #b4532a; color: #b4532a; font-weight: 600; }
 
 .dim-label {
   padding: 2px var(--space-2);

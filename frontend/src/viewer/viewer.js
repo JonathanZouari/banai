@@ -6,6 +6,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { buildWardrobe, disposeWardrobe } from './buildWardrobe.js';
 import { frameOf } from './builders/frame.js';
+import { verticalExtent, verticalGap } from './dimensions.js';
+import { cm } from './format.js';
 import { createDimensions } from './dimensions.js';
 import { createHighlighter } from './highlight.js';
 import { createMaterials } from './materials.js';
@@ -73,6 +75,55 @@ export function createViewer(container, store) {
     controls.update();
   };
 
+  // Measure mode: two picks show the vertical gap between them. Read-only: it never selects,
+  // never dispatches, and nothing can be dragged. The numbers come from the design only.
+  const measure = { on: false, first: null };
+  const measureBar = document.createElement('div');
+  measureBar.className = 'viewer-measure';
+  const measureToggle = document.createElement('button');
+  measureToggle.type = 'button';
+  measureToggle.className = 'viewer-measure__btn';
+  measureToggle.textContent = 'Measure';
+  measureToggle.dataset.testid = 'toggle-measure';
+  const readout = document.createElement('p');
+  readout.className = 'viewer-measure__readout';
+  readout.dataset.testid = 'measure-readout';
+  readout.setAttribute('aria-live', 'polite');
+  measureBar.append(measureToggle, readout);
+  container.appendChild(measureBar);
+
+  const setMeasuring = (on) => {
+    measure.on = on;
+    measure.first = null;
+    dimensions.clearMeasure();
+    measureToggle.setAttribute('aria-pressed', String(on));
+    readout.textContent = on ? 'Pick the first shelf, drawer, rail or top/bottom panel.' : '';
+  };
+  measureToggle.addEventListener('click', () => {
+    setMeasuring(!measure.on);
+    if (measure.on) store.setDoorsVisible(false); // view state: the interior must be reachable
+  });
+  setMeasuring(false);
+
+  const measurePick = (hit) => {
+    const { design } = store.getState();
+    const target = hit && { id: hit.object.userData.componentId, part: hit.object.userData.part };
+    const extent = target && verticalExtent(design, target);
+    if (!extent) {
+      readout.textContent = 'Pick a shelf, drawer, rail or the top/bottom panel.';
+      return;
+    }
+    if (!measure.first) {
+      measure.first = extent;
+      dimensions.clearMeasure();
+      readout.textContent = 'Now pick the second part.';
+      return;
+    }
+    dimensions.showMeasure(design, measure.first, extent);
+    readout.textContent = `Vertical gap: ${cm(verticalGap(measure.first, extent))} cm`;
+    measure.first = null; // a third pick starts a new measurement
+  };
+
   const sync = (state) => {
     const { design, ui, selection } = state;
     const geometryChanged = design !== rendered.design || ui.doorsVisible !== rendered.doorsVisible;
@@ -87,6 +138,7 @@ export function createViewer(container, store) {
       const { width, height, depth } = design.dimensions;
       const dimsKey = `${width}x${height}x${depth}`;
       if (dimsKey !== rendered.dimsKey) fitCamera(design);
+      if (design !== rendered.design && measure.on) setMeasuring(true); // the design changed: measure again
       rendered = { ...rendered, design, doorsVisible: ui.doorsVisible, dimsKey };
     }
     if (geometryChanged || selection !== rendered.selection) {
@@ -111,7 +163,7 @@ export function createViewer(container, store) {
     dom: renderer.domElement,
     camera,
     getTargets: () => (group ? group.children : []),
-    onPick: (hit) => store.select(componentAt(hit, store.getState().design)),
+    onPick: (hit) => (measure.on ? measurePick(hit) : store.select(componentAt(hit, store.getState().design))),
     onHover: (hit) => { renderer.domElement.style.cursor = hit?.object.userData.componentId ? 'pointer' : ''; },
   });
   const unsubscribe = store.subscribe(sync);
@@ -146,6 +198,7 @@ export function createViewer(container, store) {
       dimensions.dispose();
       materials.dispose();
       controls.dispose();
+      measureBar.remove();
       renderer.dispose();
     },
   };
