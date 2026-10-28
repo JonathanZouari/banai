@@ -2,6 +2,7 @@
 import { el } from '../editor/fields.js';
 import { icon } from '../ui/icons.js';
 import { createLogo } from '../ui/logo.js';
+import { TEMPLATES } from '../domain/presets.js';
 import { ENTRY_POINTS } from './entryPoints.js';
 
 export const START_FOOTNOTE = 'Designs are illustrative previews and are not manufacturing drawings.';
@@ -135,25 +136,43 @@ const ILLUSTRATIONS = { guided: illustrationGuided, freeText: illustrationFreeTe
 
 export function mountStartScreen({ onChoose }) {
   const cards = ENTRY_POINTS.map((entry) => {
-    const action = el('button', { className: 'btn', attrs: { type: 'button' } }, [
-      document.createTextNode(`${entry.action} `),
-      icon('arrow', { size: 18 }),
-    ]);
-    action.dataset.testid = `entry-${entry.id}`;
+    let actionEl;
+    if (entry.id === 'basic') {
+      const tmplBtns = TEMPLATES.map((tmpl) => {
+        const btn = el('button', { className: 'entry-card__tmpl-btn', attrs: { type: 'button' } }, [
+          document.createTextNode(tmpl.label),
+          icon('arrow', { size: 14 }),
+        ]);
+        btn.dataset.testid = `template-${tmpl.id}`;
+        btn.addEventListener('click', () => {
+          dialog.close();
+          dialog.remove();
+          onChoose(entry, tmpl.id);
+        });
+        return btn;
+      });
+      actionEl = el('div', { className: 'entry-card__templates' }, tmplBtns);
+    } else {
+      const btn = el('button', { className: 'btn', attrs: { type: 'button' } }, [
+        document.createTextNode(`${entry.action} `),
+        icon('arrow', { size: 18 }),
+      ]);
+      btn.dataset.testid = `entry-${entry.id}`;
+      btn.addEventListener('click', () => {
+        dialog.close();
+        dialog.remove();
+        onChoose(entry, null);
+      });
+      actionEl = btn;
+    }
     const illus = ILLUSTRATIONS[entry.id] ? ILLUSTRATIONS[entry.id]() : null;
-    const card = el('article', { className: 'entry-card' }, [
+    return el('article', { className: 'entry-card' }, [
       ...(illus ? [illus] : []),
       el('span', { className: 'entry-card__icon' }, [icon(entry.icon, { size: 24 })]),
       el('h2', { className: 'entry-card__title', text: entry.title }),
       el('p', { className: 'entry-card__text', text: entry.description }),
-      action,
+      actionEl,
     ]);
-    action.addEventListener('click', () => {
-      dialog.close();
-      dialog.remove();
-      onChoose(entry);
-    });
-    return card;
   });
 
   const dialog = el('dialog', { className: 'start', attrs: { 'aria-labelledby': 'start-title' } }, [
