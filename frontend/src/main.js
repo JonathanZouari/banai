@@ -197,6 +197,12 @@ async function boot() {
   store.subscribe(() => chat.refresh());
   const tour = createTour({ language });
   bindTourButton(tour, language);
+  // The "View in a room" hint never shows on top of the onboarding tour: it waits until the tour
+  // ends or is skipped (the tour itself is unchanged).
+  const introduceRoom = () => {
+    if (tour.isOpen()) tour.element.addEventListener('close', () => roomControls.showHintIfNew(), { once: true });
+    else roomControls.showHintIfNew();
+  };
 
   if (import.meta.env.DEV) {
     window.__banai = Object.freeze({ store, viewer, chat: chatModel, room: roomState });
@@ -204,7 +210,7 @@ async function boot() {
 
   if (session) {
     tour.startIfNew(); // reopened from a link: straight into the editor
-    roomControls.showHintIfNew();
+    introduceRoom();
     return;
   }
   mountStartScreen({
@@ -214,7 +220,7 @@ async function boot() {
       if (entry.focusesChat) chat.focus(entry.id);
       else document.getElementById('properties-panel').focus();
       tour.startIfNew();
-      roomControls.showHintIfNew();
+      introduceRoom();
     },
   });
 }
