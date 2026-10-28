@@ -9,6 +9,7 @@ import { frameOf } from './builders/frame.js';
 import { createDimensions } from './dimensions.js';
 import { createHighlighter } from './highlight.js';
 import { createMaterials } from './materials.js';
+import { createHoverTooltip, hoverLabel } from './hoverTooltip.js';
 import { attachPicking } from './picking.js';
 import { toM } from './units.js';
 
@@ -41,7 +42,7 @@ function componentAt(hit, design) {
   return index >= 0 ? design.compartments[index].id : componentId;
 }
 
-export function createViewer(container, store) {
+export function createViewer(container, store, { language } = {}) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -107,14 +108,35 @@ export function createViewer(container, store) {
   resizeObserver.observe(container);
   resize();
 
+  // Hover tooltip: view feedback only (never selects, never touches the store).
+  const tooltip = createHoverTooltip({ container });
+  const showTooltip = (hit, event) => {
+    const { design } = store.getState();
+    const label = hit && event ? hoverLabel(design, componentAt(hit, design), language?.get()) : null;
+    if (!label) {
+      tooltip.hide();
+      return;
+    }
+    const rect = container.getBoundingClientRect();
+    tooltip.show(label, event.clientX - rect.left, event.clientY - rect.top);
+  };
+
   const detachPicking = attachPicking({
     dom: renderer.domElement,
     camera,
     getTargets: () => (group ? group.children : []),
     onPick: (hit) => store.select(componentAt(hit, store.getState().design)),
-    onHover: (hit) => { renderer.domElement.style.cursor = hit?.object.userData.componentId ? 'pointer' : ''; },
+    onHover: (hit, event) => {
+      renderer.domElement.style.cursor = hit?.object.userData.componentId ? 'pointer' : '';
+      showTooltip(hit, event);
+    },
+    onLeave: () => tooltip.hide(),
   });
-  const unsubscribe = store.subscribe(sync);
+  const unsubscribe = store.subscribe((state) => {
+    tooltip.hide(); // the scene may have been rebuilt or the selection changed under the pointer
+    sync(state);
+  });
+  const unsubscribeLanguage = language?.subscribe(() => tooltip.hide());
   sync(store.getState());
 
   renderer.setAnimationLoop(() => {
@@ -139,7 +161,9 @@ export function createViewer(container, store) {
     dispose() {
       renderer.setAnimationLoop(null);
       unsubscribe();
+      unsubscribeLanguage?.();
       detachPicking();
+      tooltip.dispose();
       resizeObserver.disconnect();
       if (group) disposeWardrobe(group);
       highlighter.dispose();
