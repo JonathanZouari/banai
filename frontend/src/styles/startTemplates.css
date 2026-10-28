@@ -100,3 +100,14 @@ html:has(.start[open]) { overflow: hidden; }
   .tpl:hover .thumb--ready .thumb__front, .tpl:focus-visible .thumb--ready .thumb__front { transform: none; }
   .thumb:not(.thumb--ready):not(.thumb--drawn)::after { animation: none; }
 }
+
+/* Choosing a template: its thumbnail morphs into the 3D view (View Transitions); the rest of the
+   start screen fades. Fallback without the API: a short fade-out. Reduced motion: none of it. */
+::view-transition-group(template-pick) { animation-duration: 560ms; animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1); }
+::view-transition-old(template-pick), ::view-transition-new(template-pick) { height: 100%; object-fit: cover; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: 320ms; }
+.start--leaving { opacity: 0; transition: opacity 200ms ease; }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none; }
+  .start--leaving { transition: none; }
+}

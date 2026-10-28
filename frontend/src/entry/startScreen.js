@@ -55,12 +55,40 @@ export function mountStartScreen({ onChoose, language, catalog }) {
   dialog.dataset.testid = 'start-screen';
 
   let unsubscribe = () => {};
+  let leaving = false;
   const choose = (entry) => {
     queue.cancel();
     unsubscribe();
     dialog.close();
     dialog.remove();
     onChoose(entry);
+  };
+
+  /**
+   * A template: its thumbnail morphs into the 3D view (View Transitions API). Without the API the
+   * start screen fades out; with reduced motion it simply closes.
+   */
+  const chooseTemplate = (entry, card) => {
+    if (leaving) return;
+    leaving = true;
+    const viewer = document.getElementById('viewer');
+    if (globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches || !viewer) {
+      choose(entry);
+      return;
+    }
+    if (typeof document.startViewTransition === 'function') {
+      const picture = card.querySelector('.thumb');
+      picture.style.viewTransitionName = 'template-pick';
+      const transition = document.startViewTransition(() => {
+        picture.style.viewTransitionName = '';
+        viewer.style.viewTransitionName = 'template-pick';
+        choose(entry); // closes the dialog and loads the template; the viewer redraws on the next frame
+      });
+      transition.finished.finally(() => { viewer.style.viewTransitionName = ''; });
+      return;
+    }
+    dialog.classList.add('start--leaving');
+    setTimeout(() => choose(entry), 200);
   };
 
   function showPicture(id) {
@@ -155,7 +183,7 @@ export function mountStartScreen({ onChoose, language, catalog }) {
     card.tabIndex = index === focused ? 0 : -1;
     card.dataset.testid = id === 'basic' ? 'entry-basic' : `template-${id}`; // entry-basic: the spec's basic entry point
     card.addEventListener('focus', () => { focused = index; });
-    card.addEventListener('click', () => choose(templateEntry(id)));
+    card.addEventListener('click', () => chooseTemplate(templateEntry(id), card));
     return { item: el('li', {}, [card]), card, thumb: { box, front, inside } };
   }
 
