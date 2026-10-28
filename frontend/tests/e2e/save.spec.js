@@ -62,12 +62,77 @@ test.describe('save and reopen', () => {
     });
   });
 
+  test.describe('saved in this browser', () => {
+    const startPage = async (context) => {
+      const start = await context.newPage();
+      await start.goto('/');
+      await expect(start.getByTestId('start-screen')).toBeVisible();
+      return start;
+    };
+
+    test('the start screen lists a saved design with its size and date, and opens it', async ({ page, context }) => {
+      const fresh = await startPage(context);
+      await expect(fresh.getByTestId('recent-designs')).toHaveCount(0);
+
+      await openDesigner(page);
+      expect(await setHeight(page, 2300)).toBe(true);
+      const link = await saveFromDialog(page);
+
+      const start = await startPage(context);
+      const row = start.getByTestId('recent-open');
+      await expect(row).toHaveCount(1);
+      await expect(row).toContainText('200.0 × 230.0 × 60.0 cm');
+      await expect(row).toContainText('Saved');
+      await expect(row).not.toContainText(link.split('.').pop()); // the token is never shown
+
+      await row.click();
+      await start.waitForFunction(() => window.__banai?.viewer.meshOf('shf_l1'));
+      await expect(start.getByTestId('start-screen')).toHaveCount(0);
+      expect(start.url()).toBe(link);
+      expect(await start.evaluate(() => window.__banai.store.getState().design.dimensions.height)).toBe(2300);
+    });
+
+    test('"Remove from list" forgets the link in this browser', async ({ page, context }) => {
+      await openDesigner(page);
+      await saveFromDialog(page);
+
+      const start = await startPage(context);
+      await start.getByTestId('recent-remove').click();
+      await expect(start.getByTestId('recent-designs')).toHaveCount(0);
+      await expect(start.getByTestId('entry-guided')).toBeFocused();
+      await start.reload();
+      await expect(start.getByTestId('start-screen')).toBeVisible();
+      await expect(start.getByTestId('recent-designs')).toHaveCount(0);
+    });
+
+    test.describe('a link that no longer exists', () => {
+      test.use({ allowedConsoleErrors: [/404/] });
+
+      test('shows a friendly message and is removed from the list', async ({ page }) => {
+        await page.goto('/');
+        await page.evaluate(() => localStorage.setItem('banai.recentDesigns', JSON.stringify([{
+          designId: '0b6f2a52-3c1e-4c8e-9a51-1f6f3f2b7d10',
+          token: 'A'.repeat(43),
+          savedAt: '2026-10-20T10:00:00.000Z',
+          dimensions: { width: 2000, height: 2400, depth: 600 },
+        }])));
+        await page.reload();
+        await page.getByTestId('recent-open').click();
+
+        await expect(page.locator('#error-banner')).toContainText('no longer exists, so it was removed from your list');
+        await expect(page.getByTestId('start-screen')).toBeVisible();
+        await expect(page.getByTestId('recent-designs')).toHaveCount(0);
+        expect(await page.evaluate(() => localStorage.getItem('banai.recentDesigns'))).toBe('[]');
+      });
+    });
+  });
+
   test.describe('bad links', () => {
     test.use({ allowedConsoleErrors: [/404/] });
 
     test('a wrong token falls back to the basic wardrobe and says so', async ({ page }) => {
       await page.goto(`/#d=0b6f2a52-3c1e-4c8e-9a51-1f6f3f2b7d10.${'A'.repeat(43)}`);
-      await expect(page.locator('#error-banner')).toContainText('did not open a saved design');
+      await expect(page.locator('#error-banner')).toContainText('no longer exists');
       await expect(page.getByTestId('start-screen')).toBeVisible();
     });
   });

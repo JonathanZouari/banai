@@ -179,6 +179,39 @@
 .entry-card__text { flex: 1; margin: 0 0 var(--space-3); color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-medium); }
 .entry-card .btn { align-self: stretch; }
 
+/* Start screen: designs saved in this browser */
+.recent { width: min(100%, 932px); margin-top: var(--space-5); text-align: left; }
+.recent__title { margin: 0; font: var(--md-sys-typescale-title-medium); }
+.recent__note { margin: var(--space-1) 0 var(--space-3); color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-small); }
+.recent__list { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.recent__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-medium);
+  background: var(--md-sys-color-surface-container-lowest);
+}
+.recent__open {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  border: 0;
+  border-radius: var(--md-sys-shape-small);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.recent__open:hover { background: var(--md-sys-color-surface-container); }
+.recent__open:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
+.recent__size { font: var(--md-sys-typescale-title-small); }
+.recent__date { color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-small); }
+
 /* Logo */
 .logo { display: inline-flex; align-items: center; gap: 10px; }
 .logo__mark { flex: none; filter: drop-shadow(0 3px 6px rgba(180, 83, 42, 0.3)); transition: transform 240ms cubic-bezier(0.2, 0.9, 0.3, 1.4); }

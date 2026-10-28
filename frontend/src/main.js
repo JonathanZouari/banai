@@ -17,7 +17,7 @@ import { createLanguage } from './chat/i18n.js';
 import { mountChat } from './chat/chatPanel.js';
 import { mountStartScreen } from './entry/startScreen.js';
 import { createSaveDialog } from './share/saveDialog.js';
-import { parseShareHash, shareHash } from './share/link.js';
+import { forgetDesign, parseShareHash, readRecent, rememberDesign, shareHash } from './share/link.js';
 import { createExportDialog } from './export/exportDialog.js';
 import { createRenderDialog } from './render/renderDialog.js';
 import { createLogo } from './ui/logo.js';
@@ -54,8 +54,14 @@ async function loadInitial(language) {
     try {
       const saved = await getSavedDesign({ ...link, language });
       return { initial: { design: saved.design, revision: 1 }, session: { ...link, revision: saved.revision } };
-    } catch {
-      showError('This link did not open a saved design, so the basic wardrobe is shown instead.');
+    } catch (error) {
+      if (error?.status === 404) {
+        // The design is gone (or the token is wrong): either way the link cannot work again.
+        forgetDesign(link.designId);
+        showError('This saved design no longer exists, so it was removed from your list. Here is the basic wardrobe.');
+      } else {
+        showError('This link did not open a saved design, so the basic wardrobe is shown instead.');
+      }
     }
   }
   return { initial: await getDefaultDesign(), session: null };
@@ -73,6 +79,7 @@ function createSaver(store, language, initialSession) {
       session = { designId: created.designId, token: created.accessToken, revision: created.revision };
     }
     window.history.replaceState(null, '', shareHash(session));
+    rememberDesign({ ...session, dimensions: design.dimensions });
     return window.location.href;
   };
 }
@@ -160,6 +167,8 @@ async function boot() {
 
   if (session) return; // reopened from a link: straight into the editor
   mountStartScreen({
+    recent: readRecent(),
+    onForget: forgetDesign,
     onChoose: (entry) => {
       // All three entry points open the same editor; the chat ones focus the composer, the manual
       // one the properties panel, so keyboard focus never falls out of the page when the modal closes.
