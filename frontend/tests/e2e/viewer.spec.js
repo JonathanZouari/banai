@@ -149,13 +149,21 @@ test.describe('camera angle buttons', () => {
 test.describe('showcase rotation', () => {
   test.beforeEach(async ({ page }) => openDesigner(page));
 
-  const rotateButton = (page) => page.getByRole('button', { name: 'סיבוב', exact: true });
+  const rotateButton = (page) => page.getByRole('button', { name: 'סיבוב 360', exact: true });
   const cameraX = (page) => page.evaluate(() => window.__banai.viewer.camera.position.x);
 
   test('is off by default', async ({ page }) => {
     await expect(rotateButton(page)).toBeVisible();
     await expect(rotateButton(page)).toHaveAttribute('aria-pressed', 'false');
     expect(await page.evaluate(() => window.__banai.viewer.autoRotating)).toBe(false);
+  });
+
+  test('reads "360" and sits in the bottom-left corner of the view', async ({ page }) => {
+    await expect(rotateButton(page)).toHaveText('360');
+    const button = await rotateButton(page).boundingBox();
+    const view = await page.locator('#viewer').boundingBox();
+    expect(button.x - view.x).toBeLessThan(view.width / 4);
+    expect(view.y + view.height - (button.y + button.height)).toBeLessThan(view.height / 4);
   });
 
   test('turns the camera slowly, and touching the view stops it', async ({ page }) => {

@@ -82,6 +82,21 @@ body {
 .view-presets__btn[hidden] { display: none; }
 .view-presets__btn[aria-pressed="true"] { background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); }
 .view-presets__btn[aria-pressed="true"]:hover:not(:disabled) { background: var(--color-accent-hover); }
+/* Showcase rotation toggle, on its own in the bottom-left corner of the 3D view.
+   Scoped to .viewer so it outranks the ripple's `.btn { position: relative }` in components.css. */
+.viewer .view-rotate {
+  position: absolute;
+  bottom: var(--space-3);
+  left: var(--space-3);
+  z-index: 1;
+  height: 40px;
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 1px 4px rgba(35, 25, 23, 0.12);
+  font-variant-numeric: tabular-nums;
+}
+.viewer .view-rotate[aria-pressed="true"] { background: var(--md-sys-color-primary); }
+.viewer .view-rotate[aria-pressed="true"]:hover:not(:disabled) { background: var(--color-accent-hover); }
 @media (prefers-reduced-motion: reduce) { #auto-rotate { display: none; } }
 
 .dim-label {
