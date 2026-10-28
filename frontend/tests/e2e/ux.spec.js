@@ -1,9 +1,11 @@
 import { test, expect, openDesigner } from './fixtures.js';
 
 test.describe('start screen', () => {
-  test('is shown first with three entry points and the manufacturing disclaimer', async ({ page }) => {
+  test('is shown first: a login, then three entry points and the manufacturing disclaimer', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByTestId('start-screen')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Log in' })).toBeVisible();
+    await page.getByTestId('auth-guest').click();
     await expect(page.getByRole('heading', { name: 'Design your wardrobe' })).toBeVisible();
     for (const id of ['guided', 'freeText', 'basic']) await expect(page.getByTestId(`entry-${id}`)).toBeVisible();
     await expect(page.getByText('not manufacturing drawings')).toBeVisible();
@@ -24,6 +26,7 @@ test.describe('start screen', () => {
 
   test('"Describe it" opens the same editor and focuses the chat composer', async ({ page }) => {
     await page.goto('/');
+    await page.getByTestId('auth-guest').click();
     await page.getByTestId('entry-freeText').click();
     await expect(page.getByTestId('chat-input')).toBeFocused();
     await expect(page.getByTestId('chat-input')).toHaveAttribute('placeholder', /ברוחב 240/);
@@ -73,6 +76,7 @@ test.describe('look and feel', () => {
   test('shows the BanAI logo in the top bar and on the start screen', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByTestId('start-screen').getByRole('img', { name: 'BanAI' })).toBeVisible();
+    await page.getByTestId('auth-guest').click();
     await page.getByTestId('entry-basic').click();
     await expect(page.locator('.topbar').getByRole('img', { name: 'BanAI' })).toBeVisible();
     await expect(page.locator('.topbar .logo__word')).toHaveText('BanAI');

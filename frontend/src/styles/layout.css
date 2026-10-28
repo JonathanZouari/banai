@@ -64,6 +64,8 @@ body {
 
 .viewer { position: relative; min-width: 0; overflow: hidden; background: var(--md-sys-color-viewer); }
 .viewer canvas { display: block; }
+/* A soft photographic vignette over the 3D view (decorative, never blocks input). */
+.viewer::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(40, 28, 18, 0.16) 100%); }
 .viewer-labels { position: absolute; inset: 0; pointer-events: none; }
 
 .dim-label {

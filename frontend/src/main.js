@@ -9,6 +9,11 @@ import {
   applyProposal, createSavedDesign, getCatalog, getDefaultDesign, getHealth, getSavedDesign, sendChat, updateSavedDesign,
 } from './api/client.js';
 import { createStore } from './state/store.js';
+import { createUnsavedTracker } from './state/unsaved.js';
+import { createTour } from './tour/tour.js';
+import { tourStrings } from './tour/steps.js';
+import { PRESETS, buildPreset } from './domain/presets.js';
+import { PRESET_STRINGS, createPresetsDialog } from './entry/presetsDialog.js';
 import { mountPanel } from './editor/panel.js';
 import { createViewer } from './viewer/viewer.js';
 import { renderSnapshot } from './viewer/snapshot.js';
@@ -17,6 +22,8 @@ import { createLanguage } from './chat/i18n.js';
 import { mountChat } from './chat/chatPanel.js';
 import { mountStartScreen } from './entry/startScreen.js';
 import { createSaveDialog } from './share/saveDialog.js';
+import { createSession } from './auth/session.js';
+import { createAuthDialog } from './auth/authDialog.js';
 import { parseShareHash, shareHash } from './share/link.js';
 import { createExportDialog } from './export/exportDialog.js';
 import { createRenderDialog } from './render/renderDialog.js';
@@ -61,27 +68,112 @@ async function loadInitial(language) {
   return { initial: await getDefaultDesign(), session: null };
 }
 
-function createSaver(store, language, initialSession) {
+function createSaver(store, language, initialSession, auth, onSaved) {
   let session = initialSession;
   return async () => {
     const { design } = store.getState();
+    const accessToken = await auth.accessToken(language.get());
+    if (!accessToken) throw new Error('Your session has expired. Please log in again.');
     if (session) {
-      const { revision } = await updateSavedDesign({ ...session, design, language: language.get() });
+      const { revision } = await updateSavedDesign({ ...session, design, language: language.get(), accessToken });
       session = { ...session, revision };
     } else {
-      const created = await createSavedDesign({ design, language: language.get() });
+      const created = await createSavedDesign({ design, language: language.get(), accessToken });
       session = { designId: created.designId, token: created.accessToken, revision: created.revision };
     }
     window.history.replaceState(null, '', shareHash(session));
+    onSaved(design); // the design sent, not the current one: edits made during the save stay unsaved
     return window.location.href;
   };
 }
 
-function bindDialogs({ storage, onSave, link }) {
-  const save = createSaveDialog({ available: storage, onSave, link });
+/**
+ * Unsaved changes since the last save to the link: a small dot on Save (plus hidden text for screen
+ * readers), and the browser's "Leave site?" prompt before closing or reloading.
+ */
+function bindUnsaved(unsaved) {
+  const dot = document.getElementById('save-dot');
+  const label = document.getElementById('save-unsaved');
+  const show = (dirty) => {
+    dot.hidden = !dirty;
+    label.hidden = !dirty;
+  };
+  unsaved.subscribe(show);
+  show(unsaved.isDirty());
+  window.addEventListener('beforeunload', (event) => {
+    if (!unsaved.isDirty()) return;
+    event.preventDefault();
+    event.returnValue = ''; // older browsers need it to show the prompt
+  });
+}
+
+/** Listen to `types` on `node` until the returned function is called. */
+function listen(node, types, handler) {
+  types.forEach((type) => node.addEventListener(type, handler));
+  return () => types.forEach((type) => node.removeEventListener(type, handler));
+}
+
+/** What counts as "tried it" for each interactive tour step (each returns an unsubscribe). */
+function tourTries(store, viewer, presetOpened) {
+  return {
+    // A suggestion only fills the composer; typing counts too. Nothing is sent.
+    chat: (done) => listen(document.getElementById('chat-panel'), ['input', 'click'], (event) => {
+      if (event.type === 'input' || event.target.closest('.suggestion')) done();
+    }),
+    // Picking a part or changing the design.
+    manual: (done) => {
+      const start = store.getState();
+      return store.subscribe(({ design, selection }) => {
+        if (design !== start.design || selection !== start.selection) done();
+      });
+    },
+    // A real drag: the camera turned by more than about 12 degrees.
+    rotate: (done) => {
+      const { controls } = viewer;
+      let from = null;
+      const off = [
+        listen(controls, ['start'], () => { from = controls.getAzimuthalAngle(); }),
+        listen(controls, ['change'], () => {
+          if (from !== null && Math.abs(controls.getAzimuthalAngle() - from) > 0.2) done();
+        }),
+      ];
+      return () => off.forEach((stop) => stop());
+    },
+    // Only once a template is actually opened (from the dialog or the chat), not on the button alone.
+    examples: (done) => {
+      presetOpened.add(done);
+      return () => presetOpened.delete(done);
+    },
+  };
+}
+
+function bindDialogs({ storage, onSave, link, auth, language }) {
+  const login = createAuthDialog({ session: auth, getLanguage: language.get });
+  const save = createSaveDialog({
+    available: storage, onSave, link, isLoggedIn: () => auth.user() !== null, onLogin: () => login.open('login'),
+  });
   const render = createRenderDialog();
   document.getElementById('open-save').addEventListener('click', save.open);
   document.getElementById('open-render').addEventListener('click', render.open);
+
+  const authButton = document.getElementById('open-auth');
+  const userLabel = document.getElementById('auth-user');
+  const showUser = (user) => {
+    authButton.textContent = user ? 'Log out' : 'Log in';
+    userLabel.textContent = user?.email ?? '';
+    userLabel.hidden = !user;
+  };
+  authButton.addEventListener('click', async () => {
+    if (!auth.user()) {
+      login.open('login');
+      return;
+    }
+    await auth.logOut();
+    // Back to the start screen's login, as a fresh page: the next customer inherits no design or link.
+    window.location.assign(window.location.pathname);
+  });
+  auth.subscribe(showUser);
+  showUser(auth.user());
 }
 
 async function boot() {
@@ -101,8 +193,12 @@ async function boot() {
     showError('Could not reach the design service. Please check your connection and reload.');
     return;
   }
+  const auth = createSession();
+  await auth.restore(language.get()); // a previous visit's login, if any
   // Validates the server data before anything is rendered (throws on invalid data).
   const store = createStore({ design: initial.design, revision: initial.revision, catalog });
+  const unsaved = createUnsavedTracker(store);
+  bindUnsaved(unsaved);
   const viewer = createViewer(document.getElementById('viewer'), store);
   bindInteriorToggle(store);
   bindSkipLink();
@@ -114,8 +210,10 @@ async function boot() {
   mountPanel(document.getElementById('properties-content'), store, { onExport: exporter.open });
   bindDialogs({
     storage: health?.data.storage === true,
-    onSave: createSaver(store, language, session),
+    onSave: createSaver(store, language, session, auth, unsaved.markSaved),
     link: session ? window.location.href : '',
+    auth,
+    language,
   });
 
   // The agent is optional: without an OpenAI key on the server the panel says so honestly.
@@ -150,6 +248,7 @@ async function boot() {
   };
   const chat = mountChat(document.getElementById('chat-panel'), {
     model: chatModel, onConfirm: confirmProposal, language, onExport: exporter.open,
+    onOpenPreset: (presetId) => openPreset(presetId),
   });
   // A manual edit changes the revision, which may turn a pending proposal stale.
   store.subscribe(() => chat.refresh());
@@ -158,13 +257,53 @@ async function boot() {
     window.__banai = Object.freeze({ store, viewer, chat: chatModel });
   }
 
-  if (session) return; // reopened from a link: straight into the editor
+  // A template replaces the current design and brings its decorative room (viewer only).
+  const presetOpened = new Set(); // listeners: the tour's "try it" step
+  const openPreset = (presetId) => {
+    const { catalog, revision } = store.getState();
+    store.replaceDesign(buildPreset(presetId, catalog), revision + 1);
+    store.setBackdrop(PRESETS.find((preset) => preset.id === presetId).backdrop);
+    presetOpened.forEach((listener) => listener(presetId));
+  };
+  const examples = createPresetsDialog({ onChoose: openPreset, getLanguage: language.get });
+  const examplesButton = document.getElementById('open-presets');
+  examplesButton.addEventListener('click', examples.open);
+  const labelExamples = (lang) => {
+    examplesButton.textContent = (PRESET_STRINGS[lang] ?? PRESET_STRINGS.he).button;
+    examplesButton.lang = lang;
+  };
+  labelExamples(language.get());
+  language.subscribe(labelExamples);
+
+  // First-visit tour: once, after the start screen (or straight away when opened from a link).
+  const tour = createTour({ getLanguage: language.get, tryIts: tourTries(store, viewer, presetOpened) });
+  const tourButton = document.getElementById('open-tour');
+  tourButton.addEventListener('click', () => tour.start());
+  const labelTour = (lang) => {
+    tourButton.setAttribute('aria-label', tourStrings(lang).label);
+    tourButton.title = tourStrings(lang).label;
+    tourButton.lang = lang;
+  };
+  labelTour(language.get());
+  language.subscribe(labelTour);
+
+  if (session) {
+    tour.startIfFirstVisit();
+    return; // reopened from a link: straight into the editor
+  }
   mountStartScreen({
-    onChoose: (entry) => {
+    session: auth,
+    getLanguage: language.get,
+    onChoose: (entry, presetId) => {
+      // The basic wardrobe is already loaded (revision 1); only its room is added.
+      if (presetId === 'basic') store.setBackdrop(PRESETS[0].backdrop);
+      else if (presetId) openPreset(presetId);
+      unsaved.reset(); // the start screen is a fresh start: nothing to save yet
       // All three entry points open the same editor; the chat ones focus the composer, the manual
       // one the properties panel, so keyboard focus never falls out of the page when the modal closes.
       if (entry.focusesChat) chat.focus(entry.id);
       else document.getElementById('properties-panel').focus();
+      tour.startIfFirstVisit(); // focus returns here when the tour ends
     },
   });
 }

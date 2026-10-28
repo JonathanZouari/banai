@@ -88,6 +88,7 @@ test.describe('AI designer (agent connected)', () => {
     expect(calls.chat[0].language).toBe('en');
 
     await page.reload(); // the choice is remembered
+    await page.getByTestId('auth-guest').click();
     await page.getByTestId('entry-basic').click();
     await expect(page.locator('#chat-panel')).toHaveAttribute('dir', 'ltr');
   });

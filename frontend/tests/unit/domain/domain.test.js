@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyOps } from '../../../src/domain/apply.js';
-import { basicWardrobe } from '../../../src/domain/presets.js';
+import { PRESETS, basicWardrobe, buildPreset } from '../../../src/domain/presets.js';
 import { DomainError } from '../../../src/domain/errors.js';
 import { compartmentXRanges, interiorHeight, interiorWidth, partitionLeftEdge } from '../../../src/domain/geometry.js';
 import { parseDesign } from '../../../src/domain/schema.js';
@@ -29,6 +29,16 @@ describe('schema and validation', () => {
     const design = basicWardrobe(catalog);
     expect(design).toEqual(loadDesign('basic'));
     expect(validateDesign(design, catalog)).toEqual([]);
+  });
+
+  it.each(PRESETS.map((p) => p.id))('preset %s matches the shared fixture and is valid', (id) => {
+    const design = buildPreset(id, catalog);
+    expect(design).toEqual(loadDesign(id));
+    expect(validateDesign(design, catalog)).toEqual([]);
+  });
+
+  it('returns null for an unknown preset', () => {
+    expect(buildPreset('nope', catalog)).toBeNull();
   });
 
   it('rejects unknown fields and non-integer numbers as schema errors', () => {
