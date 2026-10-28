@@ -44,6 +44,20 @@ function bindInteriorToggle(store) {
   store.subscribe((state) => { toggle.checked = !state.ui.doorsVisible; });
 }
 
+// "360° view": one turn around the wardrobe. The button becomes Stop while it plays; Esc stops it too.
+function bindSpin(viewer) {
+  const button = document.getElementById('spin-360');
+  const label = button.textContent;
+  button.addEventListener('click', () => (viewer.isSpinning() ? viewer.stopSpin() : viewer.spin()));
+  viewer.onSpinChange((spinning) => {
+    button.textContent = spinning ? 'Stop' : label;
+    button.setAttribute('aria-pressed', String(spinning));
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && viewer.isSpinning()) viewer.stopSpin();
+  });
+}
+
 /**
  * The design to open: the saved one when the page was opened from its private link, else the basic
  * wardrobe. `session` ({ designId, token, revision }) is what the next save writes over.
@@ -105,6 +119,7 @@ async function boot() {
   const store = createStore({ design: initial.design, revision: initial.revision, catalog });
   const viewer = createViewer(document.getElementById('viewer'), store);
   bindInteriorToggle(store);
+  bindSpin(viewer);
   bindSkipLink();
   const exporter = createExportDialog({
     getDesign: () => store.getState().design,

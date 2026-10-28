@@ -10,6 +10,7 @@ import { createDimensions } from './dimensions.js';
 import { createHighlighter } from './highlight.js';
 import { createMaterials } from './materials.js';
 import { attachPicking } from './picking.js';
+import { createTurntable } from './turntable.js';
 import { toM } from './units.js';
 
 const BACKGROUND = '#eceeec';
@@ -64,6 +65,15 @@ export function createViewer(container, store) {
   let group = null;
   let rendered = { design: null, doorsVisible: null, selection: undefined, dimsKey: null };
 
+  const spinListeners = new Set();
+  const turntable = createTurntable({
+    camera,
+    target: controls.target,
+    onChange: (spinning) => spinListeners.forEach((listener) => listener(spinning)),
+  });
+  // Any manual orbit, zoom or pan takes over from the turntable where the camera is now.
+  controls.addEventListener('start', () => turntable.stop({ restore: false }));
+
   const fitCamera = (design) => {
     const { width, height, depth } = design.dimensions;
     const center = new THREE.Vector3(toM(width / 2), toM(height / 2), toM(-depth / 2));
@@ -86,7 +96,10 @@ export function createViewer(container, store) {
       materials.retainOnly(new Set(group.children.map((mesh) => mesh.material)));
       const { width, height, depth } = design.dimensions;
       const dimsKey = `${width}x${height}x${depth}`;
-      if (dimsKey !== rendered.dimsKey) fitCamera(design);
+      if (dimsKey !== rendered.dimsKey) {
+        turntable.stop({ restore: false }); // the new size gets a freshly framed view instead
+        fitCamera(design);
+      }
       rendered = { ...rendered, design, doorsVisible: ui.doorsVisible, dimsKey };
     }
     if (geometryChanged || selection !== rendered.selection) {
@@ -118,7 +131,7 @@ export function createViewer(container, store) {
   sync(store.getState());
 
   renderer.setAnimationLoop(() => {
-    controls.update();
+    if (!turntable.tick()) controls.update();
     renderer.render(scene, camera);
     labels.render(scene, camera);
   });
@@ -127,6 +140,14 @@ export function createViewer(container, store) {
     camera,
     controls,
     canvas: renderer.domElement,
+    /** "360° view": one turn around the wardrobe, then back to the starting view. */
+    spin: () => turntable.start(),
+    stopSpin: () => turntable.stop({ restore: true }),
+    isSpinning: () => turntable.isSpinning(),
+    onSpinChange(listener) {
+      spinListeners.add(listener);
+      return () => spinListeners.delete(listener);
+    },
     meshOf: (componentId) => group?.children.find((mesh) => mesh.userData.componentId === componentId) ?? null,
     /** Client (page) coordinates of a component's centre, for tests and tooling. */
     screenPointOf(componentId) {
@@ -138,6 +159,8 @@ export function createViewer(container, store) {
     },
     dispose() {
       renderer.setAnimationLoop(null);
+      turntable.stop({ restore: false });
+      spinListeners.clear();
       unsubscribe();
       detachPicking();
       resizeObserver.disconnect();
