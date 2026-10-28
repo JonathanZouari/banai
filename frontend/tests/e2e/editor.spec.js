@@ -87,14 +87,16 @@ test.describe('Phase 4: manual editing', () => {
 
 test('the added catalog material and colours reach the editor, the 3D view and the PDF request', async ({ page }) => {
   await openDesigner(page);
-  const material = page.getByLabel('Material').first();
-  await expect(material.locator('option[value="birch_plywood"]')).toHaveText('Birch plywood');
+  await openStep(page, 'materials');
+  const material = page.getByLabel('חומר', { exact: true }).first();
+  await expect(material.locator('option[value="birch_plywood"]')).toHaveText('דיקט ליבנה');
   await material.selectOption('birch_plywood');
-  for (const [name, hex] of [['Navy blue', '2b3a52'], ['Sand beige', 'd9c8ad'], ['Sage green', '8f9e83']]) {
+  for (const [name, hex] of [['כחול נייבי', '2b3a52'], ["בז' חול", 'd9c8ad'], ['ירוק מרווה', '8f9e83']]) {
     await page.getByRole('button', { name, exact: true }).first().click();
     await expect.poll(() => page.evaluate(() => window.__banai.viewer.meshOf('carcass').material.color.getHexString())).toBe(hex);
   }
 
+  await openStep(page, 'interior'); // the PDF button sits next to "+ Add compartment"
   await page.getByTestId('open-export').click();
   const request = page.waitForRequest('**/api/export/pdf');
   await page.getByTestId('export-download').click();
