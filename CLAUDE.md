@@ -97,6 +97,10 @@ npm run build                                  # vite build -> dist/
   - The "Generate Style Profile" button sits next to "+ Add compartment". The chat also offers it in one pinned note after a confirmed proposal, or when the agent's `offer_style_profile` tool fires (the customer says they are done). That tool changes nothing in the design.
   - Hebrew goes through `bidi.algorithm`, the pure-Python version, which mirrors brackets. Number expressions stay left to right.
   - The fonts are merged Noto Sans + Noto Sans Hebrew (OFL) in `backend/app/export/fonts/`.
+- **AI render (Phase 8).**
+  - `POST /api/render` takes `{design, image, language}`: the committed design and the app's own studio snapshot (`viewer/snapshot.js`). The server validates both, writes the prompt itself (`backend/app/render/prompt.py`, no customer free text) and calls OpenAI `images.edit`.
+  - It never changes the design, stores nothing, and the result is always labelled illustrative. Every call costs money, so it is capped (concurrency, per client, per worker) in `backend/app/api/render.py`.
+  - E2E mocks `/api/render`; it never calls OpenAI.
 - **Persistence.**
   - Only the backend talks to Supabase. The `designs` table has RLS enabled with no policies, and anon/authenticated grants are revoked.
   - Share link: `/#d=<uuid>.<token>`. The token is 256-bit, stored only as a SHA-256 hash, and compared in constant time.

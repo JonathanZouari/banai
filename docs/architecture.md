@@ -111,7 +111,7 @@ Voice was originally an excluded feature. It was added on request, following Ope
 | POST | `/api/designs` | create → `{designId, accessToken, revision}` |
 | GET | `/api/designs/{id}` | header `Authorization: Bearer <token>` → design |
 | PUT | `/api/designs/{id}` | token + `If-Match: revision` → optimistic save (409 on conflict) |
-| POST | `/api/render` | `{design, imagePngBase64}` → `{imageBase64, disclaimer}` (does not touch state) |
+| POST | `/api/render` | `{design, image, language}` → `{image, disclaimer}` (does not touch state; see §AI render) |
 
 CORS is restricted to the frontend origin for each environment. Rate limiting (slowapi) applies to `/chat` and `/render`.
 
@@ -200,3 +200,11 @@ After each milestone I'll report what was implemented, the files changed, the te
 - Creating Supabase projects if the Kindra org is on a paid plan (each project costs money).
 - Entering the OpenAI key (M5) and Supabase secret keys into Railway variables.
 - Any deploy to `production` or merge to `main` beyond the initial scaffold.
+
+## AI render (Phase 8, as built)
+
+- **Flow:** the dialog reads the committed design (never a pending proposal), renders the off-screen studio snapshot (`viewer/snapshot.js`, 1024×1536 JPEG) and posts `{design, image, language}` to `POST /api/render`.
+- **Server (`backend/app/api/render.py`):** caps the body (3 MB), validates the design with the domain engine, cleans the snapshot with `clean_snapshot` (PNG/JPEG, ≤ 2 MB, ≤ 2400 px, decoded and re-encoded), writes the prompt itself (`app/render/prompt.py`: fixed text plus dimensions, door type and catalog names; custom names never reach it) and calls OpenAI `images.edit`. It returns `{image: data URL, disclaimer}` with `Cache-Control: no-store`. Nothing is stored and the design is never changed.
+- **Model:** `OPENAI_IMAGE_MODEL` (default `gpt-image-2`) and `OPENAI_IMAGE_QUALITY` (`low | medium | high`, default `medium`), size `1024x1536`. `gpt-image-2` rejects `input_fidelity`; it is sent as `high` only to the `gpt-image-1` family.
+- **Limits (configurable constants):** 2 concurrent renders per worker (503 `BUSY`), 5 per client per 10 minutes and 60 per worker per hour (429 `RATE_LIMITED`), a 120 s upstream timeout. The client address is the last `X-Forwarded-For` entry only in `dev`/`production` (behind Railway). The limits are in memory and per process.
+- **API limitations:** about 25 s per image (measured 2026-10-28), a cost per call, and an illustrative result that can drift from the exact model. It is always labelled "Illustrative image, not the accurate 3D model". Upstream errors become 502 `RENDER_ERROR` without upstream text. `/api/health` reports `render` (true when an OpenAI key is set).

@@ -59,6 +59,12 @@ export const transcribe = (blob, language, fetchImpl = fetch) => request(
   { method: 'POST', headers: { 'Content-Type': blob.type.split(';')[0] || 'audio/webm' }, body: blob },
 );
 
+/**
+ * AI photoreal render: { design, image, language } -> { image: data URL, disclaimer }. `image` is the
+ * app's own studio snapshot of the committed design; the server writes the prompt and stores nothing.
+ */
+export const requestRender = (payload, fetchImpl = fetch) => postJson('/api/render', payload, fetchImpl);
+
 /** Text to speech: { text, language, signature } -> an audio/mpeg Blob (signature = the chat replySignature). */
 export async function fetchSpeech(payload, fetchImpl = fetch) {
   if (!API_BASE_URL) throw new Error('The API base URL is not configured');
