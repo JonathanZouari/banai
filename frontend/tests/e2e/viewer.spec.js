@@ -88,6 +88,20 @@ test.describe('camera focus on the selected part', () => {
     expect(await page.evaluate(() => JSON.stringify(window.__banai.store.getState().ui))).not.toMatch(/camera|target/);
   });
 
+  test('a click or a double click on the part during the move does not stop it or reset the view', async ({ page }) => {
+    await page.evaluate(() => window.__banai.store.setDoorsVisible(false));
+    const centre = await centreOf(page, 'shf_r1');
+    await clickComponent(page, 'shf_r1');
+    const point = await page.evaluate(() => window.__banai.viewer.screenPointOf('shf_r1'));
+    await page.mouse.click(point.x, point.y); // the same part again, mid-move: a press is not an orbit
+    await expect.poll(() => target(page)).toEqual(centre);
+    await page.evaluate(() => window.__banai.store.select(null));
+    await clickComponent(page, 'shf_l1');
+    const other = await page.evaluate(() => window.__banai.viewer.screenPointOf('shf_l1'));
+    await page.mouse.dblclick(other.x, other.y); // not the background, even as the part slides away
+    await expect.poll(() => target(page)).toEqual(await centreOf(page, 'shf_l1'));
+  });
+
   test('with reduced motion the camera jumps at once', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const jumped = await page.evaluate(() => {

@@ -78,13 +78,13 @@ export function createViewer(container, store) {
   };
 
   // --- Camera moves: eased in the render loop, or a jump when the user prefers reduced motion.
-  let move = null; // { from: { position, target }, to: { position, target }, start }
+  let move = null; // { from: { position, target }, to: { position, target }, start, focus }
   const applyPose = ({ position, target }) => {
     camera.position.copy(position);
     controls.target.copy(target);
     controls.update();
   };
-  const moveCamera = (to, { animate = true } = {}) => {
+  const moveCamera = (to, { animate = true, focus = false } = {}) => {
     // Settle any orbit momentum first, or it keeps coasting the camera off the requested pose.
     controls.enableDamping = false;
     controls.update();
@@ -94,7 +94,7 @@ export function createViewer(container, store) {
       applyPose(to);
       return;
     }
-    move = { from: { position: camera.position.clone(), target: controls.target.clone() }, to, start: performance.now() };
+    move = { from: { position: camera.position.clone(), target: controls.target.clone() }, to, start: performance.now(), focus };
   };
   const stepMove = (now) => {
     if (!move) return;
@@ -104,9 +104,21 @@ export function createViewer(container, store) {
     applyPose({ position: from.position.clone().lerp(to.position, k), target: from.target.clone().lerp(to.target, k) });
     if (t >= 1) move = null;
   };
-  // A manual orbit, pan or zoom takes over from a running move.
-  const onControlsStart = () => { move = null; };
-  controls.addEventListener('start', onControlsStart);
+  // A manual orbit, pan or zoom takes over from a running move. OrbitControls fires 'start' on any press, even a
+  // click, so only real input counts: a drag past the click tolerance (as picking.js) or the wheel.
+  const DRAG_PX = 5;
+  let press = null;
+  const onPressDown = (event) => { press = { x: event.clientX, y: event.clientY }; };
+  const onPressMove = (event) => {
+    if (!press || event.buttons === 0) return;
+    if (Math.hypot(event.clientX - press.x, event.clientY - press.y) > DRAG_PX) move = null;
+  };
+  const onPressUp = () => { press = null; };
+  const onWheel = () => { move = null; };
+  renderer.domElement.addEventListener('pointerdown', onPressDown);
+  renderer.domElement.addEventListener('pointermove', onPressMove);
+  window.addEventListener('pointerup', onPressUp);
+  renderer.domElement.addEventListener('wheel', onWheel, { passive: true });
 
   const fitCamera = (design, options) => moveCamera(overviewPose(design), options);
 
@@ -127,7 +139,7 @@ export function createViewer(container, store) {
     if (!centre) return;
     const target = move ? move.to.target : controls.target;
     const position = (move ? move.to.position : camera.position).clone().add(centre.clone().sub(target));
-    moveCamera({ position, target: centre });
+    moveCamera({ position, target: centre }, { focus: true });
   };
 
   const sync = (state) => {
@@ -177,7 +189,9 @@ export function createViewer(container, store) {
   // A double click on empty background (no wardrobe part under the pointer) returns to the overview.
   const raycaster = new THREE.Raycaster();
   const onDoubleClick = (event) => {
-    if (!group) return;
+    // While the camera eases to a part, the part slides from under the pointer: a double click on it is not one on
+    // the background. (A double click on the background selects nothing, so no focus move is running then.)
+    if (!group || move?.focus) return;
     const rect = renderer.domElement.getBoundingClientRect();
     const ndc = new THREE.Vector2(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
     raycaster.setFromCamera(ndc, camera);
@@ -213,7 +227,10 @@ export function createViewer(container, store) {
       unsubscribe();
       detachPicking();
       renderer.domElement.removeEventListener('dblclick', onDoubleClick);
-      controls.removeEventListener('start', onControlsStart);
+      renderer.domElement.removeEventListener('pointerdown', onPressDown);
+      renderer.domElement.removeEventListener('pointermove', onPressMove);
+      window.removeEventListener('pointerup', onPressUp);
+      renderer.domElement.removeEventListener('wheel', onWheel);
       resizeObserver.disconnect();
       if (group) disposeWardrobe(group);
       highlighter.dispose();
