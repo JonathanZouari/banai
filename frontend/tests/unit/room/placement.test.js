@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { applyOps } from '../../../src/domain/apply.js';
 import { FURNITURE } from '../../../src/room/catalog.js';
 import { insideRoom, overlaps, wardrobeFootprint } from '../../../src/room/layout.js';
-import { blocksView, doorwayEye, placeFurniture, PRESET_IDS, segmentHitsBox, wardrobeSamples } from '../../../src/room/placement.js';
+import { blocksView, DOORWAY_STEPS, doorwayEye, placeFurniture, PRESET_IDS, segmentHitsBox, wardrobeSamples } from '../../../src/room/placement.js';
 import { ROOM_DEFAULTS } from '../../../src/room/roomState.js';
 import { loadCatalog, loadDesign } from '../domain/helpers.js';
 
@@ -25,7 +25,7 @@ describe('furniture placement', () => {
     for (const { name, design, at, size, preset } of cases) {
       const label = `${name}/${at}/${size.width}x${size.length}/${preset}`;
       const { placed, box } = placeFurniture(design, room(at, size), preset);
-      const eye = doorwayEye(box);
+      const eyes = DOORWAY_STEPS.map((back) => doorwayEye(box, back));
       const samples = wardrobeSamples(design);
       const doorway = { x0: box.door.x0, x1: box.door.x1, z0: box.zFront - 900, z1: box.zFront };
       for (const piece of placed) {
@@ -33,7 +33,7 @@ describe('furniture placement', () => {
         expect(insideRoom(piece.rect, box), `${label} ${piece.id} inside`).toBe(true);
         expect(overlaps(piece.rect, wardrobeFootprint(design)), `${label} ${piece.id} wardrobe`).toBe(false);
         if (underlay) continue;
-        expect(blocksView(piece.rect, height, eye, samples), `${label} ${piece.id} blocks the doorway view`).toBe(false);
+        eyes.forEach((eye) => expect(blocksView(piece.rect, height, eye, samples), `${label} ${piece.id} blocks the doorway view`).toBe(false));
         expect(overlaps(piece.rect, doorway), `${label} ${piece.id} doorway`).toBe(false);
         for (const other of placed) {
           if (other === piece || FURNITURE[other.kind].underlay) continue;

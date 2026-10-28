@@ -13,8 +13,11 @@ import { createMaterials } from './materials.js';
 import { attachPicking } from './picking.js';
 import { toM } from './units.js';
 import { createRoomScene } from '../room/roomScene.js';
+import { roomView } from '../room/views.js';
 
 const BACKGROUND = '#eceeec';
+const BASE_FOV = 40;
+const BASE_MAX_DISTANCE = 14;
 
 function createScene() {
   const scene = new THREE.Scene();
@@ -58,9 +61,9 @@ export function createViewer(container, store, { units, room = null } = {}) {
   container.appendChild(labels.domElement);
 
   const { scene, lights, grid } = createScene();
-  const camera = new THREE.PerspectiveCamera(40, 1, 0.05, 60);
+  const camera = new THREE.PerspectiveCamera(BASE_FOV, 1, 0.05, 60);
   const controls = new OrbitControls(camera, renderer.domElement);
-  Object.assign(controls, { enableDamping: true, minDistance: 0.6, maxDistance: 14, maxPolarAngle: Math.PI / 2 - 0.02 });
+  Object.assign(controls, { enableDamping: true, minDistance: 0.6, maxDistance: BASE_MAX_DISTANCE, maxPolarAngle: Math.PI / 2 - 0.02 });
 
   const materials = createMaterials(store.getState().catalog);
   const highlighter = createHighlighter(scene);
@@ -128,23 +131,44 @@ export function createViewer(container, store, { units, room = null } = {}) {
     const setup = room.get();
     const wasOn = rendered.room?.enabled === true;
     const box = roomScene.update(design, setup);
-    rendered = { ...rendered, room: setup };
-    if (box && (!wasOn || sizeChanged)) placeInRoom(design, box);
-    if (!box && wasOn) fitCamera(design);
+    // The room's layout (not its look): when it changes, the chosen view is framed again.
+    const layoutKey = JSON.stringify([setup.size, setup.wardrobeAt, setup.preset]);
+    const relayout = layoutKey !== rendered.roomLayout;
+    rendered = { ...rendered, room: setup, roomLayout: layoutKey };
+    if (box && !wasOn) showRoomView(setup.view, { animate: false });
+    else if (box && (sizeChanged || relayout)) showRoomView(setup.view);
+    if (!box && wasOn) {
+      flight.cancel();
+      camera.fov = BASE_FOV;
+      camera.updateProjectionMatrix();
+      controls.maxDistance = BASE_MAX_DISTANCE;
+      fitCamera(design);
+    }
   }
 
-  function placeInRoom(design, box) {
-    const { width, height, depth } = design.dimensions;
-    camera.position.set(toM((box.door.x0 + box.door.x1) / 2), 1.65, toM(box.zFront) - 0.3);
-    controls.target.set(toM(width / 2), toM(height) * 0.45, -toM(depth) / 2);
-    controls.update();
+  // Room views use the viewer's one camera flight (cameraFocus.js), which also eases the lens.
+  const toVector = ({ x, y, z }) => new THREE.Vector3(toM(x), toM(y), toM(z));
+
+  function showRoomView(view, { animate = true } = {}) {
+    const box = roomScene?.box;
+    if (!box) return;
+    const pose = roomView(view, { design: store.getState().design, box, placed: roomScene.furniture, aspect: camera.aspect });
+    const to = { position: toVector(pose.position), target: toVector(pose.target), fov: pose.fov };
+    controls.maxDistance = Math.max(BASE_MAX_DISTANCE, to.position.distanceTo(to.target) * 1.4);
+    flight.start(to, !animate || reducedMotion());
   }
 
+  // A panel over one side of the view (the Room panel) narrows the visible frame: the camera is
+  // framed for the uncovered part only (view offset), so nothing important hides behind it.
+  let inset = { left: 0, right: 0 };
   const resize = () => {
     const { clientWidth, clientHeight } = container;
     renderer.setSize(clientWidth, clientHeight);
     labels.setSize(clientWidth, clientHeight);
-    camera.aspect = clientWidth / Math.max(clientHeight, 1);
+    const visible = Math.max(clientWidth - inset.left - inset.right, clientWidth * 0.45);
+    camera.aspect = visible / Math.max(clientHeight, 1);
+    if (inset.left || inset.right) camera.setViewOffset(visible, clientHeight, -Math.min(inset.left, clientWidth - visible), 0, clientWidth, clientHeight);
+    else camera.clearViewOffset();
     camera.updateProjectionMatrix();
   };
   const resizeObserver = new ResizeObserver(resize);
@@ -180,6 +204,15 @@ export function createViewer(container, store, { units, room = null } = {}) {
     camera,
     controls,
     canvas: renderer.domElement,
+    /** Frame a room view ('doorway' | 'bed' | 'plan' | 'overview'); does nothing with the room off. */
+    showRoomView,
+    /** Pixels covered by a panel on each side of the view; the camera frames the rest. */
+    setFrameInset(next) {
+      if (next.left === inset.left && next.right === inset.right) return;
+      inset = { left: next.left, right: next.right };
+      resize();
+      if (room?.get().enabled) showRoomView(room.get().view, { animate: false });
+    },
     meshOf: (componentId) => group?.children.find((mesh) => mesh.userData.componentId === componentId) ?? null,
     /** Client (page) coordinates of a component's centre, for tests and tooling. */
     screenPointOf(componentId) {

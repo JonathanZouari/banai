@@ -14,8 +14,10 @@ const STEP = 50; // mm between candidate positions along a wall
 const EYE_HEIGHT = 1650;
 const DOOR_CLEAR = 900; // floor kept free inside the doorway
 
-/** Standing in the doorway, looking in: the doorway view's eye. */
-export const doorwayEye = (box) => ({ x: (box.door.x0 + box.door.x1) / 2, y: EYE_HEIGHT, z: box.zFront - 300 });
+/** Standing in the doorway, looking in: the doorway view's eye, `back` mm toward the threshold. */
+export const doorwayEye = (box, back = 0) => ({ x: (box.door.x0 + box.door.x1) / 2, y: EYE_HEIGHT, z: box.zFront - 300 + back });
+/** Every spot the doorway view may stand on (views.js steps back up to the threshold). */
+export const DOORWAY_STEPS = Object.freeze([0, 150, 300, 450]);
 
 /** Points on the wardrobe's front: 5 across, low / middle / high. */
 export function wardrobeSamples(design) {
@@ -147,7 +149,7 @@ function valid(kind, rect, ctx, tuckedUnder = null) {
   if (overlaps(rect, ctx.doorway)) return false;
   if (size.height > ctx.box.window.y0 && overlaps(rect, ctx.windowZone)) return false;
   if (ctx.avoidSwing && overlaps(rect, ctx.swing)) return false;
-  return !blocksView(rect, size.height, ctx.eye, ctx.samples);
+  return !ctx.eyes.some((eye) => blocksView(rect, size.height, eye, ctx.samples));
 }
 
 function candidates(box, kind, at, placed) {
@@ -190,7 +192,7 @@ export function placeFurniture(design, room, presetId) {
     doorway: { x0: box.door.x0 - 100, x1: box.door.x1 + 100, z0: box.zFront - DOOR_CLEAR, z1: box.zFront },
     windowZone: { x0: box.x1 - 700, x1: box.x1, z0: box.window.z0 - 100, z1: box.window.z1 + 100 },
     swing: { x0: 0, x1: design.dimensions.width, z0: 0, z1: WARDROBE_FRONT + widestDoor },
-    eye: doorwayEye(box),
+    eyes: DOORWAY_STEPS.map((back) => doorwayEye(box, back)),
     samples: wardrobeSamples(design),
   };
   const placed = [];

@@ -64,6 +64,35 @@ describe('createFlight', () => {
     expect(flight.active).toBe(false);
   });
 
+  it('compartment focus is unchanged: the same ease-out timing, and the lens is never touched', () => {
+    const { camera, controls, pose, flight } = setup();
+    let projections = 0;
+    Object.assign(camera, { fov: 40, updateProjectionMatrix: () => { projections += 1; } });
+    flight.start(pose, false);
+    flight.step(0);
+    flight.step(FOCUS_MS / 2);
+    expect(controls.target.x).toBeCloseTo(2 * (1 - 0.5 ** 3), 12); // easeOut at half time
+    flight.step(FOCUS_MS);
+    flight.start({ position: new THREE.Vector3(0, 0, 5), target: new THREE.Vector3(0, 0, 0) }, true);
+    expect(camera.fov).toBe(40);
+    expect(projections).toBe(0);
+  });
+
+  it('a pose with a field of view (the room views) eases the lens too, or jumps to it', () => {
+    const { camera, pose, flight } = setup();
+    let projections = 0;
+    Object.assign(camera, { fov: 40, updateProjectionMatrix: () => { projections += 1; } });
+    flight.start({ ...pose, fov: 50 }, false);
+    flight.step(0);
+    flight.step(FOCUS_MS / 2);
+    expect(camera.fov).toBeCloseTo(40 + 10 * (1 - 0.5 ** 3), 9);
+    flight.step(FOCUS_MS);
+    expect(camera.fov).toBe(50);
+    expect(projections).toBeGreaterThan(0);
+    flight.start({ ...pose, fov: 42 }, true);
+    expect(camera.fov).toBe(42);
+  });
+
   it('cancel stops the move where it is', () => {
     const { controls, pose, flight } = setup();
     flight.start(pose, false);

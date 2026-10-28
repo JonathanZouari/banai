@@ -74,5 +74,6 @@ describe('the room is decoration only', () => {
     roomScene.frame(camera);
     expect(visible()).toEqual({ back: true, left: true, right: false, front: false });
     expect(scene.getObjectByName('ceiling').visible).toBe(false);
+    expect(scene.getObjectByName('window-view').visible).toBe(false); // never beside the room from outside
   });
 });

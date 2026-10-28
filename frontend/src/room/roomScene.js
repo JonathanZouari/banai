@@ -133,6 +133,7 @@ function buildRoom(design, room, look, textures) {
   const view = plane(materials.view, wb - wa + 3.2, 3.2);
   view.position.set((wa + wb) / 2, (wy0 + wy1) / 2 + 0.3, -1.4);
   view.rotation.y = 0; // the wall's frame: +z is inward, so the view faces into the room from outside
+  view.name = 'window-view';
   right.add(view);
 
   // Front wall with the doorway (architrave) and a glimpse of the corridor behind it.
@@ -183,7 +184,7 @@ function buildRoom(design, room, look, textures) {
     group.add(soft);
   });
 
-  return { group, walls, ceiling, box, materials, furniture: placed };
+  return { group, walls, ceiling, view, box, materials, furniture: placed };
 }
 
 /** All geometries and materials of a group (textures are owned and disposed separately). */
@@ -288,8 +289,11 @@ export function createRoomScene({ scene, lights, grid }) {
         wall.visible = (p.x - point.x) * inward.x + (p.z - point.z) * inward.z > 0;
       });
       const { box } = built;
-      const inside = p.x > m(box.x0) && p.x < m(box.x1) && p.z > m(box.zBack) && p.z < m(box.zFront);
+      // Inside, or standing in the doorway (the threshold view): the ceiling stays.
+      const inside = p.x > m(box.x0) && p.x < m(box.x1) && p.z > m(box.zBack) && p.z < m(box.zFront) + 0.6;
       built.ceiling.visible = inside && p.y < m(box.height);
+      // The landscape is only ever seen through the window, never beside the room from outside.
+      built.view.visible = built.ceiling.visible;
     },
     get group() {
       return built?.group ?? null;

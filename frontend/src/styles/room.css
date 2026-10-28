@@ -52,6 +52,7 @@
 .room-panel--collapsed .room-panel__collapse .icon { transform: rotate(180deg); }
 .room-panel__body { overflow-y: auto; padding: 0 var(--space-4) var(--space-4); }
 .room-panel__note { margin: 0 0 var(--space-2); color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-small); }
+.room-panel__note.room-panel__purpose { margin: var(--space-2) 0 0; }
 .room-panel__notice { margin: var(--space-2) 0 0; padding: var(--space-1) var(--space-2); border-radius: var(--md-sys-shape-small); background: #fff6dc; color: #3d2f00; font: var(--md-sys-typescale-body-small); }
 .room-panel__section { margin: var(--space-3) 0 var(--space-2); color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-label-small); letter-spacing: 0.04em; text-transform: uppercase; }
 

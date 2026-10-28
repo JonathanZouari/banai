@@ -3,6 +3,7 @@
 // template thumbnails. The setup is remembered per browser (best effort) and validated on read.
 
 import { PRESET_IDS } from './placement.js';
+import { VIEW_IDS } from './views.js';
 
 const STORAGE_KEY = 'banai.room.v1';
 
@@ -12,6 +13,7 @@ export const ROOM_DEFAULTS = Object.freeze({
   size: Object.freeze({ width: 4000, length: 4400, height: 2600 }),
   wardrobeAt: 'centre',
   preset: 'couple',
+  view: 'doorway',
   hintSeen: false,
 });
 export const ROOM_SIZE_LIMITS = Object.freeze({ width: [2000, 8000], length: [2000, 8000], height: [2200, 4000] });
@@ -31,6 +33,7 @@ export function sanitizeRoom(raw) {
     ])),
     wardrobeAt: WARDROBE_POSITIONS.includes(room.wardrobeAt) ? room.wardrobeAt : ROOM_DEFAULTS.wardrobeAt,
     preset: PRESET_IDS.includes(room.preset) ? room.preset : ROOM_DEFAULTS.preset,
+    view: VIEW_IDS.includes(room.view) ? room.view : ROOM_DEFAULTS.view,
     hintSeen: room.hintSeen === true,
   };
 }

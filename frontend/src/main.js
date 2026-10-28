@@ -133,6 +133,11 @@ async function boot() {
     roomState,
     language,
     getDesign: () => store.getState().design,
+    onView: (view) => {
+      roomState.set({ view });
+      viewer.showRoomView(view);
+    },
+    onInset: (inset) => viewer.setFrameInset(inset),
   });
   let roomSizeKey = '';
   store.subscribe(({ design }) => {

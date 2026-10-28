@@ -7,6 +7,7 @@ import { icon } from '../ui/icons.js';
 import { minimumRoom, roomBox } from './layout.js';
 import { placeFurniture, PRESET_IDS } from './placement.js';
 import { ROOM_SIZE_LIMITS, WARDROBE_POSITIONS } from './roomState.js';
+import { VIEW_IDS } from './views.js';
 
 const toCm = (mm) => Math.round(mm / 10);
 
@@ -32,8 +33,10 @@ function segmented(name, options, current, onPick) {
 /**
  * buttonHost: where the "View in a room" button goes (top bar); viewerHost: the 3D view.
  * getDesign(): the committed design (read only: the room adapts to its size).
+ * onView(view): frame a camera view (also when it is already the chosen one).
+ * onInset({ left, right }): pixels of the view the open panel covers (the camera frames the rest).
  */
-export function mountRoomControls({ buttonHost, viewerHost, roomState, language, getDesign }) {
+export function mountRoomControls({ buttonHost, viewerHost, roomState, language, getDesign, onView = () => {}, onInset = () => {} }) {
   const button = el('button', { className: 'btn btn--tonal room-button', attrs: { type: 'button' } });
   button.dataset.testid = 'room-toggle';
   button.addEventListener('click', () => {
@@ -146,6 +149,9 @@ export function mountRoomControls({ buttonHost, viewerHost, roomState, language,
       el('h3', { className: 'room-panel__section', text: s.style }),
       segmented(s.style, PRESET_IDS.map((p) => [p, s.presets[p]]), room.preset, (value) => roomState.set({ preset: value })),
       ...notFitting(design, room, s),
+      el('h3', { className: 'room-panel__section', text: s.view }),
+      segmented(s.view, VIEW_IDS.map((v) => [v, s.views[v]]), room.view, (value) => onView(value)),
+      el('p', { className: 'room-panel__note room-panel__purpose', text: s.viewPurpose[room.view] }),
     ]);
     body.hidden = collapsed;
     panel.setAttribute('dir', t.dir);
@@ -162,6 +168,11 @@ export function mountRoomControls({ buttonHost, viewerHost, roomState, language,
   }
 
   function render() {
+    renderNow();
+    reportInset();
+  }
+
+  function renderNow() {
     const t = language.strings();
     // Keep keyboard focus on the same control across a re-render.
     const active = panel.contains(document.activeElement) ? document.activeElement : null;
@@ -178,6 +189,14 @@ export function mountRoomControls({ buttonHost, viewerHost, roomState, language,
     }
   }
 
+  // Tell the viewer how much of it the panel covers (a bottom sheet on a phone covers no side).
+  const reportInset = () => {
+    const covered = !panel.hidden && !collapsed && getComputedStyle(panel).position === 'absolute' && panel.offsetWidth < viewerHost.clientWidth * 0.6;
+    const width = covered ? panel.offsetWidth + 12 : 0;
+    const rtl = panel.getAttribute('dir') === 'rtl';
+    onInset({ left: rtl ? width : 0, right: rtl ? 0 : width });
+  };
+  new ResizeObserver(reportInset).observe(viewerHost);
   roomState.subscribe(render);
   language.subscribe(render);
   render();

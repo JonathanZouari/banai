@@ -29,18 +29,26 @@ export function compartmentPose(design, compartmentId, current) {
   return { target, position: current.position.clone().add(target.clone().sub(current.target)) };
 }
 
-/** A timed move of the camera between two poses. `reduced` makes it a jump. */
+/**
+ * A timed move of the camera between two poses. `reduced` makes it a jump. A pose may also carry a
+ * `fov` (degrees, e.g. the room views): the lens then eases with it; without one it is untouched.
+ */
 export function createFlight(camera, controls) {
   let move = null;
+  const setFov = (fov) => {
+    camera.fov = fov;
+    camera.updateProjectionMatrix();
+  };
   return {
     start(pose, reduced) {
       if (reduced) {
         move = null;
         camera.position.copy(pose.position);
         controls.target.copy(pose.target);
+        if (pose.fov !== undefined) setFov(pose.fov);
         return;
       }
-      move = { from: { position: camera.position.clone(), target: controls.target.clone() }, to: pose, begun: null };
+      move = { from: { position: camera.position.clone(), target: controls.target.clone(), fov: camera.fov }, to: pose, begun: null };
     },
     cancel() { move = null; },
     /** Call once per frame with the frame's timestamp (ms). */
@@ -51,6 +59,7 @@ export function createFlight(camera, controls) {
       const eased = easeOut(progress);
       camera.position.lerpVectors(move.from.position, move.to.position, eased);
       controls.target.lerpVectors(move.from.target, move.to.target, eased);
+      if (move.to.fov !== undefined) setFov(move.from.fov + (move.to.fov - move.from.fov) * eased);
       if (progress === 1) move = null;
     },
     get active() { return move !== null; },
