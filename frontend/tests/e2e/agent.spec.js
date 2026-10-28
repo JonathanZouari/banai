@@ -200,6 +200,38 @@ test.describe('AI designer (agent connected)', () => {
     await expect(card).toContainText('Design changed. Ask the designer to re-propose.');
   });
 
+  test('hovering or focusing a change row outlines its part in 3D, without selecting it', async ({ page }) => {
+    await mockAgent(page, { ops: [{ op: 'remove_component', id: 'drw_r1' }] });
+    await openDesigner(page);
+    await page.getByTestId('chat-input').fill('remove the bottom drawer');
+    await page.getByTestId('chat-send').click();
+    const row = page.getByTestId('proposal-change');
+    const preview = () => page.evaluate(() => window.__banai.viewer.previewIds());
+    const state = () => page.evaluate(() => {
+      const { selection, revision, ui } = window.__banai.store.getState();
+      return { selection, revision, doorsVisible: ui.doorsVisible };
+    });
+    const before = await state();
+
+    await row.hover();
+    expect(await preview()).toEqual(['drw_r1']);
+    await page.getByTestId('chat-input').hover();
+    expect(await preview()).toEqual([]);
+
+    await row.focus();
+    await expect(row).toBeFocused();
+    expect(await preview()).toEqual(['drw_r1']);
+    await page.keyboard.press('Tab');
+    expect(await preview()).toEqual([]);
+    expect(await state()).toEqual(before); // no selection, no commit, doors untouched
+
+    // Cancel while the pointer is still on a row (the card closes under it): the outline goes too.
+    await row.hover();
+    await page.getByTestId('proposal-cancel').dispatchEvent('click');
+    await expect(page.getByTestId('proposal-card')).toHaveCount(0);
+    expect(await preview()).toEqual([]);
+  });
+
   test.describe('when the design changed on the server side', () => {
     test.use({ allowedConsoleErrors: [/status of 409 \(Conflict\)/] });
 

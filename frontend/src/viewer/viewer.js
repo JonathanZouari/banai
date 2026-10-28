@@ -10,6 +10,7 @@ import { createDimensions } from './dimensions.js';
 import { createHighlighter } from './highlight.js';
 import { createMaterials } from './materials.js';
 import { attachPicking } from './picking.js';
+import { resolveSelection } from '../state/store.js';
 import { toM } from './units.js';
 
 const BACKGROUND = '#eceeec';
@@ -60,6 +61,8 @@ export function createViewer(container, store) {
 
   const materials = createMaterials(store.getState().catalog);
   const highlighter = createHighlighter(scene);
+  const previewer = createHighlighter(scene, { fill: true });
+  let previewIds = [];
   const dimensions = createDimensions(scene);
   let group = null;
   let rendered = { design: null, doorsVisible: null, selection: undefined, dimsKey: null };
@@ -88,6 +91,8 @@ export function createViewer(container, store) {
       const dimsKey = `${width}x${height}x${depth}`;
       if (dimsKey !== rendered.dimsKey) fitCamera(design);
       rendered = { ...rendered, design, doorsVisible: ui.doorsVisible, dimsKey };
+      previewIds = []; // a new design ends any preview (e.g. the proposal was confirmed or went stale)
+      previewer.show(group, design, []);
     }
     if (geometryChanged || selection !== rendered.selection) {
       highlighter.update(group, design, selection);
@@ -127,6 +132,16 @@ export function createViewer(container, store) {
     camera,
     controls,
     canvas: renderer.domElement,
+    /**
+     * Tint and outline the parts a proposed change affects, e.g. while a change row is hovered or
+     * focused. Read-only: the store, the selection and the doors toggle are never touched.
+     */
+    preview(ids) {
+      const { design } = store.getState();
+      previewIds = ids.map((id) => resolveSelection(design, id)).filter(Boolean);
+      previewer.show(group, design, previewIds);
+    },
+    previewIds: () => previewIds.map((s) => s.id),
     meshOf: (componentId) => group?.children.find((mesh) => mesh.userData.componentId === componentId) ?? null,
     /** Client (page) coordinates of a component's centre, for tests and tooling. */
     screenPointOf(componentId) {
@@ -143,6 +158,7 @@ export function createViewer(container, store) {
       resizeObserver.disconnect();
       if (group) disposeWardrobe(group);
       highlighter.dispose();
+      previewer.dispose();
       dimensions.dispose();
       materials.dispose();
       controls.dispose();

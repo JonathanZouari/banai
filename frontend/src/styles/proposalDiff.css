@@ -67,3 +67,8 @@
 @media (prefers-reduced-motion: reduce) {
   .diff__row { animation: none; }
 }
+
+/* Hover or focus a row: its parts are tinted and outlined in the 3D view. */
+.diff__row--focusable { cursor: default; transition: background 160ms ease; }
+.diff__row--focusable:hover, .diff__row--focusable:focus-visible { background: var(--md-sys-color-surface-container-low); }
+.diff__row--focusable:focus-visible { outline: var(--focus-outline); outline-offset: -2px; }

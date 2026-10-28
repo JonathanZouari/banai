@@ -1,7 +1,8 @@
 // "What will change": the computed diff as grouped rows (Wardrobe, Compartment N, Doors). Each row
 // shows an icon badge (+ / − / ↻) and text, so colour never carries the meaning alone. Screen
 // readers get one plain sentence per row; the visual part (arrows, struck values) is hidden from them.
-// Long lists show the first few rows and a "+ N more changes" toggle.
+// Long lists show the first few rows and a "+ N more changes" toggle. With `preview`, hovering or
+// focusing a row outlines the parts it affects in 3D (viewer.preview: read-only, no selection).
 import { el } from '../editor/fields.js';
 import { icon } from '../ui/icons.js';
 import { groupChanges } from '../domain/diff.js';
@@ -12,7 +13,7 @@ export const VISIBLE_CHANGES = 5;
 const BADGE = Object.freeze({ added: 'plus', removed: 'minus', changed: 'changed', moved: 'changed' });
 let listCount = 0;
 
-function renderRow(change, text) {
+function renderRow(change, text, preview) {
   const body = [el('span', { className: 'diff__label', text: text.label })];
   if (text.after !== undefined) {
     const arrow = icon('arrow', { size: 16 });
@@ -30,11 +31,21 @@ function renderRow(change, text) {
   ]);
   row.dataset.testid = 'proposal-change';
   row.dataset.type = change.type;
+  if (preview && change.focus.length) {
+    row.tabIndex = 0;
+    row.classList.add('diff__row--focusable');
+    const show = () => preview(change.focus);
+    const hide = () => preview([]);
+    row.addEventListener('mouseenter', show);
+    row.addEventListener('focus', show);
+    row.addEventListener('mouseleave', hide);
+    row.addEventListener('blur', hide);
+  }
   return row;
 }
 
 /** Returns { element, rows: [{ row, change }] }. `language` is the card's language. */
-export function renderChangeList(changes, { language, catalog }) {
+export function renderChangeList(changes, { language, catalog, preview = null }) {
   const s = diffStringsFor(language);
   if (changes.length === 0) {
     return { element: el('p', { className: 'diff__none', text: s.none }), rows: [] };
@@ -45,7 +56,7 @@ export function renderChangeList(changes, { language, catalog }) {
   const groups = groupChanges(changes).map(({ group, changes: items }, gi) => {
     const labelId = `${listId}-g${gi}`;
     const groupRows = items.map((change) => {
-      const row = renderRow(change, describeChange(change, language, catalog));
+      const row = renderRow(change, describeChange(change, language, catalog), preview);
       rows.push({ row, change });
       return row;
     });

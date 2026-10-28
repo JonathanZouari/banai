@@ -21,11 +21,12 @@ function agentRows(proposal) {
 
 export function renderProposalCard(proposal, status, { onConfirm, onCancel, strings: t = STRINGS.he, diff = null }) {
   const stale = status === 'stale';
+  diff?.preview?.([]); // a new card starts with no 3D preview
   const changes = stale || !diff ? null : diff.changesFor(proposal);
   let list = null;
   let count = 0;
   if (changes) {
-    list = renderChangeList(changes, { language: proposal.language ?? languageOf(t), catalog: diff.catalog() }).element;
+    list = renderChangeList(changes, { language: proposal.language ?? languageOf(t), catalog: diff.catalog(), preview: diff.preview }).element;
     count = changes.length;
   } else if (!stale) {
     list = agentRows(proposal);
@@ -35,11 +36,19 @@ export function renderProposalCard(proposal, status, { onConfirm, onCancel, stri
   const confirm = el('button', { className: 'btn btn--primary', attrs: { type: 'button' } }, [icon('check', { size: 18 }), document.createTextNode(` ${t.confirm}`)]);
   confirm.dataset.testid = 'proposal-confirm';
   confirm.disabled = stale;
-  confirm.addEventListener('click', () => onConfirm(proposal));
+  // The card may close under the pointer (no mouseleave), so both actions end any 3D preview first.
+  const endPreview = () => diff?.preview?.([]);
+  confirm.addEventListener('click', () => {
+    endPreview();
+    onConfirm(proposal);
+  });
 
   const cancel = el('button', { className: 'btn', text: t.cancel, attrs: { type: 'button' } });
   cancel.dataset.testid = 'proposal-cancel';
-  cancel.addEventListener('click', () => onCancel(proposal));
+  cancel.addEventListener('click', () => {
+    endPreview();
+    onCancel(proposal);
+  });
 
   const card = el('section', { className: `proposal${stale ? ' proposal--stale' : ''}`, attrs: { 'aria-label': t.proposalHeading, dir: t.dir } }, [
     el('header', { className: 'proposal__header' }, [
