@@ -1,0 +1,50 @@
+[
+  {
+    "name": "add a pull-down rail (wardrobe lift)",
+    "base": "two",
+    "ops": [{ "op": "add_rail", "compartmentId": "cmp_a", "y": 1600, "id": "rail_p", "type": "pulldown" }],
+    "expect": { "match": { "compartments": [{ "rails": [{ "id": "rail_p", "y": 1600, "type": "pulldown" }] }, {}] } }
+  },
+  {
+    "name": "a rail added without a type is fixed",
+    "base": "two",
+    "ops": [{ "op": "add_rail", "compartmentId": "cmp_a", "y": 1600, "id": "rail_f" }],
+    "expect": { "match": { "compartments": [{ "rails": [{ "id": "rail_f", "y": 1600, "type": "fixed" }] }, {}] } }
+  },
+  {
+    "name": "switch a rail to pull-down without moving it",
+    "base": "two",
+    "ops": [{ "op": "modify_rail", "id": "rail_1", "type": "pulldown" }],
+    "expect": { "match": { "compartments": [{}, { "rails": [{ "id": "rail_1", "y": 1700, "type": "pulldown" }] }] } }
+  },
+  {
+    "name": "moving a rail keeps its type",
+    "base": "two",
+    "ops": [
+      { "op": "modify_rail", "id": "rail_1", "type": "pulldown" },
+      { "op": "modify_rail", "id": "rail_1", "y": 1500 }
+    ],
+    "expect": { "match": { "compartments": [{}, { "rails": [{ "id": "rail_1", "y": 1500, "type": "pulldown" }] }] } }
+  },
+  {
+    "name": "modify_rail needs y or type",
+    "base": "two",
+    "ops": [{ "op": "modify_rail", "id": "rail_1" }],
+    "expect": { "error": { "code": "INVALID_OP", "path": "ops[0]" } }
+  },
+  {
+    "name": "unknown rail type is a schema error",
+    "base": "two",
+    "ops": [{ "op": "add_rail", "compartmentId": "cmp_a", "y": 1600, "type": "motorised" }],
+    "expect": { "error": { "code": "SCHEMA_INVALID", "path": "ops[0]" } }
+  },
+  {
+    "name": "a pull-down rail still may not sit inside a shelf",
+    "base": "two",
+    "ops": [
+      { "op": "add_shelf", "compartmentId": "cmp_a", "y": 1590, "id": "shf_x" },
+      { "op": "add_rail", "compartmentId": "cmp_a", "y": 1600, "type": "pulldown", "id": "rail_x" }
+    ],
+    "expect": { "error": { "code": "OVERLAP", "path": "compartments[0].rails[0]" } }
+  }
+]

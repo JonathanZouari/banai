@@ -38,7 +38,12 @@ function handle(x, frontZ, panelY, panelHeight, materials) {
   }, 'handle');
 }
 
-function buildHinged(design, frame, materials, { t, gap, y, height, materialOf }) {
+function withOpening(objects, opening) {
+  objects.forEach((object) => { object.userData.opening = opening; });
+  return objects;
+}
+
+function buildHinged(design, frame, materials, { t, gap, y, height, faceOf }) {
   const rangeOf = new Map(design.compartments.map((c, i) => [c.id, frame.ranges[i]]));
   return design.doors.items.flatMap((door) => {
     const x0 = rangeOf.get(door.compartmentIds[0])[0];
@@ -46,16 +51,20 @@ function buildHinged(design, frame, materials, { t, gap, y, height, materialOf }
     const panel = box({
       size: [x1 - x0 - 2 * gap, height, t],
       center: [(x0 + x1) / 2, y, t / 2],
-      material: materialOf(door),
+      material: faceOf(door, x1 - x0 - 2 * gap, height),
       userData: { componentId: door.id, kind: 'door', hingeSide: door.hingeSide },
     });
     // The handle sits on the free edge, opposite the hinge.
     const freeEdgeX = door.hingeSide === 'right' ? x0 + gap + VISUAL.handleInset : x1 - gap - VISUAL.handleInset;
-    return [panel, outline(panel, materials), handle(freeEdgeX, t, y, height, materials)];
+    // "Doors open" (view only): swing outward around the hinge edge on the panel's back face.
+    const opening = door.hingeSide === 'right'
+      ? { type: 'hinge', pivot: [x1 - gap, 0], sign: 1 }
+      : { type: 'hinge', pivot: [x0 + gap, 0], sign: -1 };
+    return withOpening([panel, outline(panel, materials), handle(freeEdgeX, t, y, height, materials)], opening);
   });
 }
 
-function buildSliding(design, frame, materials, { t, gap, y, height, materialOf }) {
+function buildSliding(design, frame, materials, { t, gap, y, height, faceOf }) {
   const count = design.doors.items.length;
   const overlap = count > 1 ? VISUAL.slidingOverlap : 0;
   const panelWidth = (frame.innerWidth + (count - 1) * overlap) / count;
@@ -71,7 +80,7 @@ function buildSliding(design, frame, materials, { t, gap, y, height, materialOf 
     const panel = box({
       size: [panelWidth, height, t],
       center: [x0 + panelWidth / 2, y, z],
-      material: materialOf(door),
+      material: faceOf(door, panelWidth, height),
       userData: { componentId: door.id, kind: 'door' },
     });
     // The handle sits where it is not hidden by a panel in front. The last panel (and, for a
@@ -81,7 +90,10 @@ function buildSliding(design, frame, materials, { t, gap, y, height, materialOf 
     if (count === 1) handleX = x0 + panelWidth - inset;
     else if (isLast) handleX = x0 + (onFront ? 0 : overlap) + inset;
     else handleX = x0 + panelWidth - (onFront ? 0 : overlap) - inset;
-    return [panel, outline(panel, materials), handle(handleX, z + t / 2, y, height, materials)];
+    // "Doors open" (view only): every panel slides over the first one; panels sharing a track are
+    // nudged forward a little so their faces never coincide.
+    const opening = { type: 'slide', dx: -i * step, dz: Math.floor(i / 2) * 1.5 };
+    return withOpening([panel, outline(panel, materials), handle(handleX, z + t / 2, y, height, materials)], opening);
   });
 
   // Top and bottom rails span both tracks, like the aluminium frame of a sliding wardrobe.
@@ -97,14 +109,28 @@ function buildSliding(design, frame, materials, { t, gap, y, height, materialOf 
   return [...parts, railBox(top, 'rail-top'), railBox(bottom, 'rail-bottom')];
 }
 
-export function buildDoors(design, frame, materials) {
+// BoxGeometry material groups: +x, -x, +y, -y, +z (front), -z.
+const FRONT_FACE = 4;
+
+export function buildDoors(design, frame, materials, printFor = null) {
   const { doors } = design;
+  const materialOf = (door) => materials.forAppearance(door.appearance ?? doors.appearance);
+  /** The panel material: the door finish, with the printed image on the front face if any. */
+  const faceOf = (door, width, height) => {
+    const base = materialOf(door);
+    const print = printFor?.(door.id, width, height, base);
+    if (!print) return base;
+    const faces = Array(6).fill(base);
+    faces[FRONT_FACE] = print;
+    return faces;
+  };
   const context = {
+    faceOf,
     t: VISUAL.doorThickness,
     gap: VISUAL.doorGap,
     y: frame.panel + frame.innerHeight / 2,
     height: frame.innerHeight - 2 * VISUAL.doorGap,
-    materialOf: (door) => materials.forAppearance(door.appearance ?? doors.appearance),
+    materialOf,
   };
   if (doors.type === 'hinged') return buildHinged(design, frame, materials, context);
   if (doors.type === 'sliding') return buildSliding(design, frame, materials, context);

@@ -29,7 +29,7 @@ Both engines must behave identically. `shared/fixtures/ops/*.json` is run by bot
     { "id": "cmp_…", "width": 643,
       "shelves": [{ "id": "shf_…", "y": 400, "thickness": 18, "appearance": Appearance|null }],
       "drawers": [{ "id": "drw_…", "y": 0, "height": 200, "appearance": Appearance|null }],
-      "rails":   [{ "id": "rail_…", "y": 1900 }] }
+      "rails":   [{ "id": "rail_…", "y": 1900, "type": "fixed|pulldown" }] }
   ],
   "partitions": [{ "id": "prt_…", "thickness": 18 }],   // partitions[i] sits between compartments i and i+1
   "doors": { "type": "hinged|sliding|none", "appearance": Appearance,
@@ -89,7 +89,7 @@ These are data and rendering-safety checks. **They are not manufacturing or feas
 | `modify_partition` | partitionId, position?, thickness? | Thickness is taken from the right neighbour, then the partition moves to the interior x `position`. Only the two neighbours change. |
 | `add_shelf` / `modify_shelf` | compartmentId, y, thickness? (default 18), id? / id, y?, thickness? | |
 | `add_drawer` / `modify_drawer` | compartmentId, y, height, id? / id, y?, height? | |
-| `add_rail` / `modify_rail` | compartmentId, y, id? / id, y | |
+| `add_rail` / `modify_rail` | compartmentId, y, id?, type? / id, y?, type? | `type` defaults to `fixed`. `pulldown` is a pull-down wardrobe lift: the rail swings down and out. A design saved without `type` loads as `fixed`. `modify_rail` needs `y` or `type`, otherwise `INVALID_OP`. The checks are the same as for any rail (bounds, not inside a shelf or drawer); there is no feasibility rule for lifts. |
 | `set_material` | target (`carcass`, `doors`, or a door/shelf/drawer id), material?, color?, finish?, clear? | Partial appearance update. An item override starts from the inherited appearance. `clear` removes an override. Covers both "change material" and "change color". |
 | `remove_component` | id | See the removal rules below. |
 

@@ -44,12 +44,15 @@ function modifyDrawer(draft, op, path) {
 
 function addRail(draft, op, path) {
   const index = compartmentIndex(draft, op.compartmentId, `${path}.compartmentId`);
-  draft.compartments[index].rails.push({ id: op.id || ids.newId(ids.RAIL), y: op.y });
+  draft.compartments[index].rails.push({ id: op.id || ids.newId(ids.RAIL), y: op.y, type: op.type ?? 'fixed' });
   return draft;
 }
 
 function modifyRail(draft, op, path) {
-  findItem(draft, 'rails', op.id, `${path}.id`).y = op.y;
+  requireAny(path, op.y, op.type);
+  const rail = findItem(draft, 'rails', op.id, `${path}.id`);
+  if (isSet(op.y)) rail.y = op.y;
+  if (isSet(op.type)) rail.type = op.type;
   return draft;
 }
 
