@@ -1,6 +1,8 @@
 /* Start screen: AI entry cards and the template gallery (entry/startScreen.js). App tokens only.
    Desktop: a grid. Phone: a scroll-snap carousel with the next card peeking in; only it scrolls. */
 .start { overflow: hidden; }
+/* While the start screen is open, the editor behind it never scrolls (it is wider than a phone). */
+html:has(.start[open]) { overflow: hidden; }
 .start__bar { justify-content: space-between; }
 .start__main { justify-content: flex-start; overflow-x: hidden; overflow-y: auto; padding: 40px var(--space-5) var(--space-5); }
 .start__subtitle { max-width: 600px; }
