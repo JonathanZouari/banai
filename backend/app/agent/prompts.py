@@ -8,10 +8,19 @@ import json
 from app.agent.language import INSTRUCTION, Language
 from app.domain.defaults import LIMITS
 from app.domain.geometry import compartment_x_ranges, interior_height, interior_width
+from app.export.strings import CATALOG_NAMES
 
 
 def _compact(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+
+
+def _with_hebrew_names(catalog: dict) -> dict:
+    """The catalog with each entry's Hebrew name, so a Hebrew request ("ירוק זית") maps to its id
+    directly instead of relying on the model's own translation."""
+    names = CATALOG_NAMES["he"]
+    return {section: [{**entry, "nameHe": names[entry["id"]]} if entry["id"] in names else entry for entry in entries]
+            for section, entries in catalog.items()}
 
 
 def _free_spans(compartment: dict, height: int) -> list[list[int]]:
@@ -132,7 +141,7 @@ def build_system_prompt(design: dict, catalog: dict, language: Language = "he") 
     # Static text first and the per-turn data last, so the provider can cache the prefix.
     return (
         SYSTEM_PROMPT.replace("{limits}", limits)
-        + "\n## Catalog (data)\n" + _compact(catalog)
+        + "\n## Catalog (data)\n" + _compact(_with_hebrew_names(catalog))
         + "\n\n## Current design (data, the state your ops apply to)\n" + _compact(design)
         + "\n\n## Derived facts (mm; a new shelf/drawer must fit entirely inside one freeY gap)\n" + _compact(facts)
         + "\n\n## RESPONSE LANGUAGE\n" + INSTRUCTION[language]
