@@ -36,7 +36,8 @@ describe('describeChange', () => {
       { op: 'add_shelf', compartmentId: 'cmp_middle', y: 1200, id: 'shf_n2' },
     ];
     expect(texts(ops, 'en')).toEqual([{ label: '+2 shelves', detail: 'at 80 · 120 cm', spoken: '2 shelves added in compartment 2, at 80 cm and at 120 cm' }]);
-    expect(texts(ops, 'he')).toEqual([{ label: '+2 מדפים', detail: 'בגובה 80 · 120 ס״מ', spoken: 'נוספו 2 מדפים בתא 2, בגובה 80 ס״מ ובגובה 120 ס״מ' }]);
+    // The signed count is wrapped in LRI…PDI so it reads "+2" inside a right-to-left line.
+    expect(texts(ops, 'he')).toEqual([{ label: `${String.fromCharCode(0x2066)}+2${String.fromCharCode(0x2069)} מדפים`, detail: 'בגובה 80 · 120 ס״מ', spoken: 'נוספו 2 מדפים בתא 2, בגובה 80 ס״מ ובגובה 120 ס״מ' }]);
   });
 
   it('one added part reads naturally, and the verb agrees in Hebrew', () => {

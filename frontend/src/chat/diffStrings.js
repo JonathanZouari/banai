@@ -23,6 +23,8 @@ export const CATALOG_NAMES_HE = Object.freeze({
   gloss: 'מבריק',
 });
 
+const LRI = String.fromCharCode(0x2066); // left-to-right isolate
+const PDI = String.fromCharCode(0x2069); // pop directional isolate
 const cap = (text) => `${text[0].toUpperCase()}${text.slice(1)}`;
 // Hebrew "from X" / "to X": the letter joins a Hebrew word, and takes a maqaf before digits or Latin.
 const attach = (letter, text) => (/^[א-ת]/.test(text) ? `${letter}${text}` : `${letter}־${text}`);
@@ -77,7 +79,8 @@ export const DIFF_STRINGS = Object.freeze({
     },
     rowLabel: (type, count, part, from) => {
       if (type === 'moved') return count === 1 ? `${part.one} ${HE_VERBS.moved[part.gender]} מתא ${from}` : `${count} ${part.many} ${HE_VERBS.moved.many} מתא ${from}`;
-      if (count > 1) return `${type === 'added' ? '+' : '−'}${count} ${part.many}`;
+      // The signed count is isolated left to right, or a right-to-left line would show "2+".
+      if (count > 1) return `${LRI}${type === 'added' ? '+' : '−'}${count}${PDI} ${part.many}`;
       return `${part.one} ${HE_VERBS[type][part.gender]}`;
     },
     rowSpoken: (type, count, part, n, where, from) => {

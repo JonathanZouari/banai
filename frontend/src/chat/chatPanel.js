@@ -28,10 +28,13 @@ function languageSwitch(language, t) {
   return group;
 }
 
-/** onExport() opens the carpenter PDF dialog (Generate Style Profile); without it no note is shown. */
+/**
+ * onExport() opens the carpenter PDF dialog (Generate Style Profile); without it no note is shown.
+ * diff (proposalDiff.js) lists what a pending proposal would change; without it the agent's rows show.
+ */
 export function mountChat(container, {
   model, onConfirm, language = createLanguage(), speaker = createSpeaker(), readAloud = readAloudPreference(),
-  onExport = null,
+  onExport = null, diff = null,
 }) {
   container.classList.add('panel--chat');
   let draft = '';
@@ -275,6 +278,7 @@ export function mountChat(container, {
         onConfirm,
         onCancel: () => model.cancelProposal(),
         strings: proposal.language ? stringsFor(proposal.language) : t, // the card stays in its own language
+        diff,
       }));
     }
   }

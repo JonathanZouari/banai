@@ -5,7 +5,9 @@ import { expect, openDesigner, test } from './fixtures.js';
 
 const ok = (data) => ({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data }) });
 
-async function mockAgent(page, { applyStatus = 200 } = {}) {
+const SHALLOWER = [{ op: 'update_dimensions', depth: 550 }];
+
+async function mockAgent(page, { applyStatus = 200, ops = SHALLOWER } = {}) {
   const calls = { chat: [], apply: [] };
   await page.route('**/api/health', (route) => route.fulfill(ok({ status: 'ok', env: 'e2e', agent: true })));
   await page.route('**/api/chat', async (route) => {
@@ -17,7 +19,7 @@ async function mockAgent(page, { applyStatus = 200 } = {}) {
       reply: english ? 'Sure! Here is my proposal.' : 'אפשר! הנה ההצעה שלי.',
       proposal: {
         proposalId: 'prp_0123456789abcdef', baseRevision: body.revision, baseHash: 'a'.repeat(64),
-        ops: [{ op: 'update_dimensions', depth: 550 }], signature: 'b'.repeat(64),
+        ops, signature: 'b'.repeat(64),
         summary: 'Makes the wardrobe shallower.', changes: [{ title: 'Depth', detail: '60.0 cm to 55.0 cm' }],
       },
     }));
@@ -53,7 +55,11 @@ test.describe('AI designer (agent connected)', () => {
     const messages = page.getByTestId('chat-messages');
     await expect(messages).toContainText('אפשר! הנה ההצעה שלי.');
     await expect(page.getByTestId('chat-typing')).toBeHidden();
-    await expect(page.getByTestId('proposal-card')).toContainText('60.0 cm to 55.0 cm');
+    // What will change is computed from the design, not the agent's own row text.
+    const card = page.getByTestId('proposal-card');
+    await expect(card.getByTestId('proposal-change')).toHaveCount(1);
+    await expect(card.getByTestId('proposal-change')).toContainText('העומק משתנה מ־60 ס״מ ל־55 ס״מ');
+    await expect(card).not.toContainText('60.0 cm to 55.0 cm');
     expect(calls.chat[0].messages).toEqual([{ role: 'user', text: 'תעשה אותו פחות עמוק, 55 ס"מ' }]);
     expect(calls.chat[0].revision).toBe(1);
     expect(await depth(page)).toBe(600); // nothing applied before Confirm
@@ -83,7 +89,7 @@ test.describe('AI designer (agent connected)', () => {
 
     await page.getByTestId('chat-input').fill('make it shallower');
     await page.getByTestId('chat-send').click();
-    await expect(page.getByTestId('proposal-card')).toContainText('Proposed changes');
+    await expect(page.getByTestId('proposal-card')).toContainText('What will change');
     await expect(page.getByTestId('proposal-confirm')).toContainText('Confirm');
     expect(calls.chat[0].language).toBe('en');
 
@@ -129,13 +135,13 @@ test.describe('AI designer (agent connected)', () => {
     await send('תעשה אותו פחות עמוק');
     const hebrewTurn = await bubbles();
     expect(hebrewTurn.at(-1)).toEqual({ text: 'אפשר! הנה ההצעה שלי.', dir: 'rtl' });
-    await expect(page.getByTestId('proposal-card')).toContainText('שינויים מוצעים');
+    await expect(page.getByTestId('proposal-card')).toContainText('מה ישתנה');
 
     // 2. Switch to English: the Hebrew messages and the open Hebrew card stay exactly as they were.
     await page.getByTestId('chat-language-en').click();
     await expect(page.locator('#chat-panel')).toHaveAttribute('dir', 'ltr');
     expect(await bubbles()).toEqual(hebrewTurn);
-    await expect(page.getByTestId('proposal-card')).toContainText('שינויים מוצעים');
+    await expect(page.getByTestId('proposal-card')).toContainText('מה ישתנה');
     await expect(page.getByTestId('proposal-confirm')).toContainText('אישור');
     await expect(page.getByTestId('proposal-card')).toHaveAttribute('dir', 'rtl');
 
@@ -145,14 +151,53 @@ test.describe('AI designer (agent connected)', () => {
     const mixed = await bubbles();
     expect(mixed.slice(0, hebrewTurn.length)).toEqual(hebrewTurn);
     expect(mixed.at(-1)).toEqual({ text: 'Sure! Here is my proposal.', dir: 'ltr' });
-    await expect(page.getByTestId('proposal-card')).toContainText('Proposed changes');
+    await expect(page.getByTestId('proposal-card')).toContainText('What will change');
 
     // 4. Back to Hebrew: the English messages and the English card stay English.
     await page.getByTestId('chat-language-he').click();
     await expect(page.locator('#chat-panel')).toHaveAttribute('dir', 'rtl');
     expect(await bubbles()).toEqual(mixed);
-    await expect(page.getByTestId('proposal-card')).toContainText('Proposed changes');
+    await expect(page.getByTestId('proposal-card')).toContainText('What will change');
     await expect(page.getByTestId('proposal-confirm')).toContainText('Confirm');
+  });
+
+  test('the card lists what will change, grouped, with "+ N more"; a manual edit makes it stale', async ({ page }) => {
+    await mockAgent(page, {
+      ops: [
+        { op: 'update_dimensions', width: 2400 },
+        { op: 'add_shelf', compartmentId: 'cmp_middle', y: 800, id: 'shf_n1' },
+        { op: 'add_shelf', compartmentId: 'cmp_middle', y: 1200, id: 'shf_n2' },
+        { op: 'remove_component', id: 'drw_r1' },
+        { op: 'set_material', target: 'doors', color: { catalogId: 'natural_oak' } },
+      ],
+    });
+    await openDesigner(page);
+    await page.getByTestId('chat-input').fill('make it wider with more shelves');
+    await page.getByTestId('chat-send').click();
+
+    const card = page.getByTestId('proposal-card');
+    const rows = card.getByTestId('proposal-change');
+    await expect(card).toContainText('7 changes');
+    await expect(rows.filter({ visible: true })).toHaveCount(5);
+    await expect(card.locator('.diff__group-label')).toHaveText(['Wardrobe', 'Compartment 1', 'Compartment 2', 'Compartment 3']);
+    await expect(rows.first()).toContainText('Width changes from 200 cm to 240 cm'); // the screen-reader sentence
+    await expect(rows.first().locator('.diff__body')).toHaveAttribute('aria-hidden', 'true');
+
+    const more = card.getByTestId('proposal-more');
+    await expect(more).toHaveText('+ 2 more changes');
+    await more.press('Enter'); // keyboard
+    await expect(more).toHaveAttribute('aria-expanded', 'true');
+    await expect(rows.filter({ visible: true })).toHaveCount(7);
+    await expect(card.locator('.diff__row--removed')).toContainText('Drawer removed from compartment 3, at the bottom');
+    await expect(card.locator('.diff__row--added')).toContainText('+2 shelves');
+    await expect(card).toContainText('Door colour changes from White to Natural oak');
+    expect(await revision(page)).toBe(1); // nothing committed before Confirm
+
+    await page.getByTestId('dim-depth').fill('55');
+    await page.getByTestId('dim-depth').press('Enter');
+    await expect(page.getByTestId('proposal-confirm')).toBeDisabled();
+    await expect(card.getByTestId('proposal-change')).toHaveCount(0); // never an outdated diff
+    await expect(card).toContainText('Design changed. Ask the designer to re-propose.');
   });
 
   test.describe('when the design changed on the server side', () => {

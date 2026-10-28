@@ -37,6 +37,28 @@ test.describe('accessibility (axe, WCAG 2.1 AA)', () => {
     });
   }
 
+  for (const language of ['he', 'en']) {
+    test(`proposal card with "what will change" (${language})`, async ({ page }) => {
+      await openDesigner(page);
+      await page.evaluate((lang) => {
+        const { chat, store } = window.__banai;
+        chat.setProposal({
+          id: 'prp_a11y', baseRevision: store.getState().revision, summary: 'Wider, with more shelves', changes: [], language: lang,
+          signed: { ops: [
+            { op: 'update_dimensions', width: 2400 },
+            { op: 'add_shelf', compartmentId: 'cmp_middle', y: 800, id: 'shf_n1' },
+            { op: 'add_shelf', compartmentId: 'cmp_middle', y: 1200, id: 'shf_n2' },
+            { op: 'remove_component', id: 'drw_r1' },
+            { op: 'set_material', target: 'doors', color: { catalogId: 'natural_oak' } },
+          ] },
+        });
+      }, language);
+      await page.getByTestId('proposal-more').click();
+      await expect(page.getByTestId('proposal-change').filter({ visible: true })).toHaveCount(7);
+      await expectNoViolations(page);
+    });
+  }
+
   test('accessibility statement page', async ({ page }) => {
     await page.goto('/accessibility.html');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('הצהרת נגישות');
