@@ -1,0 +1,152 @@
+{
+  "schemaVersion": 1,
+  "units": "mm",
+  "dimensions": {
+    "width": 2400,
+    "height": 2400,
+    "depth": 600
+  },
+  "carcass": {
+    "panelThickness": 18,
+    "appearance": {
+      "material": {
+        "catalogId": "melamine"
+      },
+      "color": {
+        "catalogId": "white"
+      },
+      "finish": {
+        "catalogId": "matte"
+      }
+    }
+  },
+  "compartments": [
+    {
+      "id": "cmp_d_left",
+      "width": 776,
+      "shelves": [
+        {
+          "id": "shf_d_l1",
+          "y": 2000,
+          "thickness": 18,
+          "appearance": null
+        }
+      ],
+      "drawers": [],
+      "rails": [
+        {
+          "id": "rail_d_l1",
+          "y": 1900
+        }
+      ]
+    },
+    {
+      "id": "cmp_d_middle",
+      "width": 776,
+      "shelves": [
+        {
+          "id": "shf_d_m1",
+          "y": 600,
+          "thickness": 18,
+          "appearance": null
+        },
+        {
+          "id": "shf_d_m2",
+          "y": 1000,
+          "thickness": 18,
+          "appearance": null
+        },
+        {
+          "id": "shf_d_m3",
+          "y": 1400,
+          "thickness": 18,
+          "appearance": null
+        },
+        {
+          "id": "shf_d_m4",
+          "y": 1800,
+          "thickness": 18,
+          "appearance": null
+        }
+      ],
+      "drawers": [
+        {
+          "id": "drw_d_m1",
+          "y": 0,
+          "height": 200,
+          "appearance": null
+        },
+        {
+          "id": "drw_d_m2",
+          "y": 200,
+          "height": 200,
+          "appearance": null
+        }
+      ],
+      "rails": []
+    },
+    {
+      "id": "cmp_d_right",
+      "width": 776,
+      "shelves": [
+        {
+          "id": "shf_d_r1",
+          "y": 2000,
+          "thickness": 18,
+          "appearance": null
+        }
+      ],
+      "drawers": [],
+      "rails": [
+        {
+          "id": "rail_d_r1",
+          "y": 1900
+        }
+      ]
+    }
+  ],
+  "partitions": [
+    {
+      "id": "prt_d1",
+      "thickness": 18
+    },
+    {
+      "id": "prt_d2",
+      "thickness": 18
+    }
+  ],
+  "doors": {
+    "type": "sliding",
+    "appearance": {
+      "material": {
+        "catalogId": "melamine"
+      },
+      "color": {
+        "catalogId": "white"
+      },
+      "finish": {
+        "catalogId": "matte"
+      }
+    },
+    "items": [
+      {
+        "id": "dr_d_1",
+        "compartmentIds": [],
+        "hingeSide": null,
+        "appearance": null
+      },
+      {
+        "id": "dr_d_2",
+        "compartmentIds": [],
+        "hingeSide": null,
+        "appearance": null
+      },
+      {
+        "id": "dr_d_3",
+        "compartmentIds": [],
+        "hingeSide": null,
+        "appearance": null
+      }
+    ]
+  }
+}

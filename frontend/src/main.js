@@ -16,6 +16,7 @@ import { createChatModel } from './chat/chatModel.js';
 import { createLanguage } from './chat/i18n.js';
 import { mountChat } from './chat/chatPanel.js';
 import { mountStartScreen } from './entry/startScreen.js';
+import { buildTemplate } from './domain/presets.js';
 import { createSaveDialog } from './share/saveDialog.js';
 import { parseShareHash, shareHash } from './share/link.js';
 import { createExportDialog } from './export/exportDialog.js';
@@ -160,6 +161,18 @@ async function boot() {
 
   if (session) return; // reopened from a link: straight into the editor
   mountStartScreen({
+    onTemplate: (template) => {
+      // A template replaces the opening design (the revision moves up by one, like any committed change)
+      // and opens the editor, like the basic card.
+      try {
+        const { catalog, revision } = store.getState();
+        store.replaceDesign(buildTemplate(template.id, catalog), revision + 1);
+      } catch {
+        showError('That template could not be opened, so the basic wardrobe is shown instead.');
+        return false;
+      }
+      return true;
+    },
     onChoose: (entry) => {
       // All three entry points open the same editor; the chat ones focus the composer, the manual
       // one the properties panel, so keyboard focus never falls out of the page when the modal closes.

@@ -63,6 +63,14 @@ Styles follow Material Design 3 (`styles/tokens.css` holds the `--md-sys-*` toke
 Door hardware (handles, sliding rails, outlines) is built in `viewer/builders/doors.js` as non-selectable `kind: 'hardware'` objects. Picking refreshes world matrices before raycasting, so a click is correct even if it lands before the next rendered frame.
 In dev builds `window.__banai.chat` exposes the chat model, so a proposal can be shown for visual checks (`chat.setProposal({...})`).
 
+## Starting templates (`src/domain/presets.js`, `src/entry/startScreen.js`)
+
+Besides the basic wardrobe, the start screen offers three templates under the entry cards: **Kids' wardrobe 150 cm**, **Double wardrobe with sliding doors** and **Minimalist wardrobe**. Each is a list of ops like `BASIC_WARDROBE_OPS` (`KIDS_WARDROBE_OPS`, `DOUBLE_SLIDING_WARDROBE_OPS`, `MINIMALIST_WARDROBE_OPS`), registered in `TEMPLATES`, and built with `buildTemplate(id, catalog)`. Sizes and layouts are prototype placeholders, not business data.
+
+- Choosing a template replaces the opening design through `store.replaceDesign` (the revision goes up by one) and opens the editor like the basic card.
+- Parity: the lists are mirrored in `backend/app/domain/defaults.py` (`TEMPLATE_OPS`, `build_template`). Both sides must build exactly `shared/fixtures/designs/template_*.json` and pass `validateDesign` / `validate_design` (vitest `presets.test.js`, pytest `test_templates.py`). Adding a template means: add the ops on both sides, add the fixture, and the tests pick it up.
+- The three entry points in `entryPoints.js` are unchanged.
+
 ## Testing
 - **Unit:** `npm test` (vitest). This covers the domain engine and parity fixtures, the store, the API client, and the builders.
 - **E2E:** `npm run test:e2e` (Playwright, Chromium with SwiftShader WebGL). It starts uvicorn on :8010 and Vite on :5183. `window.__banai` exists only in dev builds (`import.meta.env.DEV`) and is stripped from production bundles.
