@@ -9,6 +9,7 @@ import {
   applyProposal, createSavedDesign, getCatalog, getDefaultDesign, getHealth, getSavedDesign, sendChat, updateSavedDesign,
 } from './api/client.js';
 import { createStore } from './state/store.js';
+import { templateDesign } from './domain/presets.js';
 import { mountPanel } from './editor/panel.js';
 import { createViewer } from './viewer/viewer.js';
 import { renderSnapshot } from './viewer/snapshot.js';
@@ -182,8 +183,14 @@ async function boot() {
   if (session) return; // reopened from a link: straight into the editor
   mountStartScreen({
     onChoose: (entry) => {
-      // All three entry points open the same editor; the chat ones focus the composer, the manual
-      // one the properties panel, so keyboard focus never falls out of the page when the modal closes.
+      // A template replaces the basic wardrobe loaded at boot. It is built and validated locally,
+      // and committed as the next revision like any other new design.
+      if (entry.templateId) {
+        const { catalog: validCatalog, revision } = store.getState();
+        store.replaceDesign(templateDesign(entry.templateId, validCatalog), revision + 1);
+      }
+      // All entry points open the same editor; the chat ones focus the composer, the manual ones
+      // the properties panel, so keyboard focus never falls out of the page when the modal closes.
       if (entry.focusesChat) chat.focus(entry.id);
       else document.getElementById('properties-panel').focus();
     },

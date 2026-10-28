@@ -178,6 +178,12 @@
 .entry-card__title { margin: var(--space-2) 0 0; font: var(--md-sys-typescale-title-medium); }
 .entry-card__text { flex: 1; margin: 0 0 var(--space-3); color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-medium); }
 .entry-card .btn { align-self: stretch; }
+/* Templates: a second, lighter row below the three entry points. */
+.start__templates { margin-top: var(--space-5); }
+.start__templates-title { margin: 0 0 var(--space-3); color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-title-small); }
+.entry-card--compact { padding: var(--space-4); background: var(--md-sys-color-surface-container-low); }
+.entry-card--compact .entry-card__title { margin: 0; }
+.entry-card--compact .entry-card__text { margin-bottom: var(--space-2); font: var(--md-sys-typescale-body-small); }
 
 /* Logo */
 .logo { display: inline-flex; align-items: center; gap: 10px; }
