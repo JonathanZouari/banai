@@ -105,6 +105,7 @@ export const STRINGS = Object.freeze({
       floors: Object.freeze({ wood: 'פרקט עץ', tiles: 'אריחים', carpet: 'שטיח מקיר לקיר' }),
       light: 'תאורה',
       lights: Object.freeze({ morning: 'בוקר', evening: 'ערב' }),
+      showSwing: 'הצגת המקום לפתיחת הדלתות',
       view: 'מבט',
       views: Object.freeze({ doorway: 'מהדלת', bed: 'מהמיטה', plan: 'תוכנית קומה', overview: 'כל החדר' }),
       viewPurpose: Object.freeze({
@@ -216,6 +217,7 @@ export const STRINGS = Object.freeze({
       floors: Object.freeze({ wood: 'Wood', tiles: 'Tiles', carpet: 'Carpet' }),
       light: 'Light',
       lights: Object.freeze({ morning: 'Morning', evening: 'Evening' }),
+      showSwing: 'Show where the doors open',
       view: 'View',
       views: Object.freeze({ doorway: 'From the doorway', bed: 'From the bed', plan: 'Floor plan', overview: 'Whole room' }),
       viewPurpose: Object.freeze({

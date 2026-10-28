@@ -26,6 +26,14 @@ function wallSwatches(s, current, onPick) {
   return [group, el('p', { className: 'room-panel__note room-panel__purpose', text: s.wallNames[current] })];
 }
 
+/** The door-swing aid on or off (a native checkbox: keyboard and screen readers for free). */
+function swingToggle(s, on, onChange) {
+  const input = el('input', { attrs: { type: 'checkbox', id: 'room-show-swing' } });
+  input.checked = on;
+  input.addEventListener('change', () => onChange(input.checked));
+  return el('label', { className: 'toggle room-check', attrs: { for: 'room-show-swing' } }, [input, el('span', { text: s.showSwing })]);
+}
+
 /** Pieces of the chosen style that have no room in this room size (said plainly, never a rule). */
 function notFitting(design, room, s) {
   const { omitted } = placeFurniture(design, room, room.preset);
@@ -170,6 +178,7 @@ export function mountRoomControls({ buttonHost, viewerHost, roomState, language,
       segmented(s.floor, FLOOR_IDS.map((f) => [f, s.floors[f]]), room.floor, (value) => roomState.set({ floor: value })),
       el('h3', { className: 'room-panel__section', text: s.light }),
       segmented(s.light, LIGHT_IDS.map((l) => [l, s.lights[l]]), room.light, (value) => roomState.set({ light: value })),
+      swingToggle(s, room.showSwing, (value) => roomState.set({ showSwing: value })),
       el('h3', { className: 'room-panel__section', text: s.view }),
       segmented(s.view, VIEW_IDS.map((v) => [v, s.views[v]]), room.view, (value) => onView(value)),
       el('p', { className: 'room-panel__note room-panel__purpose', text: s.viewPurpose[room.view] }),

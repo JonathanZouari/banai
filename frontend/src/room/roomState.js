@@ -18,6 +18,7 @@ export const ROOM_DEFAULTS = Object.freeze({
   wall: 'warm',
   floor: 'wood',
   light: 'morning',
+  showSwing: true,
   hintSeen: false,
 });
 export const ROOM_SIZE_LIMITS = Object.freeze({ width: [2000, 8000], length: [2000, 8000], height: [2200, 4000] });
@@ -41,6 +42,7 @@ export function sanitizeRoom(raw) {
     wall: WALL_IDS.includes(room.wall) ? room.wall : ROOM_DEFAULTS.wall,
     floor: FLOOR_IDS.includes(room.floor) ? room.floor : ROOM_DEFAULTS.floor,
     light: LIGHT_IDS.includes(room.light) ? room.light : ROOM_DEFAULTS.light,
+    showSwing: room.showSwing !== false,
     hintSeen: room.hintSeen === true,
   };
 }

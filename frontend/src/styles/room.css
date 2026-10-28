@@ -82,6 +82,8 @@
 .room-swatch[aria-pressed="true"] { outline: 2px solid var(--md-sys-color-primary); outline-offset: 2px; }
 .room-swatch:focus-visible { outline: var(--focus-outline); outline-offset: 3px; }
 
+.room-check { margin-top: var(--space-3); font: var(--md-sys-typescale-label-medium); }
+
 /* Phone: the panel is a bottom sheet over the view. */
 @media (max-width: 640px) {
   .room-panel { inset-inline: var(--space-2); inset-block: auto var(--space-2); width: auto; max-height: 55%; }

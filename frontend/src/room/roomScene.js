@@ -11,6 +11,7 @@ import { FLOORS, LIGHT_MOODS, WALL_COLORS } from './look.js';
 import { FURNITURE } from './catalog.js';
 import { buildFurniture, createFurnitureMaterials } from './furniture.js';
 import { placeFurniture } from './placement.js';
+import { doorSwings, inTheWay } from './swing.js';
 
 // ASSUMPTION: visual palette for the fixed parts; walls, floors and light moods are in look.js.
 export const ROOM_LOOK = Object.freeze({
@@ -198,7 +199,71 @@ function buildRoom(design, room, look, textures) {
     placed.filter((p) => p.kind === 'floorLamp' || p.kind === 'nightstand').forEach((p) => glow('#ffb877', 0.42, 1.8, 1.8, m(p.x), m(p.z)));
   }
 
+  if (room.showSwing) group.add(buildSwingAid(design, placed));
+
   return { group, walls, ceiling, view, box, materials, furniture: placed };
+}
+
+// "Does it fit": where the doors open, drawn on the floor. Visual only: no text, no warning, no
+// rule. A door whose area a piece of furniture stands in turns amber, and so does that piece.
+const SWING_COLOR = '#c2410c';
+const IN_THE_WAY = '#d97706';
+const FLOOR_Y = 0.006;
+
+/** A flat mesh on the floor from triangles given as [x, z] points in mm. */
+function floorMesh(triangles, material) {
+  const positions = triangles.flatMap(([x, z]) => [m(x), FLOOR_Y, m(z)]);
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  return new THREE.Mesh(geometry, material);
+}
+
+/** A ribbon (a thick line) through points on the floor, `width` mm wide. */
+function ribbon(points, width) {
+  const triangles = [];
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const [a, b] = [points[i], points[i + 1]];
+    const length = Math.hypot(b.x - a.x, b.z - a.z) || 1;
+    const [nx, nz] = [((a.z - b.z) / length) * (width / 2), ((b.x - a.x) / length) * (width / 2)];
+    const [a1, a2, b1, b2] = [[a.x + nx, a.z + nz], [a.x - nx, a.z - nz], [b.x + nx, b.z + nz], [b.x - nx, b.z - nz]];
+    triangles.push(a1, a2, b1, b1, a2, b2);
+  }
+  return triangles;
+}
+
+function buildSwingAid(design, placed) {
+  const group = new THREE.Group();
+  group.name = 'door-swing';
+  const solid = placed.filter((p) => !FURNITURE[p.kind].underlay);
+  const look = (color, opacity) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, side: THREE.DoubleSide });
+  const blocking = new Set();
+  doorSwings(design).forEach((swing) => {
+    const hits = solid.filter((p) => inTheWay(swing, p.rect));
+    hits.forEach((p) => blocking.add(p));
+    const color = hits.length ? IN_THE_WAY : SWING_COLOR;
+    if (swing.type === 'hinged') {
+      const [hinge, ...arc] = swing.polygon;
+      const fan = arc.slice(1).flatMap((p, i) => [[hinge.x, hinge.z], [arc[i].x, arc[i].z], [p.x, p.z]]);
+      group.add(floorMesh(fan, look(color, hits.length ? 0.26 : 0.16)));
+      group.add(floorMesh([...ribbon(arc, 22), ...ribbon([hinge, arc.at(-1)], 14)], look(color, 0.9)));
+    } else {
+      const { x0, x1, z0, z1 } = swing.rect;
+      group.add(floorMesh([[x0, z0], [x1, z0], [x0, z1], [x0, z1], [x1, z0], [x1, z1]], look(color, 0.16)));
+      group.add(floorMesh([...ribbon([{ x: x0, z: z1 }, { x: x1, z: z1 }], 14), ...ribbon([{ x: x0, z: z0 + 10 }, { x: x1, z: z0 + 10 }], 10)], look(color, 0.9)));
+    }
+  });
+  // Pieces in the way: an amber footprint and outline.
+  const lines = new THREE.LineBasicMaterial({ color: IN_THE_WAY });
+  blocking.forEach((piece) => {
+    const { x0, x1, z0, z1 } = piece.rect;
+    group.add(floorMesh([[x0, z0], [x1, z0], [x0, z1], [x0, z1], [x1, z0], [x1, z1]], look(IN_THE_WAY, 0.22)));
+    const size = [m(x1 - x0), m(FURNITURE[piece.kind].height), m(z1 - z0)];
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(...size)), lines);
+    edges.position.set(m(x0 + x1) / 2, size[1] / 2, m(z0 + z1) / 2);
+    edges.name = `in-the-way-${piece.id}`;
+    group.add(edges);
+  });
+  return group;
 }
 
 /** All geometries and materials of a group (textures are owned and disposed separately). */
