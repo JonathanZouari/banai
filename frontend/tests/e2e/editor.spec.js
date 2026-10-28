@@ -34,6 +34,19 @@ test.describe('Phase 4: manual editing', () => {
     await expect(page.getByText('W 240.0 cm', { exact: true })).toBeVisible();
   });
 
+  test('dimension chips apply common values; the current one is pressed and an invalid one is disabled', async ({ page }) => {
+    const widths = page.getByTestId('dim-width-presets');
+    await expect(widths.getByRole('button', { name: '200' })).toHaveAttribute('aria-pressed', 'true');
+    // The basic wardrobe has a shelf at 200 cm, so a 200 cm wardrobe is not valid.
+    await expect(page.getByTestId('dim-height-presets').getByRole('button', { name: '200' })).toBeDisabled();
+    await expect(page.getByTestId('dim-height-presets').getByRole('button', { name: '220' })).toBeEnabled();
+    await widths.getByRole('button', { name: '250' }).click();
+    await expect.poll(async () => (await state(page)).design.dimensions.width).toBe(2500);
+    await expect(page.getByTestId('dim-width')).toHaveValue('250.0');
+    await expect(page.getByTestId('dim-width-presets').getByRole('button', { name: '250' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByText('W 250.0 cm', { exact: true })).toBeVisible();
+  });
+
   test('invalid input shows an inline error and leaves the design unchanged', async ({ page }) => {
     const { revision } = await state(page);
     await commit(page.getByTestId('dim-height'), 'abc');

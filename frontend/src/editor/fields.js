@@ -82,6 +82,21 @@ export function segmented({ label, options, value, onChange, testId }) {
   return el('div', { className: 'field' }, [el('span', { className: 'field__label', text: label }), group]);
 }
 
+/** One-click value chips. Each option is { label, pressed, disabled, onPick }; a pressed chip does nothing. */
+export function presetChips({ label, options, testId }) {
+  const group = el('div', { className: 'preset-chips', attrs: { role: 'group', 'aria-label': label } });
+  if (testId) group.dataset.testid = testId;
+  options.forEach((option) => {
+    const chip = el('button', { className: 'chip preset-chips__chip', text: option.label, attrs: { type: 'button', 'aria-pressed': String(option.pressed) } });
+    chip.disabled = option.disabled;
+    chip.addEventListener('click', () => {
+      if (!option.pressed) option.onPick();
+    });
+    group.append(chip);
+  });
+  return group;
+}
+
 export function selectField({ label, options, value, onChange, testId }) {
   const id = nextId('select');
   const select = el('select', { className: 'field__input', attrs: { id } }, options.map((option) => {
