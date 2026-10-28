@@ -6,12 +6,14 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.agent.language import Language
 from app.agent.orchestrator import AgentUnavailable, run_turn
+from app.agent.prompts import Units
+from app.api.limits import HourlyCap, limiter
 from app.config import Settings, get_settings, get_signing_key
 from app.domain.apply import apply_ops
 from app.domain.catalog import load_catalog
@@ -38,6 +40,7 @@ class ChatRequest(BaseModel):
     design: dict
     revision: Annotated[int, Field(ge=1)]
     language: Language = "he"
+    units: Units = "cm"  # the unit the customer sees; ops stay in millimetres
 
 
 class SignedProposal(BaseModel):
@@ -67,6 +70,9 @@ MESSAGES: dict[str, dict[str, str]] = {
     "UNSUPPORTED_AUDIO": {"he": "פורמט השמע לא נתמך.", "en": "This audio format is not supported."},
     "AUDIO_TOO_LARGE": {"he": "ההקלטה ארוכה מדי.", "en": "The recording is too long."},
     "BAD_REPLY_SIGNATURE": {"he": "אפשר להקריא רק תשובות של המעצב.", "en": "Only the designer's own replies can be read aloud."},
+    "AGENT_BUSY": {"he": "המעצב החכם עמוס כרגע. נסה שוב בעוד כמה דקות.", "en": "The AI designer is busy right now. Please try again in a few minutes."},
+    "AGENT_QUOTA": {"he": "לשירות ה-AI נגמר הקרדיט. פנה לבעלי האתר.", "en": "The AI service has run out of credits. Please contact the site owner."},
+    "AGENT_TIMEOUT": {"he": "המעצב החכם לקח יותר מדי זמן. נסה שוב.", "en": "The AI designer took too long. Please try again."},
     "STALE": {"he": "העיצוב השתנה אחרי שההצעה נוצרה. בקש מהמעצב הצעה חדשה.", "en": "The design changed after this proposal was made. Ask the designer to re-propose."},
 }
 
@@ -83,14 +89,31 @@ def error(status: int, code: str, message: str, path: str | None = None) -> JSON
 
 
 @lru_cache
-def _openai_client(api_key: str) -> Any:
+def _openai_client(api_key: str, timeout: float) -> Any:
     from openai import OpenAI  # imported lazily: only needed when the agent is configured
 
-    return OpenAI(api_key=api_key, timeout=60, max_retries=1)
+    return OpenAI(api_key=api_key, timeout=timeout, max_retries=1)
 
 
 def get_llm_client(settings: Annotated[Settings, Depends(get_settings)]) -> Any:
-    return _openai_client(settings.openai_api_key.strip()) if settings.agent_enabled else None
+    return _openai_client(settings.openai_api_key.strip(), settings.chat_timeout_s) if settings.agent_enabled else None
+
+
+hourly_cap = HourlyCap()
+
+
+def provider_error(exc: Exception, language: str) -> JSONResponse:
+    """A distinct, localized error for the provider failure behind `exc` (no provider text leaks)."""
+    from openai import APITimeoutError, RateLimitError
+
+    cause = exc.__cause__ or exc
+    if isinstance(cause, RateLimitError):
+        if getattr(cause, "code", None) == "insufficient_quota":
+            return localized(503, "AGENT_QUOTA", language)
+        return localized(429, "AGENT_BUSY", language)
+    if isinstance(cause, APITimeoutError):
+        return localized(504, "AGENT_TIMEOUT", language)
+    return localized(502, "AGENT_ERROR", language)
 
 
 def _canonical(design: dict, catalog: dict) -> dict:
@@ -99,28 +122,32 @@ def _canonical(design: dict, catalog: dict) -> dict:
 
 
 @router.post("/chat")
+@limiter.limit(lambda: get_settings().chat_rate_limit)
 def chat(
-    request: ChatRequest,
+    request: Request,
+    body: ChatRequest,
     settings: Annotated[Settings, Depends(get_settings)],
     client: Annotated[Any, Depends(get_llm_client)],
 ):
     if client is None:
-        return localized(503, "AGENT_UNAVAILABLE", request.language)
-    if request.messages[-1].role != "user":
-        return localized(422, "INVALID_REQUEST", request.language)
+        return localized(503, "AGENT_UNAVAILABLE", body.language)
+    if body.messages[-1].role != "user":
+        return localized(422, "INVALID_REQUEST", body.language)
     catalog = load_catalog()
     try:
-        design = _canonical(request.design, catalog)
+        design = _canonical(body.design, catalog)
     except DomainError as exc:
         return error(422, exc.code, exc.message, exc.path)
+    if hourly_cap.over(settings.chat_hourly_cap):
+        return localized(429, "AGENT_BUSY", body.language)
     try:
         result = run_turn(
-            client=client, model=settings.chat_model, messages=[m.model_dump() for m in request.messages],
-            design=design, revision=request.revision, catalog=catalog, signing_key=get_signing_key(),
-            language=request.language,
+            client=client, model=settings.chat_model, messages=[m.model_dump() for m in body.messages],
+            design=design, revision=body.revision, catalog=catalog, signing_key=get_signing_key(),
+            language=body.language, units=body.units, min_shelf_gap=settings.min_shelf_gap_mm,
         )
-    except AgentUnavailable:
-        return localized(502, "AGENT_ERROR", request.language)
+    except AgentUnavailable as exc:
+        return provider_error(exc, body.language)
     # The reply is signed so /api/voice/speech only reads aloud what this server said.
     reply_signature = signing.sign_reply(get_signing_key(), result.reply)
     return {"success": True, "data": {"reply": result.reply, "replySignature": reply_signature, "proposal": result.proposal,
@@ -128,11 +155,12 @@ def chat(
 
 
 @router.post("/proposals/apply")
-def apply_proposal(request: ApplyRequest):
+@limiter.limit(lambda: get_settings().chat_rate_limit)
+def apply_proposal(request: Request, body: ApplyRequest):
     catalog = load_catalog()
-    proposal = request.proposal
+    proposal = body.proposal
     try:
-        design = _canonical(request.design, catalog)
+        design = _canonical(body.design, catalog)
     except DomainError as exc:
         return error(422, exc.code, exc.message, exc.path)
     valid = signing.verify(
@@ -140,11 +168,11 @@ def apply_proposal(request: ApplyRequest):
         base_revision=proposal.baseRevision, base_hash=proposal.baseHash,
     )
     if not valid:
-        return localized(400, "BAD_SIGNATURE", request.language)
-    if request.revision != proposal.baseRevision or signing.design_hash(design) != proposal.baseHash:
-        return localized(409, "STALE", request.language)
+        return localized(400, "BAD_SIGNATURE", body.language)
+    if body.revision != proposal.baseRevision or signing.design_hash(design) != proposal.baseHash:
+        return localized(409, "STALE", body.language)
     try:
         updated = apply_ops(design, proposal.ops, catalog)
     except DomainError as exc:
         return error(422, exc.code, exc.message, exc.path)
-    return {"success": True, "data": {"design": updated, "revision": request.revision + 1}}
+    return {"success": True, "data": {"design": updated, "revision": body.revision + 1}}

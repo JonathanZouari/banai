@@ -1,11 +1,11 @@
-import { test, expect, openDesigner } from './fixtures.js';
+import { test, expect, openDesigner, openRender } from './fixtures.js';
 
 test.describe('start screen', () => {
-  test('is shown first with three entry points and the manufacturing disclaimer', async ({ page }) => {
+  test('is shown first with three cards (guided, basic, last designs) and the manufacturing disclaimer', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByTestId('start-screen')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Design your wardrobe' })).toBeVisible();
-    for (const id of ['guided', 'freeText', 'basic']) await expect(page.getByTestId(`entry-${id}`)).toBeVisible();
+    for (const id of ['guided', 'basic', 'archive']) await expect(page.getByTestId(`entry-${id}`)).toBeVisible();
     await expect(page.getByText('not manufacturing drawings')).toBeVisible();
   });
 
@@ -22,12 +22,18 @@ test.describe('start screen', () => {
     await expect(page.getByText('W 200.0 cm', { exact: true })).toBeVisible();
   });
 
-  test('"Describe it" opens the same editor and focuses the chat composer', async ({ page }) => {
+  test('"Guide me" opens the same editor and focuses the chat composer', async ({ page }) => {
     await page.goto('/');
-    await page.getByTestId('entry-freeText').click();
+    await page.getByTestId('entry-guided').click();
     await expect(page.getByTestId('chat-input')).toBeFocused();
-    await expect(page.getByTestId('chat-input')).toHaveAttribute('placeholder', /ברוחב 240/);
+    await expect(page.getByTestId('chat-input')).toHaveAttribute('placeholder', /how wide and tall/);
     await page.waitForFunction(() => window.__banai?.viewer.meshOf('shf_l1'));
+  });
+
+  test('"Describe it" is gone: Last designs took its place', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByTestId('entry-freeText')).toHaveCount(0);
+    await expect(page.locator('.start__cards .entry-card')).toHaveCount(3);
   });
 });
 
@@ -35,11 +41,11 @@ test.describe('AI chat panel (agent not connected yet)', () => {
   test('sending a message gets an honest reply and never changes the design', async ({ page }) => {
     await openDesigner(page);
     const before = await page.evaluate(() => window.__banai.store.getState().revision);
-    await page.getByTestId('chat-input').fill('תעשה אותו ברוחב 3 מטר');
+    await page.getByTestId('chat-input').fill('make it 3 m wide');
     await page.getByTestId('chat-send').click();
     const messages = page.getByTestId('chat-messages');
-    await expect(messages).toContainText('תעשה אותו ברוחב 3 מטר');
-    await expect(messages).toContainText('עדיין לא מחובר');
+    await expect(messages).toContainText('make it 3 m wide');
+    await expect(messages).toContainText("isn't connected");
     expect(await page.evaluate(() => window.__banai.store.getState().revision)).toBe(before);
   });
 
@@ -53,18 +59,18 @@ test.describe('AI chat panel (agent not connected yet)', () => {
       });
     });
     const card = page.getByTestId('proposal-card');
-    await expect(card).toContainText('שינויים מוצעים');
+    await expect(card).toContainText('Proposed changes');
     await expect(page.getByTestId('proposal-confirm')).toBeEnabled();
 
     await page.getByTestId('dim-width').fill('210');
     await page.getByTestId('dim-width').press('Enter');
-    await expect(card).toContainText('העיצוב השתנה. בקש מהמעצב הצעה חדשה.');
+    await expect(card).toContainText('Design changed. Ask the agent to re-propose.');
     await expect(page.getByTestId('proposal-confirm')).toBeDisabled();
 
     const revision = await page.evaluate(() => window.__banai.store.getState().revision);
     await page.getByTestId('proposal-cancel').click();
     await expect(card).toHaveCount(0);
-    await expect(page.getByTestId('chat-messages')).toContainText('לא בוצע שום שינוי');
+    await expect(page.getByTestId('chat-messages')).toContainText('No changes were made');
     expect(await page.evaluate(() => window.__banai.store.getState().revision)).toBe(revision);
   });
 });
@@ -106,11 +112,11 @@ test.describe('look and feel', () => {
     await openDesigner(page);
     await expect(page.getByTestId('chat-welcome')).toBeVisible();
     await page.getByTestId('suggestion').first().click();
-    await expect(page.getByTestId('chat-input')).toHaveValue(/ברוחב 240/);
+    await expect(page.getByTestId('chat-input')).toHaveValue(/240 cm wide/);
     await expect(page.getByTestId('chat-messages')).toBeHidden();
     await page.getByTestId('chat-send').click();
     await expect(page.getByTestId('chat-welcome')).toBeHidden();
-    await expect(page.getByTestId('chat-messages')).toContainText('ברוחב 240');
+    await expect(page.getByTestId('chat-messages')).toContainText('240 cm wide');
   });
 
   test('the cursor becomes a pointer over a component and a press shows a ripple that cleans up', async ({ page }) => {
@@ -162,11 +168,122 @@ test.describe('door configurations render with hardware', () => {
 test.describe('render dialog (backend phase not built yet)', () => {
   test('Render opens a dialog labelled as illustrative, with generation disabled', async ({ page }) => {
     await openDesigner(page);
-    await page.getByTestId('open-render').click();
+    await openRender(page);
     const dialog = page.getByTestId('render-dialog');
     await expect(dialog).toContainText('Illustrative image, not the accurate 3D model');
     await expect(page.getByTestId('render-generate')).toBeDisabled();
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
   });
+});
+
+test.describe('lean header and 3D view toolbar', () => {
+  test('the header shows history icons, Save, Export, Render, Share and the settings menu', async ({ page }) => {
+    await openDesigner(page);
+    const actions = page.locator('.topbar__actions');
+    await expect(actions.getByTestId('undo')).toBeVisible();
+    await expect(actions.getByTestId('redo')).toBeVisible();
+    await expect(actions.getByTestId('open-save')).toBeVisible();
+    await expect(actions.getByTestId('open-export')).toBeVisible();
+    await expect(actions.getByTestId('share-menu')).toBeVisible();
+    await expect(actions.getByTestId('open-render')).toBeVisible();
+    await expect(page.getByTestId('lang-switch')).toBeHidden(); // inside the settings menu
+    await expect(page.getByTestId('unit-switch')).toBeHidden();
+  });
+
+  test('the Share menu opens, and closes on Escape or a click outside', async ({ page }) => {
+    await openDesigner(page);
+    const trigger = page.getByTestId('share-menu');
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    await trigger.click();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByTestId('share-panel')).toHaveAttribute('role', 'menu');
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('share-panel')).toBeHidden();
+    await expect(trigger).toBeFocused();
+    await trigger.click();
+    await page.mouse.click(700, 500); // the 3D view
+    await expect(page.getByTestId('share-panel')).toBeHidden();
+  });
+
+  test('header menus stay on screen and under their button after switching to Hebrew', async ({ page }) => {
+    await openDesigner(page);
+    await page.getByTestId('settings-menu').click();
+    await page.getByTestId('lang-he').click();
+    for (const [trigger, panel] of [['settings-menu', 'settings-panel'], ['share-menu', 'share-panel']]) {
+      if (trigger === 'share-menu') await page.getByTestId(trigger).click();
+      const box = await page.getByTestId(panel).boundingBox();
+      const button = await page.getByTestId(trigger).boundingBox();
+      const viewport = page.viewportSize();
+      expect(box.x, `${panel} left edge`).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width, `${panel} right edge`).toBeLessThanOrEqual(viewport.width);
+      expect(Math.abs(box.x + box.width - (button.x + button.width)), `${panel} hangs from the button's right edge`).toBeLessThan(2);
+      await page.keyboard.press('Escape');
+    }
+  });
+
+  test('the settings menu holds language and units, and stays open while choosing', async ({ page }) => {
+    await openDesigner(page);
+    await page.getByTestId('settings-menu').click();
+    await page.getByTestId('unit-in').click();
+    await expect(page.getByTestId('settings-panel')).toBeVisible();
+    await expect(page.getByTestId('unit-in')).toHaveAttribute('aria-checked', 'true');
+    await page.getByTestId('lang-he').click();
+    await expect(page.getByTestId('settings-panel')).toBeVisible();
+    await expect(page.locator('.topbar')).toHaveAttribute('dir', 'ltr');
+    await expect(page.getByTestId('settings-panel')).toHaveAttribute('dir', 'rtl');
+    await expect(page.getByTestId('unit-in')).toHaveAttribute('title', 'אינצ׳ים');
+  });
+
+  test('redo restores an undone change, from the button and the keyboard', async ({ page }) => {
+    await openDesigner(page);
+    const width = () => page.evaluate(() => window.__banai.store.getState().design.dimensions.width);
+    await expect(page.getByTestId('redo')).toBeDisabled();
+    await page.evaluate(() => window.__banai.store.dispatch([{ op: 'update_dimensions', width: 2400 }, { op: 'modify_compartment', compartmentId: 'cmp_right', width: 1032 }]));
+    await page.getByTestId('undo').click();
+    expect(await width()).toBe(2000);
+    await page.getByTestId('redo').click();
+    expect(await width()).toBe(2400);
+    await page.locator('#viewer canvas').click({ position: { x: 5, y: 5 } }); // focus outside any input
+    await page.keyboard.press('ControlOrMeta+z');
+    await expect.poll(width).toBe(2000);
+    await page.keyboard.press('ControlOrMeta+Shift+z');
+    await expect.poll(width).toBe(2400);
+    await expect(page.getByTestId('redo')).toBeDisabled();
+  });
+
+  test('Ctrl+Z inside a field edits the text, not the design', async ({ page }) => {
+    await openDesigner(page);
+    await page.evaluate(() => window.__banai.store.dispatch([{ op: 'modify_shelf', id: 'shf_l1', y: 450 }]));
+    await page.getByTestId('dim-width').click();
+    await page.keyboard.press('ControlOrMeta+z');
+    expect(await page.evaluate(() => window.__banai.store.getState().design.compartments[0].shelves[0].y)).toBe(450);
+  });
+
+  test('the toolbar switches between doors and interior and orbits the camera', async ({ page }) => {
+    await openDesigner(page);
+    await expect(page.getByTestId('view-doors')).toHaveAttribute('aria-checked', 'true');
+    await page.getByTestId('view-interior').click();
+    await expect(page.getByTestId('view-interior')).toHaveAttribute('aria-checked', 'true');
+    await expect.poll(() => page.evaluate(() => Boolean(window.__banai.viewer.meshOf('dr_left')))).toBe(false);
+    await page.getByTestId('view-doors').click();
+    await expect.poll(() => page.evaluate(() => Boolean(window.__banai.viewer.meshOf('dr_left')))).toBe(true);
+    const camera = () => page.evaluate(() => window.__banai.viewer.camera.position.toArray().map((v) => v.toFixed(3)).join());
+    const start = await camera();
+    const box = await page.locator('#viewer canvas').boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + 200, box.y + box.height / 2, { steps: 8 });
+    await page.mouse.up();
+    await expect.poll(camera).not.toBe(start);
+    await expect(page.getByTestId('reset-view')).toHaveCount(0);
+  });
+});
+
+test('the page itself never scrolls, even with a long properties panel', async ({ page }) => {
+  await openDesigner(page);
+  await page.getByTestId('view-interior').click();
+  await page.locator('#properties-panel').evaluate((panel) => { panel.scrollTop = panel.scrollHeight; });
+  const size = await page.evaluate(() => ({ scroll: document.scrollingElement.scrollHeight, view: window.innerHeight }));
+  expect(size.scroll).toBeLessThanOrEqual(size.view);
 });

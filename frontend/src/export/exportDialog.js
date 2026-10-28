@@ -1,79 +1,81 @@
-// "PDF for your carpenter" dialog: pick the document language, download dimensioned drawings plus a
-// component list. It is a design drawing to explain the intent, never a claim of manufacturability.
-import { el, button, selectField } from '../editor/fields.js';
+// Export dialog: builds the PDF specification in the browser and downloads it. Everything happens
+// client-side; nothing is uploaded and the design is never changed.
+import { button, el } from '../editor/fields.js';
+import { language, t } from '../i18n/strings.js';
 import { createDialog } from '../ui/dialog.js';
-import { exportPdf } from '../api/client.js';
+import { units } from '../ui/units.js';
+import { assertTrueType } from './fontCheck.js';
+import { buildSpec } from './specModel.js';
 
-export const EXPORT_NOTE = 'Design drawing to explain the intent. Construction details are decided by the carpenter.';
-const FAILED = 'The PDF could not be created. Please try again.';
+const FONT_FILES = Object.freeze({ regular: 'Rubik-Regular.ttf', medium: 'Rubik-Medium.ttf' });
 
-function saveBlob(blob, filename) {
+async function fetchFont(file) {
+  const response = await fetch(`${import.meta.env.BASE_URL}fonts/${file}`);
+  if (!response.ok) throw new Error(`font ${file}: ${response.status}`);
+  const bytes = await response.arrayBuffer();
+  assertTrueType(bytes);
+  return bytes;
+}
+
+function download(blob, fileName) {
   const url = URL.createObjectURL(blob);
-  const link = el('a', { attrs: { href: url, download: filename } });
+  const link = el('a', { attrs: { href: url, download: fileName } });
   document.body.append(link);
   link.click();
   link.remove();
-  // Revoking in the same tick can cancel the download in some browsers.
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
-/** getSnapshot() returns the 3D picture as a data URL, or throws (the PDF then uses its own drawing). */
-export function createExportDialog({ getDesign, getLanguage, getSnapshot = null, exportImpl = exportPdf }) {
-  let language = getLanguage();
-  let busy = false;
+export function createExportDialog({ store, viewer }) {
+  const intro = el('p', { className: 'dialog__text' });
+  const note = el('p', { className: 'dialog__note' });
   const status = el('p', { className: 'dialog__status', attrs: { role: 'status' } });
   status.dataset.testid = 'export-status';
-  const languageField = selectField({
-    label: 'Document language',
-    options: [{ label: 'עברית', value: 'he' }, { label: 'English', value: 'en' }],
-    value: language,
-    onChange: (value) => { language = value; },
-    testId: 'export-language',
-  });
-  const select = languageField.querySelector('select');
-  const download = button('Download PDF', async () => {
+  let busy = false;
+
+  const run = async () => {
     if (busy) return;
     busy = true;
-    download.disabled = true;
-    status.textContent = 'Preparing your PDF…';
+    start.disabled = true;
+    status.textContent = t('exPreparing');
     try {
-      const design = getDesign();
-      let image = null;
-      try {
-        image = getSnapshot ? getSnapshot(design) : null;
-      } catch {
-        image = null; // no WebGL here: the PDF falls back to its drawn illustration
-      }
-      const { blob, filename } = await exportImpl({ design, language, image });
-      saveBlob(blob, filename);
-      status.textContent = 'Your PDF is downloading.';
-    } catch (error) {
-      status.textContent = error?.message || FAILED;
+      // Let the "preparing" text paint before the heavy work starts.
+      await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve)));
+      const { design, catalog } = store.getState();
+      // Fonts first: if they are missing, fail before the slower 3D captures.
+      const [regular, medium] = await Promise.all([fetchFont(FONT_FILES.regular), fetchFont(FONT_FILES.medium)]);
+      const images = { doors: viewer.capture({ doorsVisible: true }), interior: viewer.capture({ doorsVisible: false }) };
+      const spec = buildSpec(design, catalog, { lang: language.get(), unit: units.get(), now: new Date() });
+      const { renderPdf } = await import('./pdfWriter.js');
+      const blob = await renderPdf({ spec, design, fonts: { regular, medium }, images });
+      download(blob, spec.fileName);
+      status.textContent = t('exDone');
+    } catch {
+      status.textContent = t('exFailed');
     } finally {
       busy = false;
-      download.disabled = false;
+      start.disabled = false;
     }
-  }, { variant: 'primary', testId: 'export-download' });
-
+  };
+  const start = button('', run, { variant: 'primary', testId: 'export-download' });
+  const close = button('', () => dialog.close(), { variant: 'ghost', testId: 'export-close' });
   const dialog = createDialog({
-    title: 'PDF for your carpenter',
+    title: '',
     labelId: 'export-dialog-title',
     testId: 'export-dialog',
-    body: [
-      el('p', { className: 'dialog__text', text: 'Download a picture of your wardrobe with dimensioned drawings (front with doors, interior, side and top), build steps and a component list. All measurements are in mm.' }),
-      languageField,
-      el('span', { className: 'chip', text: EXPORT_NOTE }),
-      status,
-    ],
-    actions: [download, button('Close', () => dialog.close(), { variant: 'ghost', testId: 'export-close' })],
+    body: [intro, note, status],
+    actions: [start, close],
   });
-  return {
-    ...dialog,
-    open() {
-      language = getLanguage(); // each time: follow the current chat language
-      select.value = language;
-      if (!busy) status.textContent = '';
-      dialog.open();
-    },
+  const heading = dialog.element.querySelector('#export-dialog-title');
+  const relabel = () => {
+    heading.textContent = t('exTitle');
+    intro.textContent = t('exIntro');
+    note.textContent = t('exNote');
+    start.textContent = t('exDownload');
+    close.textContent = t('exCancel');
   };
+  language.subscribe(relabel);
+  relabel();
+  // Reopening starts from a clean status line.
+  return { ...dialog, open: () => { if (!busy) status.textContent = ''; dialog.open(); } };
 }

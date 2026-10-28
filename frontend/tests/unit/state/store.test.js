@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { applyOps } from '../../../src/domain/apply.js';
 import { createStore } from '../../../src/state/store.js';
 import { loadCatalog, loadDesign } from '../domain/helpers.js';
 
@@ -97,13 +98,81 @@ describe('store input validation (Phase 3 security review M1)', () => {
   });
 });
 
-describe('replaceDesign (applied AI proposal)', () => {
+describe('store undo', () => {
+  it('restores the previous design, moves the revision forward and can undo repeatedly', () => {
+    const store = makeStore();
+    const original = store.getState().design;
+    expect(store.canUndo()).toBe(false);
+    expect(store.undo()).toEqual({ ok: false });
+    store.dispatch([{ op: 'modify_shelf', id: 'shf_l1', y: 450 }]);
+    store.dispatch([{ op: 'modify_shelf', id: 'shf_l1', y: 500 }]);
+    expect(store.canUndo()).toBe(true);
+    expect(store.undo()).toEqual({ ok: true });
+    expect(store.getState().design.compartments[0].shelves[0].y).toBe(450);
+    expect(store.getState().revision).toBe(4);
+    store.undo();
+    expect(store.getState().design).toEqual(original);
+    expect(store.canUndo()).toBe(false);
+  });
+
+  it('does not record failed ops, and undoes a design replaced by the server', () => {
+    const store = makeStore();
+    store.dispatch([{ op: 'modify_shelf', id: 'nope', y: 1 }]);
+    expect(store.canUndo()).toBe(false);
+    const before = store.getState().design;
+    store.replace(store.getState().design, 7);
+    expect(store.canUndo()).toBe(true);
+    store.undo();
+    expect(store.getState().design).toEqual(before);
+    expect(store.getState().revision).toBe(8);
+  });
+
+  it('notifies subscribers and keeps at most 50 steps', () => {
+    const store = makeStore();
+    const listener = vi.fn();
+    store.dispatch([{ op: 'modify_shelf', id: 'shf_l1', y: 450 }]);
+    store.subscribe(listener);
+    store.undo();
+    expect(listener).toHaveBeenCalledTimes(1);
+    for (let i = 0; i < 60; i += 1) store.dispatch([{ op: 'modify_shelf', id: 'shf_l1', y: 400 + i }]);
+    let undone = 0;
+    while (store.undo().ok) undone += 1;
+    expect(undone).toBe(50);
+  });
+
+  it('redo re-applies undone changes in order, and a new change clears the redo list', () => {
+    const store = makeStore();
+    const y = () => store.getState().design.compartments[0].shelves[0].y;
+    const start = y();
+    expect(store.canRedo()).toBe(false);
+    expect(store.redo().ok).toBe(false);
+    store.dispatch([{ op: 'modify_shelf', id: 'shf_l1', y: 450 }]);
+    store.dispatch([{ op: 'modify_shelf', id: 'shf_l1', y: 460 }]);
+    store.undo();
+    store.undo();
+    expect(y()).toBe(start);
+    expect(store.canRedo()).toBe(true);
+    const revision = store.getState().revision;
+    expect(store.redo().ok).toBe(true);
+    expect(y()).toBe(450);
+    expect(store.getState().revision).toBe(revision + 1);
+    expect(store.canUndo()).toBe(true);
+    store.dispatch([{ op: 'modify_shelf', id: 'shf_l1', y: 470 }]);
+    expect(store.canRedo()).toBe(false);
+    store.undo();
+    expect(y()).toBe(450);
+    store.replace(store.getState().design, 99); // an applied proposal is a new change too
+    expect(store.canRedo()).toBe(false);
+  });
+});
+
+describe('replace (applied AI proposal)', () => {
   it('commits a valid server design with the new revision and keeps a still-valid selection', () => {
     const store = makeStore();
     store.select('shf_l1');
     const next = structuredClone(loadDesign('basic'));
     next.dimensions.depth = 550;
-    store.replaceDesign(next, 2);
+    store.replace(next, 2);
     const state = store.getState();
     expect(state.revision).toBe(2);
     expect(state.design.dimensions.depth).toBe(550);
@@ -115,8 +184,34 @@ describe('replaceDesign (applied AI proposal)', () => {
     const before = store.getState();
     const bad = structuredClone(loadDesign('basic'));
     bad.dimensions.width = 10;
-    expect(() => store.replaceDesign(bad, 2)).toThrow();
-    expect(() => store.replaceDesign(loadDesign('basic'), 1)).toThrow();
+    expect(() => store.replace(bad, 2)).toThrow();
+    expect(() => store.replace(loadDesign('basic'), 1)).toThrow();
     expect(store.getState()).toBe(before);
+  });
+
+  describe('load', () => {
+    it('opens another design, clears history and selection, and moves the revision forward', () => {
+      const store = makeStore();
+      store.dispatch([{ op: 'modify_shelf', id: 'shf_l1', y: 450 }]);
+      store.undo();
+      store.select('shf_l1');
+      const other = applyOps(loadDesign('basic'), [{ op: 'update_dimensions', width: 2400 }], catalog);
+      const listener = vi.fn();
+      store.subscribe(listener);
+      store.load(other);
+      expect(store.getState().design.dimensions.width).toBe(2400);
+      expect(store.getState().revision).toBe(4); // dispatch 2, undo 3, load 4
+      expect(store.getState().selection).toBeNull();
+      expect(store.canUndo()).toBe(false);
+      expect(store.canRedo()).toBe(false);
+      expect(listener).toHaveBeenCalledTimes(1);
+    });
+
+    it('throws on an invalid design and leaves the state untouched', () => {
+      const store = makeStore();
+      const before = store.getState();
+      expect(() => store.load({ nonsense: true })).toThrow();
+      expect(store.getState()).toBe(before);
+    });
   });
 });

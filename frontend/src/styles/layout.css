@@ -23,15 +23,10 @@ body {
   border-bottom: 1px solid var(--md-sys-color-outline-variant);
 }
 .topbar__title { margin: 0; font-size: inherit; font-weight: inherit; }
+.topbar__home { display: inline-flex; border-radius: var(--md-sys-shape-small); color: inherit; text-decoration: none; }
+.topbar__home:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
 [hidden] { display: none !important; }
 .topbar__actions { display: flex; align-items: center; gap: var(--space-3); color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-label-large); }
-.topbar__units {
-  padding: 4px var(--space-3);
-  border: 1px solid var(--md-sys-color-outline);
-  border-radius: var(--md-sys-shape-small);
-  font: var(--md-sys-typescale-label-medium);
-  font-variant-numeric: tabular-nums;
-}
 
 .banner { padding: var(--space-2) var(--space-4); font: var(--md-sys-typescale-body-medium); }
 .banner--error { background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); }
@@ -40,6 +35,7 @@ body {
 
 /* Side sheets use tonal surface, with a hairline to the canvas. */
 .panel {
+  position: relative; /* keeps visually-hidden labels inside the scrolling panel, so the page never scrolls */
   display: flex;
   flex-direction: column;
   min-height: 0;

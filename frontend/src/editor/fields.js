@@ -1,6 +1,8 @@
 // Small DOM builders for the properties panel. Text is always set via textContent or
 // input.value, never innerHTML, so design data (e.g. custom names) cannot inject markup.
-import { friendlyError, parseCm, toCmText } from './opsFromForm.js';
+import { chipReason, friendlyError, parseMessage } from './opsFromForm.js';
+import { t } from '../i18n/strings.js';
+import { compactLength, formatLength, parseLength, units } from '../ui/units.js';
 
 let fieldCounter = 0;
 const nextId = (prefix) => `${prefix}-${(fieldCounter += 1)}`;
@@ -50,22 +52,41 @@ function inputField({ label, value, testId, suffix, commit, inputMode = 'decimal
   return el('div', { className: 'field' }, [el('label', { className: 'field__label', text: label, attrs: { for: id } }), control, message]);
 }
 
-/** A centimetre field backed by an integer-millimetre value. `onCommit(mm)` dispatches. */
+/** A length field in the selected unit (mm, cm or in), backed by an integer-millimetre value. `onCommit(mm)` dispatches. */
 export function cmField({ label, mm, testId, onCommit }) {
+  const unit = units.get();
   return inputField({
-    label, testId, suffix: 'cm', value: toCmText(mm),
+    label, testId, suffix: unit, value: formatLength(mm, unit),
     commit: (text) => {
-      const parsed = parseCm(text);
-      return parsed.ok ? onCommit(parsed.mm) : parsed;
+      const parsed = parseLength(text, unit);
+      return parsed.ok ? onCommit(parsed.mm) : { ok: false, message: parseMessage(parsed) };
     },
   });
+}
+
+/**
+ * A row of common-size chips (see dimensionChips). The selected chip is pressed, one the design cannot take is
+ * disabled with the reason as its tooltip. `onPick(mm)` dispatches, exactly like typing the value.
+ */
+export function chipRow({ label, chips, onPick, testIdPrefix }) {
+  const unit = units.get();
+  const group = el('div', { className: 'dim-chips', attrs: { role: 'group', 'aria-label': label, title: t('edPresetHint') } });
+  chips.forEach((chip) => {
+    const node = button(compactLength(chip.mm, unit), () => { if (!chip.active) onPick(chip.mm); }, {
+      variant: 'chip', testId: `${testIdPrefix}-${chip.mm}`, disabled: !chip.ok,
+    });
+    node.setAttribute('aria-pressed', String(chip.active));
+    if (!chip.ok) node.title = chipReason(chip.error);
+    group.append(node);
+  });
+  return group;
 }
 
 /** A whole-number field (counts). */
 export function countField({ label, value, testId, onCommit }) {
   return inputField({
     label, testId, value: String(value), inputMode: 'numeric',
-    commit: (text) => (/^\d{1,2}$/.test(text.trim()) ? onCommit(Number(text.trim())) : { ok: false, message: 'Enter a whole number' }),
+    commit: (text) => (/^\d{1,2}$/.test(text.trim()) ? onCommit(Number(text.trim())) : { ok: false, message: t('feWholeNumber') }),
   });
 }
 

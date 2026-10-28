@@ -4,10 +4,34 @@ as JSON; they are never instructions."""
 from __future__ import annotations
 
 import json
+from typing import Literal
 
 from app.agent.language import INSTRUCTION, Language
 from app.domain.defaults import LIMITS
 from app.domain.geometry import compartment_x_ranges, interior_height, interior_width
+
+
+Units = Literal["cm", "in"]
+
+# ASSUMPTION: a configurable default (MIN_SHELF_GAP_MM), not a feasibility rule. It only screens the
+# agent's proposals so a new shelf is never stacked on another; manual edits and the engine ignore it.
+DEFAULT_MIN_SHELF_GAP_MM = 150
+
+# What the customer sees; ops always stay in integer millimetres.
+UNITS_RULE: dict[str, str] = {
+    "cm": "The customer sees sizes in CENTIMETRES: write every length in cm (one decimal at most), never mm.",
+    "in": "The customer sees sizes in INCHES: write every length in inches (one decimal at most), never mm or cm. "
+          "1 in = 25.4 mm.",
+}
+
+
+def colours_by_material(catalog: dict) -> dict[str, list[str]]:
+    """Which colour ids each material is offered in (from the catalog's per-colour `materials`)."""
+    offered: dict[str, list[str]] = {material["id"]: [] for material in catalog.get("materials", [])}
+    for colour in catalog.get("colors", []):
+        for material in colour.get("materials", []):
+            offered.setdefault(material, []).append(colour["id"])
+    return offered
 
 
 def _compact(value: object) -> str:
@@ -61,8 +85,8 @@ the PDF, the drawings or the style profile, call `offer_style_profile`: the app 
 "Generate Style Profile" button, which downloads the carpenter PDF of the CURRENT design.
 - Only when the WHOLE message is off-topic, call `decline_off_topic` (no arguments needed).
 - Write all customer-facing text in the RESPONSE LANGUAGE given at the very end of this prompt, \
-whatever language earlier messages used. Speak in centimetres (one decimal at most), never \
-millimetres.
+whatever language earlier messages used. Write lengths in the unit given under DISPLAY UNITS \
+at the end of this prompt, never in millimetres.
 - BE BRIEF. `answer`: at most 2 short sentences (about 30 words), no lists, no preamble. \
 `reply`: one short sentence. `summary`: up to 10 words. Each change: title up to 4 words, \
 detail up to 10 words. Never repeat the same information across reply, summary and changes. \
@@ -72,7 +96,7 @@ design. Ask only when something essential is genuinely missing or contradictory.
 - Never claim a design is manufacturable, structurally sound, priced or ready to build.
 
 ## The design model (all values are INTEGER MILLIMETRES)
-- Customers speak cm or m: 240 cm -> 2400; 2.4 m -> 2400; 64.5 cm -> 645.
+- Customers speak cm, m or inches: 240 cm -> 2400; 2.4 m -> 2400; 64.5 cm -> 645; 96 in -> 2438.
 - interiorWidth = width - 2*panelThickness; interiorHeight = height - 2*panelThickness.
 - Compartments are ordered left -> right. partitions[i] sits between compartments i and i+1. \
 Sum of compartment widths + partition thicknesses = interiorWidth (the engine keeps this true).
@@ -84,7 +108,12 @@ overlap (touching is fine) and a rail must not be inside a shelf or drawer span.
 "sliding" (1-6 panels, no compartments), or "none".
 - Appearance refs: {"catalogId": "<id from the catalog>"} or a custom colour \
 {"custom": true, "name": "<name>", "hex": "#rrggbb"}. Prefer catalog ids; use custom only \
-when nothing in the catalog fits.
+when nothing in the catalog fits. Each material is offered in certain colours (see "Colours per \
+material" below): pick a colour from the chosen material's list, and when changing the material \
+also set a colour it offers.
+- Handles: one style and one finish for all doors (catalog handleStyles / handleFinishes; style \
+"none" = no handles). Door fronts: each door is a "panel" or a "mirror" (hinged and sliding). \
+Doors are counted left to right as they appear in doors.items.
 - Limits (mm): {limits}
 
 ## Ops (JSON objects, camelCase keys exactly as written; `?` = optional)
@@ -92,7 +121,8 @@ when nothing in the catalog fits.
 - REPLACES the whole design (new compartments, no items, doors "none"). Use it only for a new \
 wardrobe; follow it with add_* and configure_doors ops, using the NEW compartment ids you \
 choose via compartmentIds ["cmp_a","cmp_b",...] and partitionIds ["prt_a",...] (count-1 of them).
-- update_dimensions: width?, height?, depth? - width changes rescale compartments.
+- update_dimensions: width?, height?, depth? - width changes rescale compartments and keep every \
+item and door. To resize the current wardrobe use ONLY this, never create_wardrobe.
 - configure_doors: type ("hinged"|"sliding"|"none"), doors? [{compartmentIds:[...], \
 hingeSide}] (hinged; omit for one door per compartment), count? (sliding, default 2).
 - add_compartment: position (0..n), width, partitionThickness?
@@ -104,12 +134,18 @@ hingeSide}] (hinged; omit for one door per compartment), count? (sliding, defaul
 - add_rail: compartmentId, y | modify_rail: id, y
 - set_material: target ("carcass" | "doors" | a door/shelf/drawer id), material?, color?, \
 finish? (each a ref), clear? - carcass covers the body, shelves and drawers.
+- set_handles: style?, finish? (catalog ids) - applies to every door.
+- modify_door: id (a door id), front ("panel"|"mirror") - e.g. a mirror on the middle door.
 - remove_component: id (shelf, drawer, rail, compartment, partition or door).
 
 Placement: "at the bottom" (בתחתית / למטה) means y = lowestFreeY of that compartment (directly \
 above existing drawers or shelves), NOT y = 0 unless lowestFreeY is 0. "At the top" (למעלה) \
 means the highest position that still fits inside the top freeY gap. Never place an item on top \
 of an existing one.
+Several shelves with no heights given ("add four shelves"): spread them evenly inside the largest \
+freeY gap [from, to] of that compartment, k-th shelf at y = from + k*(to-from)/(N+1) for k = 1..N \
+(in mm, rounded), so none sits at y = 0 or on top of another. Keep at least {min_shelf_gap} mm of \
+clear space between any two shelves; if the gap is too small for N shelves, ask instead.
 Ops run in order, atomically, against the CURRENT design below. Reference existing \
 components by their exact ids. Do not include ids for new components unless another op in \
 the same batch needs to reference them (then use a new id like "shf_new1"). Check your \
@@ -117,7 +153,8 @@ arithmetic: overlapping or out-of-bounds items are rejected and you will be aske
 """
 
 
-def build_system_prompt(design: dict, catalog: dict, language: Language = "he") -> str:
+def build_system_prompt(design: dict, catalog: dict, language: Language = "he", units: Units = "cm",
+                        min_shelf_gap: int = DEFAULT_MIN_SHELF_GAP_MM) -> str:
     facts = {
         "interiorWidth": interior_width(design),
         "interiorHeight": interior_height(design),
@@ -131,9 +168,11 @@ def build_system_prompt(design: dict, catalog: dict, language: Language = "he") 
     limits = _compact({key: list(value) for key, value in LIMITS.items()})
     # Static text first and the per-turn data last, so the provider can cache the prefix.
     return (
-        SYSTEM_PROMPT.replace("{limits}", limits)
+        SYSTEM_PROMPT.replace("{limits}", limits).replace("{min_shelf_gap}", str(min_shelf_gap))
         + "\n## Catalog (data)\n" + _compact(catalog)
+        + "\n\n## Colours per material (data)\n" + _compact(colours_by_material(catalog))
         + "\n\n## Current design (data, the state your ops apply to)\n" + _compact(design)
         + "\n\n## Derived facts (mm; a new shelf/drawer must fit entirely inside one freeY gap)\n" + _compact(facts)
+        + "\n\n## DISPLAY UNITS\n" + UNITS_RULE[units]
         + "\n\n## RESPONSE LANGUAGE\n" + INSTRUCTION[language]
     )

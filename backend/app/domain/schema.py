@@ -157,17 +157,29 @@ class Partition(StrictModel):
     thickness: Int
 
 
+CatalogId = Annotated[str, Field(pattern=r"^[a-z0-9_]{1,40}$")]
+
+
 class Door(StrictModel):
     id: DoorId
     compartment_ids: list[CompartmentId] = Field(max_length=MAX_LIST)
     hinge_side: Literal["left", "right"] | None = None
     appearance: Appearance | None = None
+    front: Literal["panel", "mirror"] = "panel"
+
+
+class Handles(StrictModel):
+    """One handle style and finish for every door (catalog ids; style `none` means no handles)."""
+
+    style: CatalogId = "bar"
+    finish: CatalogId = "black"
 
 
 class Doors(StrictModel):
     type: Literal["hinged", "sliding", "none"]
     appearance: Appearance
     items: list[Door] = Field(max_length=MAX_DOORS)
+    handles: Handles = Field(default_factory=Handles)
 
 
 class Design(StrictModel):

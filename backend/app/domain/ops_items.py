@@ -96,6 +96,25 @@ def _require_any(path: str, *values) -> None:
         raise DomainError(INVALID_OP, path, "nothing to change")
 
 
+def set_handles(draft: dict, op: op_types.SetHandles, path: str) -> dict:
+    _require_any(path, op.style, op.finish)
+    handles = draft["doors"]["handles"]
+    if op.style is not None:
+        handles["style"] = op.style
+    if op.finish is not None:
+        handles["finish"] = op.finish
+    return draft
+
+
+def modify_door(draft: dict, op: op_types.ModifyDoor, path: str) -> dict:
+    _require_any(path, op.front)
+    door = next((d for d in draft["doors"]["items"] if d["id"] == op.id), None)
+    if door is None:
+        raise DomainError(NOT_FOUND, f"{path}.id", "no door with this id")
+    door["front"] = op.front
+    return draft
+
+
 ITEM_HANDLERS = {
     op_types.AddShelf: add_shelf,
     op_types.ModifyShelf: modify_shelf,
@@ -104,4 +123,6 @@ ITEM_HANDLERS = {
     op_types.AddRail: add_rail,
     op_types.ModifyRail: modify_rail,
     op_types.SetMaterial: set_material,
+    op_types.SetHandles: set_handles,
+    op_types.ModifyDoor: modify_door,
 }

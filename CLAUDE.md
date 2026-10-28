@@ -39,6 +39,9 @@ BanAI is an MVP AI wardrobe designer for standard straight wardrobes only. Three
   - **Approved exceptions (2026-10-16):**
     - The **carpenter PDF** ("Generate Style Profile") is a design drawing that explains the intent. It is not a manufacturing export: no cut list, and construction details are left to the carpenter.
     - The PDF's **3D snapshot** is not an image upload. The app renders it from the design (`viewer/snapshot.js`) and sends it with the export. The server treats it as untrusted bytes (`backend/app/export/image.py`): PNG/JPEG only, at most 2 MB and 2400 px, fully decoded, then re-encoded. It is never stored.
+- **Voice (approved 2026-10-16, previously excluded).** Speech in, spoken reply, English + Hebrew, as a chained pipeline (speech-to-text, then the same `/api/chat` agent, then text-to-speech). Voice only fills the composer and reads replies aloud; **it never confirms, applies or undoes anything**. Off by default (`VOICE_ENABLED`), with clip, rate, hourly and daily-budget limits. Hands-free full-duplex conversation stays out of scope. See `docs/architecture.md` §11.
+- **Export and Share (approved 2026-10-20).** The header has Save, Export and Share as equal actions. Export builds a PDF design specification in the browser (descriptive: dimensions, drawings, schedules; **no parts or cut list**, and every page says it is not a manufacturing document). Share (Copy link, WhatsApp, Email) is enabled once the design is saved (or opened from its private link). See `docs/architecture.md` §14.
+- **Merged with the upstream repo (2026-10-27).** The fork's UI (header, editor sections, chat panel, voice UI, browser PDF export) is kept on top of upstream's backend: agent (`backend/app/agent/`), voice routes, Supabase persistence and the carpenter PDF. The carpenter PDF is opened from the chat ("Generate Style Profile"); the header's Export stays the browser-built specification.
 - **Mandatory stack.**
   - Frontend: vanilla JS ES modules + Three.js, bundled with Vite. **No React, Vue, or R3F.**
   - Backend: FastAPI + Pydantic.
@@ -71,9 +74,9 @@ npm run build                                  # vite build -> dist/
 
 ## Architecture (target design; implemented incrementally by phase)
 
-- **Single operation protocol.** Every change is a list of typed, pure ops (`(design) -> newDesign`, no mutation). That covers manual edits and AI edits alike: `update_dimensions`, `configure_doors`, `add_*` / `modify_*` for compartments, partitions, shelves, drawers, and rails, `set_material`, and `remove_component`. The ops engine exists twice:
+- **Single operation protocol.** Every change is a list of typed, pure ops (`(design) -> newDesign`, no mutation). That covers manual edits and AI edits alike: `update_dimensions`, `configure_doors`, `add_*` / `modify_*` for compartments, partitions, shelves, drawers, and rails, `set_material`, `set_handles`, `modify_door`, and `remove_component`. The ops engine exists twice:
   - `backend/app/domain/`: the authoritative version, used for AI validation and saves.
-  - `frontend/src/state/`: used for instant manual editing.
+  - `frontend/src/domain/`: used for instant manual editing (the store in `frontend/src/state/` calls it).
   - Parity between them is enforced by golden fixtures in `shared/fixtures/ops/*.json`, which both pytest and vitest run. If you change an op on one side, change the other side and the fixtures too.
 - **Canonical schema.**
   - All lengths are integer **millimetres**.
@@ -83,7 +86,7 @@ npm run build                                  # vite build -> dist/
   - `revision` and `designId` live **outside** the design object.
 - **Three.js renders from state only.** The viewer never owns data. The AI never touches Three.js objects. Viewer code is split into geometry builders, rendering, and picking.
 - **AI proposals are stateless and signed.**
-  - `/api/chat` receives `{messages, design, revision}`. The agent is called only on user messages, never on manual edits.
+  - `/api/chat` receives `{messages: [{role, text}], design, revision, language, units}`. The agent is called only on user messages, never on manual edits. It replies in the language of the customer's latest message (the language switch decides only for text without letters).
   - OpenAI tool calls are parsed with Pydantic, dry-run on a copy of the design, and returned as an HMAC-signed proposal `{ops, baseRevision, baseHash}`.
   - `/api/proposals/apply` verifies the signature and returns **409** if the revision or hash is stale.
   - Pending proposals are never part of the committed state. Cancel is client-only.

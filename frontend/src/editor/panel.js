@@ -3,10 +3,14 @@
 // and shows an inline message. No LLM is involved in manual editing.
 import { compartmentsSection } from './compartmentsSection.js';
 import { componentSection } from './componentSection.js';
+import { interiorSection } from './interiorSection.js';
+import { doorsSection, handlesSection } from './doorsSection.js';
+import { materialsSection, wardrobeSection } from './wardrobeSection.js';
+import { units } from '../ui/units.js';
+import { language } from '../i18n/strings.js';
 import { partsSection } from './partsSection.js';
-import { wardrobeSection } from './wardrobeSection.js';
 
-export function mountPanel(root, store, { onExport } = {}) {
+export function mountPanel(root, store) {
   const run = (ops) => {
     try {
       return store.dispatch(ops);
@@ -20,19 +24,30 @@ export function mountPanel(root, store, { onExport } = {}) {
   const render = (state) => {
     if (state.design === rendered.design && state.selection === rendered.selection) return;
     rendered = { design: state.design, selection: state.selection };
-    const context = { design: state.design, catalog: state.catalog, selection: state.selection, run, select, onExport };
+    const context = { design: state.design, catalog: state.catalog, selection: state.selection, run, select };
     // Re-rendering replaces every control: put keyboard focus back on the same one (WCAG 2.4.3).
     const focused = root.contains(document.activeElement) ? document.activeElement.dataset.testid : undefined;
     root.replaceChildren(
       ...(state.selection ? [componentSection(context)] : []),
       ...wardrobeSection(context),
+      ...doorsSection(context),
+      ...handlesSection(context),
+      ...materialsSection(context),
       compartmentsSection(context),
+      interiorSection(context),
       partsSection(context),
     );
     if (focused) root.querySelector(`[data-testid="${CSS.escape(focused)}"]`)?.focus();
   };
 
   const unsubscribe = store.subscribe(render);
+  // A different unit changes every field's text and suffix, so draw the panel again.
+  const redraw = () => {
+    rendered = { design: null, selection: undefined };
+    render(store.getState());
+  };
+  const unsubscribeUnits = units.subscribe(redraw);
+  const unsubscribeLanguage = language.subscribe(redraw); // every label, option and error is text in the selected language
   render(store.getState());
-  return unsubscribe;
+  return () => { unsubscribe(); unsubscribeUnits(); unsubscribeLanguage(); };
 }

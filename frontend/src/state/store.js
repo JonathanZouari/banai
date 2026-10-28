@@ -29,6 +29,8 @@ export function resolveSelection(design, id) {
  * Create the store. The initial catalog and design are validated first (applyOps with
  * no ops = parse + full validation); invalid data throws instead of being rendered.
  */
+const MAX_HISTORY = 50;
+
 export function createStore({ design, revision = 1, catalog }) {
   const validCatalog = parseCatalog(catalog);
   const validDesign = applyOps(design, [], validCatalog);
@@ -39,6 +41,15 @@ export function createStore({ design, revision = 1, catalog }) {
     design: validDesign, revision, catalog: validCatalog, selection: null, ui: { doorsVisible: true },
   });
   const listeners = new Set();
+  // Previous committed designs (newest last) for Undo, and undone designs for Redo. Not part of the
+  // design or the revision. Any new change clears the redo list.
+  const history = [];
+  const future = [];
+  const remember = () => {
+    history.push(state.design);
+    if (history.length > MAX_HISTORY) history.shift();
+    future.length = 0;
+  };
 
   const commit = (patch) => {
     state = deepFreeze({ ...state, ...patch });
@@ -63,6 +74,57 @@ export function createStore({ design, revision = 1, catalog }) {
         throw error;
       }
       const selection = state.selection && resolveSelection(next, state.selection.id);
+      remember();
+      commit({ design: next, revision: state.revision + 1, selection });
+      return { ok: true };
+    },
+
+    /**
+     * Commit a design the server applied (an AI proposal). It is validated like the initial design;
+     * invalid data or a revision that does not move forward throws and leaves the state untouched.
+     */
+    replace(design, revision) {
+      const next = applyOps(design, [], state.catalog);
+      if (!Number.isInteger(revision) || revision <= state.revision) {
+        throw new DomainError('SCHEMA_INVALID', 'revision', 'invalid revision');
+      }
+      const selection = state.selection && resolveSelection(next, state.selection.id);
+      remember();
+      commit({ design: next, revision, selection });
+    },
+
+    /**
+     * Open a different design (one from the "Last designs" archive). It is validated like the initial
+     * design; invalid data throws and leaves the state untouched. Undo and Redo history belong to the
+     * previous design, so they are cleared, and the revision moves forward.
+     */
+    load(design) {
+      const next = applyOps(design, [], state.catalog);
+      history.length = 0;
+      future.length = 0;
+      commit({ design: next, revision: state.revision + 1, selection: null });
+    },
+
+    canUndo: () => history.length > 0,
+
+    /** Restore the previous design. The revision still moves forward, so a pending proposal goes stale. */
+    undo() {
+      const previous = history.pop();
+      if (!previous) return { ok: false };
+      future.push(state.design);
+      const selection = state.selection && resolveSelection(previous, state.selection.id);
+      commit({ design: previous, revision: state.revision + 1, selection });
+      return { ok: true };
+    },
+
+    canRedo: () => future.length > 0,
+
+    /** Re-apply the last undone design. Like Undo, the revision moves forward. */
+    redo() {
+      const next = future.pop();
+      if (!next) return { ok: false };
+      history.push(state.design);
+      const selection = state.selection && resolveSelection(next, state.selection.id);
       commit({ design: next, revision: state.revision + 1, selection });
       return { ok: true };
     },
@@ -71,19 +133,6 @@ export function createStore({ design, revision = 1, catalog }) {
       const selection = id === null ? null : resolveSelection(state.design, id);
       const hideDoors = selection !== null && INTERIOR_KINDS.has(selection.kind) && state.ui.doorsVisible;
       commit({ selection, ui: hideDoors ? { ...state.ui, doorsVisible: false } : state.ui });
-    },
-
-    /**
-     * Commit a design produced by the server (an applied AI proposal). It is validated like the
-     * initial design; invalid data throws and leaves the state untouched.
-     */
-    replaceDesign(design, revision) {
-      const next = applyOps(design, [], state.catalog);
-      if (!Number.isInteger(revision) || revision <= state.revision) {
-        throw new DomainError('SCHEMA_INVALID', 'revision', 'invalid revision');
-      }
-      const selection = state.selection && resolveSelection(next, state.selection.id);
-      commit({ design: next, revision, selection });
     },
 
     setDoorsVisible(doorsVisible) {

@@ -10,25 +10,52 @@
   <body>
     <a class="skip-link" href="#properties-panel">Skip to properties</a>
     <header class="topbar">
-      <h1 class="topbar__title" id="topbar-logo" aria-label="BanAI Wardrobe Designer"></h1>
+      <h1 class="topbar__title"><a class="topbar__home" id="topbar-logo" data-testid="home-link" href="/" aria-label="BanAI Wardrobe Designer: back to the start screen" data-i18n-aria="uiHomeAria" data-i18n-title="uiHomeAria"></a></h1>
       <div class="topbar__actions">
-        <label class="toggle">
-          <input type="checkbox" id="toggle-interior" />
-          <span>Show interior</span>
-        </label>
-        <span class="topbar__units">cm</span>
-        <button type="button" class="btn btn--tonal" id="open-render" data-testid="open-render">Render</button>
-        <button type="button" class="btn btn--primary" id="open-save" data-testid="open-save">Save</button>
-        <a class="btn btn--ghost" href="/accessibility.html" lang="he" data-testid="a11y-link">נגישות</a>
+        <div class="topbar__group" role="group" aria-label="History" data-i18n-aria="uiHistoryAria">
+          <button type="button" class="icon-btn" id="undo" data-testid="undo" data-icon="undo" disabled aria-label="Undo last change" data-i18n-aria="uiUndoAria" data-i18n-title="uiUndoAria"></button>
+          <button type="button" class="icon-btn" id="redo" data-testid="redo" data-icon="redo" disabled aria-label="Redo" data-i18n-aria="uiRedoAria" data-i18n-title="uiRedoAria"></button>
+        </div>
+        <span class="topbar__divider" aria-hidden="true"></span>
+        <div class="topbar__group topbar__actions-main" role="group" aria-label="Save, export and share">
+          <button type="button" class="btn topbar__action" id="open-save" data-testid="open-save" data-icon="save"><span data-i18n="uiSave">Save</span></button>
+          <button type="button" class="btn topbar__action" id="open-export" data-testid="open-export" data-icon="download" aria-label="Export a PDF specification" data-i18n-aria="uiExportAria" data-i18n-title="uiExportAria"><span data-i18n="uiExport">Export</span></button>
+          <button type="button" class="btn topbar__action" id="open-render" data-testid="open-render" data-icon="image" aria-label="Render preview" data-i18n-aria="uiRenderPreview" data-i18n-title="uiRenderPreview"><span data-i18n="uiRender">Render</span></button>
+          <div class="topbar__menu">
+            <button type="button" class="btn topbar__action" id="share-menu" data-testid="share-menu" data-icon="share" aria-label="Share this design" data-i18n-aria="uiShareAria" data-i18n-title="uiShareAria"><span data-i18n="uiShare">Share</span></button>
+            <div class="menu" id="share-panel" data-testid="share-panel">
+              <button type="button" role="menuitem" class="menu__item" id="share-copy" data-testid="share-copy" data-icon="copy" disabled><span data-i18n="uiCopyLink">Copy link</span></button>
+              <button type="button" role="menuitem" class="menu__item" id="share-whatsapp" data-testid="share-whatsapp" data-icon="chat" disabled><span data-i18n="uiShareWhatsapp">WhatsApp</span></button>
+              <button type="button" role="menuitem" class="menu__item" id="share-email" data-testid="share-email" data-icon="mail" disabled><span data-i18n="uiShareEmail">Email</span></button>
+              <p class="menu__note" id="share-note" data-testid="share-note" role="status" data-i18n="uiShareNeedsSave">Sharing needs a saved design. Save it first to get a private link.</p>
+            </div>
+          </div>
+        </div>
+        <div class="topbar__menu">
+          <button type="button" class="icon-btn" id="settings-menu" data-testid="settings-menu" data-icon="settings" aria-label="Settings" data-i18n-aria="uiSettingsAria" data-i18n-title="uiSettingsAria"></button>
+          <div class="menu menu--settings" id="settings-panel" data-testid="settings-panel">
+            <p class="menu__label" id="lang-label" data-i18n="uiLanguage">Language</p>
+            <div class="lang-switch" id="lang-switch" role="radiogroup" aria-labelledby="lang-label" data-testid="lang-switch">
+              <button type="button" role="radio" class="lang-switch__btn" data-lang="en" data-testid="lang-en" lang="en">EN</button>
+              <button type="button" role="radio" class="lang-switch__btn" data-lang="he" data-testid="lang-he" lang="he">עברית</button>
+            </div>
+            <p class="menu__label" id="unit-label" data-i18n="uiUnitsAria">Units</p>
+            <div class="lang-switch" id="unit-switch" role="radiogroup" aria-labelledby="unit-label" data-testid="unit-switch">
+              <button type="button" role="radio" class="lang-switch__btn" data-unit="cm" data-testid="unit-cm" data-i18n-title="uiCentimetres">cm</button>
+              <button type="button" role="radio" class="lang-switch__btn" data-unit="in" data-testid="unit-in" data-i18n-title="uiInches">in</button>
+            </div>
+            <a class="menu__link" href="/accessibility.html" lang="he" data-testid="a11y-link">הצהרת נגישות</a>
+          </div>
+        </div>
       </div>
     </header>
     <div class="banner banner--error" id="error-banner" role="alert" hidden></div>
     <main class="workspace">
-      <aside class="panel" id="chat-panel" lang="he" aria-label="מעצב AI"></aside>
-      <section class="viewer" id="viewer" aria-label="3D viewer"></section>
-      <aside class="panel panel--properties" id="properties-panel" aria-label="Properties" tabindex="-1">
-        <h2 class="panel__title">Properties</h2>
-        <p class="panel__hint">Select a component in the 3D view, or under All parts below, to edit it.</p>
+      <aside class="panel" id="chat-panel" aria-label="AI designer"></aside>
+      <section class="viewer" id="viewer" aria-label="3D viewer" data-i18n-aria="uiViewerAria"></section>
+      <aside class="panel panel--properties" id="properties-panel" aria-label="Properties" data-i18n-aria="uiProperties" tabindex="-1">
+        <h2 class="panel__title" data-i18n="uiProperties">Properties</h2>
+        <p class="panel__hint" data-i18n="uiPropertiesHint">Select a component in the 3D view, or under All parts below, to edit it.</p>
         <div id="properties-content"></div>
       </aside>
     </main>

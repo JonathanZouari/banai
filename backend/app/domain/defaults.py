@@ -32,6 +32,10 @@ def default_appearance() -> dict:
     }
 
 
+def default_handles() -> dict:
+    return {"style": "bar", "finish": "black"}
+
+
 BASIC_WARDROBE_OPS: list[dict] = [
     {"op": "create_wardrobe", "width": 2000, "height": 2400, "depth": 600, "compartmentCount": 3,
      "compartmentIds": ["cmp_left", "cmp_middle", "cmp_right"], "partitionIds": ["prt_1", "prt_2"]},

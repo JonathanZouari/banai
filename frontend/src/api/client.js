@@ -49,28 +49,51 @@ export const getCatalog = (fetchImpl = fetch) => getJson('/api/catalog', fetchIm
 /** Returns { design, revision } for the predefined basic wardrobe. */
 export const getDefaultDesign = (fetchImpl = fetch) => getJson('/api/designs/default', fetchImpl);
 
-/** One agent turn: { messages: [{role, text}], design, revision } -> { reply, proposal|null }. */
-export const sendChat = (payload, fetchImpl = fetch) => postJson('/api/chat', payload, fetchImpl);
+/**
+ * One agent turn: { messages: [{role, text}], design, revision, language, units }
+ * -> { reply, replySignature, proposal|null, offerProfile }.
+ */
+export const postChat = (payload, fetchImpl = fetch) => postJson('/api/chat', payload, fetchImpl);
 
-/** Speech to text: a recorded audio Blob -> { text }. `language` only localizes server errors. */
-export const transcribe = (blob, language, fetchImpl = fetch) => request(
-  `/api/voice/transcribe?language=${encodeURIComponent(language)}`,
-  fetchImpl,
-  { method: 'POST', headers: { 'Content-Type': blob.type.split(';')[0] || 'audio/webm' }, body: blob },
-);
+/** Apply a signed proposal: { design, revision, proposal, language } -> { design, revision }. 409 = stale. */
+export const applyProposal = (payload, fetchImpl = fetch) => postJson('/api/proposals/apply', payload, fetchImpl);
 
-/** Text to speech: { text, language, signature } -> an audio/mpeg Blob (signature = the chat replySignature). */
-export async function fetchSpeech(payload, fetchImpl = fetch) {
+/** Voice feature flag from the server: { enabled, maxSeconds }. */
+export const getVoiceStatus = (fetchImpl = fetch) => getJson('/api/voice/status', fetchImpl);
+
+/**
+ * Speech to text: a recorded audio Blob -> { text, noSpeech }. `language` only localizes server errors.
+ * Silence is not an error for the voice UI: the server's NO_SPEECH becomes { text: '', noSpeech: true }.
+ */
+export async function transcribeAudio(blob, language, fetchImpl = fetch) {
+  try {
+    const { text } = await request(
+      `/api/voice/transcribe?language=${encodeURIComponent(language)}`,
+      fetchImpl,
+      { method: 'POST', headers: { 'Content-Type': blob.type.split(';')[0] || 'audio/webm' }, body: blob },
+    );
+    return { text, noSpeech: !text };
+  } catch (error) {
+    if (error instanceof ApiError && error.code === 'NO_SPEECH') return { text: '', noSpeech: true };
+    throw error;
+  }
+}
+
+/**
+ * Text to speech for one piece of a signed agent reply: { text, signature, piece, language } -> the fetch
+ * Response whose body streams raw 24 kHz 16-bit mono PCM. `signature` is the chat replySignature.
+ */
+export async function speak({ text, signature, piece, language }, fetchImpl = fetch) {
   if (!API_BASE_URL) throw new Error('The API base URL is not configured');
   let response;
   try {
     response = await fetchImpl(`${API_BASE_URL}/api/voice/speech`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ text, signature, piece, language }),
     });
   } catch {
-    throw new ApiError('Could not reach the design service.');
+    throw new ApiError('Could not reach the design service.', { code: 'NETWORK' });
   }
   if (!response.ok) {
     const body = await response.json().catch(() => null);
@@ -79,11 +102,8 @@ export async function fetchSpeech(payload, fetchImpl = fetch) {
       code: body?.error?.code ?? 'HTTP_ERROR',
     });
   }
-  return response.blob();
+  return response;
 }
-
-/** Apply a signed proposal: { design, revision, proposal } -> { design, revision }. 409 = stale. */
-export const applyProposal = (payload, fetchImpl = fetch) => postJson('/api/proposals/apply', payload, fetchImpl);
 
 const SAFE_PDF_NAME = /^[A-Za-z0-9._-]{1,80}\.pdf$/;
 const FALLBACK_PDF_NAME = 'banai-wardrobe.pdf';

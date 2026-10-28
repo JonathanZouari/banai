@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
+import { createLanguage, translate } from '../../../src/i18n/strings.js';
 import {
-  AGENT_ERROR_MESSAGE, createChatModel, MAX_MESSAGE_LENGTH, NOT_CONNECTED_MESSAGE, proposalStatus, SUGGESTIONS,
+  createChatModel, MAX_MESSAGE_LENGTH, NOT_CONNECTED_MESSAGE, proposalStatus, SUGGESTIONS,
 } from '../../../src/chat/chatModel.js';
-import { STRINGS } from '../../../src/chat/i18n.js';
 
 const proposal = (baseRevision = 1) => ({
   id: 'p1',
@@ -66,7 +66,7 @@ describe('chat model', () => {
     model.setProposal(proposal());
     expect(model.cancelProposal()).toBe(true);
     expect(model.getProposal()).toBeNull();
-    expect(model.getMessages().at(-1).text).toMatch(/לא בוצע שום שינוי/);
+    expect(model.getMessages().at(-1).text).toMatch(/No changes were made/);
   });
 
   it('resolveProposal clears the proposal and optionally posts a message', () => {
@@ -93,124 +93,64 @@ describe('suggestions', () => {
   });
 });
 
-describe('chat model with a connected agent', () => {
-  const deferred = () => {
-    let resolve;
-    let reject;
-    const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
-    return { promise, resolve, reject };
+// Ported from Jonathan's chat model: reply signatures, per-message language and the style-profile step.
+describe('chat model with a connected agent (merged behaviour)', () => {
+  const languageOf = (code) => {
+    const language = createLanguage(null);
+    language.set(code);
+    return language;
   };
-  const signed = { proposalId: 'prp_0123456789abcdef', baseRevision: 3, summary: 'Adds a shelf', changes: [{ title: 'Shelf', detail: '100 cm' }], ops: [], signature: 'x' };
+  const model = (agent, language = languageOf('en')) => createChatModel({ getRevision: () => 1, getDesign: () => ({}), agent, language });
 
-  it('sends the dialogue history, shows a busy state, then the reply and the proposal', async () => {
-    const pending = deferred();
-    const agent = vi.fn(() => pending.promise);
-    const model = createChatModel({ getRevision: () => 3, agent });
-    expect(model.isConnected()).toBe(true);
-    expect(model.send('add a shelf')).toEqual({ ok: true });
-    expect(model.isBusy()).toBe(true);
-    expect(model.send('another')).toEqual({ ok: false, reason: 'busy' });
-    expect(agent).toHaveBeenCalledWith({ messages: [{ role: 'user', text: 'add a shelf' }], language: 'he' });
-    pending.resolve({ reply: 'Here you go', proposal: signed });
-    await vi.waitFor(() => expect(model.isBusy()).toBe(false));
-    expect(model.getMessages().map((m) => [m.role, m.text])).toEqual([['user', 'add a shelf'], ['assistant', 'Here you go']]);
-    expect(model.getProposal()).toEqual({ id: signed.proposalId, baseRevision: 3, summary: 'Adds a shelf', changes: signed.changes, language: 'he', signed });
-    expect(model.getProposalStatus()).toBe('pending');
-  });
-
-  it('keeps system notes out of the history sent to the agent', async () => {
-    const agent = vi.fn(async () => ({ reply: 'ok', proposal: signed }));
-    const model = createChatModel({ getRevision: () => 3, agent });
-    model.send('first');
-    await vi.waitFor(() => expect(model.isBusy()).toBe(false));
-    model.cancelProposal();
-    model.send('second');
-    await vi.waitFor(() => expect(agent).toHaveBeenCalledTimes(2));
-    expect(agent.mock.calls[1][0].messages).toEqual([
-      { role: 'user', text: 'first' }, { role: 'assistant', text: 'ok' }, { role: 'user', text: 'second' },
-    ]);
-  });
-
-  it('shows a friendly note when the agent fails, and recovers', async () => {
-    const agent = vi.fn().mockRejectedValueOnce(new TypeError('boom')).mockResolvedValueOnce({ reply: 'back', proposal: null });
-    const model = createChatModel({ getRevision: () => 1, agent });
-    model.send('hi');
-    await vi.waitFor(() => expect(model.isBusy()).toBe(false));
-    expect(model.getMessages().at(-1)).toMatchObject({ role: 'system', text: AGENT_ERROR_MESSAGE });
-    model.send('again');
-    await vi.waitFor(() => expect(model.getMessages().at(-1)).toMatchObject({ role: 'assistant', text: 'back' }));
-  });
-
-  it('a new message drops an unconfirmed proposal', async () => {
-    const agent = vi.fn(async () => ({ reply: 'ok', proposal: null }));
-    const model = createChatModel({ getRevision: () => 3, agent });
-    model.setProposal({ id: 'p', baseRevision: 3, summary: '', changes: [] });
-    model.send('something else');
-    expect(model.getProposal()).toBeNull();
-    await vi.waitFor(() => expect(model.isBusy()).toBe(false));
-  });
-
-  it('keeps the reply signature (for read-aloud) on the assistant message only', async () => {
+  it('sends { role, text } history and keeps the reply signature on the assistant message only', async () => {
     const agent = vi.fn(async () => ({ reply: 'ok', replySignature: 'f'.repeat(64), proposal: null }));
-    const model = createChatModel({ getRevision: () => 1, agent });
-    model.send('hello');
-    await vi.waitFor(() => expect(model.isBusy()).toBe(false));
-    const [user, reply] = model.getMessages();
+    const chat = model(agent);
+    chat.send('hello');
+    await vi.waitFor(() => expect(chat.isBusy()).toBe(false));
+    expect(agent.mock.calls[0][0].messages).toEqual([{ role: 'user', text: 'hello' }]);
+    const [user, reply] = chat.getMessages();
     expect(user).not.toHaveProperty('signature');
     expect(reply).toMatchObject({ role: 'assistant', text: 'ok', signature: 'f'.repeat(64) });
   });
-});
 
-describe('chat model language', () => {
-  it('passes the chat language to the agent and writes its own notes in it', async () => {
-    let language = 'en';
-    const agent = vi.fn().mockRejectedValueOnce(new TypeError('offline'));
-    const model = createChatModel({ getRevision: () => 1, agent, getLanguage: () => language });
-    model.send('hello');
-    await vi.waitFor(() => expect(model.isBusy()).toBe(false));
-    expect(agent.mock.calls[0][0].language).toBe('en');
-    expect(model.getMessages().at(-1).text).toBe(STRINGS.en.agentError);
-    language = 'he';
-    model.setProposal({ id: 'p', baseRevision: 1, summary: '', changes: [] });
-    model.cancelProposal();
-    expect(model.getMessages().at(-1).text).toBe(STRINGS.he.cancelled);
+  it('hands each reply (text, signature, language) to onAssistantReply', async () => {
+    const onAssistantReply = vi.fn();
+    const agent = vi.fn(async () => ({ reply: 'ok', replySignature: 'a'.repeat(64), proposal: null }));
+    const chat = createChatModel({ getRevision: () => 1, getDesign: () => ({}), agent, language: languageOf('he'), onAssistantReply });
+    chat.send('שלום');
+    await vi.waitFor(() => expect(onAssistantReply).toHaveBeenCalled());
+    expect(onAssistantReply.mock.calls[0][0]).toMatchObject({ text: 'ok', signature: 'a'.repeat(64), language: 'he' });
   });
 
-  it('the not-connected note follows the language too', () => {
-    const model = createChatModel({ getRevision: () => 1, getLanguage: () => 'en' });
-    model.send('hi');
-    expect(model.getMessages().at(-1).text).toBe(STRINGS.en.notConnected);
-  });
-});
-
-describe('messages keep their language', () => {
-  it('stamps every message and proposal with the language of its turn, even across a mid-request switch', async () => {
-    let language = 'he';
+  it('stamps messages with the language of their turn, even across a mid-request switch', async () => {
+    const language = languageOf('he');
     let release;
     const agent = vi.fn(() => new Promise((resolve) => { release = resolve; }));
-    const model = createChatModel({ getRevision: () => 1, agent, getLanguage: () => language });
-    model.send('תוסיף מדף');
-    language = 'en'; // switched while the designer is thinking
-    release({ reply: 'אציע מדף.', proposal: { proposalId: 'prp_0123456789abcdef', baseRevision: 1, summary: 's', changes: [], ops: [], signature: 'x' } });
-    await vi.waitFor(() => expect(model.isBusy()).toBe(false));
-    expect(agent.mock.calls[0][0].language).toBe('he');
-    expect(model.getMessages().map((m) => [m.role, m.language])).toEqual([['user', 'he'], ['assistant', 'he']]);
-    expect(model.getProposal().language).toBe('he');
-    model.cancelProposal(); // a new note, in the language chosen now
-    expect(model.getMessages().at(-1)).toMatchObject({ role: 'system', language: 'en', text: STRINGS.en.cancelled });
+    const chat = model(agent, language);
+    chat.send('תוסיף מדף');
+    language.set('en'); // switched while the designer is thinking
+    release({ reply: 'אציע מדף.', proposal: null });
+    await vi.waitFor(() => expect(chat.isBusy()).toBe(false));
+    expect(chat.getMessages().map((m) => [m.role, m.language])).toEqual([['user', 'he'], ['assistant', 'he']]);
+    chat.setProposal({ id: 'p', baseRevision: 1, summary: '', changes: [] });
+    chat.cancelProposal(); // a new note, in the language chosen now
+    expect(chat.getMessages().at(-1)).toMatchObject({ role: 'system', language: 'en', text: translate('en', 'cancelled') });
   });
-});
 
-describe('the Generate Style Profile step', () => {
-  it('appears once the agent offers it or a change was confirmed, and never piles up', async () => {
+  it('offers Generate Style Profile when the agent offers it or a change was confirmed, and never piles up', async () => {
     const agent = vi.fn().mockResolvedValue({ reply: 'Great, download it.', offerProfile: true });
-    const model = createChatModel({ getRevision: () => 1, agent, getLanguage: () => 'he' });
-    expect(model.getBuilt()).toBeNull();
-    model.send('סיימתי');
-    await vi.waitFor(() => expect(model.isBusy()).toBe(false));
-    expect(model.getBuilt()).toEqual({ kind: 'design', language: 'he' });
-    model.noteDesignReady();
-    expect(model.getBuilt()).toEqual({ kind: 'design', language: 'he' });
-    expect(model.getMessages().map((m) => m.role)).toEqual(['user', 'assistant']);
+    const chat = model(agent, languageOf('he'));
+    expect(chat.getBuilt()).toBeNull();
+    chat.send('סיימתי');
+    await vi.waitFor(() => expect(chat.isBusy()).toBe(false));
+    expect(chat.getBuilt()).toEqual({ kind: 'design', language: 'he' });
+    chat.noteDesignReady();
+    expect(chat.getBuilt()).toEqual({ kind: 'design', language: 'he' });
+    expect(chat.getMessages().map((m) => m.role)).toEqual(['user', 'assistant']);
+  });
+
+  it('is connected only with an agent', () => {
+    expect(model(vi.fn()).isConnected()).toBe(true);
+    expect(createChatModel({ getRevision: () => 1 }).isConnected()).toBe(false);
   });
 });

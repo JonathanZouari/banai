@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { STRINGS } from '../../../src/chat/i18n.js';
+import { LANGUAGES, translate } from '../../../src/i18n/strings.js';
 import { ENTRY_POINTS, getEntryPoint } from '../../../src/entry/entryPoints.js';
 
 describe('entry points', () => {
-  it('offers exactly the three spec entry points, in order', () => {
-    expect(ENTRY_POINTS.map((e) => e.id)).toEqual(['guided', 'freeText', 'basic']);
+  it('offers the guided and basic entry points, in order (the third card is Last designs)', () => {
+    expect(ENTRY_POINTS.map((e) => e.id)).toEqual(['guided', 'basic']);
   });
 
-  it('focuses the chat (with a localized hint) for the two AI entry points only', () => {
-    expect(ENTRY_POINTS.filter((e) => e.focusesChat).map((e) => e.id)).toEqual(['guided', 'freeText']);
-    for (const strings of Object.values(STRINGS)) {
-      expect(strings.composerHints.guided).toBeTruthy();
-      expect(strings.composerHints.freeText).toBeTruthy();
+  it('focuses the chat (with a localized hint) for the AI entry point only', () => {
+    expect(ENTRY_POINTS.filter((e) => e.focusesChat).map((e) => e.id)).toEqual(['guided']);
+    for (const language of LANGUAGES) {
+      expect(translate(language, 'hintGuided')).toBeTruthy();
+      for (const key of ['arcOpenButton', 'arcCardText', 'arcCardAction', 'uiHomeAria']) expect(translate(language, key)).toBeTruthy();
     }
   });
 

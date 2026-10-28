@@ -1,41 +1,41 @@
-// Always-visible wardrobe settings: overall dimensions, doors and main materials.
+// Always-visible wardrobe settings: overall dimensions, and the main materials (a separate section).
 // Inputs report their own errors inline; buttons/selects report under their section.
 import { appearanceControls } from './appearanceControls.js';
-import { actionResult, cmField, countField, el, section, segmented } from './fields.js';
-import { dimensionOps, doorTypeOps } from './opsFromForm.js';
+import { t } from '../i18n/strings.js';
+import { actionResult, chipRow, cmField, el, section } from './fields.js';
+import { dimensionChips, dimensionOps } from './opsFromForm.js';
 
-function dimensionsRow(design, run) {
-  const { width, height, depth } = design.dimensions;
-  return el('div', { className: 'field-row field-row--3' }, [
-    cmField({ label: 'Width', mm: width, testId: 'dim-width', onCommit: (mm) => run(dimensionOps('width', mm)) }),
-    cmField({ label: 'Height', mm: height, testId: 'dim-height', onCommit: (mm) => run(dimensionOps('height', mm)) }),
-    cmField({ label: 'Depth', mm: depth, testId: 'dim-depth', onCommit: (mm) => run(dimensionOps('depth', mm)) }),
-  ]);
+const DIMENSIONS = Object.freeze([
+  { field: 'width', label: 'edWidth', chipsLabel: 'edCommonWidths' },
+  { field: 'height', label: 'edHeight', chipsLabel: 'edCommonHeights' },
+  { field: 'depth', label: 'edDepth', chipsLabel: 'edCommonDepths' },
+]);
+
+// One block per dimension: the field, then its common sizes. Picking a chip dispatches the same op as typing.
+function dimensionsBlocks({ design, catalog, run }, container) {
+  const runChip = (ops) => actionResult(container, run(ops));
+  return DIMENSIONS.map(({ field, label, chipsLabel }) => el('div', { className: 'dim-block' }, [
+    cmField({ label: t(label), mm: design.dimensions[field], testId: `dim-${field}`, onCommit: (mm) => run(dimensionOps(field, mm)) }),
+    chipRow({
+      label: t(chipsLabel), chips: dimensionChips(design, catalog, field), testIdPrefix: `dim-${field}-chip`,
+      onPick: (mm) => runChip(dimensionOps(field, mm)),
+    }),
+  ]));
 }
 
-export function wardrobeSection({ design, catalog, run }) {
-  const { doors } = design;
-  const wardrobe = section('Wardrobe', [dimensionsRow(design, run)]);
-  const runDoors = (ops) => actionResult(wardrobe, run(ops));
-  wardrobe.append(segmented({
-    label: 'Doors',
-    testId: 'door-type',
-    value: doors.type,
-    options: [{ value: 'hinged', label: 'Hinged' }, { value: 'sliding', label: 'Sliding' }, { value: 'none', label: 'None' }],
-    onChange: (type) => runDoors(doorTypeOps(type)),
-  }));
-  if (doors.type === 'sliding') {
-    wardrobe.append(countField({
-      label: 'Sliding panels', value: doors.items.length, testId: 'sliding-count',
-      onCommit: (count) => run(doorTypeOps('sliding', count)),
-    }));
-  }
+export function wardrobeSection(context) {
+  const wardrobe = section(t('edWardrobe'), []);
+  wardrobe.append(...dimensionsBlocks(context, wardrobe));
+  return [wardrobe];
+}
 
-  const materials = section('Materials', []);
+export function materialsSection({ design, catalog, run }) {
+  const { doors } = design;
+  const materials = section(t('edMaterials'), []);
   const runMaterials = (ops) => actionResult(materials, run(ops));
-  materials.append(appearanceControls({ catalog, appearance: design.carcass.appearance, target: 'carcass', run: runMaterials, label: 'Carcass & interior' }));
+  materials.append(appearanceControls({ catalog, appearance: design.carcass.appearance, target: 'carcass', run: runMaterials, label: t('edCarcass') }));
   if (doors.type !== 'none') {
-    materials.append(appearanceControls({ catalog, appearance: doors.appearance, target: 'doors', run: runMaterials, label: 'Doors' }));
+    materials.append(appearanceControls({ catalog, appearance: doors.appearance, target: 'doors', run: runMaterials, label: t('edDoors') }));
   }
-  return [wardrobe, materials];
+  return [materials];
 }

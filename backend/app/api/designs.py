@@ -21,6 +21,8 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.api.agent import error
 from app.api.export import read_capped
+from app.api.limits import DailyBudget, HourlyCap, limiter
+from app.config import get_settings
 from app.domain.apply import apply_ops
 from app.domain.catalog import load_catalog
 from app.domain.errors import DomainError
@@ -45,6 +47,7 @@ MESSAGES = {
     "STALE": {"he": "העיצוב נשמר בינתיים ממקום אחר. טען את הקישור מחדש.",
               "en": "This design was saved elsewhere in the meantime. Reload the link."},
     "STORAGE_UNAVAILABLE": {"he": "שמירה עדיין לא זמינה בשרת הזה.", "en": "Saving is not available on this server."},
+    "BUSY": {"he": "נשמרו הרבה עיצובים בשעה האחרונה. נסה שוב מאוחר יותר.", "en": "Many designs were saved in the last hour. Please try again later."},
     "STORAGE_ERROR": {"he": "השמירה נכשלה. נסה שוב בעוד רגע.", "en": "Saving failed. Please try again in a moment."},
 }
 
@@ -97,7 +100,15 @@ async def _parse_save(request: Request) -> SaveRequest | JSONResponse:
     return parsed.model_copy(update={"design": design})
 
 
+# Every new design is a stored row: a global ceiling keeps one client (or one shared proxy address)
+# from filling the database, on top of the per-IP limit.
+create_cap = HourlyCap()
+create_bytes = DailyBudget()  # what new designs may add to the database per day (per worker)
+_rate_limit = limiter.limit(lambda: get_settings().designs_rate_limit)
+
+
 @router.post("/designs", status_code=201)
+@_rate_limit
 async def create_design(request: Request):
     repository = get_repository()
     if repository is None:
@@ -105,6 +116,10 @@ async def create_design(request: Request):
     parsed = await _parse_save(request)
     if isinstance(parsed, JSONResponse):
         return parsed
+    settings = get_settings()
+    size = len(json.dumps(parsed.design, separators=(",", ":")))
+    if create_cap.over(settings.designs_hourly_cap) or not create_bytes.spend(size, settings.designs_daily_bytes):
+        return _fail(429, "BUSY", parsed.language)
     token = secrets.token_urlsafe(32)
     try:
         design_id, revision = await run_in_threadpool(repository.create, _hash(token), parsed.name, parsed.design)
@@ -116,6 +131,7 @@ async def create_design(request: Request):
 
 
 @router.get("/designs/{raw_id}")
+@_rate_limit
 async def get_design(raw_id: str, request: Request, language: Literal["he", "en"] = "he"):
     repository = get_repository()
     if repository is None:
@@ -140,6 +156,7 @@ async def get_design(raw_id: str, request: Request, language: Literal["he", "en"
 
 
 @router.put("/designs/{raw_id}")
+@_rate_limit
 async def update_design(raw_id: str, request: Request):
     repository = get_repository()
     if repository is None:

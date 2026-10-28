@@ -6,9 +6,10 @@ entry to the vault through the Obsidian Local REST API.
 
 Configuration (environment variables, all optional):
   OBSIDIAN_API_KEY     REST API key. Falls back to the `obsidian` MCP server
-                       entry in ~/.claude.json, so no secret lives in the repo.
+                       entry in ~/.claude.json (its `env.OBSIDIAN_API_KEY`, or the
+                       `Authorization` header of an HTTP entry), so no secret lives in the repo.
   OBSIDIAN_BASE_URL    Default: https://127.0.0.1:27124
-  OBSIDIAN_WORKLOG     Vault path. Default: BanAI/10 - Work Log.md
+  OBSIDIAN_WORKLOG     Vault path. Default: banai/10 - Work Log.md
 
 Never blocks the agent: every failure is reported on stderr and exits 0.
 """
@@ -17,6 +18,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import ssl
 import subprocess
 import sys
@@ -26,7 +28,7 @@ from datetime import datetime
 from pathlib import Path
 
 DEFAULT_BASE_URL = "https://127.0.0.1:27124"
-DEFAULT_WORKLOG = "BanAI/10 - Work Log.md"
+DEFAULT_WORKLOG = "banai/10 - Work Log.md"
 MAX_PROMPT_CHARS = 600
 MAX_REPLY_CHARS = 2500
 REQUEST_TIMEOUT_SECONDS = 5
@@ -37,6 +39,22 @@ def read_payload() -> dict:
     return json.loads(raw) if raw.strip() else {}
 
 
+def _key_from_mcp_entry(entry: object) -> str | None:
+    """The key from an `obsidian` MCP entry: `env.OBSIDIAN_API_KEY`, or the `Authorization` header (HTTP servers)."""
+    if not isinstance(entry, dict):
+        return None
+    env = entry.get("env")
+    if isinstance(env, dict) and isinstance(env.get("OBSIDIAN_API_KEY"), str) and env["OBSIDIAN_API_KEY"].strip():
+        return env["OBSIDIAN_API_KEY"].strip()
+    headers = entry.get("headers")
+    if isinstance(headers, dict):
+        for name, value in headers.items():
+            if isinstance(name, str) and name.lower() == "authorization" and isinstance(value, str):
+                token = re.sub(r"^bearer(\s+|$)", "", value.strip(), flags=re.IGNORECASE).strip()
+                return token or None
+    return None
+
+
 def load_api_key() -> str | None:
     key = os.environ.get("OBSIDIAN_API_KEY")
     if key:
@@ -44,8 +62,8 @@ def load_api_key() -> str | None:
     config_path = Path.home() / ".claude.json"
     try:
         config = json.loads(config_path.read_text(encoding="utf-8"))
-        return config["mcpServers"]["obsidian"]["env"]["OBSIDIAN_API_KEY"]
-    except (OSError, KeyError, ValueError):
+        return _key_from_mcp_entry(config["mcpServers"]["obsidian"])
+    except (OSError, KeyError, ValueError, TypeError):
         return None
 
 
@@ -114,6 +132,31 @@ def truncate(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[:limit].rstrip() + " …"
 
 
+ATX_HEADING = re.compile(r"^(\s{0,3})#{1,6}\s+(.*?)(\s+#+)?\s*$")
+SETEXT_UNDERLINE = re.compile(r"^\s{0,3}(=+|-+)\s*$")
+FENCE = re.compile(r"^\s{0,3}(```|~~~)")
+
+
+def flatten_headings(text: str) -> str:
+    """Turn Markdown headings in copied text into bold lines, so each entry stays one section in the
+    note's outline (copied `## ...` headings used to nest later entries under them). Code fences are
+    left alone; a setext underline (`---`/`===` right under text) becomes a blank line."""
+    lines, in_fence, previous = [], False, ""
+    for line in text.splitlines():
+        if FENCE.match(line):
+            in_fence = not in_fence
+        elif not in_fence:
+            heading = ATX_HEADING.match(line)
+            if heading:
+                title = heading.group(2).strip()
+                line = f"{heading.group(1)}**{title}**" if title else ""
+            elif SETEXT_UNDERLINE.match(line) and previous.strip():
+                line = ""
+        lines.append(line)
+        previous = line
+    return "\n".join(lines)
+
+
 def quote(text: str) -> str:
     return "\n".join(f"> {line}" if line else ">" for line in text.splitlines())
 
@@ -133,10 +176,10 @@ def build_entry(prompt: str, reply: str, cwd: str, session_id: str) -> str:
         f"*Session `{session_id[:8]}` · branch `{branch}` · HEAD `{head}`*",
         "",
         "**Request**",
-        quote(truncate(prompt, MAX_PROMPT_CHARS)),
+        quote(flatten_headings(truncate(prompt, MAX_PROMPT_CHARS))),
         "",
         "**Outcome**",
-        truncate(reply, MAX_REPLY_CHARS) or "_(no text reply)_",
+        flatten_headings(truncate(reply, MAX_REPLY_CHARS)) or "_(no text reply)_",
     ]
     if changed_list:
         lines += ["", "**Uncommitted changes**", "```", *changed_list, "```"]

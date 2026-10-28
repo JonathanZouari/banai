@@ -42,7 +42,7 @@ Browser (vanilla JS + Three.js, Vite)
 ```
 **Single operation protocol.** Every change, whether manual or AI, is a list of typed ops, for example `{op:"add_shelf", compartmentId, y, …}`. The ops engine exists in Python (authoritative, used for AI validation and save) and in JS (instant manual editing). **Parity is guaranteed by shared golden fixtures** in `shared/fixtures/ops/*.json` (input design + ops → expected design or error), run by both pytest and vitest. Each op is pure: `(design) → newDesign`. Nothing is mutated.
 
-Op set: `create_wardrobe, update_dimensions, configure_doors, add_compartment, modify_compartment, add_partition, modify_partition, add_shelf, modify_shelf, add_drawer, modify_drawer, add_rail, modify_rail, set_material, remove_component`.
+Op set: `create_wardrobe, update_dimensions, configure_doors, add_compartment, modify_compartment, add_partition, modify_partition, add_shelf, modify_shelf, add_drawer, modify_drawer, add_rail, modify_rail, set_material, set_handles, modify_door, remove_component`.
 
 ## 4. Canonical schema (v1, JSON/JSONB)
 ```jsonc
@@ -82,14 +82,15 @@ Revision and persistence metadata (`revision`, `designId`) stay **outside** the 
 6. **Cancel** discards the proposal on the client only, and a "cancelled" note goes into the chat history.
 7. Any manual edit made while a proposal is pending bumps the revision. The card then shows "design changed – ask agent to re-propose".
 
-### 5a. Voice (chained pipeline, added 2026-10-16)
+### 5a. Voice (chained pipeline, added 2026-10-16; merged 2026-10-27, details in §11)
 Voice was originally an excluded feature. It was added on request, following OpenAI's voice-agents guide, as a **chained pipeline**: speech-to-text, then the existing agent, then optional text-to-speech.
 - **Mic → `POST /api/voice/transcribe`.**
-  - The request is a raw audio body with a content-type allowlist and a 1 MB streamed cap. The browser stops recording itself at 60 s.
-  - It returns `{text}`. No language hint is sent, so either language is transcribed as spoken.
-  - The text then goes through the normal `submit()`, which detects the language and calls `/api/chat`.
-- **Read replies aloud** (opt-in, remembered per browser): `POST /api/voice/speech {text, language}` returns `audio/mpeg`.
-  - The toggle and its notice disclose that the voice is AI-generated, as OpenAI's usage policies require.
+  - The request is a raw audio body with a content-type allowlist, a magic-byte check and a streamed cap (about 600 KB, 20 s).
+  - It returns `{text}` (silence is a 422 `NO_SPEECH`). No language hint is sent, so either language is transcribed as spoken.
+  - The text lands in the composer; Send detects the language and calls `/api/chat`.
+- **Read replies aloud** (the Voice switch): `POST /api/voice/speech {text, signature, piece?, language}` streams raw PCM.
+  - `signature` is the `replySignature` from `/api/chat`: only the agent's own replies are spoken, and each `piece` must be part of that signed text.
+  - The switch and its note disclose that the voice is AI-generated, as OpenAI's usage policies require.
 - **Why chained and not Realtime speech-to-speech.** A Realtime session would need its own tool loop and browser ephemeral keys, and it would bypass the signed-proposal protocol. Chained keeps one agent, one scope policy, and one Confirm step.
 - **Defaults (configurable):**
   - `OPENAI_TRANSCRIBE_MODEL=gpt-4o-mini-transcribe`
@@ -105,8 +106,10 @@ Voice was originally an excluded feature. It was added on request, following Ope
 | GET | `/api/designs/default` | basic wardrobe template |
 | POST | `/api/chat` | agent turn → reply + optional signed proposal |
 | POST | `/api/proposals/apply` | verify, check stale, apply → new design |
-| POST | `/api/voice/transcribe` | raw audio (≤ 1 MB) → `{text}` |
-| POST | `/api/voice/speech` | `{text, language}` → `audio/mpeg` |
+| GET | `/api/voice/status` | `{enabled, maxSeconds}` |
+| POST | `/api/voice/transcribe` | raw audio (≤ 600 KB) → `{text}` |
+| POST | `/api/voice/speech` | `{text, signature, piece?, language}` → streamed PCM |
+| POST | `/api/export/pdf` | `{design, language, image?}` → the carpenter PDF |
 | POST | `/api/designs/validate` | server validation of a manual design (used before save) |
 | POST | `/api/designs` | create → `{designId, accessToken, revision}` |
 | GET | `/api/designs/{id}` | header `Authorization: Bearer <token>` → design |
@@ -200,3 +203,38 @@ After each milestone I'll report what was implemented, the files changed, the te
 - Creating Supabase projects if the Kindra org is on a paid plan (each project costs money).
 - Entering the OpenAI key (M5) and Supabase secret keys into Railway variables.
 - Any deploy to `production` or merge to `main` beyond the initial scaffold.
+
+## 11. Voice (added 2026-10-16)
+
+Chosen option: a chained pipeline, not Realtime speech-to-speech or GPT-Live. The existing agent stays the only thing that can propose changes, so validation, dry run, HMAC signing and "nothing applies without Confirm" are unchanged.
+
+| Method | Route | Purpose |
+|---|---|---|
+| GET | `/api/voice/status` | `{enabled, maxSeconds}`; the mic is shown only when enabled |
+| POST | `/api/voice/transcribe` | raw audio body (`audio/webm`, `ogg`, `mp4`, `mpeg`, `wav`) → `{text}`; silence is 422 `NO_SPEECH` (the client turns it into `{noSpeech: true}`) |
+| POST | `/api/voice/speech` | `{text, signature, piece?, language}` → streamed raw PCM (16-bit mono, 24 kHz, header `X-Audio-Format`); `text` must carry the reply signature from `/api/chat` and `piece` must be part of it; at most 400 characters are spoken per request |
+
+Flow: the **Voice switch** (its own row above the composer, not in the header) is off by default. When on, the microphone appears and **every** assistant reply is read aloud (typed or dictated). Mic → record (at most 20 s; the button becomes a red Stop button while recording) → transcribe (no language hint; the domain vocabulary is sent as a prompt) → text lands in the composer, **not sent** → the customer edits and presses Send → the normal `/api/chat` turn → the reply is spoken. Turning the switch off drops any recording and stops playback.
+
+Rules: voice never confirms, applies or undoes; audio and transcripts are not stored or logged; the audio is validated by size (streamed, so chunked bodies are capped too) and by magic bytes, not only by `Content-Type`.
+
+Speed and smoothness: OpenAI's text-to-speech takes about 2 s even for a short sentence, its first audio arrives after about 1 s, and it generates only 1 to 2.5 times faster than real time. Waiting for a whole MP3 therefore took 2.4 to 4.5 s, and playing one long stream from its first bytes ran dry and stuttered (a 330-character reply arrived at 1.2 times real time). So a reply is cut into short pieces (`speechPlan.js`: a short first piece of about 60 characters, later pieces of up to 220, at most 900 characters in total), the pieces are requested **in parallel** and played **in order** with the Web Audio API (`player.js`). Each piece waits for a small start buffer (a third of its length, at least 0.6 s) and starts after a 0.12 s lead-in so the first syllable is not clipped. Measured in a real browser: no gaps between blocks, nothing scheduled late, a 32 s four-piece reply played gap-free, and the first sound comes 1.5 to 2.8 s after the reply appears. The remaining wait is mostly the agent itself (1 to 3 s). The backend streams raw PCM and reuses one OpenAI client so connections are kept alive.
+
+Spend guards (configurable defaults, not business rules): `VOICE_ENABLED=false` by default; 20 s and about 600 KB per clip; 30 requests per minute per IP and 300 per hour overall (a reply can use several requests); an in-memory daily budget (`VOICE_DAILY_BUDGET_USD`, default 1.00) that returns `VOICE_BUDGET` when used up. Models: `gpt-4o-mini-transcribe` and `gpt-4o-mini-tts` (env-overridable). The real backstop is a monthly limit set in the OpenAI dashboard.
+
+Tests: all automated suites mock OpenAI (no cost); Playwright uses a fake microphone fed a generated tone; the optional live run is opt-in and budget-guarded.
+
+## 12. Display units (added 2026-10-16)
+The header has a mm / cm / in switch (default cm, remembered per browser). It changes only what is shown and typed: the editor fields, the 3D dimension labels and the parsing of typed values. The design stays in integer millimetres. Proposal rows in the chat still use centimetres.
+
+## 13. UI language (added 2026-10-16)
+The English / Hebrew switch controls the whole interface, not only the chat: the properties panel (labels, options, buttons, error messages, catalog names such as "Melamine board"), the header buttons, the 3D label of the selected component, and the voice controls. All text lives in `src/i18n/strings.js` (one key set per language, enforced by a test); the shared `language` instance is used by the panel, which redraws on a change and mirrors right to left. Design data (for example a custom colour's name) is never translated, and switching language never changes the design or the revision.
+
+
+## 14. Export and Share (added 2026-10-20)
+Save, Export and Share are equal actions in the header. Save stores the design (Supabase, `/api/designs`) and puts its private link in the URL; Share is enabled once a link exists. A second, server-built PDF (the carpenter "Style Profile", `/api/export/pdf`) is opened from the chat, not from the header.
+- **Export PDF** is built entirely in the browser (`frontend/src/export/`), so nothing is uploaded and the design is never changed. `specModel.js` turns the design into plain data in the selected language and units. `elevation.js` makes the drawing geometry (front elevations with dimension chains, a plan view). `pdfWriter.js` draws an A4 landscape PDF with jsPDF, which is loaded on demand together with the Rubik font (`frontend/public/fonts/`, SIL OFL, Latin and Hebrew). `viewer.capture()` renders the two 3D views off-screen.
+- **Content:** cover with a 3D view, front elevation (doors closed), front elevation (interior) with a plan view, interior 3D view, then schedules for general data, compartments, doors, materials, hardware and notes. A title block (document number, date, units, scale, page) and the disclaimer are on every page.
+- **Limits, by design:** it is a description of the design, not a manufacturing document. No parts list or cut list (manufacturing export stays out of scope), and every page says it does not state that the design can be manufactured. Handle, door-gap and back-panel sizes in the drawings are the viewer's illustrative values.
+- **Hebrew:** jsPDF's own bidi engine scrambles numbers with units inside Hebrew text, so `bidi.js` puts the short labels into visual order and jsPDF's engine is set to do nothing.
+- **Share** (Copy link, WhatsApp, Email) is wired but disabled until a saved design has a private link. Saving arrives with Phase 7 and only has to call `createShareMenu(...).setLink(url)`. `shareLinks.js` only accepts an http(s) link to the app's own origin.

@@ -33,7 +33,9 @@ Both engines must behave identically. `shared/fixtures/ops/*.json` is run by bot
   ],
   "partitions": [{ "id": "prt_…", "thickness": 18 }],   // partitions[i] sits between compartments i and i+1
   "doors": { "type": "hinged|sliding|none", "appearance": Appearance,
-             "items": [{ "id": "dr_…", "compartmentIds": ["cmp_…"], "hingeSide": "left|right|null", "appearance": Appearance|null }] }
+             "items": [{ "id": "dr_…", "compartmentIds": ["cmp_…"], "hingeSide": "left|right|null", "appearance": Appearance|null,
+                         "front": "panel|mirror" }],
+             "handles": { "style": "<handleStyles id>", "finish": "<handleFinishes id>" } }
 }
 ```
 **Appearance** is `{ material: Ref, color: Ref, finish: Ref }`, where each Ref is one of:
@@ -82,7 +84,7 @@ These are data and rendering-safety checks. **They are not manufacturing or feas
 |---|---|---|
 | `create_wardrobe` | width, height, depth, compartmentCount, panelThickness?, partitionThickness?, compartmentIds?, partitionIds? | Range-checks the dimensions first (`ops[i].width`, …). Replaces the design. Compartments get equal widths, and the integer remainder goes to the leftmost ones. Doors start as `none`, with the default appearance. |
 | `update_dimensions` | width?, height?, depth? | Each given value is range-checked at op level first. A width change rescales compartments proportionally (floor, remainder to the last). If a height change would leave an item out of bounds, the op is **rejected**. Nothing is deleted silently. |
-| `configure_doors` | type, doors? (hinged), count? (sliding, default 2), ids? | Hinged without a list creates one door per compartment, with hinges alternating left/right. A hinged `doors: []` → `INVALID_OP` (use `none`). Sliding without `count` uses `len(ids)`, or 2. Fields that don't apply to the type → `INVALID_OP`. |
+| `configure_doors` | type, doors? (hinged), count? (sliding, default 2), ids? | Hinged without a list creates one door per compartment, with hinges alternating left/right. A hinged `doors: []` → `INVALID_OP` (use `none`). Sliding without `count` uses `len(ids)`, or 2. Fields that don't apply to the type → `INVALID_OP`. A door whose id survives keeps its own `appearance` override and `front`; new ids start as plain panels with no override. |
 | `add_compartment` | position (0..n), width, id?, partitionId?, partitionThickness? | Takes `width + partition` from the compartment currently at `position` (the last one when appending). A hinged door spanning the insertion point extends to cover the new compartment. |
 | `modify_compartment` | compartmentId, width | The right neighbour absorbs the difference (the left one for the last compartment). Not allowed with a single compartment. |
 | `add_partition` | compartmentId, offset, id?, newCompartmentId?, thickness? | Splits the compartment at `offset`. Items stay on the left, and the new right part is empty. Hinged doors covering it extend to the new part. |
@@ -91,6 +93,8 @@ These are data and rendering-safety checks. **They are not manufacturing or feas
 | `add_drawer` / `modify_drawer` | compartmentId, y, height, id? / id, y?, height? | |
 | `add_rail` / `modify_rail` | compartmentId, y, id? / id, y | |
 | `set_material` | target (`carcass`, `doors`, or a door/shelf/drawer id), material?, color?, finish?, clear? | Partial appearance update. An item override starts from the inherited appearance. `clear` removes an override. Covers both "change material" and "change color". |
+| `set_handles` | style?, finish? | One handle style and finish for every door (catalog ids from `handleStyles` / `handleFinishes`; style `none` means no handles). At least one field. |
+| `modify_door` | id, front? | Sets one door's `front` to `panel` or `mirror`, for hinged and sliding doors. |
 | `remove_component` | id | See the removal rules below. |
 
 `remove_component` removal rules:
@@ -125,6 +129,7 @@ These live in `defaults.py` / `defaults.js` and are mirrored on both sides:
 - panel and shelf thickness of 18 mm
 - 2 sliding doors by default
 - the default appearance (melamine, white, matte)
+- the default handles (`bar`, `black`) and door front (`panel`). Designs saved without these fields get the defaults when parsed, so `schemaVersion` stays 1
 - the basic wardrobe (`shared/fixtures/designs/basic.json`): 2000×2400×600 with 3 compartments and hinged doors
 
-The catalog contents (`catalog.json`) are placeholder prototype data.
+The catalog contents (`catalog.json`) are placeholder prototype data. Each colour lists the `materials` it is offered in and its `kind` (`solid` or `wood`). The editor and the agent use this as a guide; it is not a validation rule. Handle styles and finishes are catalog sections too, and their ids are validated like appearance refs.

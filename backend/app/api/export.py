@@ -14,6 +14,8 @@ from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.api.agent import error
+from app.api.limits import limiter
+from app.config import get_settings
 from app.domain.apply import apply_ops
 from app.domain.catalog import load_catalog
 from app.domain.errors import DomainError
@@ -62,6 +64,7 @@ def _build(design: dict, catalog: dict, language: str, image: str | None) -> byt
 
 
 @router.post("/export/pdf")
+@limiter.limit(lambda: get_settings().export_rate_limit)  # renders are CPU-heavy and only a few run at once
 async def export_pdf(request: Request):
     body = await read_capped(request)
     if body is None:

@@ -140,13 +140,13 @@ def test_every_catalog_entry_has_a_hebrew_name():
 def test_added_catalog_colours_and_material_appear_in_the_pdf():
     design = apply_ops(load_design("basic"), [
         {"op": "set_material", "target": "carcass", "material": {"catalogId": "birch_plywood"},
-         "color": {"catalogId": "sage_green"}},
-        {"op": "set_material", "target": "doors", "color": {"catalogId": "navy_blue"}},
-        {"op": "set_material", "target": "shf_l1", "color": {"catalogId": "sand_beige"}},
+         "color": {"catalogId": "sage"}},
+        {"op": "set_material", "target": "doors", "color": {"catalogId": "navy"}},
+        {"op": "set_material", "target": "shf_l1", "color": {"catalogId": "sand"}},
     ], load_catalog())
     english = text_of(render_pdf(design, load_catalog(), "en", date(2026, 10, 23)))
-    for name in ("Birch plywood", "Sage green", "Navy blue", "Sand beige"):
+    for name in ("Birch plywood", "Sage green", "Navy blue", "Sand"):
         assert name in english, name
     hebrew = text_of(render_pdf(design, load_catalog(), "he", date(2026, 10, 23)))
-    for name in ("דיקט ליבנה", "ירוק מרווה", "כחול נייבי", "בז' חול"):
+    for name in ("דיקט ליבנה", "ירוק מרווה", "כחול כהה", "חול"):
         assert name in hebrew, name

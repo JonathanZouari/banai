@@ -58,7 +58,7 @@ test.describe('save and reopen', () => {
 
       await page.getByTestId('open-save').click();
       await page.getByTestId('save-confirm').click();
-      await expect(page.getByTestId('save-status')).toContainText('נשמר בינתיים');
+      await expect(page.getByTestId('save-status')).toContainText('saved elsewhere in the meantime');
     });
   });
 

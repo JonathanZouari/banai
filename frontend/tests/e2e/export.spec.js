@@ -1,32 +1,37 @@
 import { readFile } from 'node:fs/promises';
 import { expect, openDesigner, test } from './fixtures.js';
 
-// "PDF for your carpenter" against the real E2E backend (no mocking of the PDF endpoint).
+// "PDF for your carpenter" (Generate Style Profile) against the real E2E backend (no mocking of the PDF
+// endpoint). It opens from the chat; the header's Export is the browser-built specification (export-share.spec.js).
 
-test('Generate Style Profile sits next to Add compartment, not in the top bar', async ({ page }) => {
+const ok = (data) => ({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data }) });
+
+async function openStyleProfile(page) {
+  await page.route('**/api/health', (route) => route.fulfill(ok({ status: 'ok', env: 'e2e', agent: true, storage: true })));
+  await page.route('**/api/chat', (route) => route.fulfill(ok({
+    reply: 'Great! You can download the file for your carpenter.', replySignature: 'c'.repeat(64), proposal: null, offerProfile: true,
+  })));
   await openDesigner(page);
-  const button = page.getByTestId('open-export');
-  await expect(button).toHaveText('Generate Style Profile');
-  await expect(page.locator('.button-row').filter({ has: page.getByTestId('add-compartment') }).getByTestId('open-export')).toBeVisible();
-  await expect(page.locator('.topbar').getByTestId('open-export')).toHaveCount(0);
-  // Side by side on one line, not stacked.
-  const add = await page.getByTestId('add-compartment').boundingBox();
-  const generate = await button.boundingBox();
-  expect(Math.abs(add.y - generate.y)).toBeLessThan(2);
-  expect(generate.x).toBeGreaterThan(add.x + add.width - 1);
+  await page.getByTestId('chat-input').fill("I'm done");
+  await page.getByTestId('chat-send').click();
+  await page.getByTestId('chat-style-profile').click();
+  await expect(page.getByTestId('profile-dialog')).toBeVisible();
+}
+
+test('Generate Style Profile is not in the properties panel or the header', async ({ page }) => {
+  await openDesigner(page);
+  await expect(page.getByTestId('chat-style-profile')).toHaveCount(0);
+  await expect(page.locator('#properties-panel').getByText('Generate Style Profile')).toHaveCount(0);
+  await expect(page.locator('.topbar').getByText('Generate Style Profile')).toHaveCount(0);
 });
 
-test('the export dialog defaults to the chat language and downloads a real PDF', async ({ page }) => {
-  await openDesigner(page);
-  await page.getByTestId('open-export').click();
-  const dialog = page.getByTestId('export-dialog');
-  await expect(dialog).toBeVisible();
-  const chatLanguage = await page.evaluate(() => localStorage.getItem('banai.chat.language'));
-  await expect(page.getByTestId('export-language')).toHaveValue(chatLanguage ?? 'he');
+test('the style profile dialog follows the app language and downloads a real PDF', async ({ page }) => {
+  await openStyleProfile(page);
+  await expect(page.getByTestId('profile-language')).toHaveValue('en');
 
   const request = page.waitForRequest('**/api/export/pdf');
   const download = page.waitForEvent('download');
-  await page.getByTestId('export-download').click();
+  await page.getByTestId('profile-download').click();
   const sent = (await request).postDataJSON();
   expect(Object.keys(sent).sort()).toEqual(['design', 'image', 'language']);
   expect(sent.image).toMatch(/^data:image\/jpeg;base64,/); // the 3D picture for the PDF's first page
@@ -34,17 +39,16 @@ test('the export dialog defaults to the chat language and downloads a real PDF',
   expect(file.suggestedFilename()).toMatch(/^[A-Za-z0-9._-]+\.pdf$/);
   const bytes = await readFile(await file.path());
   expect(bytes.subarray(0, 4).toString()).toBe('%PDF');
-  await expect(page.getByTestId('export-status')).toHaveText('Your PDF is downloading.');
-  await page.getByTestId('export-close').click();
-  await expect(dialog).toBeHidden();
+  await expect(page.getByTestId('profile-status')).toHaveText('Your PDF is downloading.');
+  await page.getByTestId('profile-close').click();
+  await expect(page.getByTestId('profile-dialog')).toBeHidden();
 });
 
-test('choosing English sends language en', async ({ page }) => {
-  await openDesigner(page);
-  await page.getByTestId('open-export').click();
-  await page.getByTestId('export-language').selectOption('en');
+test('choosing Hebrew sends language he', async ({ page }) => {
+  await openStyleProfile(page);
+  await page.getByTestId('profile-language').selectOption('he');
   const request = page.waitForRequest('**/api/export/pdf');
-  await page.getByTestId('export-download').click();
-  expect((await request).postDataJSON().language).toBe('en');
+  await page.getByTestId('profile-download').click();
+  expect((await request).postDataJSON().language).toBe('he');
   await page.waitForEvent('download');
 });

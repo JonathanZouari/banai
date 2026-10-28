@@ -14,9 +14,27 @@ class Settings(BaseSettings):
 
     app_env: str = "local"
     cors_origins: str = "http://localhost:5173"
+    # AI agent. The key is server-only; it is never logged or returned.
     openai_api_key: str = ""
     openai_chat_model: str = ""
     proposal_signing_key: str = ""
+    chat_timeout_s: float = 30.0
+    chat_rate_limit: str = "20/minute"
+    # Global ceiling on OpenAI-backed chat requests per hour (all clients), a spend guard.
+    chat_hourly_cap: int = 300
+    # ASSUMPTION: configurable default. Least clear space (mm) between shelves the agent proposes
+    # (app/agent/prompts.py DEFAULT_MIN_SHELF_GAP_MM).
+    min_shelf_gap_mm: int = 150
+    # Saved designs and the carpenter PDF: per-IP limits, and a global hourly ceiling on new designs.
+    designs_rate_limit: str = "30/minute"
+    designs_hourly_cap: int = 200
+    # Bytes new designs may add per day (per worker; resets on restart): a typical design is a few kB,
+    # the largest about 250 kB. Keep it well under the Supabase plan's database size.
+    designs_daily_bytes: int = 25_000_000
+    export_rate_limit: str = "10/minute"
+    # Trusted proxies that append to X-Forwarded-For (Railway: set FORWARDED_HOPS after checking the
+    # header on the deployment). 0 = use the connecting address (local development).
+    forwarded_hops: int = 0
     # ASSUMPTION: configurable voice defaults (empty = the defaults in app/api/voice.py).
     openai_transcribe_model: str = ""
     openai_tts_model: str = ""
@@ -24,6 +42,15 @@ class Settings(BaseSettings):
     # Saved designs (Phase 7). Only the backend holds the secret key; the browser never talks to Supabase.
     supabase_url: str = ""
     supabase_secret_key: str = ""
+
+    # Voice spend guards. Off by default; every value is a configurable default.
+    voice_enabled: bool = False
+    voice_rate_limit: str = "30/minute"
+    voice_hourly_cap: int = 300
+    voice_daily_budget_usd: float = 1.0
+    voice_max_audio_bytes: int = 600_000  # about 20 s of browser-recorded audio
+    voice_max_seconds: int = 20
+    voice_tts_max_chars: int = 400
 
     @property
     def storage_enabled(self) -> bool:

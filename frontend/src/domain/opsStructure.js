@@ -3,14 +3,18 @@
 // caller re-validates. Integer arithmetic only (parity with Python).
 
 import * as ids from './ids.js';
-import { DEFAULT_PANEL_THICKNESS, DEFAULT_SLIDING_DOOR_COUNT, LIMITS, defaultAppearance } from './defaults.js';
+import { DEFAULT_PANEL_THICKNESS, DEFAULT_SLIDING_DOOR_COUNT, LIMITS, defaultAppearance, defaultHandles } from './defaults.js';
 import { DomainError, INVALID_OP, NOT_FOUND, OUT_OF_RANGE } from './errors.js';
 import { partitionLeftEdge } from './geometry.js';
 import { ITEM_KINDS, compartmentIndex, locate, partitionIndex, requireRange } from './lookup.js';
 import { isSet, sum } from './util.js';
 
 const emptyCompartment = (id, width) => ({ id, width, shelves: [], drawers: [], rails: [] });
-const door = (id, compartmentIds, hingeSide) => ({ id, compartmentIds, hingeSide, appearance: null });
+// A door that keeps its id keeps its own finish and front (panel or mirror).
+const door = (id, compartmentIds, hingeSide, previous) => {
+  const kept = previous?.get(id);
+  return { id, compartmentIds, hingeSide, appearance: kept ? kept.appearance : null, front: kept ? kept.front : 'panel' };
+};
 
 function idsOrNew(given, count, prefix, path) {
   if (!isSet(given)) return Array.from({ length: count }, () => ids.newId(prefix));
@@ -49,7 +53,7 @@ function createWardrobe(_draft, op, path) {
     carcass: { panelThickness: panel, appearance: defaultAppearance() },
     compartments: compartmentIds.map((id, i) => emptyCompartment(id, widths[i])),
     partitions: partitionIds.map((id) => ({ id, thickness: partition })),
-    doors: { type: 'none', appearance: defaultAppearance(), items: [] },
+    doors: { type: 'none', appearance: defaultAppearance(), items: [], handles: defaultHandles() },
   };
 }
 
@@ -76,6 +80,7 @@ function updateDimensions(draft, op, path) {
 
 function configureDoors(draft, op, path) {
   const { doors } = draft;
+  const previous = new Map(doors.items.map((d) => [d.id, d]));
   if (op.type === 'none') {
     if (isSet(op.doors) || isSet(op.count) || isSet(op.ids)) {
       throw new DomainError(INVALID_OP, path, "type 'none' takes no doors, count or ids");
@@ -86,22 +91,22 @@ function configureDoors(draft, op, path) {
     const count = op.count ?? (isSet(op.ids) ? op.ids.length : DEFAULT_SLIDING_DOOR_COUNT);
     requireRange(count, 'slidingDoorCount', `${path}.count`);
     const doorIds = idsOrNew(op.ids, count, ids.DOOR, `${path}.ids`);
-    Object.assign(doors, { type: 'sliding', items: doorIds.map((id) => door(id, [], null)) });
+    Object.assign(doors, { type: 'sliding', items: doorIds.map((id) => door(id, [], null, previous)) });
   } else {
-    Object.assign(doors, { type: 'hinged', items: hingedItems(draft, op, path) });
+    Object.assign(doors, { type: 'hinged', items: hingedItems(draft, op, path, previous) });
   }
   return draft;
 }
 
-function hingedItems(draft, op, path) {
+function hingedItems(draft, op, path, previous) {
   if (isSet(op.count)) throw new DomainError(INVALID_OP, path, 'hinged doors take a doors list or ids, not count');
   if (!isSet(op.doors)) {
     const doorIds = idsOrNew(op.ids, draft.compartments.length, ids.DOOR, `${path}.ids`);
-    return draft.compartments.map((c, i) => door(doorIds[i], [c.id], i % 2 === 0 ? 'left' : 'right'));
+    return draft.compartments.map((c, i) => door(doorIds[i], [c.id], i % 2 === 0 ? 'left' : 'right', previous));
   }
   if (isSet(op.ids)) throw new DomainError(INVALID_OP, path, 'give ids inside each door spec');
   if (!op.doors.length) throw new DomainError(INVALID_OP, `${path}.doors`, "hinged doors need at least one door; use type 'none'");
-  return op.doors.map((d) => door(d.id ?? ids.newId(ids.DOOR), [...d.compartmentIds], d.hingeSide));
+  return op.doors.map((d) => door(d.id ?? ids.newId(ids.DOOR), [...d.compartmentIds], d.hingeSide, previous));
 }
 
 function addCompartment(draft, op, path) {

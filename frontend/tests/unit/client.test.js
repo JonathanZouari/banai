@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-  ApiError, applyProposal, createSavedDesign, exportPdf, getCatalog, getDefaultDesign, getHealth, getSavedDesign, sendChat,
+  ApiError, applyProposal, createSavedDesign, exportPdf, getCatalog, getDefaultDesign, getHealth, getSavedDesign, postChat,
   updateSavedDesign,
 } from '../../src/api/client.js';
 
@@ -29,7 +29,7 @@ describe('agent api', () => {
   it('posts chat turns as JSON and unwraps the reply', async () => {
     const fetchImpl = okResponse({ success: true, data: { reply: 'hi', proposal: null } });
     const payload = { messages: [{ role: 'user', text: 'hello' }], design: {}, revision: 1 };
-    await expect(sendChat(payload, fetchImpl)).resolves.toEqual({ reply: 'hi', proposal: null });
+    await expect(postChat(payload, fetchImpl)).resolves.toEqual({ reply: 'hi', proposal: null });
     const [url, init] = fetchImpl.mock.calls[0];
     expect(url).toBe('http://localhost:8000/api/chat');
     expect(init.method).toBe('POST');
@@ -46,7 +46,7 @@ describe('agent api', () => {
   });
 
   it('reports network failures as status 0', async () => {
-    const error = await sendChat({}, vi.fn().mockRejectedValue(new TypeError('offline'))).catch((e) => e);
+    const error = await postChat({}, vi.fn().mockRejectedValue(new TypeError('offline'))).catch((e) => e);
     expect(error).toMatchObject({ status: 0, code: 'NETWORK_ERROR' });
   });
 });

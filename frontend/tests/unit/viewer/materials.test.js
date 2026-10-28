@@ -10,9 +10,9 @@ const appearance = (color, material = 'melamine') => ({
 
 describe('createMaterials', () => {
   it.each([
-    ['sage_green', '8f9e83'],
-    ['navy_blue', '2b3a52'],
-    ['sand_beige', 'd9c8ad'],
+    ['sage', '9caf88'],
+    ['navy', '2f3e55'],
+    ['sand', 'd6c7ae'],
   ])('renders the catalog colour %s from its hex', (id, hex) => {
     const material = createMaterials(loadCatalog()).forAppearance(appearance(id, 'birch_plywood'));
     expect(material.color.getHexString()).toBe(hex);

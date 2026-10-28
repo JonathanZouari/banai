@@ -79,6 +79,22 @@ function appearanceOwner(draft, target, path) {
   throw new DomainError(INVALID_OP, path, `${kind} has no own appearance`);
 }
 
+function setHandles(draft, op, path) {
+  requireAny(path, op.style, op.finish);
+  const { handles } = draft.doors;
+  if (isSet(op.style)) handles.style = op.style;
+  if (isSet(op.finish)) handles.finish = op.finish;
+  return draft;
+}
+
+function modifyDoor(draft, op, path) {
+  requireAny(path, op.front);
+  const door = draft.doors.items.find((d) => d.id === op.id);
+  if (!door) throw new DomainError(NOT_FOUND, `${path}.id`, 'no door with this id');
+  door.front = op.front;
+  return draft;
+}
+
 export const ITEM_HANDLERS = Object.freeze({
   add_shelf: addShelf,
   modify_shelf: modifyShelf,
@@ -87,4 +103,6 @@ export const ITEM_HANDLERS = Object.freeze({
   add_rail: addRail,
   modify_rail: modifyRail,
   set_material: setMaterial,
+  set_handles: setHandles,
+  modify_door: modifyDoor,
 });

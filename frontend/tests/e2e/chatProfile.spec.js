@@ -1,7 +1,8 @@
 import { expect, openDesigner, test } from './fixtures.js';
 
 // Chatting to a finished design ends with Generate Style Profile: after a confirmed change, or when
-// the customer says they are done. One pinned note, never repeated, opening the carpenter PDF dialog.
+// the customer says they are done. One pinned note, never repeated, opening the carpenter PDF dialog
+// (the header's Export is the separate browser-built specification).
 
 const ok = (data) => ({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data }) });
 const dims = (page) => page.evaluate(() => window.__banai.store.getState().design.dimensions);
@@ -28,7 +29,7 @@ test('a confirmed change from the chat offers the PDF step once, which downloads
     return route.fulfill(ok({ design, revision: body.revision + 1 }));
   });
   await openDesigner(page);
-  await expect(page.getByTestId('chat-export')).toHaveCount(0);
+  await expect(page.getByTestId('chat-style-profile')).toHaveCount(0);
   for (let round = 0; round < 2; round += 1) {
     await page.getByTestId('chat-input').fill('Make it 240 cm wide');
     await page.getByTestId('chat-send').click();
@@ -37,9 +38,9 @@ test('a confirmed change from the chat offers the PDF step once, which downloads
   }
   await expect.poll(() => dims(page)).toEqual({ width: 2400, height: 2400, depth: 600 });
   await expect(page.getByTestId('profile-note')).toHaveCount(1); // no spam after two changes
-  await page.getByTestId('chat-export').click();
+  await page.getByTestId('chat-style-profile').click();
   const download = page.waitForEvent('download');
-  await page.getByTestId('export-download').click();
+  await page.getByTestId('profile-download').click();
   expect((await download).suggestedFilename()).toBe('banai-wardrobe-2400x2400x600mm.pdf');
 });
 
@@ -52,7 +53,7 @@ test('saying "I\'m done" makes the agent offer the PDF step without changing any
   const revision = await page.evaluate(() => window.__banai.store.getState().revision);
   await page.getByTestId('chat-input').fill("I'm done, I want the file for the carpenter");
   await page.getByTestId('chat-send').click();
-  await expect(page.getByTestId('chat-export')).toBeVisible();
-  await expect(page.getByTestId('chat-export')).toHaveCount(1);
+  await expect(page.getByTestId('chat-style-profile')).toBeVisible();
+  await expect(page.getByTestId('chat-style-profile')).toHaveCount(1);
   expect(await page.evaluate(() => window.__banai.store.getState().revision)).toBe(revision);
 });

@@ -1,61 +1,77 @@
-// Save and share dialog. Saving stores the design on the server and gives a private link; nothing is
-// faked: the link field stays empty until a save has really succeeded.
+// Save dialog. Saving stores the design on the server and gives a private link; nothing is faked:
+// the link field stays empty until a save has really succeeded. Text follows the selected language.
 import { el, button } from '../editor/fields.js';
+import { language, t } from '../i18n/strings.js';
 import { createDialog } from '../ui/dialog.js';
-
-const UNAVAILABLE = 'Saving is not available on this server.';
-const READY = 'Save to get your private link.';
-const SAVED = 'Saved. Use this link to reopen and keep editing.';
 
 /**
  * `available`: whether the server can store designs. `onSave()` saves the current design and resolves
  * to its private link. `link`: the link of a design that was reopened from one, if any.
  */
 export function createSaveDialog({ available, onSave, link = '' }) {
-  const linkField = el('input', { className: 'field__input', attrs: { id: 'share-link', type: 'text', readonly: '', placeholder: 'Your private link will appear here', 'aria-label': 'Private share link' } });
+  const linkField = el('input', { className: 'field__input', attrs: { id: 'share-link', type: 'text', readonly: '' } });
   linkField.dataset.testid = 'share-link';
   linkField.value = link;
-  const status = el('p', { className: 'dialog__status', text: available ? READY : UNAVAILABLE, attrs: { role: 'status' } });
+  const intro = el('p', { className: 'dialog__text' });
+  const linkLabel = el('label', { className: 'field__label', attrs: { for: 'share-link' } });
+  const warn = el('p', { className: 'dialog__note' });
+  const status = el('p', { className: 'dialog__status', attrs: { role: 'status' } });
   status.dataset.testid = 'save-status';
+  // The status shows a key until something more specific (a server error) replaces it.
+  let statusKey = available ? 'saveReady' : 'saveUnavailable';
 
-  const copy = button('Copy link', async () => {
+  const setStatus = (key) => {
+    statusKey = key;
+    status.textContent = t(key);
+  };
+
+  const copy = button('', async () => {
     try {
       await navigator.clipboard.writeText(linkField.value);
-      status.textContent = 'Link copied.';
+      setStatus('saveCopied');
     } catch {
       linkField.select(); // clipboard blocked: leave it selected for a manual copy
-      status.textContent = 'Select the link and copy it.';
+      setStatus('saveCopyManually');
     }
   }, { variant: 'secondary', testId: 'copy-link', disabled: !link });
 
-  const save = button('Save design', async () => {
+  const save = button('', async () => {
     save.disabled = true;
-    status.textContent = 'Saving…';
+    setStatus('saveSaving');
     try {
       linkField.value = await onSave();
       copy.disabled = false;
-      status.textContent = SAVED;
+      setStatus('saveSaved');
     } catch (error) {
-      status.textContent = error?.message || 'Saving failed. Please try again.';
+      statusKey = null;
+      status.textContent = error?.status ? error.message : t('saveFailed');
     } finally {
       save.disabled = false;
     }
   }, { variant: 'primary', testId: 'save-confirm', disabled: !available });
+  const close = button('', () => dialog.close(), { variant: 'ghost', testId: 'save-close' });
 
   const dialog = createDialog({
-    title: 'Save your design',
+    title: '',
     labelId: 'save-dialog-title',
     testId: 'save-dialog',
-    body: [
-      el('p', { className: 'dialog__text', text: 'Saving gives you a private link you can use to reopen and keep editing this design. No account is needed.' }),
-      el('div', { className: 'field' }, [
-        el('label', { className: 'field__label', text: 'Private link', attrs: { for: 'share-link' } }),
-        linkField,
-      ]),
-      el('p', { className: 'dialog__note', text: 'Anyone with this link can edit the design, so keep it private.' }),
-      status,
-    ],
-    actions: [copy, save, button('Close', () => dialog.close(), { variant: 'ghost', testId: 'save-close' })],
+    body: [intro, el('div', { className: 'field' }, [linkLabel, linkField]), warn, status],
+    actions: [copy, save, close],
   });
+  const heading = dialog.element.querySelector('#save-dialog-title');
+  const relabel = () => {
+    heading.textContent = t('saveTitle');
+    intro.textContent = t('saveIntro');
+    linkLabel.textContent = t('savePrivateLink');
+    linkField.placeholder = t('savePlaceholder');
+    linkField.setAttribute('aria-label', t('savePrivateLink'));
+    warn.textContent = t('saveWarn');
+    if (statusKey) status.textContent = t(statusKey);
+    copy.textContent = t('saveCopy');
+    save.textContent = t('saveAction');
+    close.textContent = t('saveClose');
+  };
+  language.subscribe(relabel);
+  relabel();
   return dialog;
 }

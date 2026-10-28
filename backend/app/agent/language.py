@@ -5,6 +5,7 @@ letters to go by (e.g. "240?"). The chat UI switches its language to match what 
 from __future__ import annotations
 
 import re
+import unicodedata
 from typing import Literal
 
 Language = Literal["he", "en"]
@@ -29,9 +30,9 @@ FALLBACK_REPLY: dict[Language, str] = {
 # It overrides the language of earlier messages in the conversation.
 INSTRUCTION: dict[Language, str] = {
     "he": "Write EVERYTHING customer-facing in HEBREW (reply, summary, change titles and details, "
-          "questions, answers), even if earlier messages were in English. Write centimetres as ס\"מ. Translate catalog names (Walnut -> אגוז, White -> לבן).",
+          "questions, answers), even if earlier messages were in English. Write centimetres as ס\"מ and inches as אינץ'. Translate catalog names (Walnut -> אגוז, White -> לבן).",
     "en": "Write EVERYTHING customer-facing in ENGLISH (reply, summary, change titles and details, "
-          "questions, answers), even if earlier messages were in Hebrew. Write centimetres as cm.",
+          "questions, answers), even if earlier messages were in Hebrew. Write centimetres as cm and inches as in.",
 }
 
 
@@ -49,3 +50,17 @@ def detect(text: str) -> Language | None:
 def reply_language(messages: list[dict], chosen: Language) -> Language:
     latest = next((m["text"] for m in reversed(messages) if m["role"] == "user"), "")
     return detect(latest) or chosen
+
+
+# Letters must belong to these scripts. Hebrew replies may carry Latin (catalog ids, "cm").
+ALLOWED_SCRIPTS: dict[Language, set[str]] = {"en": {"LATIN"}, "he": {"HEBREW", "LATIN"}}
+REMINDER: dict[Language, str] = {
+    "en": "Your text was not in English. Call the tool again with the text ONLY in English.",
+    "he": "Your text was not in Hebrew. Call the tool again with the text ONLY in Hebrew.",
+}
+
+
+def off_language(text: str | None, language: Language) -> bool:
+    """True when `text` has a letter outside the scripts allowed for `language` (e.g. Cyrillic)."""
+    allowed = ALLOWED_SCRIPTS[language]
+    return any(ch.isalpha() and unicodedata.name(ch, "").split(" ")[0] not in allowed for ch in text or "")

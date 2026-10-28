@@ -270,3 +270,182 @@ def test_done_offers_the_style_profile_and_changes_nothing(make_client):
     assert data["offerProfile"] is True
     assert data["proposal"] is None
     assert "offer_style_profile" in fake.requests[0]["messages"][0]["content"]
+
+
+# --- Ported from the fork's agent (units, handles/mirrors, colours per material, script check, guards) ---
+
+def tool_call_completion(name: str, arguments: dict):
+    return completion(calls=[tool_call(name, arguments)])
+
+
+MIRROR_AND_KNOBS = [
+    {"op": "set_handles", "style": "knob", "finish": "brass"},
+    {"op": "modify_door", "id": "dr_middle", "front": "mirror"},
+]
+
+
+@pytest.mark.parametrize(("units", "expected"), [("cm", "CENTIMETRES"), ("in", "INCHES")])
+def test_agent_is_told_the_display_unit(make_client, units, expected):
+    fake = FakeClient(tool_call_completion(CLARIFY, {"question": "Which side?"}))
+    make_client(fake).post("/api/chat", json={**chat_body(), "units": units})
+    assert expected in fake.requests[0]["messages"][0]["content"]
+
+
+@pytest.mark.parametrize("units", ["mm", "furlong"])
+def test_unknown_units_are_422(make_client, units):
+    fake = FakeClient()
+    assert make_client(fake).post("/api/chat", json={**chat_body(), "units": units}).status_code == 422
+    assert fake.requests == []
+
+
+def test_agent_can_propose_handles_and_mirror_doors(make_client):
+    fake = FakeClient(tool_call_completion(PROPOSE, propose(MIRROR_AND_KNOBS)))
+    data = make_client(fake).post("/api/chat", json=chat_body("knobs and a mirror in the middle")).json()["data"]
+    assert data["proposal"]["ops"] == MIRROR_AND_KNOBS
+    prompt = fake.requests[0]["messages"][0]["content"]
+    assert "set_handles" in prompt and "modify_door" in prompt
+
+
+def test_prompt_lists_colours_per_material():
+    from app.agent.prompts import build_system_prompt, colours_by_material
+    from app.domain.catalog import load_catalog
+
+    catalog = load_catalog()
+    offered = colours_by_material(catalog)
+    assert offered["oak_veneer"] == ["natural_oak", "whitewashed_oak", "smoked_oak"]
+    assert "sage" in offered["lacquered_mdf"] and "sage" not in offered["melamine"]
+    assert set(offered) == {m["id"] for m in catalog["materials"]}
+    assert '"walnut_veneer":["walnut"]' in build_system_prompt(basic_wardrobe(), catalog)
+
+
+def test_every_catalog_colour_names_known_materials():
+    from app.domain.catalog import load_catalog
+
+    catalog = load_catalog()
+    materials = {m["id"] for m in catalog["materials"]}
+    for colour in catalog["colors"]:
+        assert colour["kind"] in {"solid", "wood"}
+        assert colour["materials"] and set(colour["materials"]) <= materials
+
+
+def test_reply_in_a_foreign_script_is_asked_again(make_client):
+    fake = FakeClient(
+        tool_call_completion(ANSWER, {"answer": "Конечно, это хорошая идея."}),
+        tool_call_completion(ANSWER, {"answer": "Sure, that works well."}),
+    )
+    data = make_client(fake).post("/api/chat", json=chat_body("Is a rail at 180 cm good?")).json()["data"]
+    assert data["reply"] == "Sure, that works well." and len(fake.requests) == 2
+
+
+def test_proposal_text_in_a_foreign_script_is_asked_again(make_client):
+    russian = propose([ADD_SHELF], summary="Добавляет полку.")
+    fake = FakeClient(tool_call_completion(PROPOSE, russian), tool_call_completion(PROPOSE, propose([ADD_SHELF])))
+    data = make_client(fake).post("/api/chat", json=chat_body()).json()["data"]
+    assert data["proposal"]["summary"] == "Adds a shelf." and len(fake.requests) == 2
+
+
+def test_persistent_foreign_script_falls_back_without_foreign_text(make_client):
+    fake = FakeClient(*[tool_call_completion(ANSWER, {"answer": "Привет"})] * (MAX_REPAIRS + 1))
+    data = make_client(fake).post("/api/chat", json=chat_body("שלום, מה דעתך על מוט?")).json()["data"]
+    assert data["reply"] == FALLBACK_REPLY["he"] and data["proposal"] is None
+
+
+@pytest.mark.parametrize(("code", "status", "app_code"), [("insufficient_quota", 503, "AGENT_QUOTA"), ("rate_limit_exceeded", 429, "AGENT_BUSY")])
+def test_openai_quota_and_rate_limit_are_distinct(make_client, code, status, app_code):
+    import httpx2 as httpx
+    from openai import RateLimitError
+
+    error = RateLimitError("limit", response=httpx.Response(429, request=httpx.Request("POST", "https://x")), body={"code": code})
+    error.code = code
+    response = make_client(FakeClient(error=error)).post("/api/chat", json=chat_body())
+    assert (response.status_code, response.json()["error"]["code"]) == (status, app_code)
+
+
+def test_per_ip_rate_limit_on_chat_and_apply(make_client, monkeypatch):
+    from app.api.limits import limiter
+
+    limiter.reset()
+    monkeypatch.setenv("CHAT_RATE_LIMIT", "2/minute")
+    get_settings.cache_clear()
+    client = make_client(FakeClient(*[tool_call_completion(CLARIFY, {"question": "Which side?"})] * 3))
+    codes = [client.post("/api/chat", json=chat_body()).status_code for _ in range(3)]
+    limiter.reset()
+    assert codes == [200, 200, 429]
+
+
+def test_global_hourly_cap(make_client, monkeypatch):
+    from app.api.agent import hourly_cap
+
+    hourly_cap.reset()
+    monkeypatch.setenv("CHAT_HOURLY_CAP", "2")
+    get_settings.cache_clear()
+    client = make_client(FakeClient(*[tool_call_completion(CLARIFY, {"question": "Which side?"})] * 3))
+    codes = [client.post("/api/chat", json=chat_body()).status_code for _ in range(3)]
+    hourly_cap.reset()
+    assert codes == [200, 200, 429]
+
+
+def test_oversized_body_is_413(make_client):
+    big = {**chat_body(), "design": {"pad": "x" * 400_000}}
+    assert make_client(FakeClient()).post("/api/chat", json=big).status_code == 413
+
+
+def test_unexpected_errors_use_the_envelope_without_details(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    get_settings.cache_clear()
+
+    def broken():
+        raise RuntimeError("secret internal detail")
+
+    app = create_app()
+    app.dependency_overrides[get_llm_client] = broken
+    response = TestClient(app, raise_server_exceptions=False).post("/api/chat", json=chat_body())
+    get_settings.cache_clear()
+    assert response.status_code == 500 and "secret" not in response.text
+    assert response.json()["error"]["code"] == "INTERNAL_ERROR"
+
+
+def test_create_wardrobe_after_other_ops_is_sent_back(make_client):
+    # Seen live: "make it 240 wide" came back as update_dimensions + create_wardrobe, which wiped every item and door.
+    resize_then_replace = [
+        {"op": "update_dimensions", "width": 2400},
+        {"op": "create_wardrobe", "width": 2400, "height": 2400, "depth": 600, "compartmentCount": 3},
+    ]
+    fake = FakeClient(
+        completion(calls=[tool_call(PROPOSE, propose(resize_then_replace), "call_a")]),
+        completion(calls=[tool_call(PROPOSE, propose([{"op": "update_dimensions", "width": 2400}]), "call_b")]),
+    )
+    data = make_client(fake).post("/api/chat", json=chat_body("Make it 240 cm wide")).json()["data"]
+    assert [op["op"] for op in data["proposal"]["ops"]] == ["update_dimensions"]
+    repair = fake.requests[1]["messages"][-1]
+    assert repair["tool_call_id"] == "call_a"
+    assert "update_dimensions" in repair["content"]
+
+
+def test_create_wardrobe_as_the_first_op_is_allowed(make_client):
+    new_wardrobe = [{"op": "create_wardrobe", "width": 2400, "height": 2600, "depth": 600, "compartmentCount": 3}]
+    fake = FakeClient(completion(calls=[tool_call(PROPOSE, propose(new_wardrobe))]))
+    data = make_client(fake).post("/api/chat", json=chat_body("A new wardrobe, 240 wide and 260 tall")).json()["data"]
+    assert data["proposal"]["ops"][0]["op"] == "create_wardrobe"
+
+
+@pytest.mark.parametrize("ys", [[40, 80, 120, 160], [418]])  # seen live; 418 sits right on shf_l1 (400 + 18)
+def test_shelves_stacked_too_close_are_sent_back(make_client, ys):
+    crammed = [{"op": "add_shelf", "compartmentId": "cmp_left", "y": y} for y in ys]
+    fake = FakeClient(
+        completion(calls=[tool_call(PROPOSE, propose(crammed), "call_a")]),
+        completion(calls=[tool_call(PROPOSE, propose([ADD_SHELF]), "call_b")]),
+    )
+    data = make_client(fake).post("/api/chat", json=chat_body()).json()["data"]
+    assert data["proposal"]["ops"][0]["y"] == 1000
+    assert "150 mm" in fake.requests[1]["messages"][-1]["content"]
+
+
+def test_shelf_gap_is_configurable_and_in_the_prompt(make_client, monkeypatch):
+    monkeypatch.setenv("MIN_SHELF_GAP_MM", "10")
+    get_settings.cache_clear()
+    close = {"op": "add_shelf", "compartmentId": "cmp_left", "y": 430}  # 12 mm above shf_l1
+    fake = FakeClient(completion(calls=[tool_call(PROPOSE, propose([close]))]))
+    data = make_client(fake).post("/api/chat", json=chat_body()).json()["data"]
+    assert data["proposal"]["ops"][0]["y"] == 430
+    assert "at least 10 mm" in fake.requests[0]["messages"][0]["content"]
