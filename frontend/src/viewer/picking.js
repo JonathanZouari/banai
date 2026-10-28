@@ -3,12 +3,23 @@ import * as THREE from 'three';
 
 const CLICK_TOLERANCE_PX = 5;
 
-export function attachPicking({ dom, camera, getTargets, onPick, onHover = () => {} }) {
+/**
+ * `onHover(hit, event)` runs at most once per frame while the pointer moves without a button pressed.
+ * `onLeave()` runs when the pointer leaves the canvas or a press starts (a drag orbits the camera).
+ */
+export function attachPicking({ dom, camera, getTargets, onPick, onHover = () => {}, onLeave = () => {} }) {
   const raycaster = new THREE.Raycaster();
   let down = null;
+  let hoverFrame = 0;
+  const cancelHover = () => {
+    cancelAnimationFrame(hoverFrame);
+    hoverFrame = 0;
+  };
 
   const onPointerDown = (event) => {
     down = { x: event.clientX, y: event.clientY };
+    cancelHover();
+    onLeave();
   };
   const hitAt = (event) => {
     const rect = dom.getBoundingClientRect();
@@ -29,23 +40,33 @@ export function attachPicking({ dom, camera, getTargets, onPick, onHover = () =>
     down = null;
     onPick(hitAt(event));
   };
-  // Hover feedback (cursor). Throttled to one raycast per frame; ignored while dragging.
-  let hoverFrame = 0;
+  // Hover feedback (cursor, label). Throttled to one raycast per frame, for the latest position;
+  // ignored while dragging.
+  let lastMove = null;
   const onPointerMove = (event) => {
-    if (event.buttons || hoverFrame) return;
+    if (event.buttons) return;
+    lastMove = event;
+    if (hoverFrame) return;
     hoverFrame = requestAnimationFrame(() => {
       hoverFrame = 0;
-      onHover(hitAt(event));
+      onHover(hitAt(lastMove), lastMove);
     });
+  };
+  // A pending raycast is dropped, so nothing reappears after the pointer has left.
+  const onPointerLeave = () => {
+    cancelHover();
+    onLeave();
   };
 
   dom.addEventListener('pointerdown', onPointerDown);
   dom.addEventListener('pointerup', onPointerUp);
   dom.addEventListener('pointermove', onPointerMove);
+  dom.addEventListener('pointerleave', onPointerLeave);
   return () => {
-    cancelAnimationFrame(hoverFrame);
+    cancelHover();
     dom.removeEventListener('pointerdown', onPointerDown);
     dom.removeEventListener('pointerup', onPointerUp);
     dom.removeEventListener('pointermove', onPointerMove);
+    dom.removeEventListener('pointerleave', onPointerLeave);
   };
 }

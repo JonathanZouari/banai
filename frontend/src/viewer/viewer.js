@@ -6,7 +6,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { buildWardrobe, disposeWardrobe } from './buildWardrobe.js';
 import { frameOf } from './builders/frame.js';
+import { resolveSelection } from '../state/store.js';
 import { createDimensions } from './dimensions.js';
+import { describeSelection } from './format.js';
 import { createHighlighter } from './highlight.js';
 import { createMaterials } from './materials.js';
 import { attachPicking } from './picking.js';
@@ -41,6 +43,37 @@ function componentAt(hit, design) {
   return index >= 0 ? design.compartments[index].id : componentId;
 }
 
+// Parts that get a hover label. Doors, partitions, rails and the carcass only get the pointer cursor.
+const HOVER_KINDS = new Set(['shelf', 'drawer', 'compartment']);
+// The label sits below-right of the pointer tip so it never covers it, and flips near an edge.
+const HOVER_OFFSET = { x: 14, y: 18 };
+
+/** A small label that follows the pointer over the canvas (text only, never takes pointer events). */
+function createHoverLabel(container) {
+  const node = document.createElement('div');
+  node.className = 'hover-label';
+  node.dataset.testid = 'hover-label';
+  node.setAttribute('aria-hidden', 'true'); // the same text is in the panel's "All parts" list
+  node.hidden = true;
+  container.appendChild(node);
+  return {
+    show(text, x, y) {
+      node.textContent = text;
+      node.hidden = false;
+      const { clientWidth, clientHeight } = container;
+      const left = x + HOVER_OFFSET.x + node.offsetWidth > clientWidth ? x - HOVER_OFFSET.x - node.offsetWidth : x + HOVER_OFFSET.x;
+      const top = y + HOVER_OFFSET.y + node.offsetHeight > clientHeight ? y - HOVER_OFFSET.y - node.offsetHeight : y + HOVER_OFFSET.y;
+      node.style.transform = `translate(${Math.max(0, left)}px, ${Math.max(0, top)}px)`;
+    },
+    hide() {
+      node.hidden = true;
+    },
+    dispose() {
+      node.remove();
+    },
+  };
+}
+
 export function createViewer(container, store) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -61,6 +94,7 @@ export function createViewer(container, store) {
   const materials = createMaterials(store.getState().catalog);
   const highlighter = createHighlighter(scene);
   const dimensions = createDimensions(scene);
+  const hoverLabel = createHoverLabel(container);
   let group = null;
   let rendered = { design: null, doorsVisible: null, selection: undefined, dimsKey: null };
 
@@ -77,6 +111,7 @@ export function createViewer(container, store) {
     const { design, ui, selection } = state;
     const geometryChanged = design !== rendered.design || ui.doorsVisible !== rendered.doorsVisible;
     if (geometryChanged) {
+      hoverLabel.hide(); // the part under the pointer may have moved or gone
       if (group) {
         scene.remove(group);
         disposeWardrobe(group);
@@ -112,7 +147,18 @@ export function createViewer(container, store) {
     camera,
     getTargets: () => (group ? group.children : []),
     onPick: (hit) => store.select(componentAt(hit, store.getState().design)),
-    onHover: (hit) => { renderer.domElement.style.cursor = hit?.object.userData.componentId ? 'pointer' : ''; },
+    onHover: (hit, event) => {
+      renderer.domElement.style.cursor = hit?.object.userData.componentId ? 'pointer' : '';
+      const { design } = store.getState();
+      const selection = event.pointerType === 'touch' ? null : resolveSelection(design, componentAt(hit, design));
+      if (!selection || !HOVER_KINDS.has(selection.kind)) {
+        hoverLabel.hide();
+        return;
+      }
+      const rect = renderer.domElement.getBoundingClientRect();
+      hoverLabel.show(describeSelection(design, selection), event.clientX - rect.left, event.clientY - rect.top);
+    },
+    onLeave: () => hoverLabel.hide(),
   });
   const unsubscribe = store.subscribe(sync);
   sync(store.getState());
@@ -140,6 +186,7 @@ export function createViewer(container, store) {
       renderer.setAnimationLoop(null);
       unsubscribe();
       detachPicking();
+      hoverLabel.dispose();
       resizeObserver.disconnect();
       if (group) disposeWardrobe(group);
       highlighter.dispose();
