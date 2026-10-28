@@ -3,7 +3,8 @@
 Returns every issue, in a fixed order (the order is part of the parity contract
 with frontend/src/domain/validation.js):
   1. schema shape  2. unique ids  3. partition count  4. ranges
-  5. width sum  6. per-compartment bounds and overlaps  7. doors  8. catalog refs
+  5. width sum  6. per-compartment bounds and overlaps  7. doors (then door-shelf bounds and overlaps)
+  8. catalog refs
 These are rendering/data-safety checks only, never manufacturing rules.
 """
 
@@ -13,7 +14,7 @@ from collections.abc import Iterator
 
 from app.domain import errors as codes
 from app.domain.catalog import catalog_ids
-from app.domain.defaults import LIMITS
+from app.domain.defaults import DOOR_SHELF_THICKNESS, LIMITS
 from app.domain.errors import DomainError
 from app.domain.geometry import interior_height, interior_width
 from app.domain.schema import parse_design
@@ -67,6 +68,8 @@ def _iter_ids(design: dict) -> Iterator[tuple[str, str]]:
         yield f"partitions[{pi}].id", partition["id"]
     for di, door in enumerate(design["doors"]["items"]):
         yield f"doors.items[{di}].id", door["id"]
+        for si, shelf in enumerate(door["shelves"]):
+            yield f"doors.items[{di}].shelves[{si}].id", shelf["id"]
 
 
 def range_issue(value: int, limit: str, path: str) -> DomainError | None:
@@ -95,6 +98,9 @@ def _check_ranges(design: dict) -> list[DomainError]:
             checks.append((shelf["thickness"], "shelfThickness", f"compartments[{ci}].shelves[{si}].thickness"))
         for di, drawer in enumerate(compartment["drawers"]):
             checks.append((drawer["height"], "drawerHeight", f"compartments[{ci}].drawers[{di}].height"))
+    for di, door in enumerate(design["doors"]["items"]):
+        for si, shelf in enumerate(door["shelves"]):
+            checks.append((shelf["depth"], "doorShelfDepth", f"doors.items[{di}].shelves[{si}].depth"))
     return [issue for v, limit, path in checks if (issue := range_issue(v, limit, path))]
 
 
@@ -149,10 +155,30 @@ def _check_doors(design: dict) -> list[DomainError]:
             DomainError(codes.DOOR_INVALID, f"doors.items[{i}].{field}", f"sliding doors have no {field}")
             for i, door in enumerate(items)
             for field, invalid in (("compartmentIds", bool(door["compartmentIds"])),
-                                   ("hingeSide", door["hingeSide"] is not None))
+                                   ("hingeSide", door["hingeSide"] is not None),
+                                   ("shelves", bool(door["shelves"])))
             if invalid
         ]
-    return _check_hinged(design)
+    return _check_hinged(design) + _check_door_shelves(design)
+
+
+def _check_door_shelves(design: dict) -> list[DomainError]:
+    """Door shelves stay within the interior height and don't overlap on the same door."""
+    top = interior_height(design)
+    issues = []
+    for di, door in enumerate(design["doors"]["items"]):
+        spans = []
+        for si, shelf in enumerate(door["shelves"]):
+            path = f"doors.items[{di}].shelves[{si}]"
+            start, end = shelf["y"], shelf["y"] + DOOR_SHELF_THICKNESS
+            if start < 0 or end > top:
+                issues.append(DomainError(codes.OUT_OF_BOUNDS, f"{path}.y",
+                                          f"spans {start}..{end} outside interior 0..{top}"))
+            hit = next((other for s, e, other in spans if start < e and s < end), None)
+            if hit:
+                issues.append(DomainError(codes.OVERLAP, path, f"overlaps {hit}"))
+            spans.append((start, end, path))
+    return issues
 
 
 def _check_hinged(design: dict) -> list[DomainError]:
@@ -186,6 +212,8 @@ def _check_catalog(design: dict, catalog: dict) -> list[DomainError]:
     owners = [("carcass.appearance", design["carcass"]["appearance"]),
               ("doors.appearance", design["doors"]["appearance"])]
     owners += [(f"doors.items[{i}].appearance", d["appearance"]) for i, d in enumerate(design["doors"]["items"])]
+    owners += [(f"doors.items[{i}].shelves[{si}].appearance", s["appearance"])
+               for i, d in enumerate(design["doors"]["items"]) for si, s in enumerate(d["shelves"])]
     for ci, compartment in enumerate(design["compartments"]):
         for kind in ("shelves", "drawers"):
             owners += [(f"compartments[{ci}].{kind}[{i}].appearance", item["appearance"])

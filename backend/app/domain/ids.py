@@ -8,9 +8,10 @@ SHELF = "shf"
 DRAWER = "drw"
 RAIL = "rail"
 DOOR = "dr"
+DOOR_SHELF = "dsh"
 
 _SUFFIX = r"[A-Za-z0-9_-]{1,40}"
-ANY_ID_PATTERN = rf"^(cmp|prt|shf|drw|rail|dr)_{_SUFFIX}$"
+ANY_ID_PATTERN = rf"^(cmp|prt|shf|drw|rail|dr|dsh)_{_SUFFIX}$"
 
 
 def id_pattern(prefix: str) -> str:

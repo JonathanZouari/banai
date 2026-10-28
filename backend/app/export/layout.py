@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from app.domain.defaults import DOOR_SHELF_THICKNESS
 from app.domain.geometry import compartment_x_ranges, interior_height, interior_width
 
 
@@ -129,6 +130,12 @@ def door_panels(design: dict) -> list[DoorPanel]:
     return []
 
 
+def door_shelves(design: dict, door: DoorPanel) -> list[tuple[str, dict]]:
+    """A door's inside shelves, bottom to top, coded DR1.1, DR1.2, ..."""
+    shelves = next(d["shelves"] for d in design["doors"]["items"] if d["id"] == door.id)
+    return [(f"{door.code}.{n}", shelf) for n, shelf in enumerate(sorted(shelves, key=lambda s: s["y"]), start=1)]
+
+
 def covered_letters(design: dict) -> set[str]:
     if design["doors"]["type"] != "hinged":
         return {letter(i) for i in range(len(design["compartments"]))} if design["doors"]["type"] == "sliding" else set()
@@ -138,7 +145,7 @@ def covered_letters(design: dict) -> set[str]:
 @dataclass(frozen=True)
 class Row:
     code: str
-    kind: str  # carcass | partition | door | shelf | drawer | rail
+    kind: str  # carcass | partition | door | doorShelf | shelf | drawer | rail
     compartment: str  # letter(s), or "" for whole-wardrobe parts
     height: int | None  # y from the interior bottom
     size: tuple[int, ...]  # mm, in the order the kind's label describes
@@ -147,7 +154,8 @@ class Row:
 
 
 def component_rows(design: dict) -> list[Row]:
-    """The component list in build order: carcass, partitions, doors, then each compartment."""
+    """The component list in build order: carcass, partitions, doors (each followed by its shelves),
+    then each compartment."""
     width, height, depth = (design["dimensions"][k] for k in ("width", "height", "depth"))
     panel = design["carcass"]["panelThickness"]
     carcass = design["carcass"]["appearance"]
@@ -158,8 +166,13 @@ def component_rows(design: dict) -> list[Row]:
                         (inner_h, depth, partition["thickness"]), None))
     door_ids = {d["id"]: d for d in design["doors"]["items"]}
     for door in door_panels(design):
-        rows.append(Row(door.code, "door", "+".join(door.letters), None, (round(door.x1 - door.x0), inner_h),
+        width = round(door.x1 - door.x0)
+        rows.append(Row(door.code, "door", "+".join(door.letters), None, (width, inner_h),
                         door.appearance, door_ids[door.id]["appearance"] is not None))
+        for code, shelf in door_shelves(design, door):
+            rows.append(Row(code, "doorShelf", "+".join(door.letters), shelf["y"],
+                            (width, shelf["depth"], DOOR_SHELF_THICKNESS),
+                            shelf["appearance"] or door.appearance, shelf["appearance"] is not None))
     for index, compartment in enumerate(design["compartments"]):
         by_id = {entry["id"]: entry for key in ("shelves", "drawers") for entry in compartment[key]}
         for item in compartment_items(design, index):

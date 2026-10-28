@@ -1,9 +1,9 @@
-// Interior item and appearance op handlers. Mirrors backend/app/domain/ops_items.py.
+// Interior item, door shelf and appearance op handlers. Mirrors backend/app/domain/ops_items.py.
 
 import * as ids from './ids.js';
-import { DEFAULT_SHELF_THICKNESS } from './defaults.js';
+import { DEFAULT_DOOR_SHELF_DEPTH, DEFAULT_SHELF_THICKNESS } from './defaults.js';
 import { DomainError, INVALID_OP, NOT_FOUND } from './errors.js';
-import { compartmentIndex, findItem, locate } from './lookup.js';
+import { compartmentIndex, findDoorShelf, findItem, locate } from './lookup.js';
 import { isSet } from './util.js';
 
 const APPEARANCE_FIELDS = ['material', 'color', 'finish'];
@@ -53,6 +53,22 @@ function modifyRail(draft, op, path) {
   return draft;
 }
 
+function addDoorShelf(draft, op, path) {
+  const door = draft.doors.items.find((d) => d.id === op.doorId);
+  if (!door) throw new DomainError(NOT_FOUND, `${path}.doorId`, 'no door with this id');
+  if (draft.doors.type !== 'hinged') throw new DomainError(INVALID_OP, `${path}.doorId`, 'door shelves need hinged doors');
+  door.shelves.push({ id: op.id || ids.newId(ids.DOOR_SHELF), y: op.y, depth: op.depth ?? DEFAULT_DOOR_SHELF_DEPTH, appearance: null });
+  return draft;
+}
+
+function modifyDoorShelf(draft, op, path) {
+  requireAny(path, op.y, op.depth);
+  const shelf = findDoorShelf(draft, op.id, `${path}.id`);
+  if (isSet(op.y)) shelf.y = op.y;
+  if (isSet(op.depth)) shelf.depth = op.depth;
+  return draft;
+}
+
 function setMaterial(draft, op, path) {
   const changes = Object.fromEntries(APPEARANCE_FIELDS.filter((f) => isSet(op[f])).map((f) => [f, op[f]]));
   const hasChanges = Object.keys(changes).length > 0;
@@ -75,6 +91,10 @@ function appearanceOwner(draft, target, path) {
   if (!found) throw new DomainError(NOT_FOUND, path, 'no component with this id');
   const [kind, index, itemIndex] = found;
   if (kind === 'door') return [draft.doors.items[index], draft.doors.appearance];
+  if (kind === 'doorShelves') {
+    const door = draft.doors.items[index];
+    return [door.shelves[itemIndex], door.appearance ?? draft.doors.appearance];
+  }
   if (kind === 'shelves' || kind === 'drawers') return [draft.compartments[index][kind][itemIndex], draft.carcass.appearance];
   throw new DomainError(INVALID_OP, path, `${kind} has no own appearance`);
 }
@@ -86,5 +106,7 @@ export const ITEM_HANDLERS = Object.freeze({
   modify_drawer: modifyDrawer,
   add_rail: addRail,
   modify_rail: modifyRail,
+  add_door_shelf: addDoorShelf,
+  modify_door_shelf: modifyDoorShelf,
   set_material: setMaterial,
 });

@@ -33,7 +33,8 @@ Both engines must behave identically. `shared/fixtures/ops/*.json` is run by bot
   ],
   "partitions": [{ "id": "prt_…", "thickness": 18 }],   // partitions[i] sits between compartments i and i+1
   "doors": { "type": "hinged|sliding|none", "appearance": Appearance,
-             "items": [{ "id": "dr_…", "compartmentIds": ["cmp_…"], "hingeSide": "left|right|null", "appearance": Appearance|null }] }
+             "items": [{ "id": "dr_…", "compartmentIds": ["cmp_…"], "hingeSide": "left|right|null", "appearance": Appearance|null,
+                         "shelves": [{ "id": "dsh_…", "y": 1000, "depth": 100, "appearance": Appearance|null }] }] }
 }
 ```
 **Appearance** is `{ material: Ref, color: Ref, finish: Ref }`, where each Ref is one of:
@@ -43,9 +44,10 @@ Both engines must behave identically. `shared/fixtures/ops/*.json` is run by bot
 An item override of `null` means the item inherits:
 - shelves and drawers inherit from `carcass.appearance`
 - doors inherit from `doors.appearance`
+- door shelves inherit from their door (its override, else `doors.appearance`)
 - rails and partitions have no appearance of their own
 
-**IDs** are stable and typed (`cmp_`, `prt_`, `shf_`, `drw_`, `rail_`, `dr_` + 1–40 `[A-Za-z0-9_-]`), and unique within a design. Generated ids are `<prefix>_<8 hex>`.
+**IDs** are stable and typed (`cmp_`, `prt_`, `shf_`, `drw_`, `rail_`, `dr_`, `dsh_` + 1–40 `[A-Za-z0-9_-]`), and unique within a design. Generated ids are `<prefix>_<8 hex>`.
 
 ## Validation rules
 Issues are reported in this fixed order. The order is part of the parity contract.
@@ -64,8 +66,9 @@ Issues are reported in this fixed order. The order is part of the parity contrac
 
 Door rules:
 - **hinged:** at least one door. Each door has a hinge side and covers ≥1 existing compartment. Those compartments are adjacent and ordered left → right, and no compartment is covered twice. Uncovered compartments are allowed.
-- **sliding:** 1–6 panels (`LIMITS.slidingDoorCount`), with no `compartmentIds` and no hinge side.
+- **sliding:** 1–6 panels (`LIMITS.slidingDoorCount`), with no `compartmentIds`, no hinge side and no shelves.
 - **none:** no items.
+- **Door shelves** (hinged only) sit on the inside face of the door. A door shelf occupies `[y, y + DOOR_SHELF_THICKNESS]` (12 mm), must lie within `[0, interiorHeight]` (`OUT_OF_BOUNDS`) and must not overlap another shelf on the same door (`OVERLAP`); its `depth` is range-checked with `LIMITS.doorShelfDepth` in rule 4. `shelves` may be absent in older saves and defaults to `[]`. The 3D view sets interior items back by the deepest door shelf; that is visual only.
 
 These are data and rendering-safety checks. **They are not manufacturing or feasibility rules.** The app never claims a design is manufacturable.
 
@@ -90,11 +93,13 @@ These are data and rendering-safety checks. **They are not manufacturing or feas
 | `add_shelf` / `modify_shelf` | compartmentId, y, thickness? (default 18), id? / id, y?, thickness? | |
 | `add_drawer` / `modify_drawer` | compartmentId, y, height, id? / id, y?, height? | |
 | `add_rail` / `modify_rail` | compartmentId, y, id? / id, y | |
-| `set_material` | target (`carcass`, `doors`, or a door/shelf/drawer id), material?, color?, finish?, clear? | Partial appearance update. An item override starts from the inherited appearance. `clear` removes an override. Covers both "change material" and "change color". |
+| `add_door_shelf` / `modify_door_shelf` | doorId, y, depth? (default 100), id? / id, y?, depth? | Hinged doors only (`INVALID_OP` at `ops[i].doorId` otherwise). |
+| `set_material` | target (`carcass`, `doors`, or a door/shelf/drawer/door-shelf id), material?, color?, finish?, clear? | Partial appearance update. An item override starts from the inherited appearance. `clear` removes an override. Covers both "change material" and "change color". |
 | `remove_component` | id | See the removal rules below. |
 
 `remove_component` removal rules:
-- **Shelf, drawer, rail:** removed.
+- **Shelf, drawer, rail, door shelf:** removed.
+- `configure_doors` re-stating hinged doors keeps the shelves of every door id that survives; other door changes drop them. A partition merge moves the dropped door's shelves onto the surviving door (rejected with `OVERLAP` if they collide).
 - **Compartment:** a neighbour absorbs its width plus one partition (the right neighbour, or the left one for the last compartment). Its door references are dropped, along with any hinged door left empty.
 - **Partition:** the right compartment merges into the left one and the item lists are unioned. If the items overlap, the op is rejected with `OVERLAP`. Doors covering the merged compartment merge into the first such door.
 - **Door:** removed. When no doors remain, the type becomes `none`.
@@ -116,6 +121,7 @@ Op-level error paths use `ops[i]` or `ops[i].<field>`. Issues found while valida
   - ≤ 20 doors
   - ≤ 100 items of one kind per compartment
   - ≤ 300 interior items per design
+  - ≤ 100 door shelves per design
   - ≤ 100 ops per batch
 - Error messages are engine-owned constants and never echo input. An unknown key appears in an error path only if it is a plain identifier (`^[A-Za-z][A-Za-z0-9_]{0,39}$`); otherwise the error is reported at the parent path.
 
@@ -124,6 +130,7 @@ These live in `defaults.py` / `defaults.js` and are mirrored on both sides:
 - the `LIMITS` ranges
 - panel and shelf thickness of 18 mm
 - 2 sliding doors by default
+- door shelves: 12 mm thick, 100 mm deep by default, depth 60–150 mm
 - the default appearance (melamine, white, matte)
 - the basic wardrobe (`shared/fixtures/designs/basic.json`): 2000×2400×600 with 3 compartments and hinged doors
 

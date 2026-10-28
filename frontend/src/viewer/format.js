@@ -18,6 +18,10 @@ export function describeSelection(design, selection) {
   }
   const pi = design.partitions.findIndex((p) => p.id === id);
   if (pi >= 0) return `Partition ${pi + 1} · ${cm(design.partitions[pi].thickness)} cm thick`;
+  for (const [di, door] of design.doors.items.entries()) {
+    const shelf = door.shelves.find((s) => s.id === id);
+    if (shelf) return `Door ${di + 1} shelf · ${cm(shelf.y)} cm from base · ${cm(shelf.depth)} cm deep`;
+  }
   const door = design.doors.items.find((d) => d.id === id);
   if (door) return `${design.doors.type === 'sliding' ? 'Sliding' : 'Hinged'} door${door.hingeSide ? ` · hinge ${door.hingeSide}` : ''}`;
   return kind;

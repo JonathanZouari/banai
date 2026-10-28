@@ -33,6 +33,7 @@ MAX_LIST = 100  # items of one kind in one compartment
 MAX_COMPARTMENTS = 20
 MAX_DOORS = 20
 MAX_ITEMS_TOTAL = 300  # shelves + drawers + rails across the whole design
+MAX_DOOR_SHELVES_TOTAL = 100  # shelves on the inside of doors, across all doors
 
 # Free text from customers / the LLM: no control or bidi-override characters.
 SAFE_TEXT_PATTERN = r"^[^\x00-\x1f\x7f-\x9f\u200b-\u200d\u2028\u2029\u202a-\u202e\u2066-\u2069\ufeff]+$"
@@ -66,6 +67,7 @@ ShelfId = Annotated[str, _typed_id(ids.SHELF)]
 DrawerId = Annotated[str, _typed_id(ids.DRAWER)]
 RailId = Annotated[str, _typed_id(ids.RAIL)]
 DoorId = Annotated[str, _typed_id(ids.DOOR)]
+DoorShelfId = Annotated[str, _typed_id(ids.DOOR_SHELF)]
 AnyId = Annotated[str, Field(pattern=ids.ANY_ID_PATTERN)]
 
 
@@ -157,17 +159,32 @@ class Partition(StrictModel):
     thickness: Int
 
 
+class DoorShelf(StrictModel):
+    id: DoorShelfId
+    y: Int
+    depth: Int
+    appearance: Appearance | None = None
+
+
 class Door(StrictModel):
     id: DoorId
     compartment_ids: list[CompartmentId] = Field(max_length=MAX_LIST)
     hinge_side: Literal["left", "right"] | None = None
     appearance: Appearance | None = None
+    shelves: list[DoorShelf] = Field(default_factory=list, max_length=MAX_LIST)  # absent in pre-door-shelf saves
 
 
 class Doors(StrictModel):
     type: Literal["hinged", "sliding", "none"]
     appearance: Appearance
     items: list[Door] = Field(max_length=MAX_DOORS)
+
+    @field_validator("items")
+    @classmethod
+    def _cap_door_shelves(cls, items: list[Door]) -> list[Door]:
+        if sum(len(d.shelves) for d in items) > MAX_DOOR_SHELVES_TOTAL:
+            raise ValueError("too many door shelves")
+        return items
 
 
 class Design(StrictModel):

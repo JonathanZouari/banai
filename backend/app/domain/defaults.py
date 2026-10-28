@@ -17,11 +17,15 @@ LIMITS: dict[str, tuple[int, int]] = {
     "drawerHeight": (50, 1000),
     "compartmentCount": (1, 20),
     "slidingDoorCount": (1, 6),
+    "doorShelfDepth": (60, 150),
 }
 
 DEFAULT_PANEL_THICKNESS = 18
 DEFAULT_SHELF_THICKNESS = 18
 DEFAULT_SLIDING_DOOR_COUNT = 2
+# Shelves on the inside face of a hinged door: board thickness (visual + overlap span) and depth.
+DOOR_SHELF_THICKNESS = 12
+DEFAULT_DOOR_SHELF_DEPTH = 100
 
 
 def default_appearance() -> dict:

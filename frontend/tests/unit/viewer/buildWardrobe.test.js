@@ -2,12 +2,13 @@ import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { applyOps } from '../../../src/domain/apply.js';
 import { buildWardrobe } from '../../../src/viewer/buildWardrobe.js';
-import { createMaterials } from '../../../src/viewer/materials.js';
+import { poseDoors } from '../../../src/viewer/builders/doors.js';
+import { createMaterials, surfaceOf } from '../../../src/viewer/materials.js';
 import { loadCatalog, loadDesign } from '../domain/helpers.js';
 
 const catalog = loadCatalog();
 const basic = loadDesign('basic');
-const build = (design, options = { doorsVisible: true }) => buildWardrobe(design, createMaterials(catalog), options);
+const build = (design, options = {}) => buildWardrobe(design, createMaterials(catalog), options);
 const meshes = (group) => group.children.filter((child) => child.isMesh);
 const byId = (group, id) => meshes(group).filter((mesh) => mesh.userData.componentId === id);
 const size = (mesh) => {
@@ -20,7 +21,7 @@ describe('buildWardrobe', () => {
   it('creates one mesh per component, tagged with id and kind', () => {
     const group = build(basic);
     const kinds = meshes(group).reduce((counts, m) => ({ ...counts, [m.userData.kind]: (counts[m.userData.kind] ?? 0) + 1 }), {});
-    expect(kinds).toEqual({ carcass: 5, partition: 2, shelf: 7, drawer: 2, rail: 1, door: 3, hardware: 3 });
+    expect(kinds).toEqual({ carcass: 5, partition: 2, shelf: 7, drawer: 2, rail: 1, door: 3, hardware: 3, pull: 2 });
     expect(byId(group, 'shf_l1')).toHaveLength(1);
     expect(byId(group, 'carcass')).toHaveLength(5);
   });
@@ -56,9 +57,10 @@ describe('buildWardrobe', () => {
     close(shelf.position.y, (18 + 1000 + 9) / 1000);
   });
 
-  it('hides doors when requested', () => {
-    const group = build(basic, { doorsVisible: false });
-    expect(meshes(group).some((m) => m.userData.kind === 'door')).toBe(false);
+  it('builds the doors closed by default', () => {
+    const [door] = byId(build(basic), 'dr_left');
+    close(door.rotation.y, 0);
+    close(door.position.z, 0.009);
   });
 
   it('spans hinged doors over their compartments and splits sliding doors evenly', () => {
@@ -73,9 +75,61 @@ describe('buildWardrobe', () => {
     expect(a.position.z).not.toBeCloseTo(b.position.z, 3);
   });
 
-  it('hides door hardware together with the doors', () => {
-    const group = build(basic, { doorsVisible: false });
-    expect(meshes(group).some((m) => m.userData.kind === 'hardware')).toBe(false);
+  it('opens hinged doors about their hinge edge, with the handle, and closes them again', () => {
+    const group = build(basic);
+    const [left] = byId(group, 'dr_left'); // hinged left, nothing else on that hinge
+    const [middle] = byId(group, 'dr_middle'); // hinged right, shares its partition with dr_right
+    const closed = left.position.clone();
+    const handle = meshes(group).find((m) => m.userData.part === 'handle' && Math.abs(m.position.x - left.position.x) < 0.33);
+    const handleClosed = handle.position.clone();
+
+    poseDoors(group, 1);
+    expect(THREE.MathUtils.radToDeg(left.rotation.y)).toBeCloseTo(-100, 6);
+    expect(THREE.MathUtils.radToDeg(middle.rotation.y)).toBeCloseTo(90, 6); // stops side by side, never crossing
+    expect(left.position.z).toBeGreaterThan(0.2); // the free edge came forward
+    expect(left.position.x).toBeLessThan(closed.x); // and swung toward the hinge side
+    expect(handle.position.z).toBeGreaterThan(handleClosed.z); // the handle travels with its door
+
+    poseDoors(group, 0);
+    close(left.rotation.y, 0);
+    close(left.position.x, closed.x);
+    close(left.position.z, closed.z);
+    close(handle.position.z, handleClosed.z);
+  });
+
+  it('builds open doors directly when asked (interior view)', () => {
+    const [left] = byId(build(basic, { doorsOpen: 1 }), 'dr_left');
+    expect(left.rotation.y).toBeLessThan(-1.5);
+  });
+
+  it('turns sliding panels translucent when open, hiding their handles, without touching shared materials', () => {
+    const sliding = applyOps(basic, [{ op: 'configure_doors', type: 'sliding', ids: ['dr_a', 'dr_b'] }], catalog);
+    const materials = createMaterials(catalog);
+    const group = buildWardrobe(sliding, materials, { doorsOpen: 1 });
+    const [a] = byId(group, 'dr_a');
+    expect(a.material.opacity).toBeCloseTo(0.3);
+    expect(a.material).not.toBe(materials.forAppearance(sliding.doors.appearance));
+    expect(materials.forAppearance(sliding.doors.appearance).transparent).toBe(false);
+    expect(meshes(group).filter((m) => m.userData.part === 'handle').every((m) => !m.visible)).toBe(true);
+    poseDoors(group, 0);
+    expect(a.material.opacity).toBe(1);
+  });
+
+  it('gives each drawer a pull that clicks pass through', () => {
+    const group = build(basic);
+    const pulls = meshes(group).filter((m) => m.userData.kind === 'pull');
+    expect(pulls).toHaveLength(2);
+    const raycaster = new THREE.Raycaster(new THREE.Vector3(0, 0, 5), new THREE.Vector3(0, 0, -1));
+    pulls.forEach((m) => {
+      expect(m.userData.componentId).toBeUndefined();
+      expect(raycaster.intersectObject(m)).toEqual([]);
+    });
+  });
+
+  it('casts and receives shadows on wardrobe parts', () => {
+    const [shelf] = byId(build(basic), 'shf_l1');
+    expect(shelf.castShadow).toBe(true);
+    expect(shelf.receiveShadow).toBe(true);
   });
 
   it('puts each hinged-door handle on the edge opposite the hinge', () => {
@@ -136,6 +190,17 @@ describe('buildWardrobe', () => {
     expect(shelf.material.color.getHexString()).toBe('f2f1ed');
   });
 
+  it('draws the catalog material: wood grain, lacquer clear coat, or plain board', () => {
+    const appearance = (material, color) => ({ material: { catalogId: material }, color: { catalogId: color }, finish: { catalogId: 'matte' } });
+    expect(surfaceOf(appearance('oak_veneer', 'white'))).toBe('wood');
+    expect(surfaceOf(appearance('melamine', 'walnut'))).toBe('wood');
+    expect(surfaceOf(appearance('lacquered_mdf', 'white'))).toBe('lacquer');
+    expect(surfaceOf(appearance('melamine', 'white'))).toBe('board');
+    const lacquer = createMaterials(catalog).forAppearance(appearance('lacquered_mdf', 'white'));
+    expect(lacquer.clearcoat).toBe(1);
+    expect(lacquer.roughness).toBeCloseTo(0.85); // the base keeps its finish under the coat
+  });
+
   it('reuses one material per distinct appearance', () => {
     const group = build(basic);
     const shelfMaterials = new Set(meshes(group).filter((m) => m.userData.kind === 'shelf').map((m) => m.material));
@@ -152,5 +217,38 @@ describe('material cache', () => {
     materials.retainOnly(new Set([kept]));
     expect(materials.forAppearance(custom)).not.toBe(first);
     expect(materials.forAppearance(basic.carcass.appearance)).toBe(kept);
+  });
+});
+
+describe('door shelves', () => {
+  const withShelves = applyOps(basic, [
+    { op: 'add_door_shelf', doorId: 'dr_left', y: 1000, depth: 120, id: 'dsh_1' },
+  ], catalog);
+
+  it('hang a board and a guard lip on the inside face of the closed door', () => {
+    const parts = byId(build(withShelves), 'dsh_1');
+    expect(parts.map((m) => m.userData.kind)).toEqual(['doorShelf', 'doorShelf']);
+    const [board] = parts;
+    close(board.position.y, (18 + 1000 + 6) / 1000);
+    close(board.position.z, -0.06);
+    close(size(board).z, 0.12);
+  });
+
+  it('swing open with their door', () => {
+    const group = build(withShelves);
+    const [board] = byId(group, 'dsh_1');
+    const closedZ = board.position.z;
+    poseDoors(group, 1);
+    expect(board.rotation.y).toBeCloseTo(byId(group, 'dr_left')[0].rotation.y, 6);
+    expect(board.position.z).toBeGreaterThan(closedZ);
+  });
+
+  it('set the shelves and drawers behind that door back to clear them; other compartments keep full depth', () => {
+    const group = build(withShelves);
+    const [left] = byId(group, 'shf_l1');
+    const [right] = byId(group, 'shf_r1');
+    close(size(left).z, (594 - 122) / 1000);
+    close(left.position.z, -(594 + 122) / 2000);
+    close(size(right).z, 0.594);
   });
 });

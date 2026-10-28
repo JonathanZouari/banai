@@ -15,8 +15,10 @@ const KIND_BY_LOCATION = Object.freeze({
   shelves: 'shelf',
   drawers: 'drawer',
   rails: 'rail',
+  doorShelves: 'doorShelf',
 });
-const INTERIOR_KINDS = new Set(['shelf', 'drawer', 'rail', 'compartment', 'partition']);
+// Selecting one of these opens the doors (a door shelf is on the inside face of its door).
+const INTERIOR_KINDS = new Set(['shelf', 'drawer', 'rail', 'compartment', 'partition', 'doorShelf']);
 
 /** Resolve a component id to a selection, or null when it does not exist. */
 export function resolveSelection(design, id) {

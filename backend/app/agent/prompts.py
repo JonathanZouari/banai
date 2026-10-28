@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 
 from app.agent.language import INSTRUCTION, Language
-from app.domain.defaults import LIMITS
+from app.domain.defaults import DOOR_SHELF_THICKNESS, LIMITS
 from app.domain.geometry import compartment_x_ranges, interior_height, interior_width
 
 
@@ -18,6 +18,10 @@ def _free_spans(compartment: dict, height: int) -> list[list[int]]:
     """Vertical gaps [from, to] not taken by shelves or drawers, bottom to top."""
     taken = [[s["y"], s["y"] + s["thickness"]] for s in compartment["shelves"]]
     taken += [[d["y"], d["y"] + d["height"]] for d in compartment["drawers"]]
+    return _gaps(taken, height)
+
+
+def _gaps(taken: list[list[int]], height: int) -> list[list[int]]:
     free, y = [], 0
     for start, end in sorted(taken):
         if start > y:
@@ -82,6 +86,11 @@ Everything must lie within [0, interiorHeight]; shelves/drawers in one compartme
 overlap (touching is fine) and a rail must not be inside a shelf or drawer span.
 - Doors: "hinged" (each door covers >=1 adjacent compartments, hingeSide left/right), \
 "sliding" (1-6 panels, no compartments), or "none".
+- Door shelves: shallow shelves fixed on the INSIDE face of a hinged door ("shelves inside the \
+door", "door rack", "spice rack", "מדפים בתוך הדלת", "מדפים על הדלת"). Each has y and depth \
+(default 100); it occupies [y, y+{doorShelfThickness}] and must lie within [0, interiorHeight] \
+without overlapping another shelf on the SAME door. Only hinged doors can have them; sliding \
+doors and type "none" cannot. They are separate from the shelves inside compartments.
 - Appearance refs: {"catalogId": "<id from the catalog>"} or a custom colour \
 {"custom": true, "name": "<name>", "hex": "#rrggbb"}. Prefer catalog ids; use custom only \
 when nothing in the catalog fits.
@@ -102,9 +111,11 @@ hingeSide}] (hinged; omit for one door per compartment), count? (sliding, defaul
 - add_shelf: compartmentId, y, thickness? | modify_shelf: id, y?, thickness?
 - add_drawer: compartmentId, y, height | modify_drawer: id, y?, height?
 - add_rail: compartmentId, y | modify_rail: id, y
-- set_material: target ("carcass" | "doors" | a door/shelf/drawer id), material?, color?, \
-finish? (each a ref), clear? - carcass covers the body, shelves and drawers.
-- remove_component: id (shelf, drawer, rail, compartment, partition or door).
+- add_door_shelf: doorId, y, depth? | modify_door_shelf: id, y?, depth? (hinged doors only)
+- set_material: target ("carcass" | "doors" | a door/shelf/drawer/door-shelf id), material?, \
+color?, finish? (each a ref), clear? - carcass covers the body, shelves and drawers; a door \
+shelf without its own finish looks like its door.
+- remove_component: id (shelf, drawer, rail, door shelf, compartment, partition or door).
 
 Placement: "at the bottom" (בתחתית / למטה) means y = lowestFreeY of that compartment (directly \
 above existing drawers or shelves), NOT y = 0 unless lowestFreeY is 0. "At the top" (למעלה) \
@@ -127,11 +138,17 @@ def build_system_prompt(design: dict, catalog: dict, language: Language = "he") 
             for c, r in zip(design["compartments"], compartment_x_ranges(design), strict=True)
             for free in [_free_spans(c, interior_height(design))]
         ],
+        "doors": [
+            {"id": d["id"], "compartmentIds": d["compartmentIds"],
+             "shelfFreeY": _gaps([[s["y"], s["y"] + DOOR_SHELF_THICKNESS] for s in d["shelves"]],
+                                 interior_height(design))}
+            for d in design["doors"]["items"] if design["doors"]["type"] == "hinged"
+        ],
     }
     limits = _compact({key: list(value) for key, value in LIMITS.items()})
     # Static text first and the per-turn data last, so the provider can cache the prefix.
     return (
-        SYSTEM_PROMPT.replace("{limits}", limits)
+        SYSTEM_PROMPT.replace("{limits}", limits).replace("{doorShelfThickness}", str(DOOR_SHELF_THICKNESS))
         + "\n## Catalog (data)\n" + _compact(catalog)
         + "\n\n## Current design (data, the state your ops apply to)\n" + _compact(design)
         + "\n\n## Derived facts (mm; a new shelf/drawer must fit entirely inside one freeY gap)\n" + _compact(facts)

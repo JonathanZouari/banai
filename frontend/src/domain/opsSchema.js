@@ -42,6 +42,8 @@ export const opSchema = z.discriminatedUnion('op', [
   op('modify_drawer', { id: typedId(ids.DRAWER), y: opt(int()), height: opt(int()) }),
   op('add_rail', { compartmentId: cmpId(), y: int(), id: opt(typedId(ids.RAIL)) }),
   op('modify_rail', { id: typedId(ids.RAIL), y: int() }),
+  op('add_door_shelf', { doorId: typedId(ids.DOOR), y: int(), depth: opt(int()), id: opt(typedId(ids.DOOR_SHELF)) }),
+  op('modify_door_shelf', { id: typedId(ids.DOOR_SHELF), y: opt(int()), depth: opt(int()) }),
   op('set_material', {
     target: z.string().regex(ids.TARGET_PATTERN),
     material: opt(ref), color: opt(ref), finish: opt(ref),

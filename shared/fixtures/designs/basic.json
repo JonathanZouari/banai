@@ -136,7 +136,8 @@
           "cmp_left"
         ],
         "hingeSide": "left",
-        "appearance": null
+        "appearance": null,
+        "shelves": []
       },
       {
         "id": "dr_middle",
@@ -144,7 +145,8 @@
           "cmp_middle"
         ],
         "hingeSide": "right",
-        "appearance": null
+        "appearance": null,
+        "shelves": []
       },
       {
         "id": "dr_right",
@@ -152,7 +154,8 @@
           "cmp_right"
         ],
         "hingeSide": "left",
-        "appearance": null
+        "appearance": null,
+        "shelves": []
       }
     ]
   }

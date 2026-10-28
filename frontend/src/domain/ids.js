@@ -6,10 +6,11 @@ export const SHELF = 'shf';
 export const DRAWER = 'drw';
 export const RAIL = 'rail';
 export const DOOR = 'dr';
+export const DOOR_SHELF = 'dsh';
 
 const SUFFIX = '[A-Za-z0-9_-]{1,40}';
-export const ANY_ID_PATTERN = new RegExp(`^(cmp|prt|shf|drw|rail|dr)_${SUFFIX}$`);
-export const TARGET_PATTERN = new RegExp(`^(carcass|doors|(cmp|prt|shf|drw|rail|dr)_${SUFFIX})$`);
+export const ANY_ID_PATTERN = new RegExp(`^(cmp|prt|shf|drw|rail|dr|dsh)_${SUFFIX}$`);
+export const TARGET_PATTERN = new RegExp(`^(carcass|doors|(cmp|prt|shf|drw|rail|dr|dsh)_${SUFFIX})$`);
 
 export const idPattern = (prefix) => new RegExp(`^${prefix}_${SUFFIX}$`);
 

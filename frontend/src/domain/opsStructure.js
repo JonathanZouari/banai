@@ -10,7 +10,7 @@ import { ITEM_KINDS, compartmentIndex, locate, partitionIndex, requireRange } fr
 import { isSet, sum } from './util.js';
 
 const emptyCompartment = (id, width) => ({ id, width, shelves: [], drawers: [], rails: [] });
-const door = (id, compartmentIds, hingeSide) => ({ id, compartmentIds, hingeSide, appearance: null });
+const door = (id, compartmentIds, hingeSide) => ({ id, compartmentIds, hingeSide, appearance: null, shelves: [] });
 
 function idsOrNew(given, count, prefix, path) {
   if (!isSet(given)) return Array.from({ length: count }, () => ids.newId(prefix));
@@ -88,7 +88,11 @@ function configureDoors(draft, op, path) {
     const doorIds = idsOrNew(op.ids, count, ids.DOOR, `${path}.ids`);
     Object.assign(doors, { type: 'sliding', items: doorIds.map((id) => door(id, [], null)) });
   } else {
-    Object.assign(doors, { type: 'hinged', items: hingedItems(draft, op, path) });
+    // Re-stating hinged doors (e.g. a hinge-side change) keeps the shelves of every door id that survives.
+    const kept = new Map(doors.type === 'hinged' ? doors.items.map((d) => [d.id, d.shelves]) : []);
+    const items = hingedItems(draft, op, path);
+    for (const d of items) d.shelves = kept.get(d.id) ?? [];
+    Object.assign(doors, { type: 'hinged', items });
   }
   return draft;
 }
@@ -188,6 +192,8 @@ function removeComponent(draft, op, path) {
     removeCompartment(draft, index, `${path}.id`);
   } else if (kind === 'partition') {
     mergeAtPartition(draft, index);
+  } else if (kind === 'doorShelves') {
+    draft.doors.items[index].shelves.splice(itemIndex, 1);
   } else {
     draft.doors.items.splice(index, 1);
     normalizeDoors(draft);
@@ -210,7 +216,7 @@ function removeCompartment(draft, index, path) {
   normalizeDoors(draft);
 }
 
-// Merge compartments j and j+1 into j. Covering doors merge into the first one in list order.
+// Merge compartments j and j+1 into j. Covering doors (and their shelves) merge into the first one in list order.
 function mergeAtPartition(draft, j) {
   const { compartments } = draft;
   const left = compartments[j];
@@ -228,6 +234,8 @@ function mergeAtPartition(draft, j) {
   if (covering.length > 1) {
     const [keeper, ...dropped] = covering;
     keeper.compartmentIds = [...new Set(covering.flatMap((d) => d.compartmentIds))].sort((a, b) => order.get(a) - order.get(b));
+    // Shelves of the dropped doors move onto the keeper; validation rejects them if they now overlap.
+    keeper.shelves = covering.flatMap((d) => d.shelves);
     draft.doors.items = draft.doors.items.filter((d) => !dropped.includes(d));
   }
 }

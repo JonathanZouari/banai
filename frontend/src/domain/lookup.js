@@ -26,6 +26,14 @@ export function findItem(design, kind, itemId, path) {
   throw new DomainError(NOT_FOUND, path, `no ${kind.slice(0, -1)} with this id`);
 }
 
+export function findDoorShelf(design, shelfId, path) {
+  for (const door of design.doors.items) {
+    const shelf = door.shelves.find((s) => s.id === shelfId);
+    if (shelf) return shelf;
+  }
+  throw new DomainError(NOT_FOUND, path, 'no door shelf with this id');
+}
+
 /** Returns [kind, index, itemIndex] for any component id, or null. */
 export function locate(design, componentId) {
   for (const [ci, compartment] of design.compartments.entries()) {
@@ -37,8 +45,11 @@ export function locate(design, componentId) {
   }
   const pi = design.partitions.findIndex((p) => p.id === componentId);
   if (pi >= 0) return ['partition', pi, -1];
-  const di = design.doors.items.findIndex((d) => d.id === componentId);
-  if (di >= 0) return ['door', di, -1];
+  for (const [di, door] of design.doors.items.entries()) {
+    if (door.id === componentId) return ['door', di, -1];
+    const si = door.shelves.findIndex((s) => s.id === componentId);
+    if (si >= 0) return ['doorShelves', di, si];
+  }
   return null;
 }
 

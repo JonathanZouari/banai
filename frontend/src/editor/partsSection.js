@@ -5,7 +5,12 @@ import { button, el, section } from './fields.js';
 const ITEM_GROUPS = Object.freeze([['shelves', 'Shelf'], ['drawers', 'Drawer'], ['rails', 'Hanging rail']]);
 
 function parts(design) {
-  const doors = design.doors.items.map((door, i) => ({ id: door.id, label: `Door ${i + 1}` }));
+  // Door shelves are listed right under their door, bottom to top.
+  const doors = design.doors.items.flatMap((door, i) => [
+    { id: door.id, label: `Door ${i + 1}` },
+    ...[...door.shelves].sort((a, b) => a.y - b.y)
+      .map((shelf, n) => ({ id: shelf.id, label: `Door ${i + 1} › Shelf ${n + 1}`, child: true })),
+  ]);
   const partitions = design.partitions.map((partition, i) => ({ id: partition.id, label: `Partition ${i + 1}` }));
   const items = design.compartments.flatMap((compartment, c) => ITEM_GROUPS.flatMap(([key, name]) =>
     (compartment[key] ?? []).map((item, i) => ({ id: item.id, label: `Compartment ${c + 1} · ${name} ${i + 1}` }))));
@@ -13,10 +18,10 @@ function parts(design) {
 }
 
 export function partsSection({ design, selection, select }) {
-  const list = el('ul', { className: 'parts-list' }, parts(design).map(({ id, label }) => {
+  const list = el('ul', { className: 'parts-list' }, parts(design).map(({ id, label, child }) => {
     const node = button(label, () => select(id), { variant: 'link', testId: `part-${id}` });
     if (selection?.id === id) node.setAttribute('aria-current', 'true');
-    return el('li', {}, [node]);
+    return el('li', child ? { className: 'parts-list__child' } : {}, [node]);
   }));
   return section('All parts', [list]);
 }

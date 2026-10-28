@@ -115,7 +115,7 @@ def test_busy_server_answers_503_with_retry_after(monkeypatch):
 
 
 def test_worst_case_design_renders_quickly():
-    """20 compartments with 300 items (the schema caps) stays well within a request budget."""
+    """20 compartments with 300 items and 100 door shelves (the schema caps) stays well within a request budget."""
     catalog = load_catalog()
     design = apply_ops(None, [{"op": "create_wardrobe", "width": 6000, "height": 3500, "depth": 1200,
                                "compartmentCount": 20}, {"op": "configure_doors", "type": "hinged"}], catalog)
@@ -123,6 +123,9 @@ def test_worst_case_design_renders_quickly():
     for compartment in design["compartments"]:
         for n in range(15):
             ops.append({"op": "add_shelf", "compartmentId": compartment["id"], "y": 100 + n * 200, "thickness": 5})
+    for door in design["doors"]["items"]:  # plus the 100 door shelves the schema allows
+        for n in range(5):
+            ops.append({"op": "add_door_shelf", "doorId": door["id"], "y": 100 + n * 300})
     for start in range(0, len(ops), 100):  # at most 100 ops per batch
         design = apply_ops(design, ops[start:start + 100], catalog)
     started = time.perf_counter()
@@ -150,3 +153,15 @@ def test_added_catalog_colours_and_material_appear_in_the_pdf():
     hebrew = text_of(render_pdf(design, load_catalog(), "he", date(2026, 10, 23)))
     for name in ("דיקט ליבנה", "ירוק מרווה", "כחול נייבי", "בז' חול"):
         assert name in hebrew, name
+
+
+def test_door_shelves_are_listed_drawn_and_described():
+    design = apply_ops(load_design("basic"), [
+        {"op": "add_door_shelf", "doorId": "dr_left", "y": 900, "depth": 80, "id": "dsh_2"},
+        {"op": "add_door_shelf", "doorId": "dr_left", "y": 400, "id": "dsh_1"},
+    ], load_catalog())
+    text = text_of(render_pdf(design, load_catalog(), "en", date(2026, 10, 16)))
+    for expected in ("DR1.1", "DR1.2", "Door shelf", "DR1.1 at 400 (100 deep)", "DR1.2 at 900 (80 deep)",
+                     "W 643 × D 100 × T 12"):
+        assert expected in text, expected
+    assert "מדף דלת" in text_of(render_pdf(design, load_catalog(), "he", date(2026, 10, 16)))

@@ -1,11 +1,11 @@
 // Structural validation. Issue ORDER is part of the parity contract with
 // backend/app/domain/validation.py:
 //   1 schema  2 unique ids  3 partition count  4 ranges  5 width sum
-//   6 per-compartment bounds/overlaps  7 doors  8 catalog refs
+//   6 per-compartment bounds/overlaps  7 doors (then door-shelf bounds/overlaps)  8 catalog refs
 // Rendering/data-safety checks only, never manufacturing rules.
 
 import { catalogIds } from './catalog.js';
-import { LIMITS } from './defaults.js';
+import { DOOR_SHELF_THICKNESS, LIMITS } from './defaults.js';
 import * as E from './errors.js';
 import { DomainError } from './errors.js';
 import { interiorHeight, interiorWidth } from './geometry.js';
@@ -48,7 +48,10 @@ function* iterIds(design) {
     }
   }
   for (const [pi, partition] of design.partitions.entries()) yield [`partitions[${pi}].id`, partition.id];
-  for (const [di, door] of design.doors.items.entries()) yield [`doors.items[${di}].id`, door.id];
+  for (const [di, door] of design.doors.items.entries()) {
+    yield [`doors.items[${di}].id`, door.id];
+    for (const [si, shelf] of door.shelves.entries()) yield [`doors.items[${di}].shelves[${si}].id`, shelf.id];
+  }
 }
 
 function checkUniqueIds(design) {
@@ -82,6 +85,8 @@ function checkRanges(design) {
     c.shelves.forEach((s, si) => checks.push([s.thickness, 'shelfThickness', `compartments[${ci}].shelves[${si}].thickness`]));
     c.drawers.forEach((d, di) => checks.push([d.height, 'drawerHeight', `compartments[${ci}].drawers[${di}].height`]));
   });
+  design.doors.items.forEach((d, di) => d.shelves.forEach((s, si) =>
+    checks.push([s.depth, 'doorShelfDepth', `doors.items[${di}].shelves[${si}].depth`])));
   return checks.map(([value, limit, path]) => rangeIssue(value, limit, path)).filter(Boolean);
 }
 
@@ -133,11 +138,30 @@ function checkDoors(design) {
   if (!items.length) return [new DomainError(E.DOOR_INVALID, 'doors.items', `${type} doors need at least one door`)];
   if (type === 'sliding') {
     return items.flatMap((door, i) =>
-      [['compartmentIds', door.compartmentIds.length > 0], ['hingeSide', door.hingeSide !== null]]
+      [['compartmentIds', door.compartmentIds.length > 0], ['hingeSide', door.hingeSide !== null], ['shelves', door.shelves.length > 0]]
         .filter(([, invalid]) => invalid)
         .map(([field]) => new DomainError(E.DOOR_INVALID, `doors.items[${i}].${field}`, `sliding doors have no ${field}`)));
   }
-  return checkHinged(design);
+  return [...checkHinged(design), ...checkDoorShelves(design)];
+}
+
+// Door shelves stay within the interior height and don't overlap on the same door.
+function checkDoorShelves(design) {
+  const top = interiorHeight(design);
+  const issues = [];
+  design.doors.items.forEach((door, di) => {
+    const spans = [];
+    door.shelves.forEach((shelf, si) => {
+      const path = `doors.items[${di}].shelves[${si}]`;
+      const start = shelf.y;
+      const end = shelf.y + DOOR_SHELF_THICKNESS;
+      if (start < 0 || end > top) issues.push(new DomainError(E.OUT_OF_BOUNDS, `${path}.y`, `spans ${start}..${end} outside interior 0..${top}`));
+      const hit = spans.find(([s, e]) => start < e && s < end);
+      if (hit) issues.push(new DomainError(E.OVERLAP, path, `overlaps ${hit[2]}`));
+      spans.push([start, end, path]);
+    });
+  });
+  return issues;
 }
 
 function checkHinged(design) {
@@ -168,6 +192,7 @@ function checkCatalog(design, catalog) {
     ['carcass.appearance', design.carcass.appearance],
     ['doors.appearance', design.doors.appearance],
     ...design.doors.items.map((d, i) => [`doors.items[${i}].appearance`, d.appearance]),
+    ...design.doors.items.flatMap((d, i) => d.shelves.map((s, si) => [`doors.items[${i}].shelves[${si}].appearance`, s.appearance])),
   ];
   design.compartments.forEach((c, ci) => {
     for (const kind of ['shelves', 'drawers']) {

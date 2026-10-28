@@ -4,6 +4,7 @@
 import { compartmentsSection } from './compartmentsSection.js';
 import { componentSection } from './componentSection.js';
 import { partsSection } from './partsSection.js';
+import { layoutSection } from './layoutSection.js';
 import { wardrobeSection } from './wardrobeSection.js';
 
 export function mountPanel(root, store, { onExport } = {}) {
@@ -26,6 +27,7 @@ export function mountPanel(root, store, { onExport } = {}) {
     root.replaceChildren(
       ...(state.selection ? [componentSection(context)] : []),
       ...wardrobeSection(context),
+      layoutSection(context),
       compartmentsSection(context),
       partsSection(context),
     );

@@ -23,7 +23,7 @@ def _empty_compartment(compartment_id: str, width: int) -> dict:
 
 
 def _door(door_id: str, compartment_ids: list[str], hinge_side: str | None) -> dict:
-    return {"id": door_id, "compartmentIds": compartment_ids, "hingeSide": hinge_side, "appearance": None}
+    return {"id": door_id, "compartmentIds": compartment_ids, "hingeSide": hinge_side, "appearance": None, "shelves": []}
 
 
 def _ids_or_new(given: list[str] | None, count: int, prefix: str, path: str) -> list[str]:
@@ -106,7 +106,12 @@ def configure_doors(draft: dict, op: op_types.ConfigureDoors, path: str) -> dict
         door_ids = _ids_or_new(op.ids, count, ids.DOOR, f"{path}.ids")
         doors.update(type="sliding", items=[_door(did, [], None) for did in door_ids])
     else:
-        doors.update(type="hinged", items=_hinged_items(draft, op, path))
+        # Re-stating hinged doors (e.g. a hinge-side change) keeps the shelves of every door id that survives.
+        kept = {d["id"]: d["shelves"] for d in doors["items"]} if doors["type"] == "hinged" else {}
+        items = _hinged_items(draft, op, path)
+        for door in items:
+            door["shelves"] = kept.get(door["id"], [])
+        doors.update(type="hinged", items=items)
     return draft
 
 
@@ -210,6 +215,8 @@ def remove_component(draft: dict, op: op_types.RemoveComponent, path: str) -> di
         _remove_compartment(draft, index, f"{path}.id")
     elif kind == "partition":
         _merge_at_partition(draft, index)
+    elif kind == "doorShelves":
+        del draft["doors"]["items"][index]["shelves"][item_index]
     else:
         del draft["doors"]["items"][index]
         _normalize_doors(draft)
@@ -235,7 +242,7 @@ def _remove_compartment(draft: dict, index: int, path: str) -> None:
 
 
 def _merge_at_partition(draft: dict, j: int) -> None:
-    """Merge compartments j and j+1 into j. Covering doors merge into the first one in list order."""
+    """Merge compartments j and j+1 into j. Covering doors (and their shelves) merge into the first one in list order."""
     compartments = draft["compartments"]
     left, right = compartments[j], compartments[j + 1]
     left["width"] += draft["partitions"][j]["thickness"] + right["width"]
@@ -254,6 +261,8 @@ def _merge_at_partition(draft: dict, j: int) -> None:
         keeper = covering[0]
         union = {cid for door in covering for cid in door["compartmentIds"]}
         keeper["compartmentIds"] = sorted(union, key=order.__getitem__)
+        # Shelves of the dropped doors move onto the keeper; validation rejects them if they now overlap.
+        keeper["shelves"] = [shelf for door in covering for shelf in door["shelves"]]
         dropped = {id(door) for door in covering[1:]}
         draft["doors"]["items"] = [d for d in draft["doors"]["items"] if id(d) not in dropped]
 

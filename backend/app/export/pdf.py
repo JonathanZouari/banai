@@ -253,6 +253,11 @@ class Document:
                 free = x0 + v.k * 40 if panel.hinge == "right" else x1 - v.k * 40
                 self.handle(free, bottom, top, v)
                 continue
+            for code, shelf in layout.door_shelves(self.d, panel):  # on the inside face: dashed
+                y = v.y(T + shelf["y"])
+                pen.line(x0 + 3, y, x1 - 3, y, ink, 0.6, (4, 2))
+                if codes:
+                    pen.label(x0 + (x1 - x0) * 0.2, y + 3, code, 5.5, MUTED)
             mid_y = (bottom + top) / 2
             if panel.hinge:
                 hinge_x, free_x = (x0, x1) if panel.hinge == "left" else (x1, x0)
@@ -601,6 +606,11 @@ class Document:
                 hinge = s["hingeLeft" if panel.hinge == "left" else "hingeRight"]
                 blocks.append(("bullet", f("stepHingedDoor", code=panel.code, letters="+".join(panel.letters),
                                            hinge=hinge, w=round(panel.x1 - panel.x0), h=ih)))
+                shelves = layout.door_shelves(d, panel)
+                if shelves:
+                    items = "; ".join(f("itemDoorShelf", code=code, y=shelf["y"], d=shelf["depth"])
+                                      for code, shelf in shelves)
+                    blocks.append(("bullet", f("stepDoorShelves", code=panel.code, items=items)))
             if layout.covered_letters(d) != set(letters):
                 blocks.append(("bullet", s["notCountedFor"]))
         elif doors["type"] == "sliding":
@@ -680,7 +690,7 @@ class Document:
                 text = s["sizePartition"].format(h=size[0], d=size[1], t=size[2])
             elif row.kind == "door":
                 text = s["sizeDoor"].format(w=size[0], h=size[1])
-            elif row.kind == "shelf":
+            elif row.kind in ("shelf", "doorShelf"):
                 text = s["sizeShelf"].format(w=size[0], d=size[1], t=size[2])
             elif row.kind == "drawer":
                 text = s["sizeDrawer"].format(w=size[0], h=size[1])

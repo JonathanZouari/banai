@@ -75,3 +75,16 @@ def test_an_item_colour_override_is_flagged():
     ], load_catalog())
     row = next(r for r in layout.component_rows(design) if r.code == "A-S1")
     assert row.override and row.appearance["color"] == {"catalogId": "walnut"}
+
+
+def test_door_shelf_rows_follow_their_door_bottom_up():
+    design = apply_ops(load_design("basic"), [
+        {"op": "add_door_shelf", "doorId": "dr_middle", "y": 1500, "id": "dsh_b"},
+        {"op": "add_door_shelf", "doorId": "dr_middle", "y": 300, "depth": 70, "id": "dsh_a"},
+    ], load_catalog())
+    rows = layout.component_rows(design)
+    codes = [row.code for row in rows]
+    assert codes[codes.index("DR2") + 1: codes.index("DR2") + 3] == ["DR2.1", "DR2.2"]
+    first = rows[codes.index("DR2.1")]
+    assert (first.kind, first.compartment, first.height, first.size) == ("doorShelf", "B", 300, (643, 70, 12))
+    assert first.appearance == design["doors"]["appearance"] and not first.override

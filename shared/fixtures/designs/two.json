@@ -35,8 +35,8 @@
       "finish": { "catalogId": "matte" }
     },
     "items": [
-      { "id": "dr_a", "compartmentIds": ["cmp_a"], "hingeSide": "left", "appearance": null },
-      { "id": "dr_b", "compartmentIds": ["cmp_b"], "hingeSide": "right", "appearance": null }
+      { "id": "dr_a", "compartmentIds": ["cmp_a"], "hingeSide": "left", "appearance": null, "shelves": [] },
+      { "id": "dr_b", "compartmentIds": ["cmp_b"], "hingeSide": "right", "appearance": null, "shelves": [] }
     ]
   }
 }

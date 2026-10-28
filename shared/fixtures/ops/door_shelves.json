@@ -1,0 +1,221 @@
+[
+  {
+    "name": "add_door_shelf appends with the default depth and no appearance override",
+    "base": "two",
+    "ops": [{"op": "add_door_shelf", "doorId": "dr_a", "y": 500, "id": "dsh_1"}],
+    "expect": {"match": {"doors": {"items": [{"shelves": [{"id": "dsh_1", "y": 500, "depth": 100, "appearance": null}]}, {"shelves": []}]}}}
+  },
+  {
+    "name": "add_door_shelf with an explicit depth",
+    "base": "two",
+    "ops": [{"op": "add_door_shelf", "doorId": "dr_a", "y": 500, "id": "dsh_1", "depth": 80}],
+    "expect": {"match": {"doors": {"items": [{"shelves": [{"id": "dsh_1", "y": 500, "depth": 80, "appearance": null}]}, {"shelves": []}]}}}
+  },
+  {
+    "name": "add_door_shelf without an id generates one",
+    "base": "two",
+    "ops": [{"op": "add_door_shelf", "doorId": "dr_b", "y": 300}],
+    "expect": {"match": {"doors": {"items": [{"shelves": []}, {"shelves": [{"y": 300, "depth": 100}]}]}}}
+  },
+  {
+    "name": "add_door_shelf onto an unknown door",
+    "base": "two",
+    "ops": [{"op": "add_door_shelf", "doorId": "dr_zzz", "y": 500, "id": "dsh_1"}],
+    "expect": {"error": {"code": "NOT_FOUND", "path": "ops[0].doorId"}}
+  },
+  {
+    "name": "add_door_shelf needs hinged doors",
+    "base": "two",
+    "ops": [{"op": "configure_doors", "type": "sliding", "ids": ["dr_s1", "dr_s2"]}, {"op": "add_door_shelf", "doorId": "dr_s1", "y": 500, "id": "dsh_1"}],
+    "expect": {"error": {"code": "INVALID_OP", "path": "ops[1].doorId"}}
+  },
+  {
+    "name": "door shelves on the same door may not overlap",
+    "base": "two",
+    "ops": [{"op": "add_door_shelf", "doorId": "dr_a", "y": 500, "id": "dsh_1"}, {"op": "add_door_shelf", "doorId": "dr_a", "y": 505, "id": "dsh_2"}],
+    "expect": {"error": {"code": "OVERLAP", "path": "doors.items[0].shelves[1]"}}
+  },
+  {
+    "name": "door shelves may touch",
+    "base": "two",
+    "ops": [{"op": "add_door_shelf", "doorId": "dr_a", "y": 500, "id": "dsh_1"}, {"op": "add_door_shelf", "doorId": "dr_a", "y": 512, "id": "dsh_2"}],
+    "expect": {"match": {"doors": {"items": [{"shelves": [{"id": "dsh_1", "y": 500, "depth": 100, "appearance": null}, {"id": "dsh_2", "y": 512, "depth": 100, "appearance": null}]}, {"shelves": []}]}}}
+  },
+  {
+    "name": "door shelves on different doors never overlap each other",
+    "base": "two",
+    "ops": [{"op": "add_door_shelf", "doorId": "dr_a", "y": 500, "id": "dsh_1"}, {"op": "add_door_shelf", "doorId": "dr_b", "y": 500, "id": "dsh_2"}],
+    "expect": {"match": {"doors": {"items": [{"shelves": [{"id": "dsh_1", "y": 500, "depth": 100, "appearance": null}]}, {"shelves": [{"id": "dsh_2", "y": 500, "depth": 100, "appearance": null}]}]}}}
+  },
+  {
+    "name": "a door shelf above the interior is out of bounds",
+    "base": "two",
+    "ops": [{"op": "add_door_shelf", "doorId": "dr_a", "y": 1950, "id": "dsh_1"}],
+    "expect": {"error": {"code": "OUT_OF_BOUNDS", "path": "doors.items[0].shelves[0].y"}}
+  },
+  {
+    "name": "a door shelf below the interior is out of bounds",
+    "base": "two",
+    "ops": [{"op": "add_door_shelf", "doorId": "dr_a", "y": -1, "id": "dsh_1"}],
+    "expect": {"error": {"code": "OUT_OF_BOUNDS", "path": "doors.items[0].shelves[0].y"}}
+  },
+  {
+    "name": "a door shelf too deep is out of range",
+    "base": "two",
+    "ops": [{"op": "add_door_shelf", "doorId": "dr_a", "y": 500, "id": "dsh_1", "depth": 151}],
+    "expect": {"error": {"code": "OUT_OF_RANGE", "path": "doors.items[0].shelves[0].depth"}}
+  },
+  {
+    "name": "a door shelf too shallow is out of range",
+    "base": "two",
+    "ops": [{"op": "add_door_shelf", "doorId": "dr_a", "y": 500, "id": "dsh_1", "depth": 59}],
+    "expect": {"error": {"code": "OUT_OF_RANGE", "path": "doors.items[0].shelves[0].depth"}}
+  },
+  {
+    "name": "a duplicate door shelf id is rejected",
+    "base": "two",
+    "ops": [{"op": "add_door_shelf", "doorId": "dr_a", "y": 500, "id": "dsh_1"}, {"op": "add_door_shelf", "doorId": "dr_a", "y": 900, "id": "dsh_1"}],
+    "expect": {"error": {"code": "DUPLICATE_ID", "path": "doors.items[0].shelves[1].id"}}
+  },
+  {
+    "name": "add_door_shelf rejects an id of another type",
+    "base": "two",
+    "ops": [{"op": "add_door_shelf", "doorId": "dr_a", "y": 500, "id": "shf_9"}],
+    "expect": {"error": {"code": "SCHEMA_INVALID", "path": "ops[0]"}}
+  },
+  {
+    "name": "add_door_shelf rejects unknown fields",
+    "base": "two",
+    "ops": [{"op": "add_door_shelf", "doorId": "dr_a", "y": 500, "id": "dsh_1", "thickness": 18}],
+    "expect": {"error": {"code": "SCHEMA_INVALID", "path": "ops[0]"}}
+  },
+  {
+    "name": "modify_door_shelf changes y and depth",
+    "base": "two",
+    "ops": [{"op": "add_door_shelf", "doorId": "dr_a", "y": 500, "id": "dsh_1"}, {"op": "modify_door_shelf", "id": "dsh_1", "y": 700, "depth": 140}],
+    "expect": {"match": {"doors": {"items": [{"shelves": [{"id": "dsh_1", "y": 700, "depth": 140, "appearance": null}]}, {"shelves": []}]}}}
+  },
+  {
+    "name": "modify_door_shelf with nothing to change",
+    "base": "two",
+    "ops": [{"op": "add_door_shelf", "doorId": "dr_a", "y": 500, "id": "dsh_1"}, {"op": "modify_door_shelf", "id": "dsh_1"}],
+    "expect": {"error": {"code": "INVALID_OP", "path": "ops[1]"}}
+  },
+  {
+    "name": "modify_door_shelf of an unknown shelf",
+    "base": "two",
+    "ops": [{"op": "modify_door_shelf", "id": "dsh_zzz", "y": 100}],
+    "expect": {"error": {"code": "NOT_FOUND", "path": "ops[0].id"}}
+  },
+  {
+    "name": "modify_door_shelf into another door shelf overlaps",
+    "base": "two",
+    "ops": [{"op": "add_door_shelf", "doorId": "dr_a", "y": 500, "id": "dsh_1"}, {"op": "add_door_shelf", "doorId": "dr_a", "y": 900, "id": "dsh_2"}, {"op": "modify_door_shelf", "id": "dsh_2", "y": 495}],
+    "expect": {"error": {"code": "OVERLAP", "path": "doors.items[0].shelves[1]"}}
+  },
+  {
+    "name": "remove_component removes a door shelf",
+    "base": "two",
+    "ops": [{"op": "add_door_shelf", "doorId": "dr_a", "y": 500, "id": "dsh_1"}, {"op": "add_door_shelf", "doorId": "dr_a", "y": 900, "id": "dsh_2"}, {"op": "remove_component", "id": "dsh_1"}],
+    "expect": {"match": {"doors": {"items": [{"shelves": [{"id": "dsh_2", "y": 900, "depth": 100, "appearance": null}]}, {"shelves": []}]}}}
+  },
+  {
+    "name": "set_material on a door shelf starts from the door appearance",
+    "base": "two",
+    "ops": [{"op": "add_door_shelf", "doorId": "dr_a", "y": 500, "id": "dsh_1"}, {"op": "set_material", "target": "dsh_1", "color": {"catalogId": "black"}}],
+    "expect": {"match": {"doors": {"items": [{"shelves": [{"id": "dsh_1", "y": 500, "depth": 100, "appearance": {"material": {"catalogId": "melamine"}, "color": {"catalogId": "black"}, "finish": {"catalogId": "matte"}}}]}, {"shelves": []}]}}}
+  },
+  {
+    "name": "set_material on a door shelf inherits a door override",
+    "base": "two",
+    "ops": [{"op": "set_material", "target": "dr_a", "color": {"catalogId": "black"}}, {"op": "add_door_shelf", "doorId": "dr_a", "y": 500, "id": "dsh_1"}, {"op": "set_material", "target": "dsh_1", "finish": {"catalogId": "gloss"}}],
+    "expect": {"match": {"doors": {"items": [{"shelves": [{"id": "dsh_1", "y": 500, "depth": 100, "appearance": {"material": {"catalogId": "melamine"}, "color": {"catalogId": "black"}, "finish": {"catalogId": "gloss"}}}]}, {"shelves": []}]}}}
+  },
+  {
+    "name": "set_material clear removes a door shelf override",
+    "base": "two",
+    "ops": [{"op": "add_door_shelf", "doorId": "dr_a", "y": 500, "id": "dsh_1"}, {"op": "set_material", "target": "dsh_1", "color": {"catalogId": "black"}}, {"op": "set_material", "target": "dsh_1", "clear": true}],
+    "expect": {"match": {"doors": {"items": [{"shelves": [{"id": "dsh_1", "y": 500, "depth": 100, "appearance": null}]}, {"shelves": []}]}}}
+  },
+  {
+    "name": "an unknown catalog id on a door shelf is rejected",
+    "base": "two",
+    "ops": [{"op": "add_door_shelf", "doorId": "dr_a", "y": 500, "id": "dsh_1"}, {"op": "set_material", "target": "dsh_1", "color": {"catalogId": "no_such_colour"}}],
+    "expect": {"error": {"code": "UNKNOWN_CATALOG_ID", "path": "doors.items[0].shelves[0].appearance.color"}}
+  },
+  {
+    "name": "re-stating hinged doors with the same ids keeps their shelves (hinge-side change)",
+    "base": "two",
+    "ops": [{"op": "add_door_shelf", "doorId": "dr_a", "y": 500, "id": "dsh_1"}, {"op": "configure_doors", "type": "hinged", "doors": [{"id": "dr_a", "compartmentIds": ["cmp_a"], "hingeSide": "right"}, {"id": "dr_b", "compartmentIds": ["cmp_b"], "hingeSide": "left"}]}],
+    "expect": {"match": {"doors": {"type": "hinged", "items": [{"id": "dr_a", "hingeSide": "right", "shelves": [{"id": "dsh_1", "y": 500, "depth": 100, "appearance": null}]}, {"id": "dr_b", "hingeSide": "left", "shelves": []}]}}}
+  },
+  {
+    "name": "re-stating hinged doors with new ids drops the old doors' shelves",
+    "base": "two",
+    "ops": [{"op": "add_door_shelf", "doorId": "dr_a", "y": 500, "id": "dsh_1"}, {"op": "configure_doors", "type": "hinged", "ids": ["dr_x", "dr_y"]}],
+    "expect": {"match": {"doors": {"items": [{"shelves": []}, {"shelves": []}]}}}
+  },
+  {
+    "name": "switching to sliding doors drops door shelves",
+    "base": "two",
+    "ops": [{"op": "add_door_shelf", "doorId": "dr_a", "y": 500, "id": "dsh_1"}, {"op": "configure_doors", "type": "sliding", "ids": ["dr_s1", "dr_s2"]}],
+    "expect": {"match": {"doors": {"type": "sliding", "items": [{"shelves": []}, {"shelves": []}]}}}
+  },
+  {
+    "name": "removing a compartment drops its door and that door's shelves",
+    "base": "two",
+    "ops": [{"op": "add_door_shelf", "doorId": "dr_a", "y": 500, "id": "dsh_1"}, {"op": "add_door_shelf", "doorId": "dr_b", "y": 900, "id": "dsh_2"}, {"op": "remove_component", "id": "cmp_a"}],
+    "expect": {"match": {"doors": {"items": [{"id": "dr_b", "shelves": [{"id": "dsh_2", "y": 900, "depth": 100, "appearance": null}]}]}}}
+  },
+  {
+    "name": "removing a door removes its shelves",
+    "base": "two",
+    "ops": [{"op": "add_door_shelf", "doorId": "dr_a", "y": 500, "id": "dsh_1"}, {"op": "remove_component", "id": "dr_a"}],
+    "expect": {"match": {"doors": {"items": [{"id": "dr_b", "shelves": []}]}}}
+  },
+  {
+    "name": "removing a partition merges door shelves onto the surviving door",
+    "base": "two",
+    "ops": [{"op": "add_door_shelf", "doorId": "dr_a", "y": 300, "id": "dsh_1"}, {"op": "add_door_shelf", "doorId": "dr_b", "y": 900, "id": "dsh_2"}, {"op": "remove_component", "id": "prt_ab"}],
+    "expect": {"match": {"doors": {"items": [{"id": "dr_a", "compartmentIds": ["cmp_a"], "shelves": [{"id": "dsh_1", "y": 300, "depth": 100, "appearance": null}, {"id": "dsh_2", "y": 900, "depth": 100, "appearance": null}]}]}}}
+  },
+  {
+    "name": "removing a partition is rejected when merged door shelves overlap",
+    "base": "two",
+    "ops": [{"op": "add_door_shelf", "doorId": "dr_a", "y": 300, "id": "dsh_1"}, {"op": "add_door_shelf", "doorId": "dr_b", "y": 305, "id": "dsh_2"}, {"op": "remove_component", "id": "prt_ab"}],
+    "expect": {"error": {"code": "OVERLAP", "path": "doors.items[0].shelves[1]"}}
+  },
+  {
+    "name": "adding a partition keeps the door shelves",
+    "base": "two",
+    "ops": [{"op": "add_door_shelf", "doorId": "dr_a", "y": 300, "id": "dsh_1"}, {"op": "add_partition", "compartmentId": "cmp_a", "offset": 200, "id": "prt_n", "newCompartmentId": "cmp_n"}],
+    "expect": {"match": {"doors": {"items": [{"id": "dr_a", "compartmentIds": ["cmp_a", "cmp_n"], "shelves": [{"id": "dsh_1", "y": 300, "depth": 100, "appearance": null}]}, {"id": "dr_b", "shelves": []}]}}}
+  },
+  {
+    "name": "lowering the height under a door shelf is rejected",
+    "base": "two",
+    "ops": [{"op": "add_door_shelf", "doorId": "dr_a", "y": 1900, "id": "dsh_1"}, {"op": "update_dimensions", "height": 1950}],
+    "expect": {"error": {"code": "OUT_OF_BOUNDS", "path": "doors.items[0].shelves[0].y"}}
+  },
+  {
+    "name": "a sliding door carrying shelves is invalid",
+    "base": "two",
+    "mutate": [{"path": ["doors"], "value": {"type": "sliding", "appearance": {"material": {"catalogId": "melamine"}, "color": {"catalogId": "white"}, "finish": {"catalogId": "matte"}}, "items": [{"id": "dr_s1", "compartmentIds": [], "hingeSide": null, "appearance": null, "shelves": [{"id": "dsh_1", "y": 500, "depth": 100, "appearance": null}]}, {"id": "dr_s2", "compartmentIds": [], "hingeSide": null, "appearance": null, "shelves": []}]}}],
+    "ops": [],
+    "expect": {"error": {"code": "DOOR_INVALID", "path": "doors.items[0].shelves"}}
+  },
+  {
+    "name": "a saved design without door shelves loads with empty shelf lists",
+    "base": "two",
+    "mutate": [{"path": ["doors"], "value": {"type": "hinged", "appearance": {"material": {"catalogId": "melamine"}, "color": {"catalogId": "white"}, "finish": {"catalogId": "matte"}}, "items": [{"id": "dr_a", "compartmentIds": ["cmp_a"], "hingeSide": "left", "appearance": null}, {"id": "dr_b", "compartmentIds": ["cmp_b"], "hingeSide": "right", "appearance": null}]}}],
+    "ops": [],
+    "expect": {"match": {"doors": {"items": [{"shelves": []}, {"shelves": []}]}}}
+  },
+  {
+    "name": "more than 100 door shelves in one design is a schema error",
+    "base": "two",
+    "mutate": [{"path": ["doors"], "value": {"type": "hinged", "appearance": {"material": {"catalogId": "melamine"}, "color": {"catalogId": "white"}, "finish": {"catalogId": "matte"}}, "items": [{"id": "dr_a", "compartmentIds": ["cmp_a"], "hingeSide": "left", "appearance": null, "shelves": [{"id": "dsh_a0", "y": 0, "depth": 100, "appearance": null}, {"id": "dsh_a1", "y": 15, "depth": 100, "appearance": null}, {"id": "dsh_a2", "y": 30, "depth": 100, "appearance": null}, {"id": "dsh_a3", "y": 45, "depth": 100, "appearance": null}, {"id": "dsh_a4", "y": 60, "depth": 100, "appearance": null}, {"id": "dsh_a5", "y": 75, "depth": 100, "appearance": null}, {"id": "dsh_a6", "y": 90, "depth": 100, "appearance": null}, {"id": "dsh_a7", "y": 105, "depth": 100, "appearance": null}, {"id": "dsh_a8", "y": 120, "depth": 100, "appearance": null}, {"id": "dsh_a9", "y": 135, "depth": 100, "appearance": null}, {"id": "dsh_a10", "y": 150, "depth": 100, "appearance": null}, {"id": "dsh_a11", "y": 165, "depth": 100, "appearance": null}, {"id": "dsh_a12", "y": 180, "depth": 100, "appearance": null}, {"id": "dsh_a13", "y": 195, "depth": 100, "appearance": null}, {"id": "dsh_a14", "y": 210, "depth": 100, "appearance": null}, {"id": "dsh_a15", "y": 225, "depth": 100, "appearance": null}, {"id": "dsh_a16", "y": 240, "depth": 100, "appearance": null}, {"id": "dsh_a17", "y": 255, "depth": 100, "appearance": null}, {"id": "dsh_a18", "y": 270, "depth": 100, "appearance": null}, {"id": "dsh_a19", "y": 285, "depth": 100, "appearance": null}, {"id": "dsh_a20", "y": 300, "depth": 100, "appearance": null}, {"id": "dsh_a21", "y": 315, "depth": 100, "appearance": null}, {"id": "dsh_a22", "y": 330, "depth": 100, "appearance": null}, {"id": "dsh_a23", "y": 345, "depth": 100, "appearance": null}, {"id": "dsh_a24", "y": 360, "depth": 100, "appearance": null}, {"id": "dsh_a25", "y": 375, "depth": 100, "appearance": null}, {"id": "dsh_a26", "y": 390, "depth": 100, "appearance": null}, {"id": "dsh_a27", "y": 405, "depth": 100, "appearance": null}, {"id": "dsh_a28", "y": 420, "depth": 100, "appearance": null}, {"id": "dsh_a29", "y": 435, "depth": 100, "appearance": null}, {"id": "dsh_a30", "y": 450, "depth": 100, "appearance": null}, {"id": "dsh_a31", "y": 465, "depth": 100, "appearance": null}, {"id": "dsh_a32", "y": 480, "depth": 100, "appearance": null}, {"id": "dsh_a33", "y": 495, "depth": 100, "appearance": null}, {"id": "dsh_a34", "y": 510, "depth": 100, "appearance": null}, {"id": "dsh_a35", "y": 525, "depth": 100, "appearance": null}, {"id": "dsh_a36", "y": 540, "depth": 100, "appearance": null}, {"id": "dsh_a37", "y": 555, "depth": 100, "appearance": null}, {"id": "dsh_a38", "y": 570, "depth": 100, "appearance": null}, {"id": "dsh_a39", "y": 585, "depth": 100, "appearance": null}, {"id": "dsh_a40", "y": 600, "depth": 100, "appearance": null}, {"id": "dsh_a41", "y": 615, "depth": 100, "appearance": null}, {"id": "dsh_a42", "y": 630, "depth": 100, "appearance": null}, {"id": "dsh_a43", "y": 645, "depth": 100, "appearance": null}, {"id": "dsh_a44", "y": 660, "depth": 100, "appearance": null}, {"id": "dsh_a45", "y": 675, "depth": 100, "appearance": null}, {"id": "dsh_a46", "y": 690, "depth": 100, "appearance": null}, {"id": "dsh_a47", "y": 705, "depth": 100, "appearance": null}, {"id": "dsh_a48", "y": 720, "depth": 100, "appearance": null}, {"id": "dsh_a49", "y": 735, "depth": 100, "appearance": null}, {"id": "dsh_a50", "y": 750, "depth": 100, "appearance": null}]}, {"id": "dr_b", "compartmentIds": ["cmp_b"], "hingeSide": "right", "appearance": null, "shelves": [{"id": "dsh_b0", "y": 0, "depth": 100, "appearance": null}, {"id": "dsh_b1", "y": 15, "depth": 100, "appearance": null}, {"id": "dsh_b2", "y": 30, "depth": 100, "appearance": null}, {"id": "dsh_b3", "y": 45, "depth": 100, "appearance": null}, {"id": "dsh_b4", "y": 60, "depth": 100, "appearance": null}, {"id": "dsh_b5", "y": 75, "depth": 100, "appearance": null}, {"id": "dsh_b6", "y": 90, "depth": 100, "appearance": null}, {"id": "dsh_b7", "y": 105, "depth": 100, "appearance": null}, {"id": "dsh_b8", "y": 120, "depth": 100, "appearance": null}, {"id": "dsh_b9", "y": 135, "depth": 100, "appearance": null}, {"id": "dsh_b10", "y": 150, "depth": 100, "appearance": null}, {"id": "dsh_b11", "y": 165, "depth": 100, "appearance": null}, {"id": "dsh_b12", "y": 180, "depth": 100, "appearance": null}, {"id": "dsh_b13", "y": 195, "depth": 100, "appearance": null}, {"id": "dsh_b14", "y": 210, "depth": 100, "appearance": null}, {"id": "dsh_b15", "y": 225, "depth": 100, "appearance": null}, {"id": "dsh_b16", "y": 240, "depth": 100, "appearance": null}, {"id": "dsh_b17", "y": 255, "depth": 100, "appearance": null}, {"id": "dsh_b18", "y": 270, "depth": 100, "appearance": null}, {"id": "dsh_b19", "y": 285, "depth": 100, "appearance": null}, {"id": "dsh_b20", "y": 300, "depth": 100, "appearance": null}, {"id": "dsh_b21", "y": 315, "depth": 100, "appearance": null}, {"id": "dsh_b22", "y": 330, "depth": 100, "appearance": null}, {"id": "dsh_b23", "y": 345, "depth": 100, "appearance": null}, {"id": "dsh_b24", "y": 360, "depth": 100, "appearance": null}, {"id": "dsh_b25", "y": 375, "depth": 100, "appearance": null}, {"id": "dsh_b26", "y": 390, "depth": 100, "appearance": null}, {"id": "dsh_b27", "y": 405, "depth": 100, "appearance": null}, {"id": "dsh_b28", "y": 420, "depth": 100, "appearance": null}, {"id": "dsh_b29", "y": 435, "depth": 100, "appearance": null}, {"id": "dsh_b30", "y": 450, "depth": 100, "appearance": null}, {"id": "dsh_b31", "y": 465, "depth": 100, "appearance": null}, {"id": "dsh_b32", "y": 480, "depth": 100, "appearance": null}, {"id": "dsh_b33", "y": 495, "depth": 100, "appearance": null}, {"id": "dsh_b34", "y": 510, "depth": 100, "appearance": null}, {"id": "dsh_b35", "y": 525, "depth": 100, "appearance": null}, {"id": "dsh_b36", "y": 540, "depth": 100, "appearance": null}, {"id": "dsh_b37", "y": 555, "depth": 100, "appearance": null}, {"id": "dsh_b38", "y": 570, "depth": 100, "appearance": null}, {"id": "dsh_b39", "y": 585, "depth": 100, "appearance": null}, {"id": "dsh_b40", "y": 600, "depth": 100, "appearance": null}, {"id": "dsh_b41", "y": 615, "depth": 100, "appearance": null}, {"id": "dsh_b42", "y": 630, "depth": 100, "appearance": null}, {"id": "dsh_b43", "y": 645, "depth": 100, "appearance": null}, {"id": "dsh_b44", "y": 660, "depth": 100, "appearance": null}, {"id": "dsh_b45", "y": 675, "depth": 100, "appearance": null}, {"id": "dsh_b46", "y": 690, "depth": 100, "appearance": null}, {"id": "dsh_b47", "y": 705, "depth": 100, "appearance": null}, {"id": "dsh_b48", "y": 720, "depth": 100, "appearance": null}, {"id": "dsh_b49", "y": 735, "depth": 100, "appearance": null}]}]}}],
+    "ops": [],
+    "expect": {"error": {"code": "SCHEMA_INVALID", "path": "doors.items"}}
+  }
+]

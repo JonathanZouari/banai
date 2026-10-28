@@ -16,11 +16,15 @@ export const LIMITS = deepFreeze({
   drawerHeight: [50, 1000],
   compartmentCount: [1, 20],
   slidingDoorCount: [1, 6],
+  doorShelfDepth: [60, 150],
 });
 
 export const DEFAULT_PANEL_THICKNESS = 18;
 export const DEFAULT_SHELF_THICKNESS = 18;
 export const DEFAULT_SLIDING_DOOR_COUNT = 2;
+// Shelves on the inside face of a hinged door: board thickness (visual + overlap span) and depth.
+export const DOOR_SHELF_THICKNESS = 12;
+export const DEFAULT_DOOR_SHELF_DEPTH = 100;
 
 export const defaultAppearance = () => ({
   material: { catalogId: 'melamine' },

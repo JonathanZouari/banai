@@ -16,6 +16,7 @@ from app.domain.schema import (
     AnyId,
     CompartmentId,
     DoorId,
+    DoorShelfId,
     DrawerId,
     Int,
     PartitionId,
@@ -27,7 +28,7 @@ from app.domain.schema import (
 )
 
 MAX_OPS = 100
-Target = Annotated[str, Field(pattern=r"^(carcass|doors|(cmp|prt|shf|drw|rail|dr)_[A-Za-z0-9_-]{1,40})$")]
+Target = Annotated[str, Field(pattern=r"^(carcass|doors|(cmp|prt|shf|drw|rail|dr|dsh)_[A-Za-z0-9_-]{1,40})$")]
 
 
 class CreateWardrobe(StrictModel):
@@ -137,6 +138,21 @@ class ModifyRail(StrictModel):
     y: Int
 
 
+class AddDoorShelf(StrictModel):
+    op: Literal["add_door_shelf"]
+    door_id: DoorId
+    y: Int
+    depth: Int | None = None
+    id: DoorShelfId | None = None
+
+
+class ModifyDoorShelf(StrictModel):
+    op: Literal["modify_door_shelf"]
+    id: DoorShelfId
+    y: Int | None = None
+    depth: Int | None = None
+
+
 class SetMaterial(StrictModel):
     op: Literal["set_material"]
     target: Target
@@ -154,7 +170,7 @@ class RemoveComponent(StrictModel):
 Op = Annotated[
     CreateWardrobe | UpdateDimensions | ConfigureDoors | AddCompartment | ModifyCompartment
     | AddPartition | ModifyPartition | AddShelf | ModifyShelf | AddDrawer | ModifyDrawer
-    | AddRail | ModifyRail | SetMaterial | RemoveComponent,
+    | AddRail | ModifyRail | AddDoorShelf | ModifyDoorShelf | SetMaterial | RemoveComponent,
     Field(discriminator="op"),
 ]
 

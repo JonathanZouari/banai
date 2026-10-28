@@ -19,6 +19,7 @@ export function createDimensions(scene) {
   layer.name = 'dimensions';
   scene.add(layer);
   const lineMaterial = new THREE.LineBasicMaterial({ color: '#5b6470' });
+  let followed = null; // { label, target } for a selected component that can move (a door)
 
   const line = (from, to) => {
     const geometry = new THREE.BufferGeometry().setFromPoints([from, to].map(([x, y, z]) => new THREE.Vector3(toM(x), toM(y), toM(z))));
@@ -41,6 +42,7 @@ export function createDimensions(scene) {
   return {
     update(group, design, selection) {
       clear();
+      followed = null;
       const { width: w, height: h, depth: d } = design.dimensions;
       line([0, h + OFFSET, 0], [w, h + OFFSET, 0]);
       place(label(`W ${cm(w)} cm`, 'dim-label'), [w / 2, h + OFFSET, 0]);
@@ -56,6 +58,11 @@ export function createDimensions(scene) {
       selected.position.copy(anchor);
       selected.center.set(0.5, 1.6); // sit above the component instead of covering it
       layer.add(selected);
+      if (target) followed = { label: selected, target };
+    },
+    /** Keep the selected label on its component while it moves (doors opening or closing). */
+    follow() {
+      if (followed) followed.label.position.copy(followed.target.position);
     },
     dispose() {
       clear();

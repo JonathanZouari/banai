@@ -93,6 +93,13 @@ test.describe('look and feel', () => {
     expect(fonts.loaded).toEqual(expect.arrayContaining(['Bricolage Grotesque', 'DM Sans']));
   });
 
+  test('the workspace fits the window: the page itself never scrolls', async ({ page }) => {
+    await openDesigner(page);
+    await page.evaluate(() => window.__banai.store.select('cmp_left')); // a long properties panel
+    const { scroll, viewport } = await page.evaluate(() => ({ scroll: document.documentElement.scrollHeight, viewport: innerHeight }));
+    expect(scroll).toBeLessThanOrEqual(viewport);
+  });
+
   test('dropdowns keep their text clear of the chevron', async ({ page }) => {
     await openDesigner(page);
     await page.evaluate(() => window.__banai.store.select('shf_l1'));
@@ -168,5 +175,39 @@ test.describe('render dialog (backend phase not built yet)', () => {
     await expect(page.getByTestId('render-generate')).toBeDisabled();
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
+  });
+});
+
+test.describe('doors button and interior layouts', () => {
+  const doorsOpen = (page) => page.evaluate(() => window.__banai.viewer.doorsOpenAmount());
+
+  test('the button on the 3D view opens and closes the doors, in sync with the switch', async ({ page }) => {
+    await openDesigner(page);
+    const doors = page.getByTestId('viewer-doors');
+    await expect(doors).toHaveText('Open doors');
+    await doors.click();
+    await expect(doors).toHaveText('Close doors');
+    await expect(page.getByLabel('Open doors')).toBeChecked();
+    await expect.poll(() => doorsOpen(page)).toBe(1);
+    await doors.click();
+    await expect(page.getByLabel('Open doors')).not.toBeChecked();
+    await expect.poll(() => doorsOpen(page)).toBe(0);
+  });
+
+  test('the doors button hides when the wardrobe has no doors', async ({ page }) => {
+    await openDesigner(page);
+    await page.evaluate(() => window.__banai.store.dispatch([{ op: 'configure_doors', type: 'none' }]));
+    await expect(page.getByTestId('viewer-doors')).toBeHidden();
+  });
+
+  test('choosing an interior layout refills every compartment', async ({ page }) => {
+    await openDesigner(page);
+    const interior = () => page.evaluate(() => window.__banai.store.getState().design.compartments
+      .map((c) => [c.shelves.length, c.drawers.length, c.rails.length]));
+    expect(await interior()).toEqual([[4, 0, 0], [1, 0, 1], [2, 2, 0]]);
+    await page.getByTestId('layout-storage').click();
+    expect(await interior()).toEqual([[3, 4, 0], [6, 0, 0], [3, 4, 0]]);
+    await page.getByTestId('layout-hanging').click();
+    expect(await interior()).toEqual([[1, 0, 1], [5, 0, 0], [2, 0, 2]]);
   });
 });

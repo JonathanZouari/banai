@@ -14,6 +14,7 @@ export const MAX_LIST = 100; // items of one kind in one compartment
 export const MAX_COMPARTMENTS = 20;
 export const MAX_DOORS = 20;
 export const MAX_ITEMS_TOTAL = 300; // shelves + drawers + rails across the whole design
+export const MAX_DOOR_SHELVES_TOTAL = 100; // shelves on the inside of doors, across all doors
 
 // Free text from customers / the LLM: no control or bidi-override characters.
 export const SAFE_TEXT_PATTERN = /^[^\x00-\x1f\x7f-\x9f\u200b-\u200d\u2028\u2029\u202a-\u202e\u2066-\u2069\ufeff]+$/;
@@ -61,11 +62,14 @@ const compartment = z.strictObject({
   rails: list(rail),
 });
 
+const doorShelf = z.strictObject({ id: typedId(ids.DOOR_SHELF), y: int(), depth: int(), appearance: override });
+
 const door = z.strictObject({
   id: typedId(ids.DOOR),
   compartmentIds: list(typedId(ids.COMPARTMENT)),
   hingeSide: z.enum(['left', 'right']).nullable().default(null),
   appearance: override,
+  shelves: list(doorShelf).default([]), // absent in pre-door-shelf saves
 });
 
 export const designSchema = z.strictObject({
@@ -81,7 +85,10 @@ export const designSchema = z.strictObject({
   doors: z.strictObject({
     type: z.enum(['hinged', 'sliding', 'none']),
     appearance,
-    items: z.array(door).max(MAX_DOORS),
+    items: z.array(door).max(MAX_DOORS).refine(
+      (all) => sum(all.map((d) => d.shelves.length)) <= MAX_DOOR_SHELVES_TOTAL,
+      { message: 'too many door shelves' },
+    ),
   }),
 });
 
