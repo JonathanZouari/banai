@@ -26,6 +26,7 @@ main.js (boot) ── api/client.js ──► GET /api/catalog, /api/designs/def
 | `materials.js` | Appearance → `MeshStandardMaterial` (catalog hex, or custom hex; finish → roughness), cached per distinct appearance. |
 | `viewer.js` | Renderer (`preserveDrawingBuffer` for the Phase 8 capture), camera, OrbitControls, store subscription, and `screenPointOf` / `meshOf` helpers. |
 | `picking.js` | Click → raycast → `store.select`. A drag (>5 px) is an orbit, not a click. A hit on the back panel selects the compartment under the cursor. |
+| `hoverTooltip.js` | Tooltip next to the pointer over a shelf, drawer or compartment ("מדף · גובה 80 ס"מ"). Pure `hoverLabel(design, id, language)` (Hebrew or English, `null` for everything else) and `placeTooltip` (flips and clamps inside the viewer), plus the DOM element (`textContent` only, `pointer-events: none`). Hover never selects or touches the store. |
 | `highlight.js` | Always-on-top accent outline. A compartment outlines its interior volume. |
 | `dimensions.js`, `format.js` | CSS2D labels for W/H/D and the selected component. Text is written with `textContent` only. Units are shown in cm with 1 decimal. |
 

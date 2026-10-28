@@ -103,7 +103,7 @@ async function boot() {
   }
   // Validates the server data before anything is rendered (throws on invalid data).
   const store = createStore({ design: initial.design, revision: initial.revision, catalog });
-  const viewer = createViewer(document.getElementById('viewer'), store);
+  const viewer = createViewer(document.getElementById('viewer'), store, { language });
   bindInteriorToggle(store);
   bindSkipLink();
   const exporter = createExportDialog({

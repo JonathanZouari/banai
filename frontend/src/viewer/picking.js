@@ -3,12 +3,14 @@ import * as THREE from 'three';
 
 const CLICK_TOLERANCE_PX = 5;
 
-export function attachPicking({ dom, camera, getTargets, onPick, onHover = () => {} }) {
+export function attachPicking({ dom, camera, getTargets, onPick, onHover = () => {}, onLeave = () => {} }) {
   const raycaster = new THREE.Raycaster();
   let down = null;
 
   const onPointerDown = (event) => {
     down = { x: event.clientX, y: event.clientY };
+    cancelHover(); // a press starts a click or an orbit: pending and visible hover feedback go away
+    onLeave();
   };
   const hitAt = (event) => {
     const rect = dom.getBoundingClientRect();
@@ -31,21 +33,32 @@ export function attachPicking({ dom, camera, getTargets, onPick, onHover = () =>
   };
   // Hover feedback (cursor). Throttled to one raycast per frame; ignored while dragging.
   let hoverFrame = 0;
+  const cancelHover = () => {
+    cancelAnimationFrame(hoverFrame);
+    hoverFrame = 0;
+  };
   const onPointerMove = (event) => {
     if (event.buttons || hoverFrame) return;
     hoverFrame = requestAnimationFrame(() => {
       hoverFrame = 0;
-      onHover(hitAt(event));
+      onHover(hitAt(event), event);
     });
   };
 
   dom.addEventListener('pointerdown', onPointerDown);
   dom.addEventListener('pointerup', onPointerUp);
+  const onPointerLeave = () => {
+    cancelHover();
+    onLeave();
+  };
+
   dom.addEventListener('pointermove', onPointerMove);
+  dom.addEventListener('pointerleave', onPointerLeave);
   return () => {
     cancelAnimationFrame(hoverFrame);
     dom.removeEventListener('pointerdown', onPointerDown);
     dom.removeEventListener('pointerup', onPointerUp);
     dom.removeEventListener('pointermove', onPointerMove);
+    dom.removeEventListener('pointerleave', onPointerLeave);
   };
 }

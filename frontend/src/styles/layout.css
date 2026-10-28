@@ -82,6 +82,26 @@ body {
   color: var(--md-sys-color-on-primary);
 }
 
+/* Hover tooltip over the 3D view (shelf, drawer, compartment). */
+.hover-tooltip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 3;
+  max-width: 240px;
+  padding: 3px var(--space-2);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-extra-small);
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--md-sys-color-on-surface);
+  font: var(--md-sys-typescale-label-medium);
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.16);
+  pointer-events: none;
+  unicode-bidi: plaintext;
+}
+.hover-tooltip[hidden] { display: none; }
+
 /* Accessibility statement page (accessibility.html) */
 body.statement { height: auto; min-height: 100vh; display: block; }
 .statement main { max-width: 760px; margin: 0 auto; padding: var(--space-6, 32px) 16px; line-height: 1.7; }
