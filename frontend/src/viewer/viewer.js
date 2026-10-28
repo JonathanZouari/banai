@@ -11,8 +11,13 @@ import { createDimensions } from './dimensions.js';
 import { createHighlighter } from './highlight.js';
 import { createMaterials } from './materials.js';
 import { attachPicking } from './picking.js';
+import { describeSelection } from './format.js';
+import { resolveSelection } from '../state/store.js';
 
 const BACKGROUND = '#eceeec';
+// Components that get a hover tooltip, and its offset from the pointer (above-right, clear of the cursor).
+const TOOLTIP_KINDS = new Set(['shelf', 'drawer', 'compartment']);
+const TOOLTIP_OFFSET_PX = 14;
 
 const prefersReducedMotion = () => Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
 
@@ -99,6 +104,7 @@ export function createViewer(container, store) {
   };
 
   const setView = (view) => {
+    hideTooltip();
     stopMomentum();
     const to = cameraPose(view, store.getState().design.dimensions, camera.fov);
     if (prefersReducedMotion()) {
@@ -144,12 +150,41 @@ export function createViewer(container, store) {
   resizeObserver.observe(container);
   resize();
 
+  // Hover tooltip: a short description of the shelf, drawer or compartment under the pointer.
+  const tooltip = document.createElement('div');
+  tooltip.className = 'dim-label viewer-tooltip';
+  tooltip.setAttribute('aria-hidden', 'true'); // the canvas is one image; parts are listed in Properties
+  tooltip.hidden = true;
+  container.appendChild(tooltip);
+  const hideTooltip = () => { tooltip.hidden = true; };
+  const showTooltip = (hit, event) => {
+    const { design } = store.getState();
+    const id = componentAt(hit, design);
+    const selection = id ? resolveSelection(design, id) : null;
+    if (!selection || !TOOLTIP_KINDS.has(selection.kind)) return hideTooltip();
+    tooltip.textContent = describeSelection(design, selection);
+    tooltip.hidden = false;
+    // Sit above-right of the pointer; flip to the other side near the container's edges.
+    const rect = container.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const { offsetWidth: w, offsetHeight: h } = tooltip;
+    const left = x + TOOLTIP_OFFSET_PX + w <= rect.width ? x + TOOLTIP_OFFSET_PX : x - TOOLTIP_OFFSET_PX - w;
+    const top = y - TOOLTIP_OFFSET_PX - h >= 0 ? y - TOOLTIP_OFFSET_PX - h : y + TOOLTIP_OFFSET_PX * 2;
+    tooltip.style.transform = `translate(${Math.max(0, left)}px, ${top}px)`;
+  };
+  // An orbit drag or a camera preset moves the scene under a still pointer: drop the stale tooltip.
+  controls.addEventListener('start', hideTooltip);
+
   const detachPicking = attachPicking({
     dom: renderer.domElement,
     camera,
     getTargets: () => (group ? group.children : []),
     onPick: (hit) => store.select(componentAt(hit, store.getState().design)),
-    onHover: (hit) => { renderer.domElement.style.cursor = hit?.object.userData.componentId ? 'pointer' : ''; },
+    onHover: (hit, event) => {
+      renderer.domElement.style.cursor = hit?.object.userData.componentId ? 'pointer' : '';
+      showTooltip(hit, event);
+    },
   });
   const unsubscribe = store.subscribe(sync);
   sync(store.getState());

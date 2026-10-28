@@ -90,6 +90,9 @@ body {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+/* Hover tooltip over the 3D view; positioned by viewer.js. Never intercepts the pointer. */
+.viewer-tooltip { position: absolute; top: 0; left: 0; z-index: 2; pointer-events: none; }
+.viewer-tooltip[hidden] { display: none; }
 .dim-label--selected {
   border-color: var(--md-sys-color-primary);
   background: var(--md-sys-color-primary);
