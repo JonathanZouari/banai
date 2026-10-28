@@ -261,3 +261,14 @@
 /* The pinned "design ready" note in the chat, with Generate Style Profile. */
 .chat__built-body { display: flex; flex-direction: column; gap: var(--space-2); }
 .chat__built .button-row { margin-top: 0; }
+
+/* Starting templates under the three entry cards. */
+.start__templates { width: 100%; max-width: 940px; margin-top: var(--space-5); }
+.start__templates-title { margin: 0 0 var(--space-3); color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-title-small); }
+.start__template-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); }
+.template-card { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 44px; padding: var(--space-3) var(--space-4); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-sys-shape-medium); background: var(--md-sys-color-surface); color: var(--md-sys-color-on-surface); font: inherit; text-align: start; cursor: pointer; transition: border-color 160ms ease, box-shadow 200ms ease; }
+.template-card:hover { border-color: var(--md-sys-color-primary); box-shadow: 0 6px 16px rgba(180, 83, 42, 0.14); }
+.template-card:focus-visible { outline: 2px solid var(--md-sys-color-primary); outline-offset: 2px; }
+.template-card__name { font: var(--md-sys-typescale-title-small); }
+.template-card__text { color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-small); }
+@media (max-width: 900px) { .start__template-list { grid-template-columns: minmax(0, 1fr); } }

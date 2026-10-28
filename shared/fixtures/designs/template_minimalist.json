@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "units": "mm",
+  "dimensions": {
+    "width": 1800,
+    "height": 2400,
+    "depth": 500
+  },
+  "carcass": {
+    "panelThickness": 18,
+    "appearance": {
+      "material": {
+        "catalogId": "melamine"
+      },
+      "color": {
+        "catalogId": "white"
+      },
+      "finish": {
+        "catalogId": "matte"
+      }
+    }
+  },
+  "compartments": [
+    {
+      "id": "cmp_m_left",
+      "width": 873,
+      "shelves": [],
+      "drawers": [],
+      "rails": [
+        {
+          "id": "rail_m_l1",
+          "y": 2200
+        }
+      ]
+    },
+    {
+      "id": "cmp_m_right",
+      "width": 873,
+      "shelves": [
+        {
+          "id": "shf_m_r1",
+          "y": 600,
+          "thickness": 18,
+          "appearance": null
+        },
+        {
+          "id": "shf_m_r2",
+          "y": 1200,
+          "thickness": 18,
+          "appearance": null
+        },
+        {
+          "id": "shf_m_r3",
+          "y": 1800,
+          "thickness": 18,
+          "appearance": null
+        }
+      ],
+      "drawers": [],
+      "rails": []
+    }
+  ],
+  "partitions": [
+    {
+      "id": "prt_m1",
+      "thickness": 18
+    }
+  ],
+  "doors": {
+    "type": "hinged",
+    "appearance": {
+      "material": {
+        "catalogId": "melamine"
+      },
+      "color": {
+        "catalogId": "white"
+      },
+      "finish": {
+        "catalogId": "matte"
+      }
+    },
+    "items": [
+      {
+        "id": "dr_m_left",
+        "compartmentIds": [
+          "cmp_m_left"
+        ],
+        "hingeSide": "left",
+        "appearance": null
+      },
+      {
+        "id": "dr_m_right",
+        "compartmentIds": [
+          "cmp_m_right"
+        ],
+        "hingeSide": "right",
+        "appearance": null
+      }
+    ]
+  }
+}
