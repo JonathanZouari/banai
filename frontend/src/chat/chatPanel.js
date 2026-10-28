@@ -243,9 +243,9 @@ export function mountChat(container, {
   render();
 
   return {
-    /** Focus the composer. `entryId` picks a localized placeholder ('guided' | 'freeText'). */
+    /** Focus the composer. `entryId` picks a localized placeholder ('guided'). */
     focus: (entryId) => {
-      hintKey = { guided: 'hintGuided', freeText: 'hintFreeText' }[entryId] ?? null;
+      hintKey = { guided: 'hintGuided' }[entryId] ?? null;
       input.placeholder = (hintKey && t(hintKey)) || t('placeholder');
       input.focus();
     },

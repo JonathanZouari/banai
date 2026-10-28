@@ -1,11 +1,11 @@
 import { test, expect, openDesigner, openRender } from './fixtures.js';
 
 test.describe('start screen', () => {
-  test('is shown first with three entry points and the manufacturing disclaimer', async ({ page }) => {
+  test('is shown first with three cards (guided, basic, last designs) and the manufacturing disclaimer', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByTestId('start-screen')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Design your wardrobe' })).toBeVisible();
-    for (const id of ['guided', 'freeText', 'basic']) await expect(page.getByTestId(`entry-${id}`)).toBeVisible();
+    for (const id of ['guided', 'basic', 'archive']) await expect(page.getByTestId(`entry-${id}`)).toBeVisible();
     await expect(page.getByText('not manufacturing drawings')).toBeVisible();
   });
 
@@ -22,12 +22,18 @@ test.describe('start screen', () => {
     await expect(page.getByText('W 200.0 cm', { exact: true })).toBeVisible();
   });
 
-  test('"Describe it" opens the same editor and focuses the chat composer', async ({ page }) => {
+  test('"Guide me" opens the same editor and focuses the chat composer', async ({ page }) => {
     await page.goto('/');
-    await page.getByTestId('entry-freeText').click();
+    await page.getByTestId('entry-guided').click();
     await expect(page.getByTestId('chat-input')).toBeFocused();
-    await expect(page.getByTestId('chat-input')).toHaveAttribute('placeholder', /240 cm wide/);
+    await expect(page.getByTestId('chat-input')).toHaveAttribute('placeholder', /how wide and tall/);
     await page.waitForFunction(() => window.__banai?.viewer.meshOf('shf_l1'));
+  });
+
+  test('"Describe it" is gone: Last designs took its place', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByTestId('entry-freeText')).toHaveCount(0);
+    await expect(page.locator('.start__cards .entry-card')).toHaveCount(3);
   });
 });
 

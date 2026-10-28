@@ -7,25 +7,35 @@ import { ENTRY_POINTS } from './entryPoints.js';
 
 export const START_FOOTNOTE = 'Designs are illustrative previews and are not manufacturing drawings.';
 
-/** "Last designs": opens the local archive. The count follows the archive, in every language. */
-function createArchiveButton({ archive, archiveDialog }) {
-  const label = el('span');
+/** The third card: "Last designs" opens the local archive. Its count follows the archive, in every language. */
+function createArchiveCard({ archive, archiveDialog }) {
+  const title = el('h2', { className: 'entry-card__title' });
   const badge = el('span', { className: 'archive-badge' });
   badge.dataset.testid = 'archive-count';
-  const node = el('button', { className: 'btn btn--ghost start__archive', attrs: { type: 'button' } }, [icon('history'), label, badge]);
-  node.dataset.testid = 'entry-archive';
+  const text = el('p', { className: 'entry-card__text' });
+  const actionLabel = el('span');
+  const action = el('button', { className: 'btn', attrs: { type: 'button' } }, [actionLabel, document.createTextNode(' '), icon('arrow', { size: 18 })]);
+  action.dataset.testid = 'entry-archive';
+  const card = el('article', { className: 'entry-card' }, [
+    el('span', { className: 'entry-card__icon' }, [icon('history', { size: 24 })]),
+    el('div', { className: 'entry-card__heading' }, [title, badge]),
+    text,
+    action,
+  ]);
   const sync = () => {
     const n = archive.isAvailable() ? archive.list().length : 0;
-    label.textContent = language.t('arcOpenButton');
+    title.textContent = language.t('arcOpenButton');
+    text.textContent = language.t('arcCardText');
+    actionLabel.textContent = language.t('arcCardAction');
     badge.textContent = String(n);
     badge.hidden = n === 0;
-    node.setAttribute('aria-label', language.t('arcOpenAria').replace('{n}', String(n)));
+    action.setAttribute('aria-label', language.t('arcOpenAria').replace('{n}', String(n)));
   };
-  node.addEventListener('click', archiveDialog.open);
+  action.addEventListener('click', archiveDialog.open);
   archive.subscribe(sync);
   language.subscribe(sync);
   sync();
-  return node;
+  return card;
 }
 
 export function mountStartScreen({ onChoose, archive = null, archiveDialog = null }) {
@@ -48,6 +58,7 @@ export function mountStartScreen({ onChoose, archive = null, archiveDialog = nul
     });
     return card;
   });
+  if (archive && archiveDialog) cards.push(createArchiveCard({ archive, archiveDialog }));
 
   const dialog = el('dialog', { className: 'start', attrs: { 'aria-labelledby': 'start-title' } }, [
     el('header', { className: 'start__bar' }, [createLogo({ size: 36 })]),
@@ -55,7 +66,6 @@ export function mountStartScreen({ onChoose, archive = null, archiveDialog = nul
       el('h1', { className: 'start__title', text: 'Design your wardrobe', attrs: { id: 'start-title' } }),
       el('p', { className: 'start__subtitle', text: 'Choose how you would like to begin. You can switch between the AI designer and manual editing at any time.' }),
       el('div', { className: 'start__cards' }, cards),
-      ...(archive && archiveDialog ? [createArchiveButton({ archive, archiveDialog })] : []),
       el('p', { className: 'start__footnote', text: START_FOOTNOTE }),
       el('a', { className: 'start__footnote', text: 'הצהרת נגישות', attrs: { href: '/accessibility.html', lang: 'he' } }),
     ]),
