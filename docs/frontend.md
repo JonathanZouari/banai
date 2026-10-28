@@ -25,9 +25,13 @@ main.js (boot) ── api/client.js ──► GET /api/catalog, /api/designs/def
 | `units.js` | mm → m (×0.001), plus **visual-only** prototype constants (back panel 6 mm, door thickness 18 mm, gaps, rail radius). These are not part of the design model. |
 | `materials.js` | Appearance → `MeshStandardMaterial` (catalog hex, or custom hex; finish → roughness), cached per distinct appearance. |
 | `viewer.js` | Renderer (`preserveDrawingBuffer` for the Phase 8 capture), camera, OrbitControls, store subscription, and `screenPointOf` / `meshOf` helpers. |
+| `cameraViews.js` | Pure camera maths: `viewPose(name, dimensions, {aspect})` for Front / Side / 3/4 / Reset (level views sit at the controls' polar limit), spherical `interpolatePose` and an eased `createTransition`. No WebGL, no store. |
+| `viewControls.js` | The four floating camera buttons in the viewer (Hebrew or English by chat language). They call `viewer.setView` and never touch the store: the camera is view state, not part of the design. |
 | `picking.js` | Click → raycast → `store.select`. A drag (>5 px) is an orbit, not a click. A hit on the back panel selects the compartment under the cursor. |
 | `highlight.js` | Always-on-top accent outline. A compartment outlines its interior volume. |
 | `dimensions.js`, `format.js` | CSS2D labels for W/H/D and the selected component. Text is written with `textContent` only. Units are shown in cm with 1 decimal. |
+
+Camera views move over ~600 ms inside the existing render loop; a drag, wheel or touch cancels the move, and `prefers-reduced-motion` jumps instantly. Damping is switched off during a move so leftover drag momentum cannot push the camera off the pose.
 
 Coordinates: x = 0 at the outer left face, y = 0 at the floor, front face at z = 0, back at z = −depth. Doors sit in front (z > 0). Sliding doors use two depth tracks.
 

@@ -11,6 +11,7 @@ import {
 import { createStore } from './state/store.js';
 import { mountPanel } from './editor/panel.js';
 import { createViewer } from './viewer/viewer.js';
+import { createViewControls } from './viewer/viewControls.js';
 import { renderSnapshot } from './viewer/snapshot.js';
 import { createChatModel } from './chat/chatModel.js';
 import { createLanguage } from './chat/i18n.js';
@@ -104,6 +105,7 @@ async function boot() {
   // Validates the server data before anything is rendered (throws on invalid data).
   const store = createStore({ design: initial.design, revision: initial.revision, catalog });
   const viewer = createViewer(document.getElementById('viewer'), store);
+  createViewControls({ container: document.getElementById('viewer'), viewer, language });
   bindInteriorToggle(store);
   bindSkipLink();
   const exporter = createExportDialog({
