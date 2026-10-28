@@ -72,3 +72,57 @@ test.describe('save and reopen', () => {
     });
   });
 });
+
+test.describe('system share menu', () => {
+  const stubShare = (page, behaviour) => page.addInitScript((mode) => {
+    window.__shared = [];
+    if (mode === 'unsupported') { Object.defineProperty(navigator, 'share', { value: undefined, configurable: true }); return; }
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: async (data) => {
+        window.__shared.push(data);
+        if (mode === 'cancel') throw new DOMException('Share canceled', 'AbortError');
+        if (mode === 'fail') throw new DOMException('nope', 'NotAllowedError');
+      },
+    });
+  }, behaviour);
+
+  async function saved(page) {
+    await openDesigner(page);
+    await page.getByTestId('open-save').click();
+    await expect(page.getByTestId('share-system')).toBeDisabled();
+    await page.getByTestId('save-confirm').click();
+    await expect(page.getByTestId('share-link')).toHaveValue(LINK);
+  }
+
+  test('is not shown where the browser has no share menu', async ({ page }) => {
+    await stubShare(page, 'unsupported');
+    await openDesigner(page);
+    await page.getByTestId('open-save').click();
+    await expect(page.getByTestId('share-system')).toHaveCount(0);
+    await expect(page.getByTestId('copy-link')).toBeVisible();
+  });
+
+  test('opens the share menu with the private link', async ({ page }) => {
+    await stubShare(page, 'ok');
+    await saved(page);
+    await page.getByTestId('share-system').click();
+    const link = await page.getByTestId('share-link').inputValue();
+    expect(await page.evaluate(() => window.__shared)).toEqual([{ title: 'My BanAI wardrobe', url: link }]);
+  });
+
+  test('cancelling the share menu shows no error', async ({ page }) => {
+    await stubShare(page, 'cancel');
+    await saved(page);
+    await page.getByTestId('share-system').click();
+    await expect.poll(() => page.evaluate(() => window.__shared.length)).toBe(1);
+    await expect(page.getByTestId('save-status')).not.toContainText(/could not|failed|error/i);
+  });
+
+  test('a real failure points to Copy link', async ({ page }) => {
+    await stubShare(page, 'fail');
+    await saved(page);
+    await page.getByTestId('share-system').click();
+    await expect(page.getByTestId('save-status')).toContainText('Use Copy link instead');
+  });
+});

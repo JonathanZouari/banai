@@ -28,12 +28,24 @@ export function createSaveDialog({ available, onSave, link = '' }) {
     }
   }, { variant: 'secondary', testId: 'copy-link', disabled: !link });
 
+  // The system share sheet, only where the browser has one. Cancelling it (AbortError) is not an error.
+  const shareSheet = typeof navigator.share === 'function'
+    ? button('Share…', async () => {
+      try {
+        await navigator.share({ title: 'My BanAI wardrobe', url: linkField.value });
+      } catch (error) {
+        if (error?.name !== 'AbortError') status.textContent = 'Could not open the share menu. Use Copy link instead.';
+      }
+    }, { variant: 'secondary', testId: 'share-system', disabled: !link })
+    : null;
+
   const save = button('Save design', async () => {
     save.disabled = true;
     status.textContent = 'Saving…';
     try {
       linkField.value = await onSave();
       copy.disabled = false;
+      if (shareSheet) shareSheet.disabled = false;
       status.textContent = SAVED;
     } catch (error) {
       status.textContent = error?.message || 'Saving failed. Please try again.';
@@ -52,6 +64,7 @@ export function createSaveDialog({ available, onSave, link = '' }) {
         el('label', { className: 'field__label', text: 'Private link', attrs: { for: 'share-link' } }),
         linkField,
       ]),
+      ...(shareSheet ? [shareSheet] : []),
       el('p', { className: 'dialog__note', text: 'Anyone with this link can edit the design, so keep it private.' }),
       status,
     ],
