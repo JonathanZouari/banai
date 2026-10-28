@@ -1,12 +1,67 @@
 import { test, expect, openDesigner } from './fixtures.js';
 
 test.describe('start screen', () => {
-  test('is shown first with three entry points and the manufacturing disclaimer', async ({ page }) => {
+  test('is shown first, in Hebrew by default, with three entry points and the manufacturing disclaimer', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByTestId('start-screen')).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Design your wardrobe' })).toBeVisible();
+    const start = page.getByTestId('start-screen');
+    await expect(start).toBeVisible();
+    await expect(start).toHaveAttribute('dir', 'rtl');
+    await expect(page.getByRole('heading', { name: 'עיצוב הארון שלך' })).toBeVisible();
     for (const id of ['guided', 'freeText', 'basic']) await expect(page.getByTestId(`entry-${id}`)).toBeVisible();
+    await expect(page.getByText('אינם שרטוטי ייצור')).toBeVisible();
+
+    await page.getByTestId('start-language-en').click(); // the same language setting as the chat
+    await expect(start).toHaveAttribute('dir', 'ltr');
+    await expect(page.getByRole('heading', { name: 'Design your wardrobe' })).toBeVisible();
     await expect(page.getByText('not manufacturing drawings')).toBeVisible();
+    await expect(page.getByTestId('start-language-en')).toBeFocused();
+  });
+
+  test('the template gallery: one Tab stop, arrow keys follow the reading direction', async ({ page }) => {
+    await page.goto('/');
+    const cards = page.locator('.gallery .tpl');
+    await expect(cards).toHaveCount(4);
+    await expect(cards.nth(0)).toHaveAttribute('tabindex', '0');
+    await expect(cards.nth(1)).toHaveAttribute('tabindex', '-1');
+    await cards.nth(0).focus();
+    await page.keyboard.press('ArrowLeft'); // Hebrew: left is the next card
+    await expect(page.getByTestId('template-kids')).toBeFocused();
+    await page.keyboard.press('End');
+    await expect(page.getByTestId('template-minimal')).toBeFocused();
+    await page.keyboard.press('Home');
+    await expect(page.getByTestId('entry-basic')).toBeFocused();
+    // Name and description for screen readers, measured from the design.
+    await expect(page.getByTestId('template-kids')).toHaveAccessibleName('ארון ילדים 150 ס״מ');
+    await expect(page.getByTestId('template-kids')).toHaveAccessibleDescription(/מוט ומדפים נמוכים.*100 × 150 × 50 ס״מ/);
+  });
+
+  for (const [id, width] of [['kids', 'W 100.0 cm'], ['double', 'W 220.0 cm'], ['minimal', 'W 120.0 cm']]) {
+    test(`the ${id} template opens the editor with that wardrobe`, async ({ page }) => {
+      await page.goto('/');
+      await page.getByTestId(`template-${id}`).click();
+      await expect(page.getByTestId('start-screen')).toHaveCount(0);
+      await expect(page.getByText(width, { exact: true })).toBeVisible();
+      await expect(page.locator('#properties-panel')).toBeFocused();
+      expect(await page.evaluate(() => window.__banai.store.getState().revision)).toBe(2);
+    });
+  }
+
+  test.describe('without WebGL', () => {
+    test.use({ allowedConsoleErrors: [/WebGLRenderer: Error creating WebGL context/] }); // three.js logs it, then we fall back
+
+    test('every card keeps its drawn front view', async ({ page }) => {
+      await page.addInitScript(() => {
+        const original = HTMLCanvasElement.prototype.getContext;
+        HTMLCanvasElement.prototype.getContext = function getContext(type, ...rest) {
+          // Only the thumbnail canvases (THUMBNAIL_SIZE, 400 x 434) lose WebGL; the editor's viewer keeps it.
+          if (/webgl/.test(type) && this.width === 400 && this.height === 434) return null;
+          return original.call(this, type, ...rest);
+        };
+      });
+      await page.goto('/');
+      await expect(page.locator('.thumb--drawn')).toHaveCount(4);
+      await expect(page.locator('.thumb .elevation')).toHaveCount(4);
+    });
   });
 
   test('Escape does not dismiss it (a choice is required)', async ({ page }) => {
