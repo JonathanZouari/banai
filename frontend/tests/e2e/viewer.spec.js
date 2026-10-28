@@ -1,4 +1,4 @@
-import { clickComponent, expect, openDesigner, paintedRatio, selection, test } from './fixtures.js';
+import { clickComponent, expect, hoverComponent, openDesigner, paintedRatio, selection, test } from './fixtures.js';
 
 test.describe('Phase 3: 3D viewer', () => {
   test.beforeEach(async ({ page }) => openDesigner(page));
@@ -33,6 +33,19 @@ test.describe('Phase 3: 3D viewer', () => {
     expect(await selection(page)).toEqual({ id: 'shf_l2', kind: 'shelf' });
     await expect(page.getByTestId('selected-section')).toContainText('Selected · Shelf');
     await expect(page.locator('.dim-label--selected')).toHaveText('Shelf · 80.0 cm from base · 1.8 cm thick');
+  });
+
+  test('hovering a shelf shows a label beside the pointer; leaving the canvas hides it', async ({ page }) => {
+    await page.getByLabel('Show interior').check();
+    const label = page.locator('.hover-label');
+    await expect(label).toBeHidden();
+    const point = await hoverComponent(page, 'shf_l2');
+    await expect(label).toHaveText('Shelf · 80.0 cm from base · 1.8 cm thick');
+    const box = await label.boundingBox();
+    expect(box.x).toBeGreaterThan(point.x); // offset from the pointer, never under it
+    expect(box.y).toBeGreaterThan(point.y);
+    await page.mouse.move(1, 1); // outside the canvas
+    await expect(label).toBeHidden();
   });
 
   test('clicking a door selects the door; clicking empty space clears the selection', async ({ page }) => {

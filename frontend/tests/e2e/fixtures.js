@@ -28,7 +28,8 @@ export async function openDesigner(page) {
 
 export const selection = (page) => page.evaluate(() => window.__banai.store.getState().selection);
 
-export async function clickComponent(page, componentId) {
+/** Page coordinates of a component's centre, once the camera has stopped moving. */
+async function settledPointOf(page, componentId) {
   await page.waitForFunction(() => {
     const { camera } = window.__banai.viewer;
     const key = camera.position.toArray().map((v) => v.toFixed(5)).join();
@@ -36,8 +37,18 @@ export async function clickComponent(page, componentId) {
     window.__lastCameraKey = key;
     return settled;
   }, null, { polling: 100 });
-  const point = await page.evaluate((id) => window.__banai.viewer.screenPointOf(id), componentId);
+  return page.evaluate((id) => window.__banai.viewer.screenPointOf(id), componentId);
+}
+
+export async function clickComponent(page, componentId) {
+  const point = await settledPointOf(page, componentId);
   await page.mouse.click(point.x, point.y);
+}
+
+export async function hoverComponent(page, componentId) {
+  const point = await settledPointOf(page, componentId);
+  await page.mouse.move(point.x, point.y);
+  return point;
 }
 
 /** Share of canvas pixels that differ from the background colour. */

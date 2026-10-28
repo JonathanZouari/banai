@@ -7,12 +7,15 @@ import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { buildWardrobe, disposeWardrobe } from './buildWardrobe.js';
 import { frameOf } from './builders/frame.js';
 import { createDimensions } from './dimensions.js';
+import { describeSelection } from './format.js';
 import { createHighlighter } from './highlight.js';
 import { createMaterials } from './materials.js';
 import { attachPicking } from './picking.js';
 import { toM } from './units.js';
+import { resolveSelection } from '../state/store.js';
 
 const BACKGROUND = '#eceeec';
+const HOVER_OFFSET = { x: 14, y: 18 }; // px from the pointer, so the label never covers it
 
 function createScene() {
   const scene = new THREE.Scene();
@@ -52,6 +55,27 @@ export function createViewer(container, store) {
   const labels = new CSS2DRenderer();
   labels.domElement.className = 'viewer-labels';
   container.appendChild(labels.domElement);
+
+  const hoverLabel = document.createElement('div');
+  hoverLabel.className = 'dim-label hover-label';
+  hoverLabel.hidden = true;
+  container.appendChild(hoverLabel);
+
+  const showHover = (hit, pointer) => {
+    renderer.domElement.style.cursor = hit?.object.userData.componentId ? 'pointer' : '';
+    const { design, selection } = store.getState();
+    const hovered = hit && resolveSelection(design, componentAt(hit, design));
+    // The selected component already carries its own label.
+    if (!hovered || hovered.id === selection?.id) {
+      hoverLabel.hidden = true;
+      return;
+    }
+    const rect = container.getBoundingClientRect();
+    hoverLabel.textContent = describeSelection(design, hovered);
+    hoverLabel.style.left = `${pointer.x - rect.left + HOVER_OFFSET.x}px`;
+    hoverLabel.style.top = `${pointer.y - rect.top + HOVER_OFFSET.y}px`;
+    hoverLabel.hidden = false;
+  };
 
   const scene = createScene();
   const camera = new THREE.PerspectiveCamera(40, 1, 0.05, 60);
@@ -112,7 +136,7 @@ export function createViewer(container, store) {
     camera,
     getTargets: () => (group ? group.children : []),
     onPick: (hit) => store.select(componentAt(hit, store.getState().design)),
-    onHover: (hit) => { renderer.domElement.style.cursor = hit?.object.userData.componentId ? 'pointer' : ''; },
+    onHover: showHover,
   });
   const unsubscribe = store.subscribe(sync);
   sync(store.getState());
@@ -140,6 +164,7 @@ export function createViewer(container, store) {
       renderer.setAnimationLoop(null);
       unsubscribe();
       detachPicking();
+      hoverLabel.remove();
       resizeObserver.disconnect();
       if (group) disposeWardrobe(group);
       highlighter.dispose();
