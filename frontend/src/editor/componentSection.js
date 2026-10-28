@@ -25,33 +25,33 @@ function overrideControls({ catalog, design, item, inherited, run, label }) {
   ];
 }
 
-function fieldsFor(kind, { design, catalog, selection, run, runAction }) {
+function fieldsFor(kind, { design, catalog, selection, run, runAction, unit }) {
   const { id } = selection;
   const move = (op, field) => (mm) => run([{ op, id, [field]: mm }]);
   if (kind === 'shelf') {
     const shelf = findItem(design, kind, id);
     return [
-      cmField({ label: 'Height from base', mm: shelf.y, testId: 'shelf-y', onCommit: move('modify_shelf', 'y') }),
-      cmField({ label: 'Thickness', mm: shelf.thickness, testId: 'shelf-thickness', onCommit: move('modify_shelf', 'thickness') }),
+      cmField({ label: 'Height from base', mm: shelf.y, testId: 'shelf-y', unit, onCommit: move('modify_shelf', 'y') }),
+      cmField({ label: 'Thickness', mm: shelf.thickness, testId: 'shelf-thickness', unit, onCommit: move('modify_shelf', 'thickness') }),
       ...overrideControls({ catalog, design, item: shelf, inherited: design.carcass.appearance, run: runAction, label: 'Shelf finish' }),
     ];
   }
   if (kind === 'drawer') {
     const drawer = findItem(design, kind, id);
     return [
-      cmField({ label: 'Height from base', mm: drawer.y, testId: 'drawer-y', onCommit: move('modify_drawer', 'y') }),
-      cmField({ label: 'Drawer height', mm: drawer.height, testId: 'drawer-height', onCommit: move('modify_drawer', 'height') }),
+      cmField({ label: 'Height from base', mm: drawer.y, testId: 'drawer-y', unit, onCommit: move('modify_drawer', 'y') }),
+      cmField({ label: 'Drawer height', mm: drawer.height, testId: 'drawer-height', unit, onCommit: move('modify_drawer', 'height') }),
       ...overrideControls({ catalog, design, item: drawer, inherited: design.carcass.appearance, run: runAction, label: 'Drawer front' }),
     ];
   }
   if (kind === 'rail') {
     const rail = findItem(design, kind, id);
-    return [cmField({ label: 'Height from base', mm: rail.y, testId: 'rail-y', onCommit: move('modify_rail', 'y') })];
+    return [cmField({ label: 'Height from base', mm: rail.y, testId: 'rail-y', unit, onCommit: move('modify_rail', 'y') })];
   }
   if (kind === 'compartment') {
     const compartment = design.compartments.find((c) => c.id === id);
     return [
-      cmField({ label: 'Width', mm: compartment.width, testId: 'compartment-width', onCommit: (mm) => run([{ op: 'modify_compartment', compartmentId: id, width: mm }]) }),
+      cmField({ label: 'Width', mm: compartment.width, testId: 'compartment-width', unit, onCommit: (mm) => run([{ op: 'modify_compartment', compartmentId: id, width: mm }]) }),
       el('div', { className: 'button-row' }, ['shelf', 'drawer', 'rail'].map((item) =>
         button(`+ ${item === 'rail' ? 'Rail' : item[0].toUpperCase() + item.slice(1)}`, () => runAction(addItemOps(design, id, item)), { testId: `add-${item}` }))),
     ];
@@ -59,8 +59,8 @@ function fieldsFor(kind, { design, catalog, selection, run, runAction }) {
   if (kind === 'partition') {
     const index = design.partitions.findIndex((p) => p.id === id);
     return [
-      cmField({ label: 'Position from left', mm: partitionLeftEdge(design, index), testId: 'partition-position', onCommit: (mm) => run([{ op: 'modify_partition', partitionId: id, position: mm }]) }),
-      cmField({ label: 'Thickness', mm: design.partitions[index].thickness, testId: 'partition-thickness', onCommit: (mm) => run([{ op: 'modify_partition', partitionId: id, thickness: mm }]) }),
+      cmField({ label: 'Position from left', mm: partitionLeftEdge(design, index), testId: 'partition-position', unit, onCommit: (mm) => run([{ op: 'modify_partition', partitionId: id, position: mm }]) }),
+      cmField({ label: 'Thickness', mm: design.partitions[index].thickness, testId: 'partition-thickness', unit, onCommit: (mm) => run([{ op: 'modify_partition', partitionId: id, thickness: mm }]) }),
     ];
   }
   if (kind === 'door') {
@@ -77,12 +77,12 @@ function fieldsFor(kind, { design, catalog, selection, run, runAction }) {
   return [el('p', { className: 'panel__note', text: 'Edit the overall dimensions and materials in the Wardrobe section.' })];
 }
 
-export function componentSection({ design, catalog, selection, run, select }) {
+export function componentSection({ design, catalog, selection, run, select, unit = 'cm' }) {
   const container = section(`Selected · ${TITLES[selection.kind]}`, []);
   container.dataset.testid = 'selected-section';
   // Inputs report their own errors inline; buttons/selects report under the section.
   const runAction = (ops) => actionResult(container, run(ops));
-  container.append(...fieldsFor(selection.kind, { design, catalog, selection, run, runAction }));
+  container.append(...fieldsFor(selection.kind, { design, catalog, selection, run, runAction, unit }));
   const actions = [button('Deselect', () => select(null), { variant: 'ghost' })];
   if (selection.kind !== 'carcass') {
     actions.unshift(button(`Delete ${TITLES[selection.kind].toLowerCase()}`, () => runAction(removeOps(selection.id)), { variant: 'danger', testId: 'delete-selected' }));

@@ -50,6 +50,21 @@ test.describe('Phase 3: 3D viewer', () => {
     await expect.poll(() => page.evaluate(() => window.__banai.viewer.meshOf('shf_l1').position.y)).toBeGreaterThan(y0 + 0.5);
   });
 
+  test('unit switcher changes dimension labels and editor fields', async ({ page }) => {
+    await expect.poll(() => paintedRatio(page)).toBeGreaterThan(0.05);
+    // Default is cm
+    await expect(page.getByText('W 200.0 cm', { exact: true })).toBeVisible();
+    // Switch to mm
+    await page.getByTestId('unit-selector').getByText('mm').click();
+    await expect(page.getByText('W 2000 mm', { exact: true })).toBeVisible();
+    // Switch to in
+    await page.getByTestId('unit-selector').getByText('in').click();
+    await expect(page.getByText(/W \d+\.\d{2} in/)).toBeVisible();
+    // The design state is unchanged
+    const width = await page.evaluate(() => window.__banai.store.getState().design.dimensions.width);
+    expect(width).toBe(2000);
+  });
+
   test('picking works in the same tick as a scene rebuild (before any frame is rendered)', async ({ page }) => {
     const selected = await page.evaluate(() => {
       const { store, viewer } = window.__banai;
