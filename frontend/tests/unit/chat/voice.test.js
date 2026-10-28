@@ -124,8 +124,10 @@ describe('voice strings', () => {
     for (const key of ['mic', 'micStop', 'recording', 'transcribing', 'micDenied', 'voiceError', 'readAloud', 'readAloudOn']) {
       expect(STRINGS.he[key], key).toBeTruthy();
       expect(STRINGS.en[key], key).toBeTruthy();
+      expect(STRINGS.fr[key], key).toBeTruthy();
     }
     expect(STRINGS.en.readAloud).toContain('AI');
     expect(STRINGS.he.readAloud).toContain('AI');
+    expect(STRINGS.fr.readAloud).toContain('IA');
   });
 });

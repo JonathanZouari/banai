@@ -1,8 +1,8 @@
-// Chat panel strings in Hebrew and English. The agent replies only in the language a message is
-// written in; sending a message switches the chat to that language, so UI and replies always match.
+// Chat panel strings in Hebrew, English and French. The agent replies only in the language a message
+// is written in; sending a message switches the chat to that language, so UI and replies always match.
 // The switch also sets the language for messages without letters (e.g. "240?").
 
-export const LANGUAGES = Object.freeze(['he', 'en']);
+export const LANGUAGES = Object.freeze(['he', 'en', 'fr']);
 export const DEFAULT_LANGUAGE = 'he';
 const STORAGE_KEY = 'banai.chat.language';
 
@@ -105,15 +105,100 @@ export const STRINGS = Object.freeze({
       freeText: 'e.g. 240 cm wide, 260 cm tall, white, three compartments',
     }),
   }),
+  fr: Object.freeze({
+    dir: 'ltr',
+    switchLabel: 'Langue du chat',
+    title: 'Designer IA',
+    subtitle: 'Assistant de conception',
+    online: 'En ligne',
+    onlineTitle: 'Le designer IA est connecté.',
+    comingSoon: 'Bientôt',
+    comingSoonTitle: "Le designer IA n'est pas encore connecté.",
+    placeholder: 'Décrivez votre armoire…',
+    inputLabel: 'Message au designer',
+    send: 'Envoyer le message',
+    mic: 'Parler au designer',
+    micStop: "Arrêter l'enregistrement et envoyer",
+    recording: 'Enregistrement… appuyez à nouveau pour envoyer',
+    transcribing: 'Transcription en cours…',
+    micDenied: "Pas d'accès au micro. Autorisez-le dans le navigateur, ou tapez votre message.",
+    voiceError: "Je n'ai pas compris l'enregistrement. Veuillez réessayer.",
+    readAloud: 'Lire les réponses à voix haute (voix générée par IA)',
+    readAloudOn: 'Les réponses seront lues avec une voix générée par IA.',
+    hint: 'Entrée pour envoyer · Maj+Entrée pour une nouvelle ligne',
+    welcomeLabel: 'Pour commencer',
+    welcomeTitle: "Que concevons-nous aujourd'hui ?",
+    welcomeText: "Décrivez votre armoire avec vos propres mots. J'en ferai une proposition que vous confirmerez avant tout changement.",
+    suggestions: Object.freeze([
+      'Armoire de 240 cm de large et 260 cm de haut, blanche, avec trois compartiments',
+      'Armoire haute avec portes coulissantes et une tringle de penderie',
+      'Quatre étagères à gauche, penderie au milieu et trois tiroirs à droite',
+    ]),
+    conversation: 'Conversation',
+    thinking: 'Le designer réfléchit',
+    proposalHeading: 'Modifications proposées',
+    changeCount: (n) => (n === 1 ? '1 modification' : `${n} modifications`),
+    proposalNote: 'Pas encore appliqué. Confirmez pour appliquer ces modifications à votre design.',
+    confirm: 'Confirmer',
+    cancel: 'Annuler',
+    notConnected: "Le designer IA n'est pas encore connecté. Vous pouvez concevoir manuellement dans le panneau Propriétés.",
+    stale: 'Le design a changé. Demandez une nouvelle proposition au designer.',
+    agentError: "Le designer n'a pas pu répondre pour le moment. Réessayez dans un instant.",
+    applied: 'Appliqué. Votre design a été mis à jour.',
+    notApplied: "La proposition n'a pas pu être appliquée. Rien n'a été modifié.",
+    cancelled: "Proposition annulée. Aucune modification n'a été faite.",
+    readyForProfile: 'Votre design est prêt ? Téléchargez le fichier pour votre menuisier.',
+    generateProfile: 'Generate Style Profile',
+    composerHints: Object.freeze({
+      guided: "Parlez-moi de l'espace : quelle largeur et quelle hauteur pour l'armoire ?",
+      freeText: 'Par ex. 240 cm de large, 260 cm de haut, blanche, trois compartiments',
+    }),
+  }),
 });
 
 export const stringsFor = (language) => STRINGS[language] ?? STRINGS[DEFAULT_LANGUAGE];
 
-/** 'he' | 'en' | null (no letters). Hebrew wins in mixed text. Mirrors backend app/agent/language.py. */
-export function detectLanguage(text) {
+// English and French share the Latin script, so they are told apart by French letters and common
+// words. Mirrors backend app/agent/language.py: keep the word lists identical (a unit test compares
+// them, and both sides run shared/fixtures/language/detect.json).
+const FRENCH_LETTERS = 'àâæçéèêëîïôœùûüÿ';
+const LATIN = new RegExp(`[a-z${FRENCH_LETTERS}]`, 'iu');
+const FRENCH_LETTER = new RegExp(`[${FRENCH_LETTERS}]`, 'iu');
+const WORD = new RegExp(`[a-z${FRENCH_LETTERS}]+`, 'gu');
+const FRENCH_LETTER_WEIGHT = 2; // an accented French letter counts as two French words
+const words = (list) => new Set(list.trim().split(/\s+/));
+export const FRENCH_WORDS = words(`
+je j tu il elle nous vous le la les l un une des du de d au aux et ou avec pour dans sur sous
+entre sans mais donc est sont suis peux peut pouvez veux voudrais aimerais faire fais faites mettre
+mets ajoute ajouter ajoutez enleve enlever supprime supprimer changer mon ma mes ton ta votre vos
+ce cette ces qui que qu quoi comment pourquoi quel quelle bonjour salut merci oui non bien
+armoire placard porte portes tiroir tiroirs etagere etageres étagère étagères penderie tringle
+caisson cloison cloisons compartiment compartiments largeur hauteur profondeur haut haute profond
+profonde blanc blanche noir noire gris grise bois chene chêne noyer laque laqué brillant
+coulissante coulissantes battante battantes gauche droite milieu deux trois quatre cinq
+`);
+export const ENGLISH_WORDS = words(`
+i you we it the an and or with for in of to from at by is are be can could would should please
+want need like make add remove change put give set my your this that these what how why which
+hello hi hey thanks thank yes no okay wardrobe closet cabinet door doors drawer drawers shelf
+shelves rail hanging compartment compartments partition partitions width wide height high tall
+depth deep white black grey gray wood oak walnut glossy gloss matte sliding hinged left right
+middle two three four five more less bigger smaller
+`);
+
+/**
+ * 'he' | 'en' | 'fr' | null (no letters). Hebrew wins in mixed text. Latin text with no clue
+ * either way keeps `current` when that is English or French, else English.
+ */
+export function detectLanguage(text, current = null) {
   if (/[א-ת]/.test(text)) return 'he';
-  if (/[A-Za-z]/.test(text)) return 'en';
-  return null;
+  if (!LATIN.test(text)) return null;
+  const found = text.toLowerCase().match(WORD) ?? [];
+  let french = found.filter((word) => FRENCH_WORDS.has(word)).length;
+  if (FRENCH_LETTER.test(text)) french += FRENCH_LETTER_WEIGHT;
+  const english = found.filter((word) => ENGLISH_WORDS.has(word)).length;
+  if (french !== english) return french > english ? 'fr' : 'en';
+  return current === 'en' || current === 'fr' ? current : 'en';
 }
 
 function readStored(storage) {
