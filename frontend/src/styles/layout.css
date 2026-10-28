@@ -65,6 +65,21 @@ body {
 .viewer { position: relative; min-width: 0; overflow: hidden; background: var(--md-sys-color-viewer); }
 .viewer canvas { display: block; }
 .viewer-labels { position: absolute; inset: 0; pointer-events: none; }
+.viewer-tooltip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  padding: 2px var(--space-2);
+  border-radius: var(--md-sys-shape-extra-small);
+  background: rgba(32, 33, 32, 0.88);
+  color: #fff;
+  font: var(--md-sys-typescale-label-small);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.viewer-tooltip[hidden] { display: none; }
 
 .dim-label {
   padding: 2px var(--space-2);

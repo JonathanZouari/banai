@@ -35,6 +35,21 @@ test.describe('Phase 3: 3D viewer', () => {
     await expect(page.locator('.dim-label--selected')).toHaveText('Shelf · 80.0 cm from base · 1.8 cm thick');
   });
 
+  test('hovering a shelf shows a tooltip beside the cursor; leaving the canvas hides it', async ({ page }) => {
+    await page.getByLabel('Show interior').check();
+    const tooltip = page.locator('.viewer-tooltip');
+    const point = await page.evaluate(() => window.__banai.viewer.screenPointOf('shf_l2'));
+    await page.mouse.move(point.x, point.y);
+    await expect(tooltip).toBeVisible();
+    await expect(tooltip).toHaveText('Shelf · 80.0 cm from base · 1.8 cm thick');
+    const box = await tooltip.boundingBox();
+    const coversCursor = point.x >= box.x && point.x <= box.x + box.width && point.y >= box.y && point.y <= box.y + box.height;
+    expect(coversCursor).toBe(false);
+    const canvas = await page.locator('#viewer canvas').boundingBox();
+    await page.mouse.move(canvas.x - 20, canvas.y + canvas.height / 2);
+    await expect(tooltip).toBeHidden();
+  });
+
   test('clicking a door selects the door; clicking empty space clears the selection', async ({ page }) => {
     await clickComponent(page, 'dr_middle');
     expect(await selection(page)).toEqual({ id: 'dr_middle', kind: 'door' });
