@@ -91,6 +91,25 @@ select.field__input {
 .btn--primary { border-color: var(--md-sys-color-primary); background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); }
 .btn--primary:hover:not(:disabled) { background: var(--color-accent-hover); }
 .btn--primary:disabled { border-color: transparent; background: rgba(35, 25, 23, 0.12); color: rgba(35, 25, 23, 0.38); }
+/* Unsaved changes: a small dot before the Save label (the screen-reader note is a hidden span) */
+.btn--unsaved::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-inline-end: var(--space-2);
+  border-radius: 50%;
+  background: currentColor;
+  vertical-align: 0.1em;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
 .btn--ghost { border-color: transparent; background: transparent; color: var(--md-sys-color-primary); }
 .btn--danger { border-color: transparent; background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); }
 .btn--danger:hover:not(:disabled) { background: #ffc9c2; }

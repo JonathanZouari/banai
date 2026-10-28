@@ -18,6 +18,7 @@ import { mountChat } from './chat/chatPanel.js';
 import { mountStartScreen } from './entry/startScreen.js';
 import { createSaveDialog } from './share/saveDialog.js';
 import { parseShareHash, shareHash } from './share/link.js';
+import { bindUnsavedWarning, createUnsavedTracker } from './share/unsaved.js';
 import { createExportDialog } from './export/exportDialog.js';
 import { createRenderDialog } from './render/renderDialog.js';
 import { createLogo } from './ui/logo.js';
@@ -61,7 +62,7 @@ async function loadInitial(language) {
   return { initial: await getDefaultDesign(), session: null };
 }
 
-function createSaver(store, language, initialSession) {
+function createSaver(store, language, initialSession, onSaved) {
   let session = initialSession;
   return async () => {
     const { design } = store.getState();
@@ -73,6 +74,7 @@ function createSaver(store, language, initialSession) {
       session = { designId: created.designId, token: created.accessToken, revision: created.revision };
     }
     window.history.replaceState(null, '', shareHash(session));
+    onSaved(design);
     return window.location.href;
   };
 }
@@ -112,9 +114,14 @@ async function boot() {
     getSnapshot: (design) => renderSnapshot(design, store.getState().catalog),
   });
   mountPanel(document.getElementById('properties-content'), store, { onExport: exporter.open });
+  const storage = health?.data.storage === true;
+  // Warn before leaving only when saving is possible; otherwise there would be no way to act on it.
+  let renderUnsaved = () => {};
+  const unsaved = createUnsavedTracker(store, (dirty) => renderUnsaved(dirty));
+  if (storage) renderUnsaved = bindUnsavedWarning(unsaved, document.getElementById('open-save'));
   bindDialogs({
-    storage: health?.data.storage === true,
-    onSave: createSaver(store, language, session),
+    storage,
+    onSave: createSaver(store, language, session, unsaved.markSaved),
     link: session ? window.location.href : '',
   });
 
