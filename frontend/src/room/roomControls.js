@@ -219,12 +219,16 @@ export function mountRoomControls({ buttonHost, viewerHost, roomState, language,
     }
   }
 
-  // Tell the viewer how much of it the panel covers (a bottom sheet on a phone covers no side).
+  // Tell the viewer how much of it the panel covers: one side, or the bottom when it is a sheet.
   const reportInset = () => {
-    const covered = !panel.hidden && !collapsed && getComputedStyle(panel).position === 'absolute' && panel.offsetWidth < viewerHost.clientWidth * 0.6;
-    const width = covered ? panel.offsetWidth + 12 : 0;
+    if (panel.hidden) {
+      onInset({ left: 0, right: 0, bottom: 0 });
+      return;
+    }
+    const sheet = panel.offsetWidth > viewerHost.clientWidth * 0.75;
+    const side = !sheet && !collapsed ? panel.offsetWidth + 12 : 0;
     const rtl = panel.getAttribute('dir') === 'rtl';
-    onInset({ left: rtl ? width : 0, right: rtl ? 0 : width });
+    onInset({ left: rtl ? side : 0, right: rtl ? 0 : side, bottom: sheet ? panel.offsetHeight + 8 : 0 });
   };
   new ResizeObserver(reportInset).observe(viewerHost);
   roomState.subscribe(render);

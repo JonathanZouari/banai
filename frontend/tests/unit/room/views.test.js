@@ -31,7 +31,7 @@ const wardrobeCorners = (design) => [0, design.dimensions.width].flatMap((x) => 
 const setups = Object.entries(DESIGNS).flatMap(([name, design]) => ['left', 'centre', 'right'].flatMap((at) => PRESET_IDS.map((preset) => ({ name, design, at, preset }))));
 
 describe('room camera views', () => {
-  for (const aspect of [1.75, 1.2]) {
+  for (const aspect of [1.75, 1.2, 0.9]) { // 0.9: a narrow view above the bottom-sheet panel
     it(`doorway and bed: the whole wardrobe in frame, nothing blocking it, a natural lens (aspect ${aspect})`, () => {
       for (const { name, design, at, preset } of setups) {
         const { placed, box } = placeFurniture(design, room(at, preset), preset);

@@ -84,9 +84,13 @@
 
 .room-check { margin-top: var(--space-3); font: var(--md-sys-typescale-label-medium); }
 
-/* Phone: the panel is a bottom sheet over the view. */
+/* A narrow 3D view (a phone, or a laptop beside the chat and properties panels): the panel becomes
+   a bottom sheet over the view, and the camera frames the part above it. */
+.viewer { container-type: inline-size; }
+@container (max-width: 640px) {
+  .room-panel { inset-inline: var(--space-2); inset-block: auto var(--space-2); width: auto; max-height: 48%; }
+}
 @media (max-width: 640px) {
-  .room-panel { inset-inline: var(--space-2); inset-block: auto var(--space-2); width: auto; max-height: 55%; }
   .room-button span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
 

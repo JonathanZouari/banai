@@ -160,15 +160,19 @@ export function createViewer(container, store, { units, room = null } = {}) {
 
   // A panel over one side of the view (the Room panel) narrows the visible frame: the camera is
   // framed for the uncovered part only (view offset), so nothing important hides behind it.
-  let inset = { left: 0, right: 0 };
+  let inset = { left: 0, right: 0, bottom: 0 };
   const resize = () => {
     const { clientWidth, clientHeight } = container;
     renderer.setSize(clientWidth, clientHeight);
     labels.setSize(clientWidth, clientHeight);
     const visible = Math.max(clientWidth - inset.left - inset.right, clientWidth * 0.45);
-    camera.aspect = visible / Math.max(clientHeight, 1);
-    if (inset.left || inset.right) camera.setViewOffset(visible, clientHeight, -Math.min(inset.left, clientWidth - visible), 0, clientWidth, clientHeight);
-    else camera.clearViewOffset();
+    const tall = Math.max(clientHeight - inset.bottom, clientHeight * 0.4);
+    camera.aspect = visible / Math.max(tall, 1);
+    if (inset.left || inset.right || inset.bottom) {
+      camera.setViewOffset(visible, tall, -Math.min(inset.left, clientWidth - visible), 0, clientWidth, clientHeight);
+    } else {
+      camera.clearViewOffset();
+    }
     camera.updateProjectionMatrix();
   };
   const resizeObserver = new ResizeObserver(resize);
@@ -206,10 +210,11 @@ export function createViewer(container, store, { units, room = null } = {}) {
     canvas: renderer.domElement,
     /** Frame a room view ('doorway' | 'bed' | 'plan' | 'overview'); does nothing with the room off. */
     showRoomView,
-    /** Pixels covered by a panel on each side of the view; the camera frames the rest. */
+    /** Pixels covered by a panel (one side, or the bottom); the camera frames the rest. */
     setFrameInset(next) {
-      if (next.left === inset.left && next.right === inset.right) return;
-      inset = { left: next.left, right: next.right };
+      const bottom = next.bottom ?? 0;
+      if (next.left === inset.left && next.right === inset.right && bottom === inset.bottom) return;
+      inset = { left: next.left, right: next.right, bottom };
       resize();
       if (room?.get().enabled) showRoomView(room.get().view, { animate: false });
     },
