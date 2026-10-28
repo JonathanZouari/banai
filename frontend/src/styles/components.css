@@ -189,6 +189,9 @@
 
 /* Interaction: ripple, press, hover */
 .btn, .icon-btn, .segmented__option, .swatch { position: relative; overflow: hidden; }
+/* Unsaved-changes dot. Inside the button, since .btn clips overflow for the ripple. */
+.btn--unsaved { padding-right: calc(var(--space-4) + 10px); }
+.btn--unsaved::after { content: ''; position: absolute; top: 50%; right: 12px; width: 7px; height: 7px; margin-top: -3.5px; border-radius: 50%; background: currentColor; }
 .ripple { position: absolute; border-radius: 50%; background: currentColor; opacity: 0.18; pointer-events: none; transform: scale(0); animation: ripple 520ms ease-out forwards; }
 .btn, .icon-btn, .segmented__option, .swatch, .compartment-row, .entry-card, .dialog { transition: background 160ms ease, border-color 160ms ease, box-shadow 200ms ease, transform 160ms ease, color 160ms ease; }
 .btn:active:not(:disabled), .icon-btn:active, .segmented__option:active { transform: scale(0.97); }

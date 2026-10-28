@@ -1,21 +1,56 @@
 // Always-visible wardrobe settings: overall dimensions, doors and main materials.
 // Inputs report their own errors inline; buttons/selects report under their section.
+import { applyOps } from '../domain/apply.js';
 import { appearanceControls } from './appearanceControls.js';
-import { actionResult, cmField, countField, el, section, segmented } from './fields.js';
+import { actionResult, cmField, countField, el, presetChips, section, segmented } from './fields.js';
 import { dimensionOps, doorTypeOps } from './opsFromForm.js';
 
-function dimensionsRow(design, run) {
-  const { width, height, depth } = design.dimensions;
+// ASSUMPTION: configurable convenience defaults (cm) for the one-click chips, NOT approved
+// business or manufacturing rules. Change them here only.
+const DIMENSION_PRESETS_CM = Object.freeze({
+  width: [150, 200, 250],
+  height: [200, 220, 240],
+  depth: [45, 55, 60],
+});
+
+/** Dry run on the current design: a preset that the domain would reject is shown disabled. */
+function isAllowed(design, catalog, ops) {
+  try {
+    applyOps(design, ops, catalog);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function dimensionField(design, catalog, run, { field, label, onPickResult }) {
+  const mm = design.dimensions[field];
+  const node = cmField({ label, mm, testId: `dim-${field}`, onCommit: (value) => run(dimensionOps(field, value)) });
+  node.append(presetChips({
+    label: `Common ${label.toLowerCase()}s (cm)`,
+    testId: `dim-${field}-presets`,
+    options: DIMENSION_PRESETS_CM[field].map((cm) => ({
+      label: String(cm),
+      pressed: cm * 10 === mm,
+      disabled: !isAllowed(design, catalog, dimensionOps(field, cm * 10)),
+      onPick: () => onPickResult(run(dimensionOps(field, cm * 10))),
+    })),
+  }));
+  return node;
+}
+
+function dimensionsRow(design, catalog, run, onPickResult) {
   return el('div', { className: 'field-row field-row--3' }, [
-    cmField({ label: 'Width', mm: width, testId: 'dim-width', onCommit: (mm) => run(dimensionOps('width', mm)) }),
-    cmField({ label: 'Height', mm: height, testId: 'dim-height', onCommit: (mm) => run(dimensionOps('height', mm)) }),
-    cmField({ label: 'Depth', mm: depth, testId: 'dim-depth', onCommit: (mm) => run(dimensionOps('depth', mm)) }),
+    dimensionField(design, catalog, run, { field: 'width', label: 'Width', onPickResult }),
+    dimensionField(design, catalog, run, { field: 'height', label: 'Height', onPickResult }),
+    dimensionField(design, catalog, run, { field: 'depth', label: 'Depth', onPickResult }),
   ]);
 }
 
 export function wardrobeSection({ design, catalog, run }) {
   const { doors } = design;
-  const wardrobe = section('Wardrobe', [dimensionsRow(design, run)]);
+  const wardrobe = section('Wardrobe', []);
+  wardrobe.append(dimensionsRow(design, catalog, run, (result) => actionResult(wardrobe, result)));
   const runDoors = (ops) => actionResult(wardrobe, run(ops));
   wardrobe.append(segmented({
     label: 'Doors',
