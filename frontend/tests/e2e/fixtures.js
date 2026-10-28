@@ -55,3 +55,18 @@ export const paintedRatio = (page) => page.evaluate(() => {
   }
   return painted / (data.length / 4);
 });
+
+/** Move the mouse onto a component (after the camera has settled) and return that point. */
+export async function hoverComponent(page, componentId) {
+  await page.waitForFunction(() => {
+    const { camera } = window.__banai.viewer;
+    const key = camera.position.toArray().map((v) => v.toFixed(5)).join();
+    const settled = window.__lastHoverKey === key;
+    window.__lastHoverKey = key;
+    return settled;
+  }, null, { polling: 100 });
+  const point = await page.evaluate((id) => window.__banai.viewer.screenPointOf(id), componentId);
+  await page.mouse.move(point.x - 3, point.y - 3);
+  await page.mouse.move(point.x, point.y);
+  return point;
+}
