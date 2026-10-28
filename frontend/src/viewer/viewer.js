@@ -11,13 +11,16 @@ import { createDimensions } from './dimensions.js';
 import { createHighlighter } from './highlight.js';
 import { createMaterials } from './materials.js';
 import { attachPicking } from './picking.js';
+import { toM } from './units.js';
+import { createRoomScene } from '../room/roomScene.js';
 
 const BACKGROUND = '#eceeec';
 
 function createScene() {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(BACKGROUND);
-  scene.add(new THREE.HemisphereLight('#ffffff', '#c9c4b8', 2.2));
+  const hemi = new THREE.HemisphereLight('#ffffff', '#c9c4b8', 2.2);
+  scene.add(hemi);
   const key = new THREE.DirectionalLight('#ffffff', 1.6);
   key.position.set(3, 5, 4);
   scene.add(key);
@@ -27,7 +30,7 @@ function createScene() {
   const grid = new THREE.GridHelper(12, 24, '#c9ccc8', '#dcdfdb');
   grid.position.y = -0.0005;
   scene.add(grid);
-  return scene;
+  return { scene, lights: { hemi, key, fill }, grid };
 }
 
 /** Map a raycast hit to a selectable component id (the back panel selects its compartment). */
@@ -41,7 +44,8 @@ function componentAt(hit, design) {
   return index >= 0 ? design.compartments[index].id : componentId;
 }
 
-export function createViewer(container, store, { units } = {}) {
+/** `room` (optional): the room setup (room/roomState.js), shown around the wardrobe when enabled. */
+export function createViewer(container, store, { units, room = null } = {}) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -53,7 +57,7 @@ export function createViewer(container, store, { units } = {}) {
   labels.domElement.className = 'viewer-labels';
   container.appendChild(labels.domElement);
 
-  const scene = createScene();
+  const { scene, lights, grid } = createScene();
   const camera = new THREE.PerspectiveCamera(40, 1, 0.05, 60);
   const controls = new OrbitControls(camera, renderer.domElement);
   Object.assign(controls, { enableDamping: true, minDistance: 0.6, maxDistance: 14, maxPolarAngle: Math.PI / 2 - 0.02 });
@@ -62,10 +66,12 @@ export function createViewer(container, store, { units } = {}) {
   const highlighter = createHighlighter(scene);
   const dimensions = createDimensions(scene);
   let group = null;
-  let rendered = { design: null, doorsVisible: null, selection: undefined, dimsKey: null, focusKey: null };
+  let rendered = { design: null, doorsVisible: null, selection: undefined, dimsKey: null, focusKey: null, room: null };
   const flight = createFlight(camera, controls);
   controls.addEventListener('start', () => flight.cancel()); // the customer took the camera: stop moving it
   const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+  // Decoration only: the room never reads or writes the design, and is never picked as a part.
+  const roomScene = room ? createRoomScene({ scene, lights, grid }) : null;
 
   const fitCamera = (design) => {
     const { target, position } = overviewPose(design, camera.fov);
@@ -92,6 +98,7 @@ export function createViewer(container, store, { units } = {}) {
   const sync = (state) => {
     const { design, ui, selection } = state;
     const geometryChanged = design !== rendered.design || ui.doorsVisible !== rendered.doorsVisible;
+    let sizeChanged = false;
     if (geometryChanged) {
       if (group) {
         scene.remove(group);
@@ -102,9 +109,11 @@ export function createViewer(container, store, { units } = {}) {
       materials.retainOnly(new Set(group.children.map((mesh) => mesh.material)));
       const { width, height, depth } = design.dimensions;
       const dimsKey = `${width}x${height}x${depth}`;
-      if (dimsKey !== rendered.dimsKey) fitCamera(design);
+      sizeChanged = dimsKey !== rendered.dimsKey;
+      if (sizeChanged && !room?.get().enabled) fitCamera(design);
       rendered = { ...rendered, design, doorsVisible: ui.doorsVisible, dimsKey };
     }
+    if (roomScene && (geometryChanged || room.get() !== rendered.room)) syncRoom(design, sizeChanged);
     if (geometryChanged || selection !== rendered.selection) {
       highlighter.update(group, design, selection);
       dimensions.update(group, design, selection, units?.get());
@@ -112,6 +121,24 @@ export function createViewer(container, store, { units } = {}) {
       focusSelection(design, selection);
     }
   };
+
+  // The room follows the design's size and the room setup. Entering it moves the camera inside;
+  // leaving it frames the wardrobe exactly as before.
+  function syncRoom(design, sizeChanged) {
+    const setup = room.get();
+    const wasOn = rendered.room?.enabled === true;
+    const box = roomScene.update(design, setup);
+    rendered = { ...rendered, room: setup };
+    if (box && (!wasOn || sizeChanged)) placeInRoom(design, box);
+    if (!box && wasOn) fitCamera(design);
+  }
+
+  function placeInRoom(design, box) {
+    const { width, height, depth } = design.dimensions;
+    camera.position.set(toM((box.door.x0 + box.door.x1) / 2), 1.65, toM(box.zFront) - 0.3);
+    controls.target.set(toM(width / 2), toM(height) * 0.45, -toM(depth) / 2);
+    controls.update();
+  }
 
   const resize = () => {
     const { clientWidth, clientHeight } = container;
@@ -138,11 +165,13 @@ export function createViewer(container, store, { units } = {}) {
     const { design, selection } = store.getState();
     dimensions.update(group, design, selection, units.get());
   });
+  const unsubscribeRoom = room ? room.subscribe(() => sync(store.getState())) : () => {};
   sync(store.getState());
 
   renderer.setAnimationLoop((now) => {
     flight.step(now);
     controls.update();
+    roomScene?.frame(camera);
     renderer.render(scene, camera);
     labels.render(scene, camera);
   });
@@ -164,6 +193,8 @@ export function createViewer(container, store, { units } = {}) {
       renderer.setAnimationLoop(null);
       unsubscribe();
       unsubscribeUnits?.();
+      unsubscribeRoom();
+      roomScene?.dispose();
       detachPicking();
       resizeObserver.disconnect();
       if (group) disposeWardrobe(group);

@@ -1,0 +1,88 @@
+/* The room around the wardrobe: the "View in a room" button, its one-time hint and the Room panel
+   over the 3D view (room/roomControls.js). App tokens only; AA contrast on every surface used. */
+.room-anchor { position: relative; display: inline-flex; }
+
+.room-button { gap: var(--space-2); padding-inline: var(--space-4) 18px; border: 1px solid var(--md-sys-color-primary); }
+.room-button .icon { color: var(--md-sys-color-primary); }
+.room-button--on { background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); }
+.room-button--on .icon { color: var(--md-sys-color-on-primary); }
+
+/* One-time hint, under the button. Not modal: it never takes focus. */
+.room-hint {
+  position: absolute;
+  inset-block-start: calc(100% + 10px);
+  inset-inline-start: 0;
+  z-index: 30;
+  display: flex;
+  gap: var(--space-3);
+  width: min(340px, calc(100vw - 32px));
+  padding: var(--space-4);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-large);
+  background: var(--md-sys-color-surface-container-lowest);
+  color: var(--md-sys-color-on-surface);
+  box-shadow: var(--md-sys-elevation-3);
+  animation: rise-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.room-hint__icon { display: grid; flex: none; place-items: center; width: 40px; height: 40px; border-radius: var(--md-sys-shape-medium); background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); }
+.room-hint__title { margin: 0 0 var(--space-1); font: var(--md-sys-typescale-title-small); }
+.room-hint__text { margin: 0 0 var(--space-3); color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-small); }
+
+/* The Room panel: a card over the view's inline-end side. */
+.room-panel {
+  position: absolute;
+  inset-block-start: var(--space-3);
+  inset-inline-end: var(--space-3);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  width: 296px;
+  max-height: calc(100% - 2 * var(--space-3));
+  overflow: hidden;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-large);
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--md-sys-color-on-surface);
+  box-shadow: var(--md-sys-elevation-1);
+}
+.room-panel__header { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4); color: var(--md-sys-color-primary); }
+[dir="rtl"] .room-panel__header { padding: var(--space-2) var(--space-4) var(--space-2) var(--space-2); }
+.room-panel__title { flex: 1; margin: 0; color: var(--md-sys-color-on-surface); font: var(--md-sys-typescale-title-medium); }
+.room-panel__collapse .icon { transition: transform 200ms ease; }
+.room-panel--collapsed .room-panel__collapse .icon { transform: rotate(180deg); }
+.room-panel__body { overflow-y: auto; padding: 0 var(--space-4) var(--space-4); }
+.room-panel__note { margin: 0 0 var(--space-2); color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-small); }
+.room-panel__notice { margin: var(--space-2) 0 0; padding: var(--space-1) var(--space-2); border-radius: var(--md-sys-shape-small); background: #fff6dc; color: #3d2f00; font: var(--md-sys-typescale-body-small); }
+.room-panel__section { margin: var(--space-3) 0 var(--space-2); color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-label-small); letter-spacing: 0.04em; text-transform: uppercase; }
+
+.room-size { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+.room-size__field label { display: block; margin-bottom: 2px; color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-label-small); }
+.room-size__box { display: flex; align-items: center; gap: var(--space-1); }
+.room-size__input { width: 100%; min-width: 0; padding: 6px var(--space-2); font-variant-numeric: tabular-nums; appearance: textfield; -moz-appearance: textfield; }
+.room-size__input::-webkit-inner-spin-button, .room-size__input::-webkit-outer-spin-button { appearance: none; margin: 0; }
+.room-size__unit { color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-small); }
+
+.room-seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.room-seg__option {
+  padding: 6px var(--space-3);
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: var(--md-sys-shape-full);
+  background: var(--md-sys-color-surface-container-lowest);
+  color: var(--md-sys-color-on-surface);
+  font: var(--md-sys-typescale-label-medium);
+  cursor: pointer;
+}
+.room-seg__option:hover { background: var(--md-sys-color-surface-container-low); }
+.room-seg__option[aria-pressed="true"] { border-color: var(--md-sys-color-primary); background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); }
+.room-seg__option:focus-visible, .room-size__input:focus-visible, .room-button:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
+
+/* Phone: the panel is a bottom sheet over the view. */
+@media (max-width: 640px) {
+  .room-panel { inset-inline: var(--space-2); inset-block: auto var(--space-2); width: auto; max-height: 55%; }
+  .room-button span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .room-hint { animation: none; }
+  .room-panel__collapse .icon { transition: none; }
+}
