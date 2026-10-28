@@ -403,3 +403,49 @@ def test_unexpected_errors_use_the_envelope_without_details(monkeypatch):
     get_settings.cache_clear()
     assert response.status_code == 500 and "secret" not in response.text
     assert response.json()["error"]["code"] == "INTERNAL_ERROR"
+
+
+def test_create_wardrobe_after_other_ops_is_sent_back(make_client):
+    # Seen live: "make it 240 wide" came back as update_dimensions + create_wardrobe, which wiped every item and door.
+    resize_then_replace = [
+        {"op": "update_dimensions", "width": 2400},
+        {"op": "create_wardrobe", "width": 2400, "height": 2400, "depth": 600, "compartmentCount": 3},
+    ]
+    fake = FakeClient(
+        completion(calls=[tool_call(PROPOSE, propose(resize_then_replace), "call_a")]),
+        completion(calls=[tool_call(PROPOSE, propose([{"op": "update_dimensions", "width": 2400}]), "call_b")]),
+    )
+    data = make_client(fake).post("/api/chat", json=chat_body("Make it 240 cm wide")).json()["data"]
+    assert [op["op"] for op in data["proposal"]["ops"]] == ["update_dimensions"]
+    repair = fake.requests[1]["messages"][-1]
+    assert repair["tool_call_id"] == "call_a"
+    assert "update_dimensions" in repair["content"]
+
+
+def test_create_wardrobe_as_the_first_op_is_allowed(make_client):
+    new_wardrobe = [{"op": "create_wardrobe", "width": 2400, "height": 2600, "depth": 600, "compartmentCount": 3}]
+    fake = FakeClient(completion(calls=[tool_call(PROPOSE, propose(new_wardrobe))]))
+    data = make_client(fake).post("/api/chat", json=chat_body("A new wardrobe, 240 wide and 260 tall")).json()["data"]
+    assert data["proposal"]["ops"][0]["op"] == "create_wardrobe"
+
+
+@pytest.mark.parametrize("ys", [[40, 80, 120, 160], [418]])  # seen live; 418 sits right on shf_l1 (400 + 18)
+def test_shelves_stacked_too_close_are_sent_back(make_client, ys):
+    crammed = [{"op": "add_shelf", "compartmentId": "cmp_left", "y": y} for y in ys]
+    fake = FakeClient(
+        completion(calls=[tool_call(PROPOSE, propose(crammed), "call_a")]),
+        completion(calls=[tool_call(PROPOSE, propose([ADD_SHELF]), "call_b")]),
+    )
+    data = make_client(fake).post("/api/chat", json=chat_body()).json()["data"]
+    assert data["proposal"]["ops"][0]["y"] == 1000
+    assert "150 mm" in fake.requests[1]["messages"][-1]["content"]
+
+
+def test_shelf_gap_is_configurable_and_in_the_prompt(make_client, monkeypatch):
+    monkeypatch.setenv("MIN_SHELF_GAP_MM", "10")
+    get_settings.cache_clear()
+    close = {"op": "add_shelf", "compartmentId": "cmp_left", "y": 430}  # 12 mm above shf_l1
+    fake = FakeClient(completion(calls=[tool_call(PROPOSE, propose([close]))]))
+    data = make_client(fake).post("/api/chat", json=chat_body()).json()["data"]
+    assert data["proposal"]["ops"][0]["y"] == 430
+    assert "at least 10 mm" in fake.requests[0]["messages"][0]["content"]

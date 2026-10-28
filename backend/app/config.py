@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     chat_rate_limit: str = "20/minute"
     # Global ceiling on OpenAI-backed chat requests per hour (all clients), a spend guard.
     chat_hourly_cap: int = 300
+    # ASSUMPTION: configurable default. Least clear space (mm) between shelves the agent proposes
+    # (app/agent/prompts.py DEFAULT_MIN_SHELF_GAP_MM).
+    min_shelf_gap_mm: int = 150
     # Saved designs and the carpenter PDF: per-IP limits, and a global hourly ceiling on new designs.
     designs_rate_limit: str = "30/minute"
     designs_hourly_cap: int = 200

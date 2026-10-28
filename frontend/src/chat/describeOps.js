@@ -7,7 +7,7 @@ const words = (catalogId) => String(catalogId ?? '').replace(/_/g, ' ');
 const lengthIn = (unitName, unit) => (mm) => `${compactLength(Number(mm) || 0, unit)} ${unitName}`;
 
 const DESCRIBE = {
-  create_wardrobe: (o, len) => ['New wardrobe', `${len(o.width)} × ${len(o.height)} × ${len(o.depth)}, ${o.compartmentCount} compartments`],
+  create_wardrobe: (o, len) => ['New wardrobe', `${len(o.width)} × ${len(o.height)} × ${len(o.depth)}, ${o.compartmentCount} compartments. Replaces the whole design`],
   update_dimensions: (o, len) => ['Dimensions', ['width', 'height', 'depth'].filter((k) => o[k] != null).map((k) => `${k} ${len(o[k])}`).join(', ')],
   configure_doors: (o) => ['Doors', o.type === 'none' ? 'No doors' : `${o.type}${o.count ? `, ${o.count} doors` : ''}`],
   add_compartment: (o, len) => ['Add compartment', `${len(o.width)} wide at position ${o.position + 1}`],
@@ -49,7 +49,7 @@ const HE_HANDLE = {
 };
 
 const DESCRIBE_HE = {
-  create_wardrobe: (o, len) => ['ארון חדש', `${len(o.width)} × ${len(o.height)} × ${len(o.depth)}, ${o.compartmentCount} תאים`],
+  create_wardrobe: (o, len) => ['ארון חדש', `${len(o.width)} × ${len(o.height)} × ${len(o.depth)}, ${o.compartmentCount} תאים. מחליף את כל העיצוב`],
   update_dimensions: (o, len) => ['מידות', ['width', 'height', 'depth'].filter((k) => o[k] != null).map((k) => `${HE_DIMENSION[k]} ${len(o[k])}`).join(', ')],
   configure_doors: (o) => ['דלתות', o.type === 'none' ? 'ללא דלתות' : `${HE_DOOR_TYPE[o.type] ?? o.type}${o.count ? `, ${o.count} דלתות` : ''}`],
   add_compartment: (o, len) => ['הוספת תא', `ברוחב ${len(o.width)} במקום ${o.position + 1}`],

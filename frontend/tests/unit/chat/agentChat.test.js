@@ -82,6 +82,12 @@ describe('describeOps', () => {
     expect(describeOps(ops).map((r) => r.detail)).toEqual(['long bar, brass', 'no handles', 'middle: mirror']);
     expect(describeOps(ops, 'he').map((r) => r.detail)).toEqual(['מוט ארוך, פליז', 'ללא ידיות', 'דלת אמצעית: מראה']);
   });
+
+  it('says a new wardrobe replaces the whole design', () => {
+    const ops = [{ op: 'create_wardrobe', width: 2400, height: 2400, depth: 600, compartmentCount: 3 }];
+    expect(describeOps(ops)[0].detail).toBe('240 cm × 240 cm × 60 cm, 3 compartments. Replaces the whole design');
+    expect(describeOps(ops, 'he')[0].detail).toBe('240 ס״מ × 240 ס״מ × 60 ס״מ, 3 תאים. מחליף את כל העיצוב');
+  });
 });
 
 describe('postChat / applyProposal', () => {

@@ -144,7 +144,7 @@ def chat(
         result = run_turn(
             client=client, model=settings.chat_model, messages=[m.model_dump() for m in body.messages],
             design=design, revision=body.revision, catalog=catalog, signing_key=get_signing_key(),
-            language=body.language, units=body.units,
+            language=body.language, units=body.units, min_shelf_gap=settings.min_shelf_gap_mm,
         )
     except AgentUnavailable as exc:
         return provider_error(exc, body.language)

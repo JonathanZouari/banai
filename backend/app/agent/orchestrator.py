@@ -16,7 +16,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from app.agent.language import FALLBACK_REPLY, OFF_TOPIC_REPLY, REMINDER, Language, off_language, reply_language
-from app.agent.prompts import Units, build_system_prompt
+from app.agent.prompts import DEFAULT_MIN_SHELF_GAP_MM, Units, build_system_prompt
 from app.agent.tools import ANSWER, CLARIFY, DECLINE, OFFER, PROPOSE, TOOLS, AnswerArgs, ClarifyArgs, OfferArgs, ProposeArgs
 from app.domain import ids
 from app.domain.apply import apply_ops
@@ -68,6 +68,30 @@ def fill_ids(ops: list[dict]) -> list[dict]:
     return filled
 
 
+def proposal_problem(ops: list[dict], updated: dict, min_shelf_gap: int) -> str | None:
+    """Engine-valid batches the customer would still not want; the reason goes back to the model.
+
+    - create_wardrobe after other ops erases what they did (and every existing item) behind a
+      summary that reads like a small edit.
+    - New shelves closer than `min_shelf_gap` mm (clear space) to another shelf in the same
+      compartment, e.g. four shelves stacked at y 0/18/36/54.
+    """
+    if any(op.get("op") == "create_wardrobe" for op in ops[1:]):
+        return ("create_wardrobe replaces the whole design and erases every shelf, drawer, rail and door. "
+                "To resize the current wardrobe use update_dimensions only; use create_wardrobe only as the "
+                "first op when the customer asks for a new wardrobe.")
+    new_shelves = {op["id"] for op in ops if op.get("op") == "add_shelf"}
+    for compartment in updated["compartments"]:
+        shelves = sorted(compartment["shelves"], key=lambda s: s["y"])
+        for lower, upper in zip(shelves, shelves[1:]):
+            gap = upper["y"] - (lower["y"] + lower["thickness"])
+            if gap < min_shelf_gap and (lower["id"] in new_shelves or upper["id"] in new_shelves):
+                return (f"Shelves {lower['id']} (y {lower['y']}) and {upper['id']} (y {upper['y']}) in "
+                        f"{compartment['id']} leave only {gap} mm between them. Keep at least {min_shelf_gap} mm "
+                        "of clear space between shelves: spread new shelves evenly inside a freeY gap (in mm).")
+    return None
+
+
 def _history(messages: list[dict]) -> list[dict]:
     return [{"role": m["role"], "content": m["text"]} for m in messages[-HISTORY_WINDOW:]]
 
@@ -90,11 +114,12 @@ def _build_proposal(args: ProposeArgs, ops: list[dict], revision: int, base_hash
 
 
 def run_turn(*, client: Any, model: str, messages: list[dict], design: dict, revision: int,
-             catalog: dict, signing_key: bytes, language: Language = "he", units: Units = "cm") -> TurnResult:
+             catalog: dict, signing_key: bytes, language: Language = "he", units: Units = "cm",
+             min_shelf_gap: int = DEFAULT_MIN_SHELF_GAP_MM) -> TurnResult:
     """`design` must already be canonical (parsed and validated). The reply is in the language of the
     latest customer message; `language` (the chat's choice) is the fallback when it has no letters."""
     language = reply_language(messages, language)
-    conversation: list[dict] = [{"role": "system", "content": build_system_prompt(design, catalog, language, units)}, *_history(messages)]
+    conversation: list[dict] = [{"role": "system", "content": build_system_prompt(design, catalog, language, units, min_shelf_gap)}, *_history(messages)]
     base_hash = signing.design_hash(design)
 
     for _ in range(MAX_REPAIRS + 1):
@@ -136,7 +161,11 @@ def run_turn(*, client: Any, model: str, messages: list[dict], design: dict, rev
             elif call.function.name == PROPOSE:
                 args = ProposeArgs.model_validate(arguments)
                 ops = fill_ids(args.ops)
-                apply_ops(design, ops, catalog)  # dry run on the engine's private copy
+                updated = apply_ops(design, ops, catalog)  # dry run on the engine's private copy
+                problem = proposal_problem(ops, updated, min_shelf_gap)
+                if problem:
+                    conversation.append(_tool_message(call.id, {"error": problem, "hint": "Fix the ops and call propose_changes again."}))
+                    continue
                 result = TurnResult(reply=args.reply, proposal=_build_proposal(args, ops, revision, base_hash, signing_key))
             else:
                 raise ValueError(f"unknown tool {call.function.name!r}")
