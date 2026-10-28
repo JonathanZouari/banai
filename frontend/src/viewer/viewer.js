@@ -9,10 +9,14 @@ import { frameOf } from './builders/frame.js';
 import { createDimensions } from './dimensions.js';
 import { createHighlighter } from './highlight.js';
 import { createMaterials } from './materials.js';
+import { resolveSelection } from '../state/store.js';
+import { describeSelection } from './format.js';
 import { attachPicking } from './picking.js';
 import { toM } from './units.js';
 
 const BACKGROUND = '#eceeec';
+// Tooltip offset from the pointer (px), so the label never sits under the cursor.
+const TOOLTIP_OFFSET = { x: 14, y: 18 };
 
 function createScene() {
   const scene = new THREE.Scene();
@@ -107,12 +111,39 @@ export function createViewer(container, store) {
   resizeObserver.observe(container);
   resize();
 
+  // Hover tooltip. Decorative (the canvas is role="img" and every part is listed in the panel).
+  const tooltip = document.createElement('div');
+  tooltip.className = 'viewer-tooltip';
+  tooltip.setAttribute('aria-hidden', 'true');
+  tooltip.hidden = true;
+  container.appendChild(tooltip);
+
+  const showTooltip = (text, event) => {
+    tooltip.textContent = text;
+    tooltip.hidden = false;
+    const rect = container.getBoundingClientRect();
+    let x = event.clientX - rect.left + TOOLTIP_OFFSET.x;
+    let y = event.clientY - rect.top + TOOLTIP_OFFSET.y;
+    // Flip to the other side of the pointer near the right/bottom edges.
+    if (x + tooltip.offsetWidth > rect.width) x = event.clientX - rect.left - TOOLTIP_OFFSET.x - tooltip.offsetWidth;
+    if (y + tooltip.offsetHeight > rect.height) y = event.clientY - rect.top - TOOLTIP_OFFSET.y - tooltip.offsetHeight;
+    tooltip.style.transform = `translate(${Math.max(0, x)}px, ${Math.max(0, y)}px)`;
+  };
+
+  const onHover = (hit, event) => {
+    const { design } = store.getState();
+    const selection = resolveSelection(design, componentAt(hit, design));
+    renderer.domElement.style.cursor = selection ? 'pointer' : '';
+    if (selection) showTooltip(describeSelection(design, selection), event);
+    else tooltip.hidden = true;
+  };
+
   const detachPicking = attachPicking({
     dom: renderer.domElement,
     camera,
     getTargets: () => (group ? group.children : []),
     onPick: (hit) => store.select(componentAt(hit, store.getState().design)),
-    onHover: (hit) => { renderer.domElement.style.cursor = hit?.object.userData.componentId ? 'pointer' : ''; },
+    onHover,
   });
   const unsubscribe = store.subscribe(sync);
   sync(store.getState());
@@ -140,6 +171,7 @@ export function createViewer(container, store) {
       renderer.setAnimationLoop(null);
       unsubscribe();
       detachPicking();
+      tooltip.remove();
       resizeObserver.disconnect();
       if (group) disposeWardrobe(group);
       highlighter.dispose();
