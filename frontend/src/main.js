@@ -13,6 +13,8 @@ import { mountPanel } from './editor/panel.js';
 import { createViewer } from './viewer/viewer.js';
 import { createUnitPreference } from './units/displayUnits.js';
 import { createUnitSelector } from './units/unitSelector.js';
+import { createRoomState } from './room/roomState.js';
+import { mountRoomControls } from './room/roomControls.js';
 import { renderSnapshot } from './viewer/snapshot.js';
 import { createChatModel } from './chat/chatModel.js';
 import { createLanguage } from './chat/i18n.js';
@@ -121,8 +123,29 @@ async function boot() {
   // Validates the server data before anything is rendered (throws on invalid data).
   const store = createStore({ design: initial.design, revision: initial.revision, catalog });
   const units = createUnitPreference();
-  const viewer = createViewer(document.getElementById('viewer'), store, { units });
+  // The room around the wardrobe: decoration only, kept apart from the design (never saved or sent).
+  const roomState = createRoomState();
+  const viewer = createViewer(document.getElementById('viewer'), store, { units, room: roomState });
   createUnitSelector({ container: document.getElementById('unit-selector'), units });
+  const roomControls = mountRoomControls({
+    buttonHost: document.querySelector('.topbar__actions'),
+    viewerHost: document.getElementById('viewer'),
+    roomState,
+    language,
+    getDesign: () => store.getState().design,
+    units,
+    onView: (view) => {
+      roomState.set({ view });
+      viewer.showRoomView(view);
+    },
+    onInset: (inset) => viewer.setFrameInset(inset),
+  });
+  let roomSizeKey = '';
+  store.subscribe(({ design }) => {
+    const key = JSON.stringify(design.dimensions);
+    if (key !== roomSizeKey) roomControls.refresh();
+    roomSizeKey = key;
+  });
   bindInteriorToggle(store);
   bindSkipLink();
   const exporter = createExportDialog({
@@ -174,13 +197,20 @@ async function boot() {
   store.subscribe(() => chat.refresh());
   const tour = createTour({ language });
   bindTourButton(tour, language);
+  // The "View in a room" hint never shows on top of the onboarding tour: it waits until the tour
+  // ends or is skipped (the tour itself is unchanged).
+  const introduceRoom = () => {
+    if (tour.isOpen()) tour.element.addEventListener('close', () => roomControls.showHintIfNew(), { once: true });
+    else roomControls.showHintIfNew();
+  };
 
   if (import.meta.env.DEV) {
-    window.__banai = Object.freeze({ store, viewer, chat: chatModel });
+    window.__banai = Object.freeze({ store, viewer, chat: chatModel, room: roomState });
   }
 
   if (session) {
     tour.startIfNew(); // reopened from a link: straight into the editor
+    introduceRoom();
     return;
   }
   mountStartScreen({
@@ -190,6 +220,7 @@ async function boot() {
       if (entry.focusesChat) chat.focus(entry.id);
       else document.getElementById('properties-panel').focus();
       tour.startIfNew();
+      introduceRoom();
     },
   });
 }
