@@ -19,7 +19,7 @@ import { mountStartScreen } from './entry/startScreen.js';
 import { createSaveDialog } from './share/saveDialog.js';
 import { parseShareHash, shareHash } from './share/link.js';
 import { createExportDialog } from './export/exportDialog.js';
-import { createRenderDialog } from './render/renderDialog.js';
+import { createRenderDialog, RENDER_SNAPSHOT_SIZE } from './render/renderDialog.js';
 import { createLogo } from './ui/logo.js';
 import { installRipple } from './ui/ripple.js';
 
@@ -77,9 +77,9 @@ function createSaver(store, language, initialSession) {
   };
 }
 
-function bindDialogs({ storage, onSave, link }) {
+function bindDialogs({ storage, onSave, link, render: renderOptions }) {
   const save = createSaveDialog({ available: storage, onSave, link });
-  const render = createRenderDialog();
+  const render = createRenderDialog(renderOptions);
   document.getElementById('open-save').addEventListener('click', save.open);
   document.getElementById('open-render').addEventListener('click', render.open);
 }
@@ -116,6 +116,12 @@ async function boot() {
     storage: health?.data.storage === true,
     onSave: createSaver(store, language, session),
     link: session ? window.location.href : '',
+    render: {
+      available: health?.data.render === true,
+      getState: () => store.getState(),
+      getLanguage: () => language.get(),
+      getSnapshot: (design, catalog) => renderSnapshot(design, catalog, RENDER_SNAPSHOT_SIZE),
+    },
   });
 
   // The agent is optional: without an OpenAI key on the server the panel says so honestly.
