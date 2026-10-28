@@ -195,4 +195,32 @@ test.describe('last designs archive', () => {
     const raw = await page.evaluate(() => localStorage.getItem('banai.archive.v1'));
     expect(raw).not.toMatch(/#d=|token/i);
   });
+
+  test('the BanAI logo leads back to the start screen, and the work in progress is kept', async ({ page }) => {
+    await makeEntry(page, 2300);
+    await expect(page.getByTestId('start-screen')).toHaveCount(0);
+    await expect(page.getByTestId('home-link')).toHaveAttribute('href', '/');
+    await page.getByTestId('home-link').click();
+    await expect(page.getByTestId('start-screen')).toBeVisible();
+    await expect(page.getByTestId('archive-count')).toHaveText('1');
+  });
+
+  test('the logo also leaves a reopened private link and shows the start screen', async ({ page }) => {
+    await openDesigner(page);
+    await page.getByTestId('open-save').click();
+    await page.getByTestId('save-confirm').click();
+    await expect(page.getByTestId('share-link')).toHaveValue(/#d=/);
+    await page.getByTestId('save-close').click();
+    await expect(page).toHaveURL(/#d=/);
+    await page.getByTestId('home-link').click();
+    await expect(page.getByTestId('start-screen')).toBeVisible();
+    expect(new URL(page.url()).hash).toBe('');
+  });
+
+  test('the logo link can be reached and used with the keyboard', async ({ page }) => {
+    await openDesigner(page);
+    await page.getByTestId('home-link').focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('start-screen')).toBeVisible();
+  });
 });

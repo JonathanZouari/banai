@@ -1,4 +1,5 @@
-// The three ways to start (spec section 6). All of them land in the same editor and data model.
+// The ways to start a design (spec section 6; "Last designs" is the third card, see startScreen.js).
+// All of them land in the same editor and data model.
 export const ENTRY_POINTS = Object.freeze([
   Object.freeze({
     id: 'guided',
@@ -7,14 +8,6 @@ export const ENTRY_POINTS = Object.freeze([
     description: 'Answer a few questions and the AI designer will propose a wardrobe for you to confirm.',
     action: 'Start guided flow',
     focusesChat: true, // placeholder text per language: i18n/strings.js hintGuided
-  }),
-  Object.freeze({
-    id: 'freeText',
-    icon: 'edit',
-    title: 'Describe it',
-    description: 'Type your wardrobe in your own words. The AI designer turns it into a proposal you approve.',
-    action: 'Enter description',
-    focusesChat: true, // hintFreeText
   }),
   Object.freeze({
     id: 'basic',
