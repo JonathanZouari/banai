@@ -4,6 +4,7 @@
 
 import { PRESET_IDS } from './placement.js';
 import { VIEW_IDS } from './views.js';
+import { FLOOR_IDS, LIGHT_IDS, WALL_IDS } from './look.js';
 
 const STORAGE_KEY = 'banai.room.v1';
 
@@ -14,6 +15,9 @@ export const ROOM_DEFAULTS = Object.freeze({
   wardrobeAt: 'centre',
   preset: 'couple',
   view: 'doorway',
+  wall: 'warm',
+  floor: 'wood',
+  light: 'morning',
   hintSeen: false,
 });
 export const ROOM_SIZE_LIMITS = Object.freeze({ width: [2000, 8000], length: [2000, 8000], height: [2200, 4000] });
@@ -34,6 +38,9 @@ export function sanitizeRoom(raw) {
     wardrobeAt: WARDROBE_POSITIONS.includes(room.wardrobeAt) ? room.wardrobeAt : ROOM_DEFAULTS.wardrobeAt,
     preset: PRESET_IDS.includes(room.preset) ? room.preset : ROOM_DEFAULTS.preset,
     view: VIEW_IDS.includes(room.view) ? room.view : ROOM_DEFAULTS.view,
+    wall: WALL_IDS.includes(room.wall) ? room.wall : ROOM_DEFAULTS.wall,
+    floor: FLOOR_IDS.includes(room.floor) ? room.floor : ROOM_DEFAULTS.floor,
+    light: LIGHT_IDS.includes(room.light) ? room.light : ROOM_DEFAULTS.light,
     hintSeen: room.hintSeen === true,
   };
 }

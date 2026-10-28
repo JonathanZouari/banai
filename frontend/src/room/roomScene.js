@@ -6,27 +6,21 @@
 import * as THREE from 'three';
 import { toM } from '../viewer/units.js';
 import { roomBox, wardrobeFootprint } from './layout.js';
-import { FLOOR_TILE_M, floorTexture, softShadowTexture, viewTexture } from './textures.js';
+import { FLOOR_TILE_M, floorTexture, softGlowTexture, softShadowTexture, viewTexture } from './textures.js';
+import { FLOORS, LIGHT_MOODS, WALL_COLORS } from './look.js';
 import { FURNITURE } from './catalog.js';
 import { buildFurniture, createFurnitureMaterials } from './furniture.js';
 import { placeFurniture } from './placement.js';
 
-// ASSUMPTION: visual palette, chosen so the white wardrobe stays clearly lighter than the walls.
+// ASSUMPTION: visual palette for the fixed parts; walls, floors and light moods are in look.js.
 export const ROOM_LOOK = Object.freeze({
-  wall: '#e2d6c5',
   ceiling: '#f4efe8',
   trim: '#f6f2ec',
-  floor: Object.freeze({ kind: 'wood', color: '#b98d63' }),
-  outside: '#e9e4df',
   corridor: '#d8cdbf',
 });
 
-const LIGHTS = Object.freeze({
-  background: ROOM_LOOK.outside,
-  hemi: { sky: '#fff8ee', ground: '#a8937a', intensity: 1.35 },
-  key: { color: '#fff0d8', intensity: 2.1 },
-  fill: { color: '#eef1ff', intensity: 0.75 },
-});
+/** The look for a room setup: wall colour, floor and the light mood. */
+const lookOf = (room) => ({ wall: WALL_COLORS[room.wall], floor: FLOORS[room.floor], mood: LIGHT_MOODS[room.light], evening: room.light === 'evening' });
 
 const m = toM;
 const standard = (color, roughness = 0.9) => new THREE.MeshStandardMaterial({ color, roughness });
@@ -120,14 +114,17 @@ function buildRoom(design, room, look, textures) {
   const [wa, wb, wy0, wy1] = [m(win.z0) - zb, m(win.z1) - zb, m(win.y0), m(win.y1)];
   right.add(wallMesh(materials.wall, length, h, [[wa, wb, wy0, wy1]]));
   skirting(right, 0, length);
+  // The frame sits inside the room (only 1 cm reaches past the wall plane), so nothing sticks out
+  // of the wall in the floor plan or from outside.
   const frame = 0.05;
-  const depth = 0.14;
+  const depth = 0.12;
+  const inward = depth / 2 - 0.01;
   right.add(
-    boxMesh(materials.trim, [wb - wa + 2 * frame, frame, depth], [(wa + wb) / 2, wy1 + frame / 2, -depth / 2 + 0.03]),
-    boxMesh(materials.trim, [wb - wa + 2 * frame, frame, depth], [(wa + wb) / 2, wy0 - frame / 2, -depth / 2 + 0.03]),
-    boxMesh(materials.trim, [frame, wy1 - wy0, depth], [wa - frame / 2, (wy0 + wy1) / 2, -depth / 2 + 0.03]),
-    boxMesh(materials.trim, [frame, wy1 - wy0, depth], [wb + frame / 2, (wy0 + wy1) / 2, -depth / 2 + 0.03]),
-    boxMesh(materials.trim, [0.035, wy1 - wy0, 0.05], [(wa + wb) / 2, (wy0 + wy1) / 2, -0.04]),
+    boxMesh(materials.trim, [wb - wa + 2 * frame, frame, depth], [(wa + wb) / 2, wy1 + frame / 2, inward]),
+    boxMesh(materials.trim, [wb - wa + 2 * frame, frame, depth], [(wa + wb) / 2, wy0 - frame / 2, inward]),
+    boxMesh(materials.trim, [frame, wy1 - wy0, depth], [wa - frame / 2, (wy0 + wy1) / 2, inward]),
+    boxMesh(materials.trim, [frame, wy1 - wy0, depth], [wb + frame / 2, (wy0 + wy1) / 2, inward]),
+    boxMesh(materials.trim, [0.035, wy1 - wy0, 0.04], [(wa + wb) / 2, (wy0 + wy1) / 2, 0.02]),
     boxMesh(materials.trim, [wb - wa + 0.16, 0.03, 0.2], [(wa + wb) / 2, wy0 - 0.015, 0.06]), // inner sill
   );
   const view = plane(materials.view, wb - wa + 3.2, 3.2);
@@ -170,6 +167,7 @@ function buildRoom(design, room, look, textures) {
   // Furniture for the chosen style, placed by the solver: clear of the wardrobe, the walls, the
   // doorway and every sightline from the doorway to the wardrobe's front.
   const furnitureMaterials = createFurnitureMaterials();
+  furnitureMaterials.shade.emissiveIntensity = look.mood.lampGlow; // lamp shades glow in the evening
   const { placed } = placeFurniture(design, room, room.preset);
   placed.forEach((piece) => {
     const item = buildFurniture(piece.kind, furnitureMaterials);
@@ -183,6 +181,22 @@ function buildRoom(design, room, look, textures) {
     soft.position.set(m(rect.x0 + rect.x1) / 2, 0.003, m(rect.z0 + rect.z1) / 2);
     group.add(soft);
   });
+
+  // Light on the floor, without extra lights or shadow maps: a soft sun patch near the window in
+  // the morning, warm pools under the lamps in the evening (additive, so they only brighten).
+  const glow = (color, opacity, w, d, x, z) => {
+    const patch = plane(new THREE.MeshBasicMaterial({ color, map: textures.glow, transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending }), w, d);
+    patch.rotation.x = -Math.PI / 2;
+    patch.position.set(x, 0.004, z);
+    group.add(patch);
+  };
+  if (look.mood.sunPatch) {
+    // Along the window wall (x), a little toward the back: the sun comes from the front-right.
+    glow('#ffe1ae', look.mood.sunPatch, 1.5, (wb - wa) * 1.1, x1 - 0.95, (m(win.z0) + m(win.z1)) / 2 - 0.25);
+  }
+  if (look.mood.lampGlow) {
+    placed.filter((p) => p.kind === 'floorLamp' || p.kind === 'nightstand').forEach((p) => glow('#ffb877', 0.42, 1.8, 1.8, m(p.x), m(p.z)));
+  }
 
   return { group, walls, ceiling, view, box, materials, furniture: placed };
 }
@@ -216,24 +230,29 @@ export function createRoomScene({ scene, lights, grid }) {
   const ownTextures = (look) => {
     textures?.floor?.dispose();
     textures?.view?.dispose();
-    textures = { floor: floorTexture(look.floor.kind, look.floor.color), view: viewTexture(false), shadow: textures?.shadow ?? softShadowTexture() };
+    textures = {
+      floor: floorTexture(look.floor.kind, look.floor.color),
+      view: viewTexture(look.evening),
+      shadow: textures?.shadow ?? softShadowTexture(),
+      glow: textures?.glow ?? softGlowTexture(),
+    };
     return textures;
   };
 
-  function applyLights(box, design) {
+  function applyLights(box, design, mood) {
     const { width, height, depth } = design.dimensions;
-    scene.background.set(LIGHTS.background);
-    lights.hemi.color.set(LIGHTS.hemi.sky);
-    lights.hemi.groundColor.set(LIGHTS.hemi.ground);
-    lights.hemi.intensity = LIGHTS.hemi.intensity;
+    scene.background.set(mood.background);
+    lights.hemi.color.set(mood.hemi.sky);
+    lights.hemi.groundColor.set(mood.hemi.ground);
+    lights.hemi.intensity = mood.hemi.intensity;
     // The sun comes in through the window, from the front-right: it lights the wardrobe's front
     // fully while the walls catch it at a grazing angle, so the wardrobe stands out from the wall.
-    lights.key.color.set(LIGHTS.key.color);
-    lights.key.intensity = LIGHTS.key.intensity;
+    lights.key.color.set(mood.key.color);
+    lights.key.intensity = mood.key.intensity;
     lights.key.position.set(m(box.x1) + 1.2, 3.2, m(box.window.z1) + 1.8);
     lights.key.target.position.set(m(width) / 2, m(height) * 0.4, -m(depth) / 2);
-    lights.fill.color.set(LIGHTS.fill.color);
-    lights.fill.intensity = LIGHTS.fill.intensity;
+    lights.fill.color.set(mood.fill.color);
+    lights.fill.intensity = mood.fill.intensity;
     lights.fill.position.set(m(box.x0 + box.x1) / 2 - 1, 1.6, m(box.zFront) + 2); // soft front light, like a room's ambient bounce
   }
 
@@ -268,7 +287,7 @@ export function createRoomScene({ scene, lights, grid }) {
         if (grid) grid.visible = true;
         return null;
       }
-      const look = ROOM_LOOK;
+      const look = lookOf(room);
       const key = JSON.stringify([design.dimensions, design.compartments.map((c) => c.width), design.doors, room]);
       if (key !== builtKey) {
         remove();
@@ -276,7 +295,7 @@ export function createRoomScene({ scene, lights, grid }) {
         builtKey = key;
         scene.add(built.group);
       }
-      applyLights(built.box, design);
+      applyLights(built.box, design, look.mood);
       if (grid) grid.visible = false;
       return built.box;
     },
@@ -310,6 +329,7 @@ export function createRoomScene({ scene, lights, grid }) {
       textures?.floor?.dispose();
       textures?.view?.dispose();
       textures?.shadow?.dispose();
+      textures?.glow?.dispose();
     },
   };
 }

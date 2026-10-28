@@ -138,3 +138,15 @@ export function softShadowTexture() {
     ctx.fillRect(0, 0, w, h);
   });
 }
+
+/** A soft white glow (alpha falls off from the centre), for light pools and the sun patch. */
+export function softGlowTexture() {
+  return canvasTexture(64, 64, (ctx, w, h) => {
+    const gradient = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w * 0.5);
+    gradient.addColorStop(0, 'rgba(255,255,255,1)');
+    gradient.addColorStop(0.55, 'rgba(255,255,255,0.55)');
+    gradient.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, w, h);
+  });
+}

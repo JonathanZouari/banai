@@ -8,8 +8,23 @@ import { minimumRoom, roomBox } from './layout.js';
 import { placeFurniture, PRESET_IDS } from './placement.js';
 import { ROOM_SIZE_LIMITS, WARDROBE_POSITIONS } from './roomState.js';
 import { VIEW_IDS } from './views.js';
+import { FLOOR_IDS, LIGHT_IDS, WALL_COLORS, WALL_IDS } from './look.js';
 
 const toCm = (mm) => Math.round(mm / 10);
+
+/** Wall colours as named swatches: the chosen one has a check mark and its name shown, never colour alone. */
+function wallSwatches(s, current, onPick) {
+  const group = el('div', { className: 'room-swatches', attrs: { role: 'group', 'aria-label': s.walls } });
+  WALL_IDS.forEach((id) => {
+    const swatch = el('button', { className: 'room-swatch', attrs: { type: 'button', 'aria-pressed': String(id === current), 'aria-label': s.wallNames[id], title: s.wallNames[id] } },
+      id === current ? [icon('check', { size: 16 })] : []);
+    swatch.style.setProperty('--swatch', WALL_COLORS[id]);
+    swatch.dataset.value = id;
+    swatch.addEventListener('click', () => onPick(id));
+    group.append(swatch);
+  });
+  return [group, el('p', { className: 'room-panel__note room-panel__purpose', text: s.wallNames[current] })];
+}
 
 /** Pieces of the chosen style that have no room in this room size (said plainly, never a rule). */
 function notFitting(design, room, s) {
@@ -149,6 +164,12 @@ export function mountRoomControls({ buttonHost, viewerHost, roomState, language,
       el('h3', { className: 'room-panel__section', text: s.style }),
       segmented(s.style, PRESET_IDS.map((p) => [p, s.presets[p]]), room.preset, (value) => roomState.set({ preset: value })),
       ...notFitting(design, room, s),
+      el('h3', { className: 'room-panel__section', text: s.walls }),
+      ...wallSwatches(s, room.wall, (value) => roomState.set({ wall: value })),
+      el('h3', { className: 'room-panel__section', text: s.floor }),
+      segmented(s.floor, FLOOR_IDS.map((f) => [f, s.floors[f]]), room.floor, (value) => roomState.set({ floor: value })),
+      el('h3', { className: 'room-panel__section', text: s.light }),
+      segmented(s.light, LIGHT_IDS.map((l) => [l, s.lights[l]]), room.light, (value) => roomState.set({ light: value })),
       el('h3', { className: 'room-panel__section', text: s.view }),
       segmented(s.view, VIEW_IDS.map((v) => [v, s.views[v]]), room.view, (value) => onView(value)),
       el('p', { className: 'room-panel__note room-panel__purpose', text: s.viewPurpose[room.view] }),
