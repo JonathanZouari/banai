@@ -5,9 +5,9 @@ import { expect, openDesigner, test } from './fixtures.js';
 
 const ok = (data) => ({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data }) });
 
-async function mockAgent(page, { applyStatus = 200 } = {}) {
+async function mockAgent(page, { applyStatus = 200, storage = false } = {}) {
   const calls = { chat: [], apply: [] };
-  await page.route('**/api/health', (route) => route.fulfill(ok({ status: 'ok', env: 'e2e', agent: true })));
+  await page.route('**/api/health', (route) => route.fulfill(ok({ status: 'ok', env: 'e2e', agent: true, storage })));
   await page.route('**/api/chat', async (route) => {
     const body = route.request().postDataJSON();
     calls.chat.push(body);
@@ -65,6 +65,17 @@ test.describe('AI designer (agent connected)', () => {
     expect(await revision(page)).toBe(2);
     expect(calls.apply[0].proposal.signature).toBe('b'.repeat(64)); // sent back unchanged
     await expect(page.getByText('D 55.0 cm', { exact: true })).toBeVisible();
+  });
+
+  test('a confirmed proposal marks the design as unsaved', async ({ page }) => {
+    await mockAgent(page, { storage: true });
+    await openDesigner(page);
+    await expect(page.getByTestId('open-save')).not.toHaveClass(/btn--unsaved/);
+    await page.getByTestId('chat-input').fill('תעשה אותו פחות עמוק, 55 ס"מ');
+    await page.getByTestId('chat-send').click();
+    await page.getByTestId('proposal-confirm').click();
+    await expect.poll(() => depth(page)).toBe(550);
+    await expect(page.getByTestId('open-save')).toHaveClass(/btn--unsaved/);
   });
 
   test('switching to English localizes the chat and asks the agent for English', async ({ page }) => {

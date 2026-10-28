@@ -33,6 +33,29 @@ test.describe('save and reopen', () => {
     await expect(reopened.getByTestId('share-link')).toHaveValue(link);
   });
 
+  test('unsaved changes mark the Save button and warn before leaving; a save clears both', async ({ page }) => {
+    await openDesigner(page);
+    const saveButton = page.getByTestId('open-save');
+    // The browser shows its leave-page prompt when a beforeunload listener cancels the event.
+    const warnsOnLeave = () => page.evaluate(() => {
+      const event = new Event('beforeunload', { cancelable: true });
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    });
+
+    await expect(saveButton).not.toHaveClass(/btn--unsaved/);
+    expect(await warnsOnLeave()).toBe(false);
+    expect(await setHeight(page, 2300)).toBe(true);
+    await expect(saveButton).toHaveClass(/btn--unsaved/);
+    await expect(saveButton).toHaveAccessibleName('Save (unsaved changes)');
+    expect(await warnsOnLeave()).toBe(true);
+
+    await saveFromDialog(page);
+    await expect(saveButton).not.toHaveClass(/btn--unsaved/);
+    await expect(saveButton).toHaveAccessibleName('Save');
+    expect(await warnsOnLeave()).toBe(false);
+  });
+
   test('saving again writes over the same link', async ({ page, context }) => {
     await openDesigner(page);
     const link = await saveFromDialog(page);
