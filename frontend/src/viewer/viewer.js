@@ -5,12 +5,12 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { buildWardrobe, disposeWardrobe } from './buildWardrobe.js';
+import { cameraPose, createCameraMover } from './cameraViews.js';
 import { frameOf } from './builders/frame.js';
 import { createDimensions } from './dimensions.js';
 import { createHighlighter } from './highlight.js';
 import { createMaterials } from './materials.js';
 import { attachPicking } from './picking.js';
-import { toM } from './units.js';
 
 const BACKGROUND = '#eceeec';
 
@@ -57,6 +57,10 @@ export function createViewer(container, store) {
   const camera = new THREE.PerspectiveCamera(40, 1, 0.05, 60);
   const controls = new OrbitControls(camera, renderer.domElement);
   Object.assign(controls, { enableDamping: true, minDistance: 0.6, maxDistance: 14, maxPolarAngle: Math.PI / 2 - 0.02 });
+  const mover = createCameraMover(camera, controls);
+  // The customer's own orbit/zoom always wins over a camera move in progress.
+  const cancelMove = () => mover.cancel();
+  controls.addEventListener('start', cancelMove);
 
   const materials = createMaterials(store.getState().catalog);
   const highlighter = createHighlighter(scene);
@@ -65,11 +69,7 @@ export function createViewer(container, store) {
   let rendered = { design: null, doorsVisible: null, selection: undefined, dimsKey: null };
 
   const fitCamera = (design) => {
-    const { width, height, depth } = design.dimensions;
-    const center = new THREE.Vector3(toM(width / 2), toM(height / 2), toM(-depth / 2));
-    const distance = (toM(Math.max(width, height)) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)))) * 1.35;
-    camera.position.set(center.x + distance * 0.35, center.y + distance * 0.12, distance);
-    controls.target.copy(center);
+    mover.moveTo(cameraPose(design, 'reset', camera.fov), { animate: false });
     controls.update();
   };
 
@@ -118,6 +118,7 @@ export function createViewer(container, store) {
   sync(store.getState());
 
   renderer.setAnimationLoop(() => {
+    mover.update();
     controls.update();
     renderer.render(scene, camera);
     labels.render(scene, camera);
@@ -127,6 +128,11 @@ export function createViewer(container, store) {
     camera,
     controls,
     canvas: renderer.domElement,
+    /** Move the camera to a preset view (front, side, threeQuarter, reset). Never touches the store. */
+    setView(view) {
+      mover.moveTo(cameraPose(store.getState().design, view, camera.fov));
+    },
+    isCameraMoving: () => mover.isMoving(),
     meshOf: (componentId) => group?.children.find((mesh) => mesh.userData.componentId === componentId) ?? null,
     /** Client (page) coordinates of a component's centre, for tests and tooling. */
     screenPointOf(componentId) {
@@ -145,6 +151,7 @@ export function createViewer(container, store) {
       highlighter.dispose();
       dimensions.dispose();
       materials.dispose();
+      controls.removeEventListener('start', cancelMove);
       controls.dispose();
       renderer.dispose();
     },
