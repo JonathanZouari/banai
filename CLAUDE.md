@@ -39,6 +39,12 @@ BanAI is an MVP AI wardrobe designer for standard straight wardrobes only. Three
   - **Approved exceptions (2026-10-16):**
     - The **carpenter PDF** ("Generate Style Profile") is a design drawing that explains the intent. It is not a manufacturing export: no cut list, and construction details are left to the carpenter.
     - The PDF's **3D snapshot** is not an image upload. The app renders it from the design (`viewer/snapshot.js`) and sends it with the export. The server treats it as untrusted bytes (`backend/app/export/image.py`): PNG/JPEG only, at most 2 MB and 2400 px, fully decoded, then re-encoded. It is never stored.
+  - **Proposed exception, PENDING Jonathan's approval (2026-10-29), not approved yet:**
+    - **Room around the wardrobe (decoration only):** "View in a room" shows the wardrobe inside a room in the 3D viewer (`frontend/src/room/`). The user sets the room size, the wardrobe's position on the back wall, a room style with procedural furniture, wall and floor, morning or evening light, and camera views.
+      - **Not part of the design:** the room has its own state (`roomState`, remembered per browser), never the design store. It is not saved with the design, not sent to the server or the AI, and never in the carpenter PDF or the template thumbnails. Tests pin this (`tests/unit/room/exclusion.test.js`).
+      - **The wardrobe is untouched:** it keeps its size and coordinates and is never moved or changed by the room. The room is off by default.
+      - **Door swing is visual only:** the floor shows where the doors open, and furniture standing there turns amber. There is no text, warning or rule, so this is not a feasibility rule.
+      - **Furniture is placed automatically:** moving it by hand (drag-and-drop, with a keyboard alternative) is a separate PR with its own proposed exception.
 - **Mandatory stack.**
   - Frontend: vanilla JS ES modules + Three.js, bundled with Vite. **No React, Vue, or R3F.**
   - Backend: FastAPI + Pydantic.
