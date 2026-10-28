@@ -63,6 +63,19 @@ Styles follow Material Design 3 (`styles/tokens.css` holds the `--md-sys-*` toke
 Door hardware (handles, sliding rails, outlines) is built in `viewer/builders/doors.js` as non-selectable `kind: 'hardware'` objects. Picking refreshes world matrices before raycasting, so a click is correct even if it lands before the next rendered frame.
 In dev builds `window.__banai.chat` exposes the chat model, so a proposal can be shown for visual checks (`chat.setProposal({...})`).
 
+## Display units (`src/units/`)
+
+The unit selector in the top bar (cm | mm | in) changes **only how lengths are shown and typed**. The design stays in integer millimetres everywhere (store, ops, saved designs, AI, backend). It is a view preference like the chat language and the camera, so it lives outside the store.
+
+| Module | Role |
+|---|---|
+| `displayUnits.js` | Pure: `formatLength(mm, unit)`, `formatWithUnit`, `parseLength(text, unit)` (text to **integer mm**) and `createUnitPreference()` (`get` / `set` / `subscribe`, remembered in `localStorage` key `banai.unit`, default cm). |
+| `unitSelector.js` | The three buttons (`aria-pressed`, `data-testid` `unit-cm`, `unit-mm`, `unit-in`). Never imports the store. |
+
+- Decimals: cm 1, mm 0, in 2. `.` or `,` as decimal point; inches also accept fractions (`78 3/4`).
+- Typed values are rounded to the nearest integer mm before any op is dispatched, so an inch value can only reach whole millimetres (a re-typed value can differ by up to 0.5 mm from what was shown).
+- The editor fields (`lengthField`), the W/H/D labels and the selection label follow the unit. **Not affected:** the PDFs and the order summary (mm), and the AI's proposal texts (backend wording in cm).
+
 ## Testing
 - **Unit:** `npm test` (vitest). This covers the domain engine and parity fixtures, the store, the API client, and the builders.
 - **E2E:** `npm run test:e2e` (Playwright, Chromium with SwiftShader WebGL). It starts uvicorn on :8010 and Vite on :5183. `window.__banai` exists only in dev builds (`import.meta.env.DEV`) and is stripped from production bundles.

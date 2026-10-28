@@ -11,6 +11,8 @@ import {
 import { createStore } from './state/store.js';
 import { mountPanel } from './editor/panel.js';
 import { createViewer } from './viewer/viewer.js';
+import { createUnitPreference } from './units/displayUnits.js';
+import { createUnitSelector } from './units/unitSelector.js';
 import { renderSnapshot } from './viewer/snapshot.js';
 import { createChatModel } from './chat/chatModel.js';
 import { createLanguage } from './chat/i18n.js';
@@ -103,7 +105,9 @@ async function boot() {
   }
   // Validates the server data before anything is rendered (throws on invalid data).
   const store = createStore({ design: initial.design, revision: initial.revision, catalog });
-  const viewer = createViewer(document.getElementById('viewer'), store);
+  const units = createUnitPreference();
+  const viewer = createViewer(document.getElementById('viewer'), store, { units });
+  createUnitSelector({ container: document.getElementById('unit-selector'), units });
   bindInteriorToggle(store);
   bindSkipLink();
   const exporter = createExportDialog({
@@ -111,7 +115,7 @@ async function boot() {
     getLanguage: () => language.get(),
     getSnapshot: (design) => renderSnapshot(design, store.getState().catalog),
   });
-  mountPanel(document.getElementById('properties-content'), store, { onExport: exporter.open });
+  mountPanel(document.getElementById('properties-content'), store, { onExport: exporter.open, units });
   bindDialogs({
     storage: health?.data.storage === true,
     onSave: createSaver(store, language, session),

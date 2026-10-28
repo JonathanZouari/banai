@@ -41,7 +41,7 @@ function componentAt(hit, design) {
   return index >= 0 ? design.compartments[index].id : componentId;
 }
 
-export function createViewer(container, store) {
+export function createViewer(container, store, { units } = {}) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -91,7 +91,7 @@ export function createViewer(container, store) {
     }
     if (geometryChanged || selection !== rendered.selection) {
       highlighter.update(group, design, selection);
-      dimensions.update(group, design, selection);
+      dimensions.update(group, design, selection, units?.get());
       rendered = { ...rendered, selection };
     }
   };
@@ -115,6 +115,11 @@ export function createViewer(container, store) {
     onHover: (hit) => { renderer.domElement.style.cursor = hit?.object.userData.componentId ? 'pointer' : ''; },
   });
   const unsubscribe = store.subscribe(sync);
+  // The unit only changes the label text: redraw the labels, never the wardrobe.
+  const unsubscribeUnits = units?.subscribe(() => {
+    const { design, selection } = store.getState();
+    dimensions.update(group, design, selection, units.get());
+  });
   sync(store.getState());
 
   renderer.setAnimationLoop(() => {
@@ -139,6 +144,7 @@ export function createViewer(container, store) {
     dispose() {
       renderer.setAnimationLoop(null);
       unsubscribe();
+      unsubscribeUnits?.();
       detachPicking();
       resizeObserver.disconnect();
       if (group) disposeWardrobe(group);
