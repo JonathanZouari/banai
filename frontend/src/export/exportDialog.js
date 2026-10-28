@@ -25,7 +25,7 @@ export function createExportDialog({ getDesign, getLanguage, getSnapshot = null,
   status.dataset.testid = 'export-status';
   const languageField = selectField({
     label: 'Document language',
-    options: [{ label: 'עברית', value: 'he' }, { label: 'English', value: 'en' }],
+    options: [{ label: 'עברית', value: 'he' }, { label: 'English', value: 'en' }, { label: 'Español', value: 'es' }],
     value: language,
     onChange: (value) => { language = value; },
     testId: 'export-language',
