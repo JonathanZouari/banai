@@ -8,6 +8,7 @@ import '@fontsource/dm-sans/700.css';
 import {
   applyProposal, createSavedDesign, getCatalog, getDefaultDesign, getHealth, getSavedDesign, sendChat, updateSavedDesign,
 } from './api/client.js';
+import { templateWardrobe } from './domain/presets.js';
 import { createStore } from './state/store.js';
 import { mountPanel } from './editor/panel.js';
 import { createViewer } from './viewer/viewer.js';
@@ -22,6 +23,7 @@ import { createExportDialog } from './export/exportDialog.js';
 import { createRenderDialog } from './render/renderDialog.js';
 import { createLogo } from './ui/logo.js';
 import { installRipple } from './ui/ripple.js';
+import { mountThemeSwitcher } from './ui/themeSwitcher.js';
 
 function showError(message) {
   const banner = document.getElementById('error-banner');
@@ -86,6 +88,7 @@ function bindDialogs({ storage, onSave, link }) {
 
 async function boot() {
   document.getElementById('topbar-logo').append(createLogo({ size: 34, tagline: 'Wardrobe Designer' }));
+  mountThemeSwitcher(document.getElementById('theme-switcher-mount'));
   installRipple();
   const language = createLanguage();
   let catalog;
@@ -160,9 +163,12 @@ async function boot() {
 
   if (session) return; // reopened from a link: straight into the editor
   mountStartScreen({
-    onChoose: (entry) => {
+    onChoose: (entry, templateId) => {
       // All three entry points open the same editor; the chat ones focus the composer, the manual
       // one the properties panel, so keyboard focus never falls out of the page when the modal closes.
+      if (templateId && templateId !== 'basic') {
+        store.replaceDesign(templateWardrobe(templateId, catalog), 1);
+      }
       if (entry.focusesChat) chat.focus(entry.id);
       else document.getElementById('properties-panel').focus();
     },

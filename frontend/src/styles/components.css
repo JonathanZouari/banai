@@ -265,6 +265,26 @@
   animation: tmpl-rise 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.1) both;
 }
 
+/* Template pill buttons (basic wardrobe card) */
+.entry-card__templates { display: flex; flex-direction: column; gap: var(--space-2); align-self: stretch; }
+.entry-card__tmpl-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  height: 40px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: var(--md-sys-shape-full);
+  background: transparent;
+  color: var(--md-sys-color-on-surface);
+  font: var(--md-sys-typescale-label-large);
+  text-align: left;
+  cursor: pointer;
+}
+.entry-card__tmpl-btn:hover:not(:disabled) { background: var(--color-accent-soft); }
+.entry-card__tmpl-btn:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
+
 /* Logo */
 .logo { display: inline-flex; align-items: center; gap: 10px; }
 .logo__mark { flex: none; filter: drop-shadow(0 3px 6px rgba(180, 83, 42, 0.3)); transition: transform 240ms cubic-bezier(0.2, 0.9, 0.3, 1.4); }

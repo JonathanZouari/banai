@@ -138,6 +138,7 @@ export function mountStartScreen({ onChoose }) {
   const cards = ENTRY_POINTS.map((entry) => {
     let actionEl;
     if (entry.id === 'basic') {
+      // Template picker: one small button per template instead of a single action button.
       const tmplBtns = TEMPLATES.map((tmpl) => {
         const btn = el('button', { className: 'entry-card__tmpl-btn', attrs: { type: 'button' } }, [
           document.createTextNode(tmpl.label),
