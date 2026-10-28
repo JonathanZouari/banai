@@ -67,6 +67,14 @@ describe('room camera views', () => {
     }
   });
 
+  it('eye-level views orbit around the wardrobe: the target is at its front, not in mid-air', () => {
+    const { placed, box } = placeFurniture(DESIGNS.basic, room('centre', 'couple'), 'couple');
+    for (const view of ['doorway', 'bed']) {
+      const pose = roomView(view, { design: DESIGNS.basic, box, placed, aspect: 1.75 });
+      expect(Math.abs(pose.target.z - WARDROBE_FRONT), view).toBeLessThan(5);
+    }
+  });
+
   it('bed: sitting up against the headboard, facing the wardrobe', () => {
     const { placed } = placeFurniture(DESIGNS.basic, room('centre', 'couple'), 'couple');
     const eye = bedEye(placed, DESIGNS.basic);

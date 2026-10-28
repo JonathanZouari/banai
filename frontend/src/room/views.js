@@ -68,7 +68,9 @@ function eyeLevel(eye, design, aspect, extra = [], { strict = false, needExtra =
   const found = withExtra || search(wardrobe, MAX_FOV);
   if (!found && strict) return null;
   const pose = found ?? { yaw: ideal(wardrobe), pitch: centredPitch(eye, ideal(wardrobe), wardrobe), fov: MAX_FOV };
-  const reach = 1000;
+  // The target sits where the line of sight meets the wardrobe's front, so orbiting turns around
+  // the wardrobe and focusing a compartment keeps a natural distance.
+  const reach = Math.max(1000, (eye.z - WARDROBE_FRONT) / (Math.cos(rad(pose.yaw)) * Math.cos(rad(pose.pitch))));
   return {
     position: { ...eye },
     target: {
