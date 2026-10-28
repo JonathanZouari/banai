@@ -9,6 +9,7 @@ export function attachPicking({ dom, camera, getTargets, onPick, onHover = () =>
 
   const onPointerDown = (event) => {
     down = { x: event.clientX, y: event.clientY };
+    onHover(null);
   };
   const hitAt = (event) => {
     const rect = dom.getBoundingClientRect();
@@ -29,23 +30,32 @@ export function attachPicking({ dom, camera, getTargets, onPick, onHover = () =>
     down = null;
     onPick(hitAt(event));
   };
-  // Hover feedback (cursor). Throttled to one raycast per frame; ignored while dragging.
+  // Hover feedback (cursor, label). Throttled to one raycast per frame; ignored while dragging.
   let hoverFrame = 0;
+  let lastMove = null;
   const onPointerMove = (event) => {
+    lastMove = event;
     if (event.buttons || hoverFrame) return;
     hoverFrame = requestAnimationFrame(() => {
       hoverFrame = 0;
-      onHover(hitAt(event));
+      onHover(hitAt(lastMove), { x: lastMove.clientX, y: lastMove.clientY });
     });
+  };
+  const onPointerLeave = () => {
+    cancelAnimationFrame(hoverFrame);
+    hoverFrame = 0;
+    onHover(null);
   };
 
   dom.addEventListener('pointerdown', onPointerDown);
   dom.addEventListener('pointerup', onPointerUp);
   dom.addEventListener('pointermove', onPointerMove);
+  dom.addEventListener('pointerleave', onPointerLeave);
   return () => {
     cancelAnimationFrame(hoverFrame);
     dom.removeEventListener('pointerdown', onPointerDown);
     dom.removeEventListener('pointerup', onPointerUp);
     dom.removeEventListener('pointermove', onPointerMove);
+    dom.removeEventListener('pointerleave', onPointerLeave);
   };
 }

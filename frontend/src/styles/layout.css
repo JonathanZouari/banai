@@ -76,6 +76,8 @@ body {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+.hover-label { position: absolute; z-index: 1; pointer-events: none; }
+.hover-label[hidden] { display: none; }
 .dim-label--selected {
   border-color: var(--md-sys-color-primary);
   background: var(--md-sys-color-primary);
