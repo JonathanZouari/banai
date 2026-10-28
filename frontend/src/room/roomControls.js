@@ -9,8 +9,22 @@ import { placeFurniture, PRESET_IDS } from './placement.js';
 import { ROOM_SIZE_LIMITS, WARDROBE_POSITIONS } from './roomState.js';
 import { VIEW_IDS } from './views.js';
 import { FLOOR_IDS, LIGHT_IDS, WALL_COLORS, WALL_IDS } from './look.js';
+import { STRINGS } from '../chat/i18n.js';
 
 const toCm = (mm) => Math.round(mm / 10);
+
+/**
+ * The room's words in this language, any missing one taken from English (nested groups too), so
+ * a language without (all) room strings shows English rather than breaking the panel.
+ */
+export function roomStrings(t) {
+  const base = STRINGS.en.room;
+  const own = t?.room ?? {};
+  const isGroup = (value) => value && typeof value === 'object';
+  return Object.fromEntries(Object.entries(base).map(([key, fallback]) => [
+    key, isGroup(fallback) ? { ...fallback, ...(isGroup(own[key]) ? own[key] : {}) } : own[key] ?? fallback,
+  ]));
+}
 
 /** Wall colours as named swatches: the chosen one has a check mark and its name shown, never colour alone. */
 function wallSwatches(s, current, onPick) {
@@ -207,9 +221,10 @@ export function mountRoomControls({ buttonHost, viewerHost, roomState, language,
     // Keep keyboard focus on the same control across a re-render.
     const active = panel.contains(document.activeElement) ? document.activeElement : null;
     const focusKey = active && (active.id || (active.dataset.value && `${active.closest('[role=group]')?.getAttribute('aria-label')}|${active.dataset.value}`));
-    renderButton(t);
-    renderHint(t);
-    renderPanel(t);
+    const strings = { ...t, room: roomStrings(t) };
+    renderButton(strings);
+    renderHint(strings);
+    renderPanel(strings);
     if (focusKey) {
       const [group, value] = focusKey.split('|');
       const again = value
