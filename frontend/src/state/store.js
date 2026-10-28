@@ -93,6 +93,18 @@ export function createStore({ design, revision = 1, catalog }) {
       commit({ design: next, revision, selection });
     },
 
+    /**
+     * Open a different design (one from the "Last designs" archive). It is validated like the initial
+     * design; invalid data throws and leaves the state untouched. Undo and Redo history belong to the
+     * previous design, so they are cleared, and the revision moves forward.
+     */
+    load(design) {
+      const next = applyOps(design, [], state.catalog);
+      history.length = 0;
+      future.length = 0;
+      commit({ design: next, revision: state.revision + 1, selection: null });
+    },
+
     canUndo: () => history.length > 0,
 
     /** Restore the previous design. The revision still moves forward, so a pending proposal goes stale. */

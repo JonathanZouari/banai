@@ -26,6 +26,9 @@ import { renderSnapshot } from './viewer/snapshot.js';
 import { createChatModel } from './chat/chatModel.js';
 import { mountChat } from './chat/chatPanel.js';
 import { mountStartScreen } from './entry/startScreen.js';
+import { createLocalArchive } from './archive/localArchive.js';
+import { createArchiveRecorder } from './archive/recorder.js';
+import { createArchiveDialog } from './archive/archiveDialog.js';
 import { createSaveDialog } from './share/saveDialog.js';
 import { createShareMenu } from './share/shareMenu.js';
 import { parseShareHash, shareHash } from './share/link.js';
@@ -269,17 +272,48 @@ async function boot() {
     },
   });
   bindHistory(store, chatModel, language);
+
+  // "Last designs": the design being edited is kept in this browser only (localStorage), no account.
+  const archive = createLocalArchive();
+  let archiveWarned = false;
+  const recorder = createArchiveRecorder({
+    store,
+    archive,
+    onError: () => {
+      if (archiveWarned) return;
+      archiveWarned = true;
+      chatModel.note(language.t('arcSaveFailed'));
+    },
+  });
+  // The last edit is written when the page is hidden or closed, not only after the debounce.
+  window.addEventListener('pagehide', recorder.flush);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') recorder.flush(); });
   // A manual edit changes the revision, which may turn a pending proposal stale.
   store.subscribe(() => chat.refresh());
   units.subscribe(() => chat.refresh());
 
   if (import.meta.env.DEV) {
-    window.__banai = Object.freeze({ store, viewer, chat: chatModel, share: shareMenu });
+    window.__banai = Object.freeze({ store, viewer, chat: chatModel, share: shareMenu, archive });
   }
 
   if (session) return; // reopened from a link: straight into the editor
-  mountStartScreen({
+  let start = null;
+  const archiveDialog = createArchiveDialog({
+    archive,
+    language,
+    units,
+    openEntry: (entry) => recorder.openArchived(entry.id, entry.design),
+    onOpened: () => {
+      start?.close();
+      start?.remove();
+      document.getElementById('properties-panel').focus();
+    },
+  });
+  start = mountStartScreen({
+    archive,
+    archiveDialog,
     onChoose: (entry) => {
+      recorder.startNew();
       // All three entry points open the same editor; the chat ones focus the composer, the manual
       // one the properties panel, so keyboard focus never falls out of the page when the modal closes.
       if (entry.focusesChat) chat.focus(entry.id);

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { applyOps } from '../../../src/domain/apply.js';
 import { createStore } from '../../../src/state/store.js';
 import { loadCatalog, loadDesign } from '../domain/helpers.js';
 
@@ -186,5 +187,31 @@ describe('replace (applied AI proposal)', () => {
     expect(() => store.replace(bad, 2)).toThrow();
     expect(() => store.replace(loadDesign('basic'), 1)).toThrow();
     expect(store.getState()).toBe(before);
+  });
+
+  describe('load', () => {
+    it('opens another design, clears history and selection, and moves the revision forward', () => {
+      const store = makeStore();
+      store.dispatch([{ op: 'modify_shelf', id: 'shf_l1', y: 450 }]);
+      store.undo();
+      store.select('shf_l1');
+      const other = applyOps(loadDesign('basic'), [{ op: 'update_dimensions', width: 2400 }], catalog);
+      const listener = vi.fn();
+      store.subscribe(listener);
+      store.load(other);
+      expect(store.getState().design.dimensions.width).toBe(2400);
+      expect(store.getState().revision).toBe(4); // dispatch 2, undo 3, load 4
+      expect(store.getState().selection).toBeNull();
+      expect(store.canUndo()).toBe(false);
+      expect(store.canRedo()).toBe(false);
+      expect(listener).toHaveBeenCalledTimes(1);
+    });
+
+    it('throws on an invalid design and leaves the state untouched', () => {
+      const store = makeStore();
+      const before = store.getState();
+      expect(() => store.load({ nonsense: true })).toThrow();
+      expect(store.getState()).toBe(before);
+    });
   });
 });
