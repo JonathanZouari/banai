@@ -66,3 +66,35 @@ test.describe('Phase 3: 3D viewer', () => {
     expect(selected).toBe('shf_r1');
   });
 });
+
+// The camera's orbit centre, rounded to a millimetre.
+const target = (page) => page.evaluate(() => window.__banai.viewer.controls.target.toArray().map((v) => Math.round(v * 1000)));
+const centreOf = (page, id) => page.evaluate((componentId) => window.__banai.viewer.meshOf(componentId).position.toArray().map((v) => Math.round(v * 1000)), id);
+
+test.describe('camera focus on the selected part', () => {
+  test.beforeEach(async ({ page }) => openDesigner(page));
+
+  test('a selection eases the orbit centre to the part; a double click on the background returns to the overview', async ({ page }) => {
+    await page.evaluate(() => window.__banai.store.setDoorsVisible(false)); // the doors would take the click
+    const overview = await target(page);
+    await clickComponent(page, 'shf_r1');
+    await expect.poll(() => target(page)).toEqual(await centreOf(page, 'shf_r1'));
+    await page.evaluate(() => window.__banai.store.select('shf_l1')); // the panel selects through the store too
+    await expect.poll(() => target(page)).toEqual(await centreOf(page, 'shf_l1'));
+    const box = await page.locator('#viewer canvas').boundingBox();
+    await page.mouse.dblclick(box.x + 8, box.y + 8);
+    await expect.poll(() => target(page)).toEqual(overview);
+    // The camera is the viewer's alone: nothing about it is in the design state.
+    expect(await page.evaluate(() => JSON.stringify(window.__banai.store.getState().ui))).not.toMatch(/camera|target/);
+  });
+
+  test('with reduced motion the camera jumps at once', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const jumped = await page.evaluate(() => {
+      const { store, viewer } = window.__banai;
+      store.select('shf_r1');
+      return viewer.controls.target.toArray().map((v) => Math.round(v * 1000)); // in the same tick, before any frame
+    });
+    expect(jumped).toEqual(await centreOf(page, 'shf_r1'));
+  });
+});
