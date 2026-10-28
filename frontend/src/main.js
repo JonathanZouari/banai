@@ -36,6 +36,16 @@ function bindViewPresets(viewer) {
   });
 }
 
+// Showcase rotation toggle. Shown only when motion is allowed; the viewer turns it off on any touch.
+function bindAutoRotate(viewer) {
+  const button = document.getElementById('auto-rotate');
+  const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+  const syncVisibility = () => { button.hidden = Boolean(reducedMotion?.matches); };
+  syncVisibility();
+  reducedMotion?.addEventListener('change', syncVisibility);
+  button.addEventListener('click', () => viewer.setAutoRotate(!viewer.autoRotating));
+}
+
 // The skip link moves focus without touching the hash: the hash may hold the private design link.
 function bindSkipLink() {
   const link = document.querySelector('.skip-link');
@@ -110,9 +120,12 @@ async function boot() {
   }
   // Validates the server data before anything is rendered (throws on invalid data).
   const store = createStore({ design: initial.design, revision: initial.revision, catalog });
-  const viewer = createViewer(document.getElementById('viewer'), store);
+  const viewer = createViewer(document.getElementById('viewer'), store, {
+    onAutoRotateChange: (on) => document.getElementById('auto-rotate').setAttribute('aria-pressed', String(on)),
+  });
   bindInteriorToggle(store);
   bindViewPresets(viewer);
+  bindAutoRotate(viewer);
   bindSkipLink();
   const exporter = createExportDialog({
     getDesign: () => store.getState().design,
