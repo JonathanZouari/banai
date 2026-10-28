@@ -5,6 +5,11 @@ import '@fontsource/dm-sans/400.css';
 import '@fontsource/dm-sans/500.css';
 import '@fontsource/dm-sans/600.css';
 import '@fontsource/dm-sans/700.css';
+import '@fontsource/heebo/400.css';
+import '@fontsource/heebo/500.css';
+import '@fontsource/heebo/600.css';
+import '@fontsource/heebo/700.css';
+import '@fontsource/heebo/800.css';
 import {
   applyProposal, createSavedDesign, getCatalog, getDefaultDesign, getHealth, getSavedDesign, getVoiceStatus, postChat,
   speak, transcribeAudio, updateSavedDesign,
