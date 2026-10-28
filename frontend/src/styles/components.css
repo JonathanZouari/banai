@@ -162,6 +162,9 @@
 .start__title { margin: 0 0 var(--space-2); font: var(--md-sys-typescale-headline-large); }
 .start__subtitle { max-width: 560px; margin: 0 0 var(--space-5); color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-large); }
 .start__cards { display: grid; grid-template-columns: repeat(3, minmax(0, 300px)); gap: var(--space-4); }
+.start__auth { width: min(400px, 100%); text-align: start; display: flex; flex-direction: column; gap: var(--space-3); }
+.start__auth .auth-form { display: flex; flex-direction: column; gap: var(--space-3); }
+.start__auth-actions { display: flex; flex-direction: column; gap: var(--space-2); }
 .start__footnote { margin: var(--space-5) 0 0; color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-small); }
 .entry-card {
   display: flex;
@@ -178,6 +181,8 @@
 .entry-card__title { margin: var(--space-2) 0 0; font: var(--md-sys-typescale-title-medium); }
 .entry-card__text { flex: 1; margin: 0 0 var(--space-3); color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-medium); }
 .entry-card .btn { align-self: stretch; }
+.entry-card__field { display: grid; gap: var(--space-1); margin-bottom: var(--space-3); font: var(--md-sys-typescale-label-large); }
+.entry-card__select { width: 100%; min-width: 0; min-height: 44px; padding: 0 var(--space-2); border: 1px solid var(--md-sys-color-outline); border-radius: var(--md-sys-shape-small); background: var(--md-sys-color-surface); color: var(--md-sys-color-on-surface); font: var(--md-sys-typescale-body-medium); }
 
 /* Logo */
 .logo { display: inline-flex; align-items: center; gap: 10px; }
@@ -261,3 +266,15 @@
 /* The pinned "design ready" note in the chat, with Generate Style Profile. */
 .chat__built-body { display: flex; flex-direction: column; gap: var(--space-2); }
 .chat__built .button-row { margin-top: 0; }
+
+.preset-list { display: grid; gap: var(--space-2); margin: var(--space-3) 0 0; padding: 0; list-style: none; }
+.preset-item { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-sys-shape-medium); }
+.preset-item__title { font: var(--md-sys-typescale-title-small); }
+.preset-item__size { color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-small); }
+.welcome__examples-group { display: grid; gap: var(--space-2); }
+.welcome__examples { display: flex; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-2) 0 0; }
+.welcome__examples[hidden] { display: none; }
+.welcome__examples-hint { flex-basis: 100%; margin: 0; color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-small); }
+.example-chip { min-height: 36px; padding: 0 var(--space-3); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 999px; background: var(--md-sys-color-surface-container-lowest); color: var(--md-sys-color-on-surface); font: var(--md-sys-typescale-label-large); cursor: pointer; transition: border-color 160ms ease, background 160ms ease; }
+.example-chip:hover { border-color: var(--md-sys-color-primary); background: #fff6f2; }
+.example-chip:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }

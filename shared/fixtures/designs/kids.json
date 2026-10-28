@@ -1,0 +1,133 @@
+{
+  "schemaVersion": 1,
+  "units": "mm",
+  "dimensions": {
+    "width": 1500,
+    "height": 2000,
+    "depth": 550
+  },
+  "carcass": {
+    "panelThickness": 18,
+    "appearance": {
+      "material": {
+        "catalogId": "melamine"
+      },
+      "color": {
+        "catalogId": "white"
+      },
+      "finish": {
+        "catalogId": "matte"
+      }
+    }
+  },
+  "compartments": [
+    {
+      "id": "cmp_hang",
+      "width": 723,
+      "shelves": [
+        {
+          "id": "shf_h1",
+          "y": 1300,
+          "thickness": 18,
+          "appearance": null
+        },
+        {
+          "id": "shf_h2",
+          "y": 1650,
+          "thickness": 18,
+          "appearance": null
+        }
+      ],
+      "drawers": [],
+      "rails": [
+        {
+          "id": "rail_h1",
+          "y": 1200
+        }
+      ]
+    },
+    {
+      "id": "cmp_store",
+      "width": 723,
+      "shelves": [
+        {
+          "id": "shf_s1",
+          "y": 700,
+          "thickness": 18,
+          "appearance": null
+        },
+        {
+          "id": "shf_s2",
+          "y": 1000,
+          "thickness": 18,
+          "appearance": null
+        },
+        {
+          "id": "shf_s3",
+          "y": 1300,
+          "thickness": 18,
+          "appearance": null
+        },
+        {
+          "id": "shf_s4",
+          "y": 1650,
+          "thickness": 18,
+          "appearance": null
+        }
+      ],
+      "drawers": [
+        {
+          "id": "drw_s1",
+          "y": 0,
+          "height": 200,
+          "appearance": null
+        },
+        {
+          "id": "drw_s2",
+          "y": 200,
+          "height": 200,
+          "appearance": null
+        }
+      ],
+      "rails": []
+    }
+  ],
+  "partitions": [
+    {
+      "id": "prt_1",
+      "thickness": 18
+    }
+  ],
+  "doors": {
+    "type": "hinged",
+    "appearance": {
+      "material": {
+        "catalogId": "melamine"
+      },
+      "color": {
+        "catalogId": "natural_oak"
+      },
+      "finish": {
+        "catalogId": "matte"
+      }
+    },
+    "items": [
+      {
+        "id": "dr_hang",
+        "compartmentIds": [
+          "cmp_hang"
+        ],
+        "hingeSide": "left",
+        "appearance": null
+      },
+      {
+        "id": "dr_store",
+        "compartmentIds": [
+          "cmp_store"
+        ],
+        "hingeSide": "right",
+        "appearance": null
+      }
+    ]
+  }
+}

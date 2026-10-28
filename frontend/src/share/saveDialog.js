@@ -11,7 +11,7 @@ const SAVED = 'Saved. Use this link to reopen and keep editing.';
  * `available`: whether the server can store designs. `onSave()` saves the current design and resolves
  * to its private link. `link`: the link of a design that was reopened from one, if any.
  */
-export function createSaveDialog({ available, onSave, link = '' }) {
+export function createSaveDialog({ available, onSave, link = '', isLoggedIn = () => true, onLogin = () => {} }) {
   const linkField = el('input', { className: 'field__input', attrs: { id: 'share-link', type: 'text', readonly: '', placeholder: 'Your private link will appear here', 'aria-label': 'Private share link' } });
   linkField.dataset.testid = 'share-link';
   linkField.value = link;
@@ -29,6 +29,11 @@ export function createSaveDialog({ available, onSave, link = '' }) {
   }, { variant: 'secondary', testId: 'copy-link', disabled: !link });
 
   const save = button('Save design', async () => {
+    if (!isLoggedIn()) {
+      dialog.close();
+      onLogin();
+      return;
+    }
     save.disabled = true;
     status.textContent = 'Saving…';
     try {
@@ -47,7 +52,7 @@ export function createSaveDialog({ available, onSave, link = '' }) {
     labelId: 'save-dialog-title',
     testId: 'save-dialog',
     body: [
-      el('p', { className: 'dialog__text', text: 'Saving gives you a private link you can use to reopen and keep editing this design. No account is needed.' }),
+      el('p', { className: 'dialog__text', text: 'Saving gives you a private link you can use to reopen and keep editing this design. Saving needs an account.' }),
       el('div', { className: 'field' }, [
         el('label', { className: 'field__label', text: 'Private link', attrs: { for: 'share-link' } }),
         linkField,
@@ -57,5 +62,10 @@ export function createSaveDialog({ available, onSave, link = '' }) {
     ],
     actions: [copy, save, button('Close', () => dialog.close(), { variant: 'ghost', testId: 'save-close' })],
   });
-  return dialog;
+  const refresh = () => {
+    save.textContent = isLoggedIn() ? 'Save design' : 'Log in to save';
+    if (available && status.textContent === READY && !isLoggedIn()) status.textContent = 'Log in to save your design.';
+    if (available && isLoggedIn() && status.textContent === 'Log in to save your design.') status.textContent = READY;
+  };
+  return { ...dialog, open: () => { refresh(); dialog.open(); } };
 }

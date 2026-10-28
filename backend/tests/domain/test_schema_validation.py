@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from app.domain.defaults import LIMITS, basic_wardrobe
+from app.domain.defaults import LIMITS, PRESETS, basic_wardrobe, build_preset
 from app.domain.errors import DomainError
 from app.domain.schema import parse_design
 from app.domain.validation import validate_design
@@ -28,6 +28,13 @@ def test_round_trip_is_lossless(two):
 def test_basic_wardrobe_matches_shared_fixture_and_is_valid(catalog):
     design = basic_wardrobe()
     assert design == load_design("basic")
+    assert validate_design(design, catalog) == []
+
+
+@pytest.mark.parametrize("preset_id", list(PRESETS))
+def test_every_preset_matches_shared_fixture_and_is_valid(preset_id, catalog):
+    design = build_preset(preset_id)
+    assert design == load_design(preset_id)
     assert validate_design(design, catalog) == []
 
 

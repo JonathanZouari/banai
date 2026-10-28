@@ -3,7 +3,9 @@
 // except through store.select().
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
+import { buildBackdrop, disposeBackdrop } from './backdrop.js';
 import { buildWardrobe, disposeWardrobe } from './buildWardrobe.js';
 import { frameOf } from './builders/frame.js';
 import { createDimensions } from './dimensions.js';
@@ -13,19 +15,37 @@ import { attachPicking } from './picking.js';
 import { toM } from './units.js';
 
 const BACKGROUND = '#eceeec';
+const ROOM_EXTRA_WIDTH = 2400; // mm of furniture beside the wardrobe that the camera also frames
 
-function createScene() {
+// Photographic look: filmic tone mapping, soft image-based light from a neutral room (reflections
+// on gloss and metal), a warm "window" sun that casts soft shadows and a cool fill from the other side.
+const SUN_OFFSET = new THREE.Vector3(-3.2, 4.6, 4.2);
+
+function createScene(renderer) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(BACKGROUND);
-  scene.add(new THREE.HemisphereLight('#ffffff', '#c9c4b8', 2.2));
-  const key = new THREE.DirectionalLight('#ffffff', 1.6);
-  key.position.set(3, 5, 4);
-  scene.add(key);
-  const fill = new THREE.DirectionalLight('#ffffff', 0.9);
-  fill.position.set(-2, 2, 5);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  pmrem.dispose();
+  scene.environmentIntensity = 0.3;
+  scene.add(new THREE.HemisphereLight('#fffaf2', '#cbbfae', 0.55));
+  const key = new THREE.DirectionalLight('#fff0dc', 2.6);
+  key.name = 'sun';
+  key.position.copy(SUN_OFFSET);
+  // The shadow map is redrawn only when the scene changes (see shadowMap.needsUpdate).
+  key.castShadow = true;
+  key.shadow.mapSize.set(2048, 2048);
+  key.shadow.radius = 4;
+  key.shadow.bias = -0.0004;
+  key.shadow.normalBias = 0.02;
+  Object.assign(key.shadow.camera, { left: -4.5, right: 4.5, top: 4.5, bottom: -4.5, near: 0.5, far: 20 });
+  scene.add(key, key.target);
+  const fill = new THREE.DirectionalLight('#e6eeff', 0.5);
+  fill.position.set(4, 2.5, 5);
   scene.add(fill);
   const grid = new THREE.GridHelper(12, 24, '#c9ccc8', '#dcdfdb');
   grid.position.y = -0.0005;
+  grid.name = 'grid';
   scene.add(grid);
   return scene;
 }
@@ -45,6 +65,11 @@ export function createViewer(container, store) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 0.82;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
+  renderer.shadowMap.autoUpdate = false;
   renderer.domElement.setAttribute('role', 'img');
   renderer.domElement.setAttribute('aria-label', '3D wardrobe view. Every part is also listed under All parts in the Properties panel.');
   container.appendChild(renderer.domElement);
@@ -53,7 +78,8 @@ export function createViewer(container, store) {
   labels.domElement.className = 'viewer-labels';
   container.appendChild(labels.domElement);
 
-  const scene = createScene();
+  const scene = createScene(renderer);
+  const sun = scene.getObjectByName('sun');
   const camera = new THREE.PerspectiveCamera(40, 1, 0.05, 60);
   const controls = new OrbitControls(camera, renderer.domElement);
   Object.assign(controls, { enableDamping: true, minDistance: 0.6, maxDistance: 14, maxPolarAngle: Math.PI / 2 - 0.02 });
@@ -62,13 +88,39 @@ export function createViewer(container, store) {
   const highlighter = createHighlighter(scene);
   const dimensions = createDimensions(scene);
   let group = null;
-  let rendered = { design: null, doorsVisible: null, selection: undefined, dimsKey: null };
+  let room = null;
+  let rendered = { design: null, doorsVisible: null, selection: undefined, dimsKey: null, roomKey: null };
 
-  const fitCamera = (design) => {
-    const { width, height, depth } = design.dimensions;
-    const center = new THREE.Vector3(toM(width / 2), toM(height / 2), toM(-depth / 2));
-    const distance = (toM(Math.max(width, height)) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)))) * 1.35;
-    camera.position.set(center.x + distance * 0.35, center.y + distance * 0.12, distance);
+  // The decorative room follows the wardrobe size; the floor grid shows only without one.
+  // Returns true when the room or the wardrobe size changed (the camera then re-fits).
+  const syncBackdrop = (design, kind) => {
+    const roomKey = `${kind}:${rendered.dimsKey}`;
+    if (roomKey === rendered.roomKey) return false;
+    if (room) {
+      scene.remove(room);
+      disposeBackdrop(room);
+    }
+    room = buildBackdrop(kind, design);
+    if (room) scene.add(room);
+    renderer.shadowMap.needsUpdate = true;
+    scene.getObjectByName('grid').visible = room === null;
+    rendered = { ...rendered, roomKey };
+    return true;
+  };
+
+  // With a room backdrop the shot widens to take in the furniture beside the wardrobe.
+  const fitCamera = (design, withRoom) => {
+    const { height, depth } = design.dimensions;
+    const width = design.dimensions.width + (withRoom ? ROOM_EXTRA_WIDTH : 0);
+    const center = new THREE.Vector3(toM(width / 2), toM(height * (withRoom ? 0.54 : 0.5)), toM(-depth / 2));
+    const tan = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    // A room is framed like a catalogue photo: fit the width for the panel's aspect, eye level, less floor.
+    const distance = withRoom
+      ? Math.max(toM(height) / (2 * tan), toM(width) / (2 * tan * Math.max(camera.aspect, 0.5))) * 1.18
+      : (toM(Math.max(width, height)) / (2 * tan)) * 1.35;
+    camera.position.set(center.x + distance * (withRoom ? 0.18 : 0.35), center.y + distance * (withRoom ? 0.02 : 0.12), distance);
+    sun.target.position.set(toM(design.dimensions.width / 2) + (withRoom ? 1 : 0), 0, toM(-depth / 2));
+    sun.position.copy(sun.target.position).add(SUN_OFFSET);
     controls.target.copy(center);
     controls.update();
   };
@@ -82,13 +134,14 @@ export function createViewer(container, store) {
         disposeWardrobe(group);
       }
       group = buildWardrobe(design, materials, { doorsVisible: ui.doorsVisible });
+      group.children.forEach((mesh) => { mesh.castShadow = true; });
       scene.add(group);
+      renderer.shadowMap.needsUpdate = true;
       materials.retainOnly(new Set(group.children.map((mesh) => mesh.material)));
       const { width, height, depth } = design.dimensions;
-      const dimsKey = `${width}x${height}x${depth}`;
-      if (dimsKey !== rendered.dimsKey) fitCamera(design);
-      rendered = { ...rendered, design, doorsVisible: ui.doorsVisible, dimsKey };
+      rendered = { ...rendered, design, doorsVisible: ui.doorsVisible, dimsKey: `${width}x${height}x${depth}` };
     }
+    if (syncBackdrop(design, ui.backdrop)) fitCamera(design, room !== null);
     if (geometryChanged || selection !== rendered.selection) {
       highlighter.update(group, design, selection);
       dimensions.update(group, design, selection);
@@ -142,6 +195,8 @@ export function createViewer(container, store) {
       detachPicking();
       resizeObserver.disconnect();
       if (group) disposeWardrobe(group);
+      if (room) disposeBackdrop(room);
+      scene.environment.dispose();
       highlighter.dispose();
       dimensions.dispose();
       materials.dispose();
