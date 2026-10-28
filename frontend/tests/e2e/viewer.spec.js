@@ -66,3 +66,31 @@ test.describe('Phase 3: 3D viewer', () => {
     expect(selected).toBe('shf_r1');
   });
 });
+
+test.describe('open/closed doors', () => {
+  const committed = (page) => page.evaluate(() => {
+    const { design, revision } = window.__banai.store.getState();
+    return JSON.stringify({ design, revision });
+  });
+
+  test('the doors swing open as view state only, and a shelf behind them can be picked', async ({ page }) => {
+    await openDesigner(page);
+    const before = await committed(page);
+    const toggle = page.getByTestId('toggle-doors-open');
+    await expect(toggle).toHaveText('Open doors');
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    await expect.poll(() => page.evaluate(() => window.__banai.viewer.doorOpening())).toBe(1);
+    expect(await committed(page)).toBe(before);
+
+    await clickComponent(page, 'shf_l1');
+    expect(await selection(page)).toEqual({ kind: 'shelf', id: 'shf_l1' });
+  });
+
+  test('with reduced motion the doors open at once', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await openDesigner(page);
+    await page.getByTestId('toggle-doors-open').click();
+    expect(await page.evaluate(() => window.__banai.viewer.doorOpening())).toBe(1);
+  });
+});
