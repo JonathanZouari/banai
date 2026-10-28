@@ -54,7 +54,7 @@ test.describe('voice', () => {
     await page.waitForTimeout(600); // record a little of the fake tone
     await mic.click();
 
-    await expect(page.getByTestId('proposal-card')).toContainText('60.0 cm to 55.0 cm');
+    await expect(page.getByTestId('proposal-card')).toContainText('Depth changes from 60 cm to 55 cm');
     expect(calls.transcribe[0]).toBe('audio/webm');
     expect(calls.chat[0].messages.at(-1)).toEqual({ role: 'user', text: 'make it shallower' });
     expect(calls.chat[0].language).toBe('en'); // the transcript's language switched the chat

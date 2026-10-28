@@ -15,6 +15,7 @@ import { renderSnapshot } from './viewer/snapshot.js';
 import { createChatModel } from './chat/chatModel.js';
 import { createLanguage } from './chat/i18n.js';
 import { mountChat } from './chat/chatPanel.js';
+import { createProposalDiff } from './chat/proposalDiff.js';
 import { mountStartScreen } from './entry/startScreen.js';
 import { createSaveDialog } from './share/saveDialog.js';
 import { parseShareHash, shareHash } from './share/link.js';
@@ -150,6 +151,8 @@ async function boot() {
   };
   const chat = mountChat(document.getElementById('chat-panel'), {
     model: chatModel, onConfirm: confirmProposal, language, onExport: exporter.open,
+    // Read-only: Confirm is still the only way in. Row hover/focus outlines the parts in 3D.
+    diff: { ...createProposalDiff(() => store.getState()), preview: viewer.preview },
   });
   // A manual edit changes the revision, which may turn a pending proposal stale.
   store.subscribe(() => chat.refresh());

@@ -53,13 +53,15 @@ test.describe('AI chat panel (agent not connected yet)', () => {
       });
     });
     const card = page.getByTestId('proposal-card');
-    await expect(card).toContainText('שינויים מוצעים');
+    await expect(card).toContainText('מה ישתנה');
+    await expect(card).toContainText('200.0 cm to 240.0 cm'); // no ops to replay: the agent's rows are shown
     await expect(page.getByTestId('proposal-confirm')).toBeEnabled();
 
     await page.getByTestId('dim-width').fill('210');
     await page.getByTestId('dim-width').press('Enter');
     await expect(card).toContainText('העיצוב השתנה. בקש מהמעצב הצעה חדשה.');
     await expect(page.getByTestId('proposal-confirm')).toBeDisabled();
+    await expect(card).not.toContainText('200.0 cm to 240.0 cm'); // a stale card lists nothing
 
     const revision = await page.evaluate(() => window.__banai.store.getState().revision);
     await page.getByTestId('proposal-cancel').click();

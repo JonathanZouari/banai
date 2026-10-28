@@ -1,0 +1,74 @@
+/* "What will change" in the proposal card (chat/changeList.js). App tokens only.
+   Contrast (WCAG AA) on the white rows and the card: added #1f4d2b (the online chip's green),
+   removed --md-sys-color-error, changed --md-sys-color-primary, old values #76645e (5.6:1). */
+.proposal {
+  --diff-added: #1f4d2b;
+  --diff-added-bg: #dcefe0;
+  --diff-removed: var(--md-sys-color-error);
+  --diff-removed-bg: var(--md-sys-color-error-container);
+  --diff-changed: var(--md-sys-color-primary);
+  --diff-changed-bg: var(--md-sys-color-primary-container);
+  --diff-before: #76645e;
+}
+
+.visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+.diff-block { display: grid; gap: var(--space-2); margin: var(--space-3) 0; }
+.diff { display: grid; gap: var(--space-3); margin: var(--space-3) 0; padding: 0; list-style: none; }
+.diff-block > .diff { margin: 0; }
+.diff__group[hidden], .diff__row[hidden] { display: none; }
+.diff__group-label { display: block; margin: 0 0 var(--space-1); color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-label-small); letter-spacing: 0.04em; text-transform: uppercase; }
+.diff__rows { margin: 0; padding: 0; overflow: hidden; border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-sys-shape-small); background: var(--md-sys-color-surface-container-lowest); list-style: none; }
+.diff__row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  column-gap: var(--space-3);
+  align-items: start;
+  padding: 10px var(--space-3);
+  animation: diff-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 45ms + 120ms);
+}
+.diff__row + .diff__row { border-top: 1px solid var(--md-sys-color-outline-variant); }
+.diff__badge { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: var(--md-sys-shape-full); }
+.diff__row--added .diff__badge { background: var(--diff-added-bg); color: var(--diff-added); }
+.diff__row--removed .diff__badge { background: var(--diff-removed-bg); color: var(--diff-removed); }
+.diff__row--changed .diff__badge, .diff__row--moved .diff__badge { background: var(--diff-changed-bg); color: var(--diff-changed); }
+
+.diff__body { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--space-2); row-gap: 2px; min-width: 0; padding-top: 2px; }
+.diff__label { overflow-wrap: anywhere; font: var(--md-sys-typescale-label-large); }
+.diff__row--added .diff__label { color: var(--diff-added); }
+.diff__row--removed .diff__label { color: var(--diff-removed); }
+.diff__values { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-inline-start: auto; font: var(--md-sys-typescale-body-medium); font-variant-numeric: tabular-nums; }
+.diff__value { overflow-wrap: anywhere; unicode-bidi: isolate; }
+/* Old value: lighter, with a thin translucent strike that keeps Hebrew letters readable. */
+.diff__before { color: var(--diff-before); text-decoration: line-through; text-decoration-thickness: 1px; text-decoration-color: rgba(118, 100, 94, 0.55); }
+.diff__after { color: var(--md-sys-color-on-surface); font-weight: 700; }
+.diff__arrow { flex: none; color: var(--diff-changed); }
+[dir="rtl"] .diff__arrow { transform: scaleX(-1); } /* before → after reads right to left */
+.diff__detail { flex-basis: 100%; color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-small); font-variant-numeric: tabular-nums; }
+.diff__row--removed .diff__detail { text-decoration: line-through; text-decoration-thickness: 1px; text-decoration-color: rgba(83, 67, 62, 0.45); }
+.diff__none { margin: var(--space-3) 0; color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-small); }
+
+.diff__more {
+  justify-self: start;
+  padding: 6px var(--space-3);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-full);
+  background: transparent;
+  color: var(--md-sys-color-primary);
+  font: var(--md-sys-typescale-label-medium);
+  cursor: pointer;
+  transition: background 160ms ease;
+}
+.diff__more:hover { background: var(--color-accent-soft); }
+.diff__more:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
+
+@keyframes diff-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .diff__row { animation: none; }
+}
+
+/* Hover or focus a row: its parts are tinted and outlined in the 3D view. */
+.diff__row--focusable { cursor: default; transition: background 160ms ease; }
+.diff__row--focusable:hover, .diff__row--focusable:focus-visible { background: var(--md-sys-color-surface-container-low); }
+.diff__row--focusable:focus-visible { outline: var(--focus-outline); outline-offset: -2px; }
