@@ -2,6 +2,7 @@
 // conversation, the proposal card and the composer. This panel never changes the design by
 // itself: the agent only proposes, and the host applies a proposal when the customer confirms it.
 // Switching the language rebuilds the panel's chrome; the conversation and the draft stay.
+import { PRESETS } from '../domain/presets.js';
 import { el } from '../editor/fields.js';
 import { icon } from '../ui/icons.js';
 import { MAX_MESSAGE_LENGTH } from './chatModel.js';
@@ -29,9 +30,39 @@ function languageSwitch(language, t) {
 }
 
 /** onExport() opens the carpenter PDF dialog (Generate Style Profile); without it no note is shown. */
+/**
+ * "Ready-made examples": a chip that unfolds one button per start template. Choosing one opens it
+ * straight away (client only, no AI call), like the top bar's examples dialog.
+ */
+function examplesChipFactory(onOpenPreset, getLanguage) {
+  return (t) => {
+    const lang = getLanguage();
+    const listId = 'chat-examples-list';
+    const toggle = el('button', { className: 'suggestion suggestion--examples', attrs: { type: 'button', 'aria-expanded': 'false', 'aria-controls': listId } }, [
+      icon('wardrobe', { size: 16 }), el('span', { text: t.examples }),
+    ]);
+    toggle.dataset.testid = 'chat-examples';
+    const options = PRESETS.map((preset) => {
+      const option = el('button', { className: 'example-chip', text: preset.title[lang] ?? preset.title.he, attrs: { type: 'button' } });
+      option.dataset.testid = `chat-example-${preset.id}`;
+      option.addEventListener('click', () => onOpenPreset(preset.id));
+      return option;
+    });
+    const list = el('div', { className: 'welcome__examples', attrs: { id: listId } }, [
+      el('p', { className: 'welcome__examples-hint', text: t.examplesHint }), ...options,
+    ]);
+    list.hidden = true;
+    toggle.addEventListener('click', () => {
+      list.hidden = !list.hidden;
+      toggle.setAttribute('aria-expanded', String(!list.hidden));
+    });
+    return el('div', { className: 'welcome__examples-group' }, [toggle, list]);
+  };
+}
+
 export function mountChat(container, {
   model, onConfirm, language = createLanguage(), speaker = createSpeaker(), readAloud = readAloudPreference(),
-  onExport = null,
+  onExport = null, onOpenPreset = null,
 }) {
   container.classList.add('panel--chat');
   let draft = '';
@@ -40,6 +71,7 @@ export function mountChat(container, {
   // Voice state outlives a rebuild (language switch). status: null | 'recording' | 'transcribing'.
   const voice = { recording: null, status: null, notice: null };
   let spokenCount = model.getMessages().length; // replies already present are never read aloud
+  const examplesChip = onOpenPreset ? examplesChipFactory(onOpenPreset, language.get) : null;
 
   const showVoiceState = () => {
     const { t, hint, mic } = view;
@@ -165,7 +197,7 @@ export function mountChat(container, {
     const welcome = el('section', { className: 'welcome', attrs: { 'aria-label': t.welcomeLabel } }, [
       el('h3', { className: 'welcome__title', text: t.welcomeTitle }),
       el('p', { className: 'welcome__text', text: t.welcomeText }),
-      el('div', { className: 'welcome__chips' }, chips),
+      el('div', { className: 'welcome__chips' }, onOpenPreset ? [...chips, examplesChip(t)] : chips),
     ]);
     welcome.dataset.testid = 'chat-welcome';
 

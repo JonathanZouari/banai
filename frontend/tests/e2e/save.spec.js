@@ -1,6 +1,7 @@
-import { test, expect, openDesigner } from './fixtures.js';
+import { test, expect, openDesignerLoggedIn as openDesigner } from './fixtures.js';
 
-// The E2E backend runs without Supabase keys, so saved designs live in its in-memory store.
+// The E2E backend runs without Supabase keys, so accounts and saved designs live in its memory.
+// Saving needs a login; a second tab of the same browser shares it.
 const LINK = /#d=[0-9a-f-]{36}\.[A-Za-z0-9_-]{43}$/;
 
 async function saveFromDialog(page) {

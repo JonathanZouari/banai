@@ -24,10 +24,11 @@ class SavedDesign:
     name: str
     design: dict
     revision: int
+    owner_id: str | None = None  # the account that first saved it (None for designs saved before accounts)
 
 
 class DesignRepository(Protocol):
-    def create(self, token_hash: str, name: str, design: dict) -> tuple[str, int]: ...
+    def create(self, token_hash: str, name: str, design: dict, owner_id: str) -> tuple[str, int]: ...
 
     def get(self, design_id: str) -> SavedDesign | None: ...
 
@@ -41,10 +42,10 @@ class InMemoryRepository:
         self._rows: dict[str, SavedDesign] = {}
         self._lock = threading.Lock()
 
-    def create(self, token_hash: str, name: str, design: dict) -> tuple[str, int]:
+    def create(self, token_hash: str, name: str, design: dict, owner_id: str) -> tuple[str, int]:
         design_id = str(uuid.uuid4())
         with self._lock:
-            self._rows = {**self._rows, design_id: SavedDesign(token_hash, name, design, 1)}
+            self._rows = {**self._rows, design_id: SavedDesign(token_hash, name, design, 1, owner_id)}
         return design_id, 1
 
     def get(self, design_id: str) -> SavedDesign | None:
@@ -55,7 +56,7 @@ class InMemoryRepository:
             row = self._rows.get(design_id)
             if row is None or row.token_hash != token_hash or row.revision != expected_revision:
                 return None
-            self._rows = {**self._rows, design_id: SavedDesign(token_hash, name, design, expected_revision + 1)}
+            self._rows = {**self._rows, design_id: SavedDesign(token_hash, name, design, expected_revision + 1, row.owner_id)}
         return expected_revision + 1
 
 
@@ -82,8 +83,8 @@ class SupabaseRepository:
             raise StorageError("Supabase returned an unexpected body")
         return rows
 
-    def create(self, token_hash: str, name: str, design: dict) -> tuple[str, int]:
-        return _fields(self._create, token_hash, name, design)
+    def create(self, token_hash: str, name: str, design: dict, owner_id: str) -> tuple[str, int]:
+        return _fields(self._create, token_hash, name, design, owner_id)
 
     def get(self, design_id: str) -> SavedDesign | None:
         return _fields(self._get, design_id)
@@ -91,18 +92,19 @@ class SupabaseRepository:
     def update(self, design_id: str, token_hash: str, expected_revision: int, name: str, design: dict) -> int | None:
         return _fields(self._update, design_id, token_hash, expected_revision, name, design)
 
-    def _create(self, token_hash: str, name: str, design: dict) -> tuple[str, int]:
-        rows = self._send("POST", {"select": "id,revision"}, {"token_hash": token_hash, "name": name, "design": design})
+    def _create(self, token_hash: str, name: str, design: dict, owner_id: str) -> tuple[str, int]:
+        row = {"token_hash": token_hash, "name": name, "design": design, "owner_id": owner_id}
+        rows = self._send("POST", {"select": "id,revision"}, row)
         if len(rows) != 1:
             raise StorageError("Supabase did not return the new row")
         return rows[0]["id"], rows[0]["revision"]
 
     def _get(self, design_id: str) -> SavedDesign | None:
-        rows = self._send("GET", {"id": f"eq.{design_id}", "select": "token_hash,name,design,revision"})
+        rows = self._send("GET", {"id": f"eq.{design_id}", "select": "token_hash,name,design,revision,owner_id"})
         if not rows:
             return None
         row = rows[0]
-        return SavedDesign(row["token_hash"], row["name"], row["design"], row["revision"])
+        return SavedDesign(row["token_hash"], row["name"], row["design"], row["revision"], row.get("owner_id"))
 
     def _update(self, design_id: str, token_hash: str, expected_revision: int, name: str, design: dict) -> int | None:
         # The filter is the optimistic lock: zero matching rows means someone saved first (or the link is wrong).

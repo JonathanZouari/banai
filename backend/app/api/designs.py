@@ -1,7 +1,8 @@
-"""Saved designs behind a secret link (/#d=<id>.<token>). There are no accounts: the token is the
-only credential. It is shown once, stored only as a SHA-256 hash and compared in constant time.
-Saves use optimistic concurrency: PUT names the revision it started from (If-Match) and gets 409
-if someone saved in between."""
+"""Saved designs behind a secret link (/#d=<id>.<token>). The link token (`X-Design-Token`) is what
+opens a design: it is shown once, stored only as a SHA-256 hash and compared in constant time.
+Saving also needs a logged-in customer (`Authorization: Bearer <access token>`, see auth.py); opening
+a link does not. Saves use optimistic concurrency: PUT names the revision it started from (If-Match)
+and gets 409 if someone saved in between."""
 
 from __future__ import annotations
 
@@ -20,7 +21,9 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.api.agent import error
+from app.api.auth import current_user
 from app.api.export import read_capped
+from app.auth.provider import AuthUnavailable, User
 from app.domain.apply import apply_ops
 from app.domain.catalog import load_catalog
 from app.domain.errors import DomainError
@@ -46,6 +49,7 @@ MESSAGES = {
               "en": "This design was saved elsewhere in the meantime. Reload the link."},
     "STORAGE_UNAVAILABLE": {"he": "שמירה עדיין לא זמינה בשרת הזה.", "en": "Saving is not available on this server."},
     "STORAGE_ERROR": {"he": "השמירה נכשלה. נסה שוב בעוד רגע.", "en": "Saving failed. Please try again in a moment."},
+    "AUTH_REQUIRED": {"he": "צריך להתחבר כדי לשמור עיצוב.", "en": "Log in to save your design."},
 }
 
 
@@ -65,8 +69,18 @@ def _hash(token: str) -> str:
 
 
 def _token_from(request: Request) -> str | None:
-    scheme, _, token = request.headers.get("Authorization", "").partition(" ")
-    return token if scheme.lower() == "bearer" and TOKEN_PATTERN.fullmatch(token) else None
+    token = request.headers.get("X-Design-Token", "")
+    return token if TOKEN_PATTERN.fullmatch(token) else None
+
+
+async def _require_user(request: Request) -> User | JSONResponse:
+    """The logged-in customer, or a 401 (or a 503 when the account service cannot answer)."""
+    try:
+        user = await current_user(request)
+    except AuthUnavailable:
+        logger.exception("Checking the session failed")
+        return _fail(503, "STORAGE_ERROR", "he")
+    return user if user is not None else _fail(401, "AUTH_REQUIRED", "he")
 
 
 def _design_id(raw: str) -> str | None:
@@ -102,12 +116,18 @@ async def create_design(request: Request):
     repository = get_repository()
     if repository is None:
         return _fail(503, "STORAGE_UNAVAILABLE", "he")
+    # The session check comes first: an anonymous request never reaches the full design validation.
+    user = await _require_user(request)
+    if isinstance(user, JSONResponse):
+        return user
     parsed = await _parse_save(request)
     if isinstance(parsed, JSONResponse):
         return parsed
     token = secrets.token_urlsafe(32)
     try:
-        design_id, revision = await run_in_threadpool(repository.create, _hash(token), parsed.name, parsed.design)
+        design_id, revision = await run_in_threadpool(
+            repository.create, _hash(token), parsed.name, parsed.design, user.id,
+        )
     except StorageError:
         logger.exception("Saving a new design failed")
         return _fail(503, "STORAGE_ERROR", parsed.language)
@@ -151,6 +171,9 @@ async def update_design(raw_id: str, request: Request):
     expected = request.headers.get("If-Match", "").strip('" ')
     if not REVISION_PATTERN.fullmatch(expected):
         return _fail(422, "INVALID_REQUEST", "he")
+    user = await _require_user(request)
+    if isinstance(user, JSONResponse):
+        return user
     parsed = await _parse_save(request)
     if isinstance(parsed, JSONResponse):
         return parsed

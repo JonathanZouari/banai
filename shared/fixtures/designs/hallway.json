@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "units": "mm",
+  "dimensions": {
+    "width": 1200,
+    "height": 2200,
+    "depth": 400
+  },
+  "carcass": {
+    "panelThickness": 18,
+    "appearance": {
+      "material": {
+        "catalogId": "melamine"
+      },
+      "color": {
+        "catalogId": "white"
+      },
+      "finish": {
+        "catalogId": "matte"
+      }
+    }
+  },
+  "compartments": [
+    {
+      "id": "cmp_coats",
+      "width": 573,
+      "shelves": [
+        {
+          "id": "shf_c1",
+          "y": 1800,
+          "thickness": 18,
+          "appearance": null
+        }
+      ],
+      "drawers": [],
+      "rails": [
+        {
+          "id": "rail_c1",
+          "y": 1700
+        }
+      ]
+    },
+    {
+      "id": "cmp_shoes",
+      "width": 573,
+      "shelves": [
+        {
+          "id": "shf_s1",
+          "y": 250,
+          "thickness": 18,
+          "appearance": null
+        },
+        {
+          "id": "shf_s2",
+          "y": 500,
+          "thickness": 18,
+          "appearance": null
+        },
+        {
+          "id": "shf_s3",
+          "y": 750,
+          "thickness": 18,
+          "appearance": null
+        },
+        {
+          "id": "shf_s4",
+          "y": 1000,
+          "thickness": 18,
+          "appearance": null
+        },
+        {
+          "id": "shf_s5",
+          "y": 1400,
+          "thickness": 18,
+          "appearance": null
+        },
+        {
+          "id": "shf_s6",
+          "y": 1800,
+          "thickness": 18,
+          "appearance": null
+        }
+      ],
+      "drawers": [],
+      "rails": []
+    }
+  ],
+  "partitions": [
+    {
+      "id": "prt_1",
+      "thickness": 18
+    }
+  ],
+  "doors": {
+    "type": "hinged",
+    "appearance": {
+      "material": {
+        "catalogId": "melamine"
+      },
+      "color": {
+        "catalogId": "white"
+      },
+      "finish": {
+        "catalogId": "matte"
+      }
+    },
+    "items": [
+      {
+        "id": "dr_coats",
+        "compartmentIds": [
+          "cmp_coats"
+        ],
+        "hingeSide": "left",
+        "appearance": null
+      },
+      {
+        "id": "dr_shoes",
+        "compartmentIds": [
+          "cmp_shoes"
+        ],
+        "hingeSide": "right",
+        "appearance": null
+      }
+    ]
+  }
+}

@@ -19,10 +19,11 @@ export const ENTRY_POINTS = Object.freeze([
   Object.freeze({
     id: 'basic',
     icon: 'wardrobe',
-    title: 'Start from a basic wardrobe',
-    description: 'Begin with a standard 200 × 240 × 60 cm wardrobe, then edit it by hand or with the AI.',
-    action: 'Open basic wardrobe',
+    title: 'Start from a template',
+    description: 'Pick a ready-made wardrobe, then edit it by hand or with the AI.',
+    action: 'Open template',
     focusesChat: false,
+    choosesPreset: true, // the card shows a template picker (domain/presets.js PRESETS)
   }),
 ]);
 
