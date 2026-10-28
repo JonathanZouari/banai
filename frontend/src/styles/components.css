@@ -261,3 +261,13 @@
 /* The pinned "design ready" note in the chat, with Generate Style Profile. */
 .chat__built-body { display: flex; flex-direction: column; gap: var(--space-2); }
 .chat__built .button-row { margin-top: 0; }
+
+/* Accounts PROTOTYPE: the top-bar account button and the My designs list. */
+.topbar__account { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.auth-modes { align-self: flex-start; }
+.my-designs { display: flex; flex-direction: column; gap: var(--space-2); max-height: 320px; margin: 0; padding: 0; overflow-y: auto; list-style: none; }
+.my-designs:empty { display: none; }
+.my-designs__item { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-2) var(--space-3); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-sys-shape-small); }
+.my-designs__info { display: flex; flex-direction: column; min-width: 0; }
+.my-designs__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--md-sys-typescale-body-large); }
+.my-designs__date { color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-small); }
