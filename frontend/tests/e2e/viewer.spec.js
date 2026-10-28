@@ -35,6 +35,25 @@ test.describe('Phase 3: 3D viewer', () => {
     await expect(page.locator('.dim-label--selected')).toHaveText('Shelf · 80.0 cm from base · 1.8 cm thick');
   });
 
+  test('hovering a shelf shows its label beside the pointer; leaving the canvas hides it', async ({ page }) => {
+    await page.getByLabel('Show interior').check();
+    const tooltip = page.getByTestId('part-tooltip');
+    await expect(tooltip).toBeHidden();
+    await expect.poll(() => page.evaluate(() => Boolean(window.__banai.viewer.screenPointOf('shf_l2')))).toBe(true);
+    const point = await page.evaluate(() => window.__banai.viewer.screenPointOf('shf_l2'));
+    await page.mouse.move(point.x - 5, point.y);
+    await page.mouse.move(point.x, point.y);
+    await expect(tooltip).toBeVisible();
+    await expect(tooltip).toHaveText('Shelf · 80.0 cm from base · 1.8 cm thick');
+    const label = await tooltip.boundingBox();
+    expect(label.x).toBeGreaterThan(point.x); // beside the pointer, not under it
+    expect(label.y).toBeGreaterThan(point.y);
+    expect(await selection(page)).toBeNull(); // hover never selects
+    const box = await page.locator('#viewer canvas').boundingBox();
+    await page.mouse.move(box.x + box.width + 50, box.y + box.height / 2);
+    await expect(tooltip).toBeHidden();
+  });
+
   test('clicking a door selects the door; clicking empty space clears the selection', async ({ page }) => {
     await clickComponent(page, 'dr_middle');
     expect(await selection(page)).toEqual({ id: 'dr_middle', kind: 'door' });

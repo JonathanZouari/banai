@@ -22,3 +22,13 @@ export function describeSelection(design, selection) {
   if (door) return `${design.doors.type === 'sliding' ? 'Sliding' : 'Hinged'} door${door.hingeSide ? ` · hinge ${door.hingeSide}` : ''}`;
   return kind;
 }
+
+/** Hover label text: shelves, drawers and compartments only (empty for any other part). */
+export function describeHover(design, id) {
+  for (const compartment of design.compartments) {
+    if (compartment.id === id) return describeSelection(design, { id, kind: 'compartment' });
+    if (compartment.shelves.some((s) => s.id === id)) return describeSelection(design, { id, kind: 'shelf' });
+    if (compartment.drawers.some((d) => d.id === id)) return describeSelection(design, { id, kind: 'drawer' });
+  }
+  return '';
+}

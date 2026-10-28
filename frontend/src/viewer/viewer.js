@@ -7,12 +7,14 @@ import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { buildWardrobe, disposeWardrobe } from './buildWardrobe.js';
 import { frameOf } from './builders/frame.js';
 import { createDimensions } from './dimensions.js';
+import { describeHover } from './format.js';
 import { createHighlighter } from './highlight.js';
 import { createMaterials } from './materials.js';
 import { attachPicking } from './picking.js';
 import { toM } from './units.js';
 
 const BACKGROUND = '#eceeec';
+const TOOLTIP_OFFSET_PX = 14; // the hover label sits below-right of the pointer, never under it
 
 function createScene() {
   const scene = new THREE.Scene();
@@ -61,6 +63,15 @@ export function createViewer(container, store) {
   const materials = createMaterials(store.getState().catalog);
   const highlighter = createHighlighter(scene);
   const dimensions = createDimensions(scene);
+  // Hover label: visual only (the same text is in the Properties panel); textContent, never HTML.
+  const tooltip = document.createElement('div');
+  tooltip.className = 'dim-label';
+  tooltip.dataset.testid = 'part-tooltip';
+  tooltip.setAttribute('aria-hidden', 'true');
+  tooltip.hidden = true;
+  Object.assign(tooltip.style, { position: 'absolute', pointerEvents: 'none' });
+  container.appendChild(tooltip);
+  const hideTooltip = () => { tooltip.hidden = true; };
   let group = null;
   let rendered = { design: null, doorsVisible: null, selection: undefined, dimsKey: null };
 
@@ -81,6 +92,7 @@ export function createViewer(container, store) {
         scene.remove(group);
         disposeWardrobe(group);
       }
+      hideTooltip(); // its part may have moved or gone; the next pointer move re-shows it
       group = buildWardrobe(design, materials, { doorsVisible: ui.doorsVisible });
       scene.add(group);
       materials.retainOnly(new Set(group.children.map((mesh) => mesh.material)));
@@ -112,7 +124,18 @@ export function createViewer(container, store) {
     camera,
     getTargets: () => (group ? group.children : []),
     onPick: (hit) => store.select(componentAt(hit, store.getState().design)),
-    onHover: (hit) => { renderer.domElement.style.cursor = hit?.object.userData.componentId ? 'pointer' : ''; },
+    onHover: (hit, event) => {
+      renderer.domElement.style.cursor = hit?.object.userData.componentId ? 'pointer' : '';
+      const { design } = store.getState();
+      const text = describeHover(design, componentAt(hit, design));
+      if (!text) return hideTooltip();
+      const rect = container.getBoundingClientRect();
+      tooltip.textContent = text;
+      tooltip.style.left = `${event.clientX - rect.left + TOOLTIP_OFFSET_PX}px`;
+      tooltip.style.top = `${event.clientY - rect.top + TOOLTIP_OFFSET_PX}px`;
+      tooltip.hidden = false;
+    },
+    onLeave: hideTooltip,
   });
   const unsubscribe = store.subscribe(sync);
   sync(store.getState());
@@ -144,6 +167,7 @@ export function createViewer(container, store) {
       if (group) disposeWardrobe(group);
       highlighter.dispose();
       dimensions.dispose();
+      tooltip.remove();
       materials.dispose();
       controls.dispose();
       renderer.dispose();
