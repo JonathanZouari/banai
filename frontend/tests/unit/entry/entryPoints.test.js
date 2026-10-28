@@ -17,7 +17,7 @@ describe('entry points', () => {
 
   it('adds the templates as extra manual entries, after the three entry points', () => {
     expect(TEMPLATE_ENTRIES.map((e) => e.templateId)).toEqual(['kids', 'double_sliding', 'minimalist']);
-    expect(TEMPLATE_ENTRIES.every((e) => !e.focusesChat && e.title && e.description)).toBe(true);
+    expect(TEMPLATE_ENTRIES.every((e) => !e.focusesChat)).toBe(true);
     expect(Object.isFrozen(TEMPLATE_ENTRIES[0])).toBe(true);
   });
 

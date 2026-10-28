@@ -3,9 +3,7 @@
 import { el, button, selectField } from '../editor/fields.js';
 import { createDialog } from '../ui/dialog.js';
 import { exportPdf } from '../api/client.js';
-
-export const EXPORT_NOTE = 'Design drawing to explain the intent. Construction details are decided by the carpenter.';
-const FAILED = 'The PDF could not be created. Please try again.';
+import { strings } from '../ui/i18n.js';
 
 function saveBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
@@ -19,23 +17,24 @@ function saveBlob(blob, filename) {
 
 /** getSnapshot() returns the 3D picture as a data URL, or throws (the PDF then uses its own drawing). */
 export function createExportDialog({ getDesign, getLanguage, getSnapshot = null, exportImpl = exportPdf }) {
+  const t = strings();
   let language = getLanguage();
   let busy = false;
   const status = el('p', { className: 'dialog__status', attrs: { role: 'status' } });
   status.dataset.testid = 'export-status';
   const languageField = selectField({
-    label: 'Document language',
+    label: t.documentLanguage,
     options: [{ label: 'עברית', value: 'he' }, { label: 'English', value: 'en' }],
     value: language,
     onChange: (value) => { language = value; },
     testId: 'export-language',
   });
   const select = languageField.querySelector('select');
-  const download = button('Download PDF', async () => {
+  const download = button(t.downloadPdf, async () => {
     if (busy) return;
     busy = true;
     download.disabled = true;
-    status.textContent = 'Preparing your PDF…';
+    status.textContent = t.preparingPdf;
     try {
       const design = getDesign();
       let image = null;
@@ -46,9 +45,9 @@ export function createExportDialog({ getDesign, getLanguage, getSnapshot = null,
       }
       const { blob, filename } = await exportImpl({ design, language, image });
       saveBlob(blob, filename);
-      status.textContent = 'Your PDF is downloading.';
+      status.textContent = t.pdfDownloading;
     } catch (error) {
-      status.textContent = error?.message || FAILED;
+      status.textContent = error?.message || t.pdfFailed;
     } finally {
       busy = false;
       download.disabled = false;
@@ -56,16 +55,16 @@ export function createExportDialog({ getDesign, getLanguage, getSnapshot = null,
   }, { variant: 'primary', testId: 'export-download' });
 
   const dialog = createDialog({
-    title: 'PDF for your carpenter',
+    title: t.exportTitle,
     labelId: 'export-dialog-title',
     testId: 'export-dialog',
     body: [
-      el('p', { className: 'dialog__text', text: 'Download a picture of your wardrobe with dimensioned drawings (front with doors, interior, side and top), build steps and a component list. All measurements are in mm.' }),
+      el('p', { className: 'dialog__text', text: t.exportText }),
       languageField,
-      el('span', { className: 'chip', text: EXPORT_NOTE }),
+      el('span', { className: 'chip', text: t.exportNote }),
       status,
     ],
-    actions: [download, button('Close', () => dialog.close(), { variant: 'ghost', testId: 'export-close' })],
+    actions: [download, button(t.close, () => dialog.close(), { variant: 'ghost', testId: 'export-close' })],
   });
   return {
     ...dialog,

@@ -3,10 +3,7 @@ import { appearanceControls } from './appearanceControls.js';
 import { actionResult, button, cmField, el, section, segmented } from './fields.js';
 import { addItemOps, clearAppearanceOps, doorHingeOps, removeOps } from './opsFromForm.js';
 import { partitionLeftEdge } from '../domain/geometry.js';
-
-const TITLES = Object.freeze({
-  shelf: 'Shelf', drawer: 'Drawer', rail: 'Hanging rail', compartment: 'Compartment', partition: 'Partition', door: 'Door', carcass: 'Wardrobe body',
-});
+import { strings } from '../ui/i18n.js';
 
 function findItem(design, kind, id) {
   const key = { shelf: 'shelves', drawer: 'drawers', rail: 'rails' }[kind];
@@ -17,75 +14,81 @@ function findItem(design, kind, id) {
   return null;
 }
 
-function overrideControls({ catalog, design, item, inherited, run, label }) {
+// `kind` is shelf, drawer or door: it names the finish and what clearing it falls back to.
+function overrideControls({ catalog, item, inherited, run, kind }) {
+  const t = strings();
   const appearance = item.appearance ?? inherited;
+  const fallback = kind === 'door' ? t.useInherited.door : t.useInherited.carcass;
   return [
-    appearanceControls({ catalog, appearance, target: item.id, run, label }),
-    ...(item.appearance ? [button(`Use ${label === 'Door finish' ? 'door' : 'carcass'} finish`, () => run(clearAppearanceOps(item.id)), { variant: 'ghost' })] : []),
+    appearanceControls({ catalog, appearance, target: item.id, run, label: t.finishes[kind] }),
+    ...(item.appearance ? [button(fallback, () => run(clearAppearanceOps(item.id)), { variant: 'ghost' })] : []),
   ];
 }
 
 function fieldsFor(kind, { design, catalog, selection, run, runAction }) {
+  const t = strings();
   const { id } = selection;
   const move = (op, field) => (mm) => run([{ op, id, [field]: mm }]);
   if (kind === 'shelf') {
     const shelf = findItem(design, kind, id);
     return [
-      cmField({ label: 'Height from base', mm: shelf.y, testId: 'shelf-y', onCommit: move('modify_shelf', 'y') }),
-      cmField({ label: 'Thickness', mm: shelf.thickness, testId: 'shelf-thickness', onCommit: move('modify_shelf', 'thickness') }),
-      ...overrideControls({ catalog, design, item: shelf, inherited: design.carcass.appearance, run: runAction, label: 'Shelf finish' }),
+      cmField({ label: t.heightFromBase, mm: shelf.y, testId: 'shelf-y', onCommit: move('modify_shelf', 'y') }),
+      cmField({ label: t.thickness, mm: shelf.thickness, testId: 'shelf-thickness', onCommit: move('modify_shelf', 'thickness') }),
+      ...overrideControls({ catalog, item: shelf, inherited: design.carcass.appearance, run: runAction, kind: 'shelf' }),
     ];
   }
   if (kind === 'drawer') {
     const drawer = findItem(design, kind, id);
     return [
-      cmField({ label: 'Height from base', mm: drawer.y, testId: 'drawer-y', onCommit: move('modify_drawer', 'y') }),
-      cmField({ label: 'Drawer height', mm: drawer.height, testId: 'drawer-height', onCommit: move('modify_drawer', 'height') }),
-      ...overrideControls({ catalog, design, item: drawer, inherited: design.carcass.appearance, run: runAction, label: 'Drawer front' }),
+      cmField({ label: t.heightFromBase, mm: drawer.y, testId: 'drawer-y', onCommit: move('modify_drawer', 'y') }),
+      cmField({ label: t.drawerHeight, mm: drawer.height, testId: 'drawer-height', onCommit: move('modify_drawer', 'height') }),
+      ...overrideControls({ catalog, item: drawer, inherited: design.carcass.appearance, run: runAction, kind: 'drawer' }),
     ];
   }
   if (kind === 'rail') {
     const rail = findItem(design, kind, id);
-    return [cmField({ label: 'Height from base', mm: rail.y, testId: 'rail-y', onCommit: move('modify_rail', 'y') })];
+    return [cmField({ label: t.heightFromBase, mm: rail.y, testId: 'rail-y', onCommit: move('modify_rail', 'y') })];
   }
   if (kind === 'compartment') {
     const compartment = design.compartments.find((c) => c.id === id);
     return [
-      cmField({ label: 'Width', mm: compartment.width, testId: 'compartment-width', onCommit: (mm) => run([{ op: 'modify_compartment', compartmentId: id, width: mm }]) }),
+      cmField({ label: t.width, mm: compartment.width, testId: 'compartment-width', onCommit: (mm) => run([{ op: 'modify_compartment', compartmentId: id, width: mm }]) }),
       el('div', { className: 'button-row' }, ['shelf', 'drawer', 'rail'].map((item) =>
-        button(`+ ${item === 'rail' ? 'Rail' : item[0].toUpperCase() + item.slice(1)}`, () => runAction(addItemOps(design, id, item)), { testId: `add-${item}` }))),
+        button(t.add[item], () => runAction(addItemOps(design, id, item)), { testId: `add-${item}` }))),
     ];
   }
   if (kind === 'partition') {
     const index = design.partitions.findIndex((p) => p.id === id);
     return [
-      cmField({ label: 'Position from left', mm: partitionLeftEdge(design, index), testId: 'partition-position', onCommit: (mm) => run([{ op: 'modify_partition', partitionId: id, position: mm }]) }),
-      cmField({ label: 'Thickness', mm: design.partitions[index].thickness, testId: 'partition-thickness', onCommit: (mm) => run([{ op: 'modify_partition', partitionId: id, thickness: mm }]) }),
+      cmField({ label: t.positionFromLeft, mm: partitionLeftEdge(design, index), testId: 'partition-position', onCommit: (mm) => run([{ op: 'modify_partition', partitionId: id, position: mm }]) }),
+      cmField({ label: t.thickness, mm: design.partitions[index].thickness, testId: 'partition-thickness', onCommit: (mm) => run([{ op: 'modify_partition', partitionId: id, thickness: mm }]) }),
     ];
   }
   if (kind === 'door') {
     const door = design.doors.items.find((d) => d.id === id);
     return [
       ...(design.doors.type === 'hinged' ? [segmented({
-        label: 'Hinge side', value: door.hingeSide, testId: 'hinge-side',
-        options: [{ value: 'left', label: 'Left' }, { value: 'right', label: 'Right' }],
+        label: t.hingeSide, value: door.hingeSide, testId: 'hinge-side',
+        options: ['left', 'right'].map((value) => ({ value, label: t.sides[value] })),
         onChange: (side) => runAction(doorHingeOps(design, id, side)),
       })] : []),
-      ...overrideControls({ catalog, design, item: door, inherited: design.doors.appearance, run: runAction, label: 'Door finish' }),
+      ...overrideControls({ catalog, item: door, inherited: design.doors.appearance, run: runAction, kind: 'door' }),
     ];
   }
-  return [el('p', { className: 'panel__note', text: 'Edit the overall dimensions and materials in the Wardrobe section.' })];
+  return [el('p', { className: 'panel__note', text: t.carcassNote })];
 }
 
 export function componentSection({ design, catalog, selection, run, select }) {
-  const container = section(`Selected · ${TITLES[selection.kind]}`, []);
+  const t = strings();
+  const kindName = t.kinds[selection.kind];
+  const container = section(t.selected(kindName), []);
   container.dataset.testid = 'selected-section';
   // Inputs report their own errors inline; buttons/selects report under the section.
   const runAction = (ops) => actionResult(container, run(ops));
   container.append(...fieldsFor(selection.kind, { design, catalog, selection, run, runAction }));
-  const actions = [button('Deselect', () => select(null), { variant: 'ghost' })];
+  const actions = [button(t.deselect, () => select(null), { variant: 'ghost' })];
   if (selection.kind !== 'carcass') {
-    actions.unshift(button(`Delete ${TITLES[selection.kind].toLowerCase()}`, () => runAction(removeOps(selection.id)), { variant: 'danger', testId: 'delete-selected' }));
+    actions.unshift(button(t.deleteKind(kindName), () => runAction(removeOps(selection.id)), { variant: 'danger', testId: 'delete-selected' }));
   }
   container.append(el('div', { className: 'button-row' }, actions));
   return container;

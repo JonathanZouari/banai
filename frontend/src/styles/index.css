@@ -1,3 +1,5 @@
+/* Varela Round (Google Fonts, self-hosted via @fontsource): Latin and Hebrew, one weight (400). */
+@import '@fontsource/varela-round/400.css';
 @import './tokens.css';
 @import './layout.css';
 @import './controls.css';

@@ -105,11 +105,11 @@ test.describe('camera angle buttons', () => {
   }, view);
 
   test('shows the camera buttons as one labelled group', async ({ page }) => {
-    const group = page.getByRole('group', { name: 'זווית מצלמה' });
-    for (const label of ['חזית', 'צד ימין', 'צד שמאל', '3/4', 'איפוס']) await expect(group.getByRole('button', { name: label, exact: true })).toBeVisible();
+    const group = page.getByRole('group', { name: 'Camera angle' });
+    for (const label of ['Front', 'Right side', 'Left side', '3/4', 'Reset']) await expect(group.getByRole('button', { name: label, exact: true })).toBeVisible();
   });
 
-  for (const [label, view] of [['חזית', 'front'], ['צד ימין', 'side'], ['צד שמאל', 'sideLeft'], ['3/4', 'threeQuarter']]) {
+  for (const [label, view] of [['Front', 'front'], ['Right side', 'side'], ['Left side', 'sideLeft'], ['3/4', 'threeQuarter']]) {
     test(`"${label}" flies the camera to the ${view} view`, async ({ page }) => {
       const expected = await expectedPose(page, view);
       await page.getByRole('button', { name: label, exact: true }).click();
@@ -118,14 +118,14 @@ test.describe('camera angle buttons', () => {
     });
   }
 
-  test('"איפוס" returns to the opening view after the user orbits away', async ({ page }) => {
+  test('"Reset" returns to the opening view after the user orbits away', async ({ page }) => {
     const opening = await expectedPose(page, 'reset');
     const box = await page.locator('#viewer canvas').boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
     await page.mouse.move(box.x + box.width / 2 + 220, box.y + box.height / 2 + 30, { steps: 10 });
     await page.mouse.up();
-    await page.getByRole('button', { name: 'איפוס', exact: true }).click();
+    await page.getByRole('button', { name: 'Reset', exact: true }).click();
     await expect.poll(async () => near((await cameraPose(page)).position, opening.position), { timeout: 4000 }).toBe(true);
   });
 
@@ -157,7 +157,7 @@ test.describe('camera angle buttons', () => {
       return JSON.stringify({ design, revision, selection, ui });
     });
     const before = await snapshot();
-    for (const label of ['חזית', 'צד ימין', 'צד שמאל', '3/4', 'איפוס']) await page.getByRole('button', { name: label, exact: true }).click();
+    for (const label of ['Front', 'Right side', 'Left side', '3/4', 'Reset']) await page.getByRole('button', { name: label, exact: true }).click();
     await page.waitForTimeout(800);
     expect(await snapshot()).toBe(before);
   });
@@ -166,7 +166,7 @@ test.describe('camera angle buttons', () => {
 test.describe('showcase rotation', () => {
   test.beforeEach(async ({ page }) => openDesigner(page));
 
-  const rotateButton = (page) => page.getByRole('button', { name: 'סיבוב 360', exact: true });
+  const rotateButton = (page) => page.getByRole('button', { name: 'Rotate 360', exact: true });
   const cameraX = (page) => page.evaluate(() => window.__banai.viewer.camera.position.x);
 
   test('is off by default', async ({ page }) => {
@@ -199,7 +199,7 @@ test.describe('showcase rotation', () => {
 
   test('a camera preset stops it', async ({ page }) => {
     await rotateButton(page).click();
-    await page.getByRole('button', { name: 'חזית', exact: true }).click();
+    await page.getByRole('button', { name: 'Front', exact: true }).click();
     await expect(rotateButton(page)).toHaveAttribute('aria-pressed', 'false');
   });
 

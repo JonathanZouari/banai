@@ -1,51 +1,56 @@
 <!doctype html>
-<html lang="en">
+<html lang="he" dir="rtl">
   <head>
     <meta charset="UTF-8" />
     <meta name="referrer" content="no-referrer" /><!-- the share link carries a token -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>BanAI Wardrobe Designer</title>
+    <title>BanAI מעצב ארונות</title>
     <link rel="stylesheet" href="/src/styles/index.css" />
   </head>
   <body>
-    <a class="skip-link" href="#properties-panel">Skip to properties</a>
+    <!-- Texts are Hebrew (the default site language); src/ui/i18n.js swaps every data-i18n* value. -->
+    <a class="skip-link" href="#properties-panel" data-i18n="skipToProperties">דלג למאפיינים</a>
     <header class="topbar">
-      <h1 class="topbar__title" id="topbar-logo" aria-label="BanAI Wardrobe Designer"></h1>
+      <h1 class="topbar__title" id="topbar-logo" aria-label="BanAI מעצב ארונות" data-i18n-aria-label="appTitle"></h1>
       <div class="topbar__actions">
         <div class="theme-slider">
-          <label class="theme-slider__label" for="theme-slider">Theme</label>
+          <label class="theme-slider__label" for="theme-slider" data-i18n="theme">ערכת צבעים</label>
           <input type="range" id="theme-slider" min="0" max="4" step="1" value="0" />
-          <output class="theme-slider__name" id="theme-name" for="theme-slider">Terracotta</output>
+          <output class="theme-slider__name" id="theme-name" for="theme-slider">טרקוטה</output>
         </div>
         <label class="toggle">
           <input type="checkbox" id="toggle-interior" />
-          <span>Show interior</span>
+          <span data-i18n="showInterior">הצג פנים</span>
         </label>
-        <span class="topbar__units">cm</span>
-        <button type="button" class="btn btn--tonal" id="open-render" data-testid="open-render">Render</button>
-        <button type="button" class="btn btn--primary" id="open-save" data-testid="open-save">Save</button>
-        <a class="btn btn--ghost" href="/accessibility.html" lang="he" data-testid="a11y-link">נגישות</a>
+        <span class="topbar__units" data-i18n="units">ס"מ</span>
+        <button type="button" class="btn btn--tonal" id="open-render" data-testid="open-render" data-i18n="render">הדמיה</button>
+        <button type="button" class="btn btn--primary" id="open-save" data-testid="open-save" data-i18n="save">שמירה</button>
+        <!-- Last in the bar: the far end, i.e. on the left in Hebrew and on the right in English. -->
+        <button type="button" class="btn btn--secondary site-language" id="site-language" data-testid="site-language"></button>
       </div>
     </header>
     <div class="banner banner--error" id="error-banner" role="alert" hidden></div>
     <main class="workspace">
-      <aside class="panel" id="chat-panel" lang="he" aria-label="מעצב AI"></aside>
-      <section class="viewer" id="viewer" aria-label="3D viewer">
-        <div class="view-presets" id="view-presets" role="group" aria-label="זווית מצלמה" lang="he" dir="rtl">
-          <button type="button" class="btn view-presets__btn" data-view="front">חזית</button>
-          <button type="button" class="btn view-presets__btn" data-view="side">צד ימין</button>
-          <button type="button" class="btn view-presets__btn" data-view="sideLeft">צד שמאל</button>
-          <button type="button" class="btn view-presets__btn" data-view="threeQuarter">3/4</button>
-          <button type="button" class="btn view-presets__btn" data-view="reset">איפוס</button>
+      <aside class="panel" id="chat-panel" lang="he" aria-label="מעצב AI" data-i18n-aria-label="chatPanel"></aside>
+      <section class="viewer" id="viewer" aria-label="תצוגה תלת-ממדית" data-i18n-aria-label="viewer">
+        <div class="view-presets" id="view-presets" role="group" aria-label="זווית מצלמה" data-i18n-aria-label="cameraGroup">
+          <button type="button" class="btn view-presets__btn" data-view="front" data-i18n="views.front">חזית</button>
+          <button type="button" class="btn view-presets__btn" data-view="side" data-i18n="views.side">צד ימין</button>
+          <button type="button" class="btn view-presets__btn" data-view="sideLeft" data-i18n="views.sideLeft">צד שמאל</button>
+          <button type="button" class="btn view-presets__btn" data-view="threeQuarter" data-i18n="views.threeQuarter">3/4</button>
+          <button type="button" class="btn view-presets__btn" data-view="reset" data-i18n="views.reset">איפוס</button>
         </div>
-        <button type="button" class="btn view-presets__btn view-rotate" id="auto-rotate" aria-pressed="false" aria-label="סיבוב 360" lang="he" hidden>360</button>
+        <button type="button" class="btn view-presets__btn view-rotate" id="auto-rotate" aria-pressed="false" aria-label="סיבוב 360" data-i18n-aria-label="rotate" hidden>360</button>
       </section>
-      <aside class="panel panel--properties" id="properties-panel" aria-label="Properties" tabindex="-1">
-        <h2 class="panel__title">Properties</h2>
-        <p class="panel__hint">Select a component in the 3D view, or under All parts below, to edit it.</p>
+      <aside class="panel panel--properties" id="properties-panel" aria-label="מאפיינים" data-i18n-aria-label="properties" tabindex="-1">
+        <h2 class="panel__title" data-i18n="properties">מאפיינים</h2>
+        <p class="panel__hint" data-i18n="propertiesHint">בחר רכיב בתצוגה התלת-ממדית, או תחת "כל החלקים" למטה, כדי לערוך אותו.</p>
         <div id="properties-content"></div>
       </aside>
     </main>
+    <footer class="site-footer">
+      <a class="btn btn--ghost" href="/accessibility.html" hreflang="he" data-testid="a11y-link" data-i18n="accessibility">נגישות</a>
+    </footer>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

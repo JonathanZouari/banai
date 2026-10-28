@@ -78,11 +78,12 @@ export const MINIMALIST_WARDROBE_OPS = deepFreeze([
   { op: 'set_material', target: 'doors', material: { catalogId: 'lacquered_mdf' } },
 ]);
 
-/** Start-screen templates. `id` names the shared fixture (shared/fixtures/designs/<id>.json). */
+/** Start-screen templates. `id` names the shared fixture (shared/fixtures/designs/<id>.json) and the
+ *  title/description in ui/i18n.js. */
 export const TEMPLATES = deepFreeze([
-  { id: 'kids', title: "Kids' wardrobe", description: '100 × 150 × 50 cm · low hanging rail, shelves and drawers', ops: KIDS_WARDROBE_OPS },
-  { id: 'double_sliding', title: 'Double wardrobe, sliding doors', description: '240 × 240 × 65 cm · two sliding doors, hanging at both ends', ops: DOUBLE_SLIDING_WARDROBE_OPS },
-  { id: 'minimalist', title: 'Minimalist wardrobe', description: '180 × 220 × 60 cm · white lacquer, a rail and three shelves', ops: MINIMALIST_WARDROBE_OPS },
+  { id: 'kids', ops: KIDS_WARDROBE_OPS },
+  { id: 'double_sliding', ops: DOUBLE_SLIDING_WARDROBE_OPS },
+  { id: 'minimalist', ops: MINIMALIST_WARDROBE_OPS },
 ]);
 
 /** Build a template's design through the op protocol (validated like any other design). */

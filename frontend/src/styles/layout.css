@@ -1,4 +1,6 @@
 * { box-sizing: border-box; }
+/* Form controls do not inherit the page font by default. */
+button, input, select, textarea { font-family: inherit; }
 
 body {
   margin: 0;
@@ -30,6 +32,7 @@ body {
 .theme-slider__label { color: var(--md-sys-color-on-surface); }
 .theme-slider input { width: 96px; margin: 0; accent-color: var(--md-sys-color-primary); cursor: pointer; }
 .theme-slider input:focus-visible { outline: var(--focus-outline); outline-offset: 4px; }
+.site-language { min-width: 76px; }
 .theme-slider__name { min-width: 72px; color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-label-medium); }
 .topbar__units {
   padding: 4px var(--space-3);
@@ -38,6 +41,19 @@ body {
   font: var(--md-sys-typescale-label-medium);
   font-variant-numeric: tabular-nums;
 }
+
+/* Footer: a thin bar under the workspace, its links centred. */
+.site-footer {
+  flex: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-1) var(--space-4);
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+  background: var(--md-sys-color-surface-container-low);
+}
+.site-footer .btn { height: 32px; }
 
 .banner { padding: var(--space-2) var(--space-4); font: var(--md-sys-typescale-body-medium); }
 .banner--error { background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); }
@@ -53,8 +69,8 @@ body {
   overflow-y: auto;
   background: var(--md-sys-color-surface-container-lowest);
 }
-.panel:first-child { border-right: 1px solid var(--md-sys-color-outline-variant); }
-.panel--properties { border-left: 1px solid var(--md-sys-color-outline-variant); }
+.panel:first-child { border-inline-end: 1px solid var(--md-sys-color-outline-variant); }
+.panel--properties { border-inline-start: 1px solid var(--md-sys-color-outline-variant); }
 .panel__title { margin: 0 0 var(--space-2); font: var(--md-sys-typescale-title-medium); }
 .panel__hint, .panel__note { margin: 0 0 var(--space-3); color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-small); }
 
@@ -70,7 +86,7 @@ body {
 
 .viewer { position: relative; min-width: 0; overflow: hidden; background: var(--md-sys-color-viewer); }
 .viewer canvas { display: block; }
-.viewer-labels { position: absolute; inset: 0; pointer-events: none; }
+.viewer-labels { position: absolute; inset: 0; pointer-events: none; direction: ltr; } /* CSS2D positions assume LTR */
 /* Camera angle buttons, floating over the top corner of the 3D view. */
 .view-presets {
   position: absolute;
@@ -80,7 +96,7 @@ body {
   display: flex;
   gap: var(--space-1);
   padding: var(--space-1);
-  border-radius: var(--md-sys-shape-full);
+  border-radius: var(--md-sys-shape-medium);
   background: var(--theme-glass);
   box-shadow: 0 1px 4px rgba(var(--theme-ink-rgb), 0.12);
 }

@@ -13,6 +13,7 @@ import { createMaterials } from './materials.js';
 import { attachPicking } from './picking.js';
 import { describeSelection } from './format.js';
 import { resolveSelection } from '../state/store.js';
+import { onSiteLanguageChange, strings } from '../ui/i18n.js';
 
 const BACKGROUND = '#eceeec';
 // Scene colours that follow the UI theme, read from CSS custom properties (styles/tokens.css).
@@ -68,7 +69,7 @@ export function createViewer(container, store, { onAutoRotateChange = () => {} }
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.domElement.setAttribute('role', 'img');
-  renderer.domElement.setAttribute('aria-label', '3D wardrobe view. Every part is also listed under All parts in the Properties panel.');
+  renderer.domElement.setAttribute('aria-label', strings().canvas);
   container.appendChild(renderer.domElement);
 
   const labels = new CSS2DRenderer();
@@ -232,6 +233,13 @@ export function createViewer(container, store, { onAutoRotateChange = () => {} }
     },
   });
   const unsubscribe = store.subscribe(sync);
+  // A new site language: relabel the canvas and redraw the dimension labels in that language.
+  const unsubscribeLanguage = onSiteLanguageChange(() => {
+    renderer.domElement.setAttribute('aria-label', strings().canvas);
+    hideTooltip();
+    const { design, selection } = store.getState();
+    if (group) dimensions.update(group, design, selection);
+  });
   sync(store.getState());
 
   // Frame time (s) for controls.update(), so auto-rotation keeps one speed at any refresh rate.
@@ -270,6 +278,7 @@ export function createViewer(container, store, { onAutoRotateChange = () => {} }
       renderer.setAnimationLoop(null);
       reducedMotionQuery?.removeEventListener('change', onReducedMotionChange);
       unsubscribe();
+      unsubscribeLanguage();
       detachPicking();
       resizeObserver.disconnect();
       if (group) disposeWardrobe(group);

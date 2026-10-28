@@ -1,10 +1,3 @@
-import '@fontsource/bricolage-grotesque/600.css';
-import '@fontsource/bricolage-grotesque/700.css';
-import '@fontsource/bricolage-grotesque/800.css';
-import '@fontsource/dm-sans/400.css';
-import '@fontsource/dm-sans/500.css';
-import '@fontsource/dm-sans/600.css';
-import '@fontsource/dm-sans/700.css';
 import {
   applyProposal, createSavedDesign, getCatalog, getDefaultDesign, getHealth, getSavedDesign, sendChat, updateSavedDesign,
 } from './api/client.js';
@@ -24,6 +17,9 @@ import { createRenderDialog } from './render/renderDialog.js';
 import { createLogo } from './ui/logo.js';
 import { installRipple } from './ui/ripple.js';
 import { THEMES, createTheme } from './ui/theme.js';
+import {
+  SITE_LANGUAGES, applyToDocument, onSiteLanguageChange, setSiteLanguage, siteLanguage, strings,
+} from './ui/i18n.js';
 
 function showError(message) {
   const banner = document.getElementById('error-banner');
@@ -55,12 +51,46 @@ function bindThemeSlider(theme) {
   slider.max = String(THEMES.length - 1);
   const sync = () => {
     slider.value = String(theme.index());
-    name.textContent = theme.nameOf(theme.get());
+    name.textContent = strings().themeNames[theme.get()];
     slider.setAttribute('aria-valuetext', name.textContent);
   };
   slider.addEventListener('input', () => theme.set(THEMES[Number(slider.value)].id));
   theme.subscribe(sync);
+  onSiteLanguageChange(sync);
   sync();
+}
+
+// Site language button: names the other language, in that language ("English" / "עברית").
+function configureLanguageButton(button) {
+  const t = strings();
+  const other = SITE_LANGUAGES.find((code) => code !== siteLanguage());
+  button.textContent = t.switchLanguage;
+  button.lang = other;
+  button.setAttribute('aria-label', t.switchLanguageLabel);
+  return button;
+}
+
+function createLanguageButton() {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'btn btn--secondary site-language';
+  button.dataset.testid = 'site-language';
+  button.addEventListener('click', () => setSiteLanguage(SITE_LANGUAGES.find((code) => code !== siteLanguage())));
+  return configureLanguageButton(button);
+}
+
+function bindLanguageButton() {
+  const button = document.getElementById('site-language');
+  button.addEventListener('click', () => setSiteLanguage(SITE_LANGUAGES.find((code) => code !== siteLanguage())));
+  onSiteLanguageChange(() => configureLanguageButton(button));
+  configureLanguageButton(button);
+}
+
+function mountLogo() {
+  const holder = document.getElementById('topbar-logo');
+  const render = () => holder.replaceChildren(createLogo({ size: 34, tagline: strings().tagline }));
+  onSiteLanguageChange(render);
+  render();
 }
 
 // The skip link moves focus without touching the hash: the hash may hold the private design link.
@@ -111,19 +141,34 @@ function createSaver(store, language, initialSession) {
   };
 }
 
-function bindDialogs({ storage, onSave, link }) {
-  const save = createSaveDialog({ available: storage, onSave, link });
-  const render = createRenderDialog();
-  document.getElementById('open-save').addEventListener('click', save.open);
-  document.getElementById('open-render').addEventListener('click', render.open);
+// Dialogs are built in the site language; a new language rebuilds them (they are closed then).
+function bindDialogs({ storage, onSave }) {
+  let save;
+  let render;
+  const build = () => {
+    save?.element.remove();
+    render?.element.remove();
+    const link = parseShareHash(window.location.hash) ? window.location.href : '';
+    save = createSaveDialog({ available: storage, onSave, link });
+    render = createRenderDialog();
+  };
+  build();
+  onSiteLanguageChange(build);
+  document.getElementById('open-save').addEventListener('click', () => save.open());
+  document.getElementById('open-render').addEventListener('click', () => render.open());
 }
 
 async function boot() {
   const theme = createTheme(); // applied first, so nothing renders in the wrong colours
+  applyToDocument(); // and the site language (Hebrew by default: right-to-left)
+  onSiteLanguageChange(() => applyToDocument());
   bindThemeSlider(theme);
-  document.getElementById('topbar-logo').append(createLogo({ size: 34, tagline: 'Wardrobe Designer' }));
+  bindLanguageButton();
+  mountLogo();
   installRipple();
   const language = createLanguage();
+  // The chat follows a change of site language (it keeps its own switch for one-off changes).
+  onSiteLanguageChange((code) => language.set(code));
   let catalog;
   let initial;
   let session;
@@ -134,7 +179,7 @@ async function boot() {
       getCatalog(), loadInitial(language.get()), getHealth().catch(() => null),
     ]);
   } catch {
-    showError('Could not reach the design service. Please check your connection and reload.');
+    showError(strings().serviceDown);
     return;
   }
   // Validates the server data before anything is rendered (throws on invalid data).
@@ -147,17 +192,19 @@ async function boot() {
   bindAutoRotate(viewer);
   theme.subscribe(() => viewer.applyTheme());
   bindSkipLink();
-  const exporter = createExportDialog({
+  const makeExporter = () => createExportDialog({
     getDesign: () => store.getState().design,
     getLanguage: () => language.get(),
     getSnapshot: (design) => renderSnapshot(design, store.getState().catalog),
   });
-  mountPanel(document.getElementById('properties-content'), store, { onExport: exporter.open });
-  bindDialogs({
-    storage: health?.data.storage === true,
-    onSave: createSaver(store, language, session),
-    link: session ? window.location.href : '',
+  let exporter = makeExporter();
+  onSiteLanguageChange(() => {
+    exporter.element.remove();
+    exporter = makeExporter();
   });
+  const openExport = () => exporter.open();
+  mountPanel(document.getElementById('properties-content'), store, { onExport: openExport });
+  bindDialogs({ storage: health?.data.storage === true, onSave: createSaver(store, language, session) });
 
   // The agent is optional: without an OpenAI key on the server the panel says so honestly.
   const agent = health?.data.agent === true
@@ -190,7 +237,7 @@ async function boot() {
     }
   };
   const chat = mountChat(document.getElementById('chat-panel'), {
-    model: chatModel, onConfirm: confirmProposal, language, onExport: exporter.open,
+    model: chatModel, onConfirm: confirmProposal, language, onExport: openExport,
   });
   // A manual edit changes the revision, which may turn a pending proposal stale.
   store.subscribe(() => chat.refresh());
@@ -201,6 +248,7 @@ async function boot() {
 
   if (session) return; // reopened from a link: straight into the editor
   mountStartScreen({
+    languageButton: createLanguageButton,
     onChoose: (entry) => {
       // A template replaces the basic wardrobe loaded at boot. It is built and validated locally,
       // and committed as the next revision like any other new design.
@@ -217,5 +265,5 @@ async function boot() {
 }
 
 boot().catch(() => {
-  showError('The designer could not start. Please reload the page.');
+  showError(strings().bootFailed);
 });
