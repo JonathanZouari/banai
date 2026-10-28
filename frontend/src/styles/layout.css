@@ -66,6 +66,33 @@ body {
 .viewer canvas { display: block; }
 .viewer-labels { position: absolute; inset: 0; pointer-events: none; }
 
+.viewer-rotate-btn {
+  position: absolute;
+  bottom: var(--space-3);
+  right: var(--space-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--md-sys-color-on-surface-variant);
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.viewer-rotate-btn:hover { background: rgba(255, 255, 255, 0.98); color: var(--md-sys-color-on-surface); }
+.viewer-rotate-btn--active {
+  background: var(--md-sys-color-primary);
+  border-color: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+}
+.viewer-rotate-btn--active:hover { opacity: 0.88; }
+@media (prefers-reduced-motion: reduce) { .viewer-rotate-btn { display: none; } }
+
 .dim-label {
   padding: 2px var(--space-2);
   border: 1px solid var(--md-sys-color-outline-variant);
