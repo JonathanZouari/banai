@@ -66,3 +66,31 @@ test.describe('Phase 3: 3D viewer', () => {
     expect(selected).toBe('shf_r1');
   });
 });
+
+test.describe('camera view buttons', () => {
+  const cameraX = (page) => page.evaluate(() => window.__banai.viewer.camera.position.x);
+  const committed = (page) => page.evaluate(() => {
+    const { design, revision } = window.__banai.store.getState();
+    return JSON.stringify({ design, revision });
+  });
+
+  test('Front glides to a straight-on view without touching the design state', async ({ page }) => {
+    await openDesigner(page);
+    const before = await committed(page);
+    await page.getByTestId('view-front').click();
+    // Mid-transition the camera is still on its way, not jumped.
+    expect(Math.abs((await cameraX(page)) - 1)).toBeGreaterThan(0.01);
+    await expect.poll(() => cameraX(page)).toBeCloseTo(1, 3); // centre of a 2000 mm wardrobe
+    await page.getByTestId('view-side').click();
+    await page.getByTestId('view-threeQuarter').click();
+    await page.getByTestId('view-reset').click();
+    expect(await committed(page)).toBe(before);
+  });
+
+  test('with reduced motion the view changes at once', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await openDesigner(page);
+    await page.getByTestId('view-front').click();
+    expect(await cameraX(page)).toBeCloseTo(1, 6);
+  });
+});
