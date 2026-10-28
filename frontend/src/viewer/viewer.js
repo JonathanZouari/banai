@@ -113,9 +113,7 @@ export function createViewer(container, store) {
   rotateBtn.setAttribute('aria-label', 'Auto-rotate');
   rotateBtn.setAttribute('aria-pressed', 'false');
   rotateBtn.title = 'Auto-rotate';
-  rotateBtn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M21.5 2v6h-6"/><path d="M21.34 15.57a10 10 0 1 1-.57-8.38"/>
-  </svg>`;
+  rotateBtn.textContent = '360°';
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     rotateBtn.hidden = true;
   }
