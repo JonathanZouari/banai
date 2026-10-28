@@ -18,6 +18,7 @@ import { mountChat } from './chat/chatPanel.js';
 import { mountStartScreen } from './entry/startScreen.js';
 import { createSaveDialog } from './share/saveDialog.js';
 import { parseShareHash, shareHash } from './share/link.js';
+import { createUnsavedTracker } from './share/unsaved.js';
 import { createExportDialog } from './export/exportDialog.js';
 import { createRenderDialog } from './render/renderDialog.js';
 import { createLogo } from './ui/logo.js';
@@ -61,10 +62,11 @@ async function loadInitial(language) {
   return { initial: await getDefaultDesign(), session: null };
 }
 
-function createSaver(store, language, initialSession) {
+/** `onSaved(revision)` gets the store revision that was saved, read before the request went out. */
+function createSaver(store, language, initialSession, onSaved = () => {}) {
   let session = initialSession;
   return async () => {
-    const { design } = store.getState();
+    const { design, revision: savedRevision } = store.getState();
     if (session) {
       const { revision } = await updateSavedDesign({ ...session, design, language: language.get() });
       session = { ...session, revision };
@@ -73,8 +75,24 @@ function createSaver(store, language, initialSession) {
       session = { designId: created.designId, token: created.accessToken, revision: created.revision };
     }
     window.history.replaceState(null, '', shareHash(session));
+    onSaved(savedRevision);
     return window.location.href;
   };
+}
+
+// Only when the server can save: without saving there is nothing the warning could protect.
+// Browsers show their own fixed text, and only after the user has interacted with the page.
+function bindUnsavedWarning(store) {
+  const saveButton = document.getElementById('open-save');
+  const tracker = createUnsavedTracker(store, (dirty) => {
+    saveButton.classList.toggle('btn--unsaved', dirty);
+    if (dirty) saveButton.setAttribute('aria-label', 'Save (unsaved changes)');
+    else saveButton.removeAttribute('aria-label');
+  });
+  window.addEventListener('beforeunload', (event) => {
+    if (tracker.isDirty()) event.preventDefault();
+  });
+  return tracker;
 }
 
 function bindDialogs({ storage, onSave, link }) {
@@ -112,9 +130,11 @@ async function boot() {
     getSnapshot: (design) => renderSnapshot(design, store.getState().catalog),
   });
   mountPanel(document.getElementById('properties-content'), store, { onExport: exporter.open });
+  const storage = health?.data.storage === true;
+  const unsaved = storage ? bindUnsavedWarning(store) : null;
   bindDialogs({
-    storage: health?.data.storage === true,
-    onSave: createSaver(store, language, session),
+    storage,
+    onSave: createSaver(store, language, session, (revision) => unsaved?.markSaved(revision)),
     link: session ? window.location.href : '',
   });
 

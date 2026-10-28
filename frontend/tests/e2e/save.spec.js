@@ -17,6 +17,91 @@ const setHeight = (page, height) => page.evaluate(
   height,
 );
 
+// Whether leaving now would be stopped: the page cancels a synthetic beforeunload when unsaved.
+const blocksLeaving = (page) => page.evaluate(() => {
+  const event = new Event('beforeunload', { cancelable: true });
+  window.dispatchEvent(event);
+  return event.defaultPrevented;
+});
+
+const ok = (data) => ({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data }) });
+
+test.describe('unsaved changes warning', () => {
+  test('no warning on open or right after a save; a warning after each manual edit', async ({ page }) => {
+    await openDesigner(page);
+    const saveButton = page.getByTestId('open-save');
+    expect(await blocksLeaving(page)).toBe(false);
+    await expect(saveButton).not.toHaveClass(/btn--unsaved/);
+
+    expect(await setHeight(page, 2300)).toBe(true);
+    expect(await blocksLeaving(page)).toBe(true);
+    await expect(saveButton).toHaveClass(/btn--unsaved/);
+    await expect(saveButton).toHaveAttribute('aria-label', 'Save (unsaved changes)');
+
+    await saveFromDialog(page);
+    expect(await blocksLeaving(page)).toBe(false);
+    await expect(saveButton).not.toHaveClass(/btn--unsaved/);
+
+    expect(await setHeight(page, 2200)).toBe(true);
+    expect(await blocksLeaving(page)).toBe(true);
+  });
+
+  test('selecting a component or showing the interior is not a change', async ({ page }) => {
+    await openDesigner(page);
+    await page.evaluate(() => window.__banai.store.select('shf_l1'));
+    await page.locator('#toggle-interior').setChecked(false);
+    expect(await blocksLeaving(page)).toBe(false);
+  });
+
+  test('a confirmed AI proposal is an unsaved change', async ({ page }) => {
+    await page.route('**/api/health', (route) => route.fulfill(ok({ status: 'ok', env: 'e2e', agent: true, storage: true })));
+    await page.route('**/api/chat', (route) => {
+      const body = route.request().postDataJSON();
+      return route.fulfill(ok({
+        reply: 'Sure! Here is my proposal.',
+        proposal: {
+          proposalId: 'prp_0123456789abcdef', baseRevision: body.revision, baseHash: 'a'.repeat(64),
+          ops: [{ op: 'update_dimensions', depth: 550 }], signature: 'b'.repeat(64),
+          summary: 'Makes the wardrobe shallower.', changes: [{ title: 'Depth', detail: '60.0 cm to 55.0 cm' }],
+        },
+      }));
+    });
+    await page.route('**/api/proposals/apply', (route) => {
+      const body = route.request().postDataJSON();
+      const design = structuredClone(body.design);
+      design.dimensions.depth = 550;
+      return route.fulfill(ok({ design, revision: body.revision + 1 }));
+    });
+    await openDesigner(page);
+    await page.getByTestId('chat-input').fill('55 cm deep please');
+    await page.getByTestId('chat-send').click();
+    await expect(page.getByTestId('proposal-card')).toBeVisible();
+    expect(await blocksLeaving(page)).toBe(false); // a pending proposal is not a change
+    await page.getByTestId('proposal-confirm').click();
+    await expect(page.getByTestId('proposal-card')).toHaveCount(0);
+    expect(await blocksLeaving(page)).toBe(true);
+    await expect(page.getByTestId('open-save')).toHaveClass(/btn--unsaved/);
+  });
+
+  test('the browser really asks before closing with unsaved changes', async ({ page }) => {
+    await openDesigner(page); // the click on the start screen counts as user interaction
+    expect(await setHeight(page, 2300)).toBe(true);
+    const dialog = page.waitForEvent('dialog');
+    await page.close({ runBeforeUnload: true });
+    const shown = await dialog;
+    expect(shown.type()).toBe('beforeunload');
+    await shown.accept();
+  });
+
+  test('no warning when the server cannot save', async ({ page }) => {
+    await page.route('**/api/health', (route) => route.fulfill(ok({ status: 'ok', env: 'e2e', storage: false })));
+    await openDesigner(page);
+    expect(await setHeight(page, 2300)).toBe(true);
+    expect(await blocksLeaving(page)).toBe(false);
+    await expect(page.getByTestId('open-save')).not.toHaveClass(/btn--unsaved/);
+  });
+});
+
 test.describe('save and reopen', () => {
   test('Save gives a private link that reopens the same design', async ({ page, context }) => {
     await openDesigner(page);
