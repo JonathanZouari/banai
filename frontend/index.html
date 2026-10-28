@@ -12,6 +12,11 @@
     <header class="topbar">
       <h1 class="topbar__title" id="topbar-logo" aria-label="BanAI Wardrobe Designer"></h1>
       <div class="topbar__actions">
+        <div class="theme-slider">
+          <label class="theme-slider__label" for="theme-slider">Theme</label>
+          <input type="range" id="theme-slider" min="0" max="4" step="1" value="0" />
+          <output class="theme-slider__name" id="theme-name" for="theme-slider">Terracotta</output>
+        </div>
         <label class="toggle">
           <input type="checkbox" id="toggle-interior" />
           <span>Show interior</span>
@@ -25,7 +30,16 @@
     <div class="banner banner--error" id="error-banner" role="alert" hidden></div>
     <main class="workspace">
       <aside class="panel" id="chat-panel" lang="he" aria-label="מעצב AI"></aside>
-      <section class="viewer" id="viewer" aria-label="3D viewer"></section>
+      <section class="viewer" id="viewer" aria-label="3D viewer">
+        <div class="view-presets" id="view-presets" role="group" aria-label="זווית מצלמה" lang="he" dir="rtl">
+          <button type="button" class="btn view-presets__btn" data-view="front">חזית</button>
+          <button type="button" class="btn view-presets__btn" data-view="side">צד ימין</button>
+          <button type="button" class="btn view-presets__btn" data-view="sideLeft">צד שמאל</button>
+          <button type="button" class="btn view-presets__btn" data-view="threeQuarter">3/4</button>
+          <button type="button" class="btn view-presets__btn" data-view="reset">איפוס</button>
+        </div>
+        <button type="button" class="btn view-presets__btn view-rotate" id="auto-rotate" aria-pressed="false" aria-label="סיבוב 360" lang="he" hidden>360</button>
+      </section>
       <aside class="panel panel--properties" id="properties-panel" aria-label="Properties" tabindex="-1">
         <h2 class="panel__title">Properties</h2>
         <p class="panel__hint">Select a component in the 3D view, or under All parts below, to edit it.</p>
