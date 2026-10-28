@@ -1,8 +1,8 @@
 // Small DOM builders for the properties panel. Text is always set via textContent or
 // input.value, never innerHTML, so design data (e.g. custom names) cannot inject markup.
-import { friendlyError, parseMessage } from './opsFromForm.js';
+import { chipReason, friendlyError, parseMessage } from './opsFromForm.js';
 import { t } from '../i18n/strings.js';
-import { formatLength, parseLength, units } from '../ui/units.js';
+import { compactLength, formatLength, parseLength, units } from '../ui/units.js';
 
 let fieldCounter = 0;
 const nextId = (prefix) => `${prefix}-${(fieldCounter += 1)}`;
@@ -62,6 +62,24 @@ export function cmField({ label, mm, testId, onCommit }) {
       return parsed.ok ? onCommit(parsed.mm) : { ok: false, message: parseMessage(parsed) };
     },
   });
+}
+
+/**
+ * A row of common-size chips (see dimensionChips). The selected chip is pressed, one the design cannot take is
+ * disabled with the reason as its tooltip. `onPick(mm)` dispatches, exactly like typing the value.
+ */
+export function chipRow({ label, chips, onPick, testIdPrefix }) {
+  const unit = units.get();
+  const group = el('div', { className: 'dim-chips', attrs: { role: 'group', 'aria-label': label, title: t('edPresetHint') } });
+  chips.forEach((chip) => {
+    const node = button(compactLength(chip.mm, unit), () => { if (!chip.active) onPick(chip.mm); }, {
+      variant: 'chip', testId: `${testIdPrefix}-${chip.mm}`, disabled: !chip.ok,
+    });
+    node.setAttribute('aria-pressed', String(chip.active));
+    if (!chip.ok) node.title = chipReason(chip.error);
+    group.append(node);
+  });
+  return group;
 }
 
 /** A whole-number field (counts). */

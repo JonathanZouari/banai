@@ -1,5 +1,8 @@
 // Pure mapping from editor form input to domain ops. No DOM here, so every rule is
 // unit-tested. The domain engine remains the single authority on validity.
+import { applyOps } from '../domain/apply.js';
+import { LIMITS } from '../domain/defaults.js';
+import { DomainError } from '../domain/errors.js';
 import { interiorHeight } from '../domain/geometry.js';
 import { DOOR, newId } from '../domain/ids.js';
 import { formatLength, parseLength } from '../ui/units.js';
@@ -15,6 +18,33 @@ export const parseCm = (text) => parseLength(text, 'cm');
 export const toCmText = (mm) => formatLength(mm, 'cm');
 
 export const dimensionOps = (field, mm) => [{ op: 'update_dimensions', [field]: mm }];
+
+// ASSUMPTION: common wardrobe sizes offered as one-click chips, in mm (configurable defaults, not
+// business rules: any value inside LIMITS can still be typed).
+export const DIMENSION_PRESETS = Object.freeze({
+  width: Object.freeze([1000, 1500, 2000, 2400, 3000]),
+  height: Object.freeze([2000, 2200, 2400, 2600]),
+  depth: Object.freeze([450, 550, 600, 650]),
+});
+
+/**
+ * The common sizes for one dimension, each dry-run through the domain engine on a copy of the design:
+ * `ok: false` (with the engine's `error`) means dispatching it would be rejected, so the chip is disabled.
+ */
+export function dimensionChips(design, catalog, field) {
+  const [min, max] = LIMITS[field];
+  return DIMENSION_PRESETS[field].filter((mm) => mm >= min && mm <= max).map((mm) => {
+    const active = design.dimensions[field] === mm;
+    if (active) return { mm, active, ok: true };
+    try {
+      applyOps(design, dimensionOps(field, mm), catalog);
+      return { mm, active, ok: true };
+    } catch (error) {
+      if (!(error instanceof DomainError)) throw error;
+      return { mm, active, ok: false, error };
+    }
+  });
+}
 
 export function doorTypeOps(type, count) {
   if (type === 'sliding') return [{ op: 'configure_doors', type, count: count ?? 2 }];
@@ -151,6 +181,13 @@ const FRIENDLY = Object.freeze({
 
 /** Short, engine-independent message for an inline error in the selected language (never echoes input). */
 export const friendlyError = (error) => t(FRIENDLY[error?.code] ?? 'feGeneric');
+
+/** Why a common-size chip is disabled, in the selected language (the generic engine messages talk about positions). */
+export function chipReason(error) {
+  if (error?.code === 'OUT_OF_BOUNDS') return t('edPresetNoFitItems');
+  if (error?.code === 'OUT_OF_RANGE' || error?.code === 'WIDTH_MISMATCH') return t('edPresetNoFitCompartments');
+  return friendlyError(error);
+}
 
 /** Localized text for a failed length parse (see parseLength). */
 export const parseMessage = (failure) => (failure.code === 'NOT_A_NUMBER' ? tf('feEnterNumber', { unit: failure.unit, example: failure.example }) : t('feTooLarge'));

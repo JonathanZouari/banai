@@ -2,20 +2,31 @@
 // Inputs report their own errors inline; buttons/selects report under their section.
 import { appearanceControls } from './appearanceControls.js';
 import { t } from '../i18n/strings.js';
-import { actionResult, cmField, el, section } from './fields.js';
-import { dimensionOps } from './opsFromForm.js';
+import { actionResult, chipRow, cmField, el, section } from './fields.js';
+import { dimensionChips, dimensionOps } from './opsFromForm.js';
 
-function dimensionsRow(design, run) {
-  const { width, height, depth } = design.dimensions;
-  return el('div', { className: 'field-row field-row--3' }, [
-    cmField({ label: t('edWidth'), mm: width, testId: 'dim-width', onCommit: (mm) => run(dimensionOps('width', mm)) }),
-    cmField({ label: t('edHeight'), mm: height, testId: 'dim-height', onCommit: (mm) => run(dimensionOps('height', mm)) }),
-    cmField({ label: t('edDepth'), mm: depth, testId: 'dim-depth', onCommit: (mm) => run(dimensionOps('depth', mm)) }),
-  ]);
+const DIMENSIONS = Object.freeze([
+  { field: 'width', label: 'edWidth', chipsLabel: 'edCommonWidths' },
+  { field: 'height', label: 'edHeight', chipsLabel: 'edCommonHeights' },
+  { field: 'depth', label: 'edDepth', chipsLabel: 'edCommonDepths' },
+]);
+
+// One block per dimension: the field, then its common sizes. Picking a chip dispatches the same op as typing.
+function dimensionsBlocks({ design, catalog, run }, container) {
+  const runChip = (ops) => actionResult(container, run(ops));
+  return DIMENSIONS.map(({ field, label, chipsLabel }) => el('div', { className: 'dim-block' }, [
+    cmField({ label: t(label), mm: design.dimensions[field], testId: `dim-${field}`, onCommit: (mm) => run(dimensionOps(field, mm)) }),
+    chipRow({
+      label: t(chipsLabel), chips: dimensionChips(design, catalog, field), testIdPrefix: `dim-${field}-chip`,
+      onPick: (mm) => runChip(dimensionOps(field, mm)),
+    }),
+  ]));
 }
 
-export function wardrobeSection({ design, catalog, run }) {
-  return [section(t('edWardrobe'), [dimensionsRow(design, run)])];
+export function wardrobeSection(context) {
+  const wardrobe = section(t('edWardrobe'), []);
+  wardrobe.append(...dimensionsBlocks(context, wardrobe));
+  return [wardrobe];
 }
 
 export function materialsSection({ design, catalog, run }) {
