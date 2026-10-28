@@ -3,7 +3,7 @@
 import { friendlyError, parseCm, toCmText } from './opsFromForm.js';
 
 let fieldCounter = 0;
-const nextId = (prefix) => `${prefix}-${(fieldCounter += 1)}`;
+export const nextId = (prefix) => `${prefix}-${(fieldCounter += 1)}`;
 
 export function el(tag, { className, text, attrs = {} } = {}, children = []) {
   const node = document.createElement(tag);
