@@ -13,6 +13,26 @@ export const partitionLeftEdge = (d, index) =>
   sum(d.compartments.slice(0, index + 1).map((c) => c.width)) +
   sum(d.partitions.slice(0, index).map((p) => p.thickness));
 
+/**
+ * Read-only totals for the design summary card (frontend only; not an op, so no backend mirror).
+ * Volume is gross: inner width × interior height × full depth per compartment, before shelves and
+ * drawers. The model has no back panel. Hanging length counts every rail, so a double-hanging
+ * compartment counts its width twice.
+ */
+export function designSummary(d) {
+  const height = interiorHeight(d);
+  const { depth } = d.dimensions;
+  const count = (key) => sum(d.compartments.map((c) => c[key].length));
+  return {
+    compartments: d.compartments.length,
+    shelves: count('shelves'),
+    drawers: count('drawers'),
+    rails: count('rails'),
+    interiorVolumeMm3: sum(d.compartments.map((c) => c.width * height * depth)),
+    hangingLengthMm: sum(d.compartments.map((c) => c.width * c.rails.length)),
+  };
+}
+
 export function compartmentXRanges(d) {
   let x = 0;
   return d.compartments.map((compartment, index) => {
