@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.auth.provider import get_auth_provider
 from app.config import get_settings
 from app.persistence.repository import get_repository
 
@@ -10,4 +11,5 @@ router = APIRouter()
 def health() -> dict:
     settings = get_settings()
     return {"success": True, "data": {"status": "ok", "env": settings.app_env, "agent": settings.agent_enabled,
-                                      "storage": get_repository() is not None}}
+                                      "storage": get_repository() is not None,
+                                      "auth": get_auth_provider() is not None}}

@@ -6,7 +6,9 @@ import httpx2
 import pytest
 from fastapi.testclient import TestClient
 
+from app.api import auth as auth_api
 from app.api import designs as designs_api
+from app.auth.provider import InMemoryAuthProvider
 from app.config import get_settings
 from app.domain.defaults import basic_wardrobe
 from app.main import app
@@ -16,6 +18,17 @@ from app.persistence.repository import InMemoryRepository, StorageError, Supabas
 client = TestClient(app)
 
 
+ACCOUNTS = InMemoryAuthProvider()
+SESSION = ACCOUNTS.sign_up("saver@example.com", "a-long-password", "127.0.0.1")[1]
+LOGGED_IN = {"Authorization": f"Bearer {SESSION.access_token}"}
+
+
+@pytest.fixture(autouse=True)
+def accounts(monkeypatch):
+    monkeypatch.setattr(auth_api, "get_auth_provider", lambda: ACCOUNTS)
+    return ACCOUNTS
+
+
 @pytest.fixture
 def store(monkeypatch):
     repository = InMemoryRepository()
@@ -23,12 +36,17 @@ def store(monkeypatch):
     return repository
 
 
-def save(design=None, **extra):
-    return client.post("/api/designs", json={"design": design or basic_wardrobe(), **extra})
+def save(design=None, headers=LOGGED_IN, **extra):
+    return client.post("/api/designs", json={"design": design or basic_wardrobe(), **extra}, headers=headers)
 
 
 def bearer(token):
-    return {"Authorization": f"Bearer {token}"}
+    """The link token header (named for the old Authorization scheme it replaced)."""
+    return {"X-Design-Token": token}
+
+
+def put(url, body, headers):
+    return client.put(url, json=body, headers={**LOGGED_IN, **headers})
 
 
 def test_create_returns_a_link_and_stores_only_the_token_hash(store):
@@ -52,7 +70,7 @@ def test_reopen_with_the_token_returns_the_design_uncached(store):
     assert body["design"] == basic_wardrobe() and body["revision"] == 1 and body["name"] == "Wardrobe"
 
 
-@pytest.mark.parametrize("headers", [{}, bearer("A" * 43), {"Authorization": "Basic x"}, bearer("short")])
+@pytest.mark.parametrize("headers", [{}, bearer("A" * 43), {"Authorization": "Bearer " + "A" * 43}, bearer("short")])
 def test_missing_or_wrong_token_is_not_found(store, headers):
     design_id = save().json()["data"]["designId"]
     response = client.get(f"/api/designs/{design_id}", headers=headers)
@@ -69,9 +87,9 @@ def test_save_bumps_the_revision_and_a_stale_save_is_409(store):
     data = save().json()["data"]
     url, auth = f"/api/designs/{data['designId']}", bearer(data["accessToken"])
     changed = {**basic_wardrobe(), "dimensions": {**basic_wardrobe()["dimensions"], "height": 2300}}
-    first = client.put(url, json={"design": changed}, headers={**auth, "If-Match": "1"})
+    first = put(url, {"design": changed}, {**auth, "If-Match": "1"})
     assert first.status_code == 200 and first.json()["data"]["revision"] == 2
-    stale = client.put(url, json={"design": basic_wardrobe(), "language": "en"}, headers={**auth, "If-Match": "1"})
+    stale = put(url, {"design": basic_wardrobe(), "language": "en"}, {**auth, "If-Match": "1"})
     assert stale.status_code == 409 and stale.json()["error"]["code"] == "STALE"
     assert client.get(url, headers=auth).json()["data"]["design"]["dimensions"]["height"] == 2300
 
@@ -80,10 +98,10 @@ def test_save_needs_the_token_and_a_revision(store):
     data = save().json()["data"]
     url = f"/api/designs/{data['designId']}"
     body = {"design": basic_wardrobe()}
-    assert client.put(url, json=body, headers={**bearer("B" * 43), "If-Match": "1"}).status_code == 404
-    assert client.put(url, json=body, headers=bearer(data["accessToken"])).status_code == 422
+    assert put(url, body, {**bearer("B" * 43), "If-Match": "1"}).status_code == 404
+    assert put(url, body, bearer(data["accessToken"])).status_code == 422
     for bad in ("0", "²".encode("latin-1"), "1" * 12, "-1"):  # a raw client can send any latin-1 byte
-        assert client.put(url, json=body, headers={**bearer(data["accessToken"]), "If-Match": bad}).status_code == 422
+        assert put(url, body, {**bearer(data["accessToken"]), "If-Match": bad}).status_code == 422
 
 
 def test_invalid_designs_and_requests_are_rejected(store):
@@ -91,12 +109,12 @@ def test_invalid_designs_and_requests_are_rejected(store):
     assert save(broken).status_code == 422
     assert save(extra_field=1).status_code == 422
     assert save(name="bad\x00name").status_code == 422
-    assert client.post("/api/designs", content=b"{not json").status_code == 422
+    assert client.post("/api/designs", content=b"{not json", headers=LOGGED_IN).status_code == 422
     assert store._rows == {}
 
 
 def test_oversized_bodies_are_rejected_before_parsing(store):
-    response = client.post("/api/designs", content=b"x" * (designs_api.MAX_BODY_BYTES + 1))
+    response = client.post("/api/designs", content=b"x" * (designs_api.MAX_BODY_BYTES + 1), headers=LOGGED_IN)
     assert response.status_code == 413
 
 
@@ -135,12 +153,12 @@ def test_supabase_create_sends_the_secret_key_and_returns_the_row():
         seen.append(request)
         return httpx2.Response(201, json=[{"id": "abc", "revision": 1}])
 
-    assert supabase(handler).create("f" * 64, "Wardrobe", {"a": 1}) == ("abc", 1)
+    assert supabase(handler).create("f" * 64, "Wardrobe", {"a": 1}, "usr-1") == ("abc", 1)
     request = seen[0]
     assert request.method == "POST" and request.url.path == "/rest/v1/designs"
     assert request.headers["apikey"] == "sb_secret_test"
     assert request.headers["Prefer"] == "return=representation"
-    assert json.loads(request.content) == {"token_hash": "f" * 64, "name": "Wardrobe", "design": {"a": 1}}
+    assert json.loads(request.content) == {"token_hash": "f" * 64, "name": "Wardrobe", "design": {"a": 1}, "owner_id": "usr-1"}
 
 
 def test_supabase_update_is_filtered_by_id_token_and_revision():
@@ -193,3 +211,50 @@ def test_get_repository_picks_the_store_from_settings(monkeypatch, env, url, key
         assert isinstance(repo_module.get_repository(), expected)
     finally:
         get_settings.cache_clear()
+
+
+# --- Accounts: saving needs a logged-in customer; opening a link does not --------------------------
+
+def test_saving_records_the_owner(store):
+    data = save().json()["data"]
+    assert store.get(data["designId"]).owner_id == SESSION.user.id
+
+
+@pytest.mark.parametrize("headers", [{}, {"Authorization": "Bearer " + "x" * 40}, {"Authorization": "Basic abc"}])
+def test_saving_without_a_valid_session_is_401(store, headers):
+    response = save(headers=headers)
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "AUTH_REQUIRED"
+    assert store._rows == {}
+
+
+def test_saving_over_a_link_also_needs_a_session(store):
+    data = save().json()["data"]
+    url = f"/api/designs/{data['designId']}"
+    response = client.put(url, json={"design": basic_wardrobe()}, headers={**bearer(data["accessToken"]), "If-Match": "1"})
+    assert response.status_code == 401
+    assert store.get(data["designId"]).revision == 1
+
+
+def test_a_guest_can_still_open_a_link(store):
+    data = save().json()["data"]
+    response = client.get(f"/api/designs/{data['designId']}", headers=bearer(data["accessToken"]))
+    assert response.status_code == 200
+
+
+def test_the_session_is_not_a_link_token(store):
+    """A logged-in customer still needs the link token to open or change someone's design."""
+    data = save().json()["data"]
+    url = f"/api/designs/{data['designId']}"
+    assert client.get(url, headers=LOGGED_IN).status_code == 404
+    assert put(url, {"design": basic_wardrobe()}, {"If-Match": "1"}).status_code == 404
+
+
+def test_an_auth_outage_is_a_503(store, monkeypatch):
+    class Down(InMemoryAuthProvider):
+        def get_user(self, access_token):
+            from app.auth.provider import AuthUnavailable
+            raise AuthUnavailable("down")
+
+    monkeypatch.setattr(auth_api, "get_auth_provider", lambda: Down())
+    assert save().status_code == 503
