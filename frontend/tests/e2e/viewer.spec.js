@@ -162,3 +162,50 @@ test.describe('camera angle buttons', () => {
     expect(await snapshot()).toBe(before);
   });
 });
+
+test.describe('showcase rotation', () => {
+  test.beforeEach(async ({ page }) => openDesigner(page));
+
+  const rotateButton = (page) => page.getByRole('button', { name: 'סיבוב', exact: true });
+  const cameraX = (page) => page.evaluate(() => window.__banai.viewer.camera.position.x);
+
+  test('is off by default', async ({ page }) => {
+    await expect(rotateButton(page)).toBeVisible();
+    await expect(rotateButton(page)).toHaveAttribute('aria-pressed', 'false');
+    expect(await page.evaluate(() => window.__banai.viewer.autoRotating)).toBe(false);
+  });
+
+  test('turns the camera slowly, and touching the view stops it', async ({ page }) => {
+    await rotateButton(page).click();
+    await expect(rotateButton(page)).toHaveAttribute('aria-pressed', 'true');
+    const before = await cameraX(page);
+    await expect.poll(async () => Math.abs((await cameraX(page)) - before), { timeout: 3000 }).toBeGreaterThan(0.01);
+
+    const box = await page.locator('#viewer canvas').boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.up();
+    await expect(rotateButton(page)).toHaveAttribute('aria-pressed', 'false');
+    expect(await page.evaluate(() => window.__banai.viewer.autoRotating)).toBe(false);
+  });
+
+  test('a camera preset stops it', async ({ page }) => {
+    await rotateButton(page).click();
+    await page.getByRole('button', { name: 'חזית', exact: true }).click();
+    await expect(rotateButton(page)).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  test('is hidden, and cannot start, under prefers-reduced-motion', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await expect(rotateButton(page)).toBeHidden();
+    await page.evaluate(() => window.__banai.viewer.setAutoRotate(true));
+    expect(await page.evaluate(() => window.__banai.viewer.autoRotating)).toBe(false);
+  });
+
+  test('switching reduced motion on mid-rotation stops it and hides the button', async ({ page }) => {
+    await rotateButton(page).click();
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await expect(rotateButton(page)).toBeHidden();
+    await expect.poll(() => page.evaluate(() => window.__banai.viewer.autoRotating)).toBe(false);
+  });
+});

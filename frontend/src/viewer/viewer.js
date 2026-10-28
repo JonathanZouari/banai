@@ -18,6 +18,8 @@ const BACKGROUND = '#eceeec';
 // Components that get a hover tooltip, and its offset from the pointer (above-right, clear of the cursor).
 const TOOLTIP_KINDS = new Set(['shelf', 'drawer', 'compartment']);
 const TOOLTIP_OFFSET_PX = 14;
+// Showcase turntable: OrbitControls turns 60 / speed seconds per orbit, so 0.75 is one turn in 80 s.
+const AUTO_ROTATE_SPEED = 0.75;
 
 const prefersReducedMotion = () => Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
 
@@ -48,7 +50,7 @@ function componentAt(hit, design) {
   return index >= 0 ? design.compartments[index].id : componentId;
 }
 
-export function createViewer(container, store) {
+export function createViewer(container, store, { onAutoRotateChange = () => {} } = {}) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -84,8 +86,23 @@ export function createViewer(container, store) {
     placeCamera(interpolatePose(flight.from, flight.to, easeInOutCubic(t)));
     if (t === 1) flight = null;
   };
-  // Grabbing the view hands control back to the user immediately.
-  controls.addEventListener('start', () => { flight = null; });
+  // Showcase turntable around the current target. Off by default; never runs under reduced motion.
+  controls.autoRotateSpeed = AUTO_ROTATE_SPEED;
+  const setAutoRotate = (on) => {
+    const next = Boolean(on) && !prefersReducedMotion();
+    if (next === controls.autoRotate) return;
+    controls.autoRotate = next;
+    onAutoRotateChange(next);
+  };
+  const reducedMotionQuery = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+  const onReducedMotionChange = () => { if (prefersReducedMotion()) setAutoRotate(false); };
+  reducedMotionQuery?.addEventListener('change', onReducedMotionChange);
+
+  // Grabbing the view (drag, zoom, touch) hands control back to the user immediately.
+  controls.addEventListener('start', () => {
+    flight = null;
+    setAutoRotate(false);
+  });
 
   const fitCamera = (design) => {
     flight = null;
@@ -105,6 +122,7 @@ export function createViewer(container, store) {
 
   const setView = (view) => {
     hideTooltip();
+    setAutoRotate(false);
     stopMomentum();
     const to = cameraPose(view, store.getState().design.dimensions, camera.fov);
     if (prefersReducedMotion()) {
@@ -189,9 +207,14 @@ export function createViewer(container, store) {
   const unsubscribe = store.subscribe(sync);
   sync(store.getState());
 
+  // Frame time (s) for controls.update(), so auto-rotation keeps one speed at any refresh rate.
+  // Capped so a frame after a backgrounded tab doesn't jump the turntable.
+  let lastFrame = null;
   renderer.setAnimationLoop((now) => {
+    const delta = lastFrame === null ? 0 : Math.min((now - lastFrame) / 1000, 0.1);
+    lastFrame = now;
     stepFlight(now);
-    controls.update();
+    controls.update(delta);
     renderer.render(scene, camera);
     labels.render(scene, camera);
   });
@@ -202,6 +225,9 @@ export function createViewer(container, store) {
     canvas: renderer.domElement,
     /** Move the camera to a preset view: 'front', 'side', 'threeQuarter' or 'reset'. */
     setView,
+    /** Start or stop the slow showcase rotation. Ignored (stays off) under prefers-reduced-motion. */
+    setAutoRotate,
+    get autoRotating() { return controls.autoRotate; },
     meshOf: (componentId) => group?.children.find((mesh) => mesh.userData.componentId === componentId) ?? null,
     /** Client (page) coordinates of a component's centre, for tests and tooling. */
     screenPointOf(componentId) {
@@ -213,6 +239,7 @@ export function createViewer(container, store) {
     },
     dispose() {
       renderer.setAnimationLoop(null);
+      reducedMotionQuery?.removeEventListener('change', onReducedMotionChange);
       unsubscribe();
       detachPicking();
       resizeObserver.disconnect();
