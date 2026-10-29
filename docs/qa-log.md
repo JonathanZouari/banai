@@ -257,3 +257,16 @@ Run on Nurit's request with **approval at every important step**. Rules: protect
 
 - **Commit `8325022`** (merge, parents `18eac5d` + `076547d`), normal push. `dev` was re-fetched right before the push (unchanged).
 - **PR #54: MERGEABLE again**, waiting for the owner's review and merge.
+
+**Claude in Chrome walkthrough after the merge (2026-10-29):** ✅
+- The homepage has no tour. The tour appears on the first entry to the designer, in Hebrew and RTL, and Esc returns focus to "?".
+- cm ↔ mm updates the fields, the range, the summary and the 3D labels.
+- Room view: wall 180 shows "גדול ב-20.0 ס״מ". The photo, the approximate layer and the local-only note are all there.
+- A Spanish PDF with the measured wall returned 200, with 9 pages and the "Requisitos del cliente" page.
+- "שמירת תמונה" saved `banai-200x240x60.png`.
+- 0 console errors.
+- GIFs: `banai_merge_dev_tour_units.gif`, `banai_merge_dev_room_pdf_es_picture.gif`.
+- Noted as open items: the crowded top bar at 1280 px, and one stall after moving the room layer.
+- The leftover temp worktrees were cleaned up (the git "Permission denied" warning is gone).
+  - **Crowded top bar at 1280 px:** "לסיכום ושליחה", "התאמה לחדר" and "הצגת פנים הארון" wrap to two lines since the unit selector and "?" were added. Options: shorter labels, an icon for the tour, or a unit dropdown.
+  - **One stall in the room view:** one screenshot timed out (30 s) right after moving the layer, then the page recovered. Moving doesn't re-render 3D, so the likely cause is machine load. Watch for it.
