@@ -71,6 +71,7 @@ test.describe('landing page', () => {
   });
 
   test('closing the start screen releases the landing scenes', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' }); // an instant jump: a smooth scroll past every section is slow on software WebGL
     await page.goto('/');
     await page.locator('.start__nav-link', { hasText: 'Materials' }).click();
     await expect(page.locator('#landing-materials canvas.landing-canvas')).toHaveCount(1);

@@ -173,8 +173,7 @@ export function mountStartScreen({ onChoose, onBuild = null, archive = null, arc
     if (dialog.contains(document.activeElement)) {
       document.body.tabIndex = -1;
       document.body.focus({ preventScroll: true });
-      document.body.removeAttribute('tabindex');
-    }
+      document.body.removeAttribute('tabindex');    }
     watch?.disconnect();
     if (typeof unsubscribe === 'function') unsubscribe();
     landing?.dispose();
@@ -182,7 +181,8 @@ export function mountStartScreen({ onChoose, onBuild = null, archive = null, arc
   }, { once: true });
   // A choice is required: Esc must not leave the user on a blank workspace.
   dialog.addEventListener('cancel', (event) => event.preventDefault());
-  document.body.append(dialog);
+  // First in the page, so once it closes the next Tab continues into the skip link, not out of the page.
+  document.body.prepend(dialog);
   dialog.showModal();
   // Focus the first header control (a real control, so closing the screen hands focus back to the
   // page), without a focus ring for a visitor who has not used the keyboard yet.
