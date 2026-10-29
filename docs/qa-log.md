@@ -212,3 +212,48 @@ decision); the Phase 9 CSP needs `img-src blob:` for the room photo preview.
 **Security:** strict validation of `request` (types, ranges, a fixed list, caps, hidden characters rejected), the same token protection (a wrong token returns 404 without data), plain text in the PDF, share links encoded and limited to the app's own links, `noopener noreferrer` for WhatsApp, no personal details collected, and an empty request is not sent.
 
 **Open:** sending through WhatsApp puts the private link in the WhatsApp URL (customer-initiated, with a warning). No OpenAI key: AI flows are tested with mocks only. `fast-uri`.
+
+### 2026-10-28/29 · Merging dev into `uxui_nurit` (PR #54 kept up to date)
+Run on Nurit's request with **approval at every important step**. Rules: protect `main`, `dev` and the existing work; no force-push; no automatic ours/theirs; no push without approval.
+
+**Round 1 (`dev` = `a8599e1`, new catalog entries + docs pages):**
+- Backup branch `backup/uxui_nurit-before-rebase` (`f666c72`). Remote `upstream` added for `JonathanZouari/banai`, read-only (push URL disabled).
+- **Merge instead of rebase** (Nurit's decision): `origin/dev` doesn't exist in the fork, and a rebase would need a force-push to update the PR.
+- No conflicts. One test from `dev` (`editor.spec.js`, new catalog) expected the English UI. It was adapted to Hebrew and the materials step, with the same checks.
+- Commits `a4861b8` (merge) and `18eac5d` (test), pushed.
+- Gate: pytest 270, vitest 264, Playwright 97/97 after reducing load on the machine (Chrome closed, OneDrive paused). The room axe test runs out of time under load; it also does on the pre-merge backup.
+- **Lesson:** `dev` moved while the tests ran (8 more PRs), so PR #54 became CONFLICTING right after the push. **Always re-fetch `dev` right before a push.**
+
+**Round 2 (`dev` = `076547d`: Spanish, display units, intro tour, share button, save picture, camera focus, `mirror_layout`, more catalog):**
+- Backup branch `backup/uxui_nurit-before-merge-2` (`18eac5d`). 16 conflicting files, resolved in 4 groups, each approved before it was applied.
+- **Nurit's decisions:**
+  - Spanish in the chat and PDF only; the UI stays Hebrew/English.
+  - The unit selector replaces the fixed "ס״מ" label, with Hebrew unit names.
+  - The tour starts only the first time the designer opens (not over the homepage or the room view).
+  - The room view stays in cm (option A, open item).
+- **Combined, never one side over the other:**
+  - The steps, notes, room and review stay. `dev`'s units drive the fields, the range and errors in step 1, the summary and the 3D labels.
+  - The share button and "שמירת תמונה" are in Hebrew. The snapshot supports both the transparent room cut-out and the PNG picture.
+- **Gaps between `dev`'s PRs and this branch, fixed:**
+  1. **A Spanish PDF with notes or a room crashed:** the customer page had no Spanish texts. 18 texts added, plus a pytest test.
+  2. Spanish tour texts were missing (a `dev` test failed on `dev` itself).
+  3. Spanish PDF names for solid oak, olive green and terracotta were missing (same).
+  4. Hebrew UI names for those three were added.
+  5. A bug introduced in the merge itself: the tour started before focus moved, so closing it lost focus. Fixed in `main.js`.
+- **Tests adapted (none disabled):**
+  - `dev`'s `units`, `tour`, `catalog`, `spanish`, `export`, `ux` and `displayUnits` tests: Hebrew labels, opening the right step, the homepage instead of the old start screen, and a direction-aware bubble position.
+  - `i18n.spec` now checks the unit selector.
+  - 4 visual baselines updated after review, stable 3/3.
+
+| Check | Result |
+|---|---|
+| pytest | ✅ 309 passed |
+| vitest | ✅ 325 passed |
+| Playwright (full) | ✅ 122/123; the room axe test with a photo timed out under load, then passed alone 2/2 (0 violations) |
+| Visual regression | ✅ 4 baselines updated after review, stable ×3 |
+| Build / secrets / invisible characters | ✅ (the one hit is a deliberate security test from 2026-10-16) |
+| npm audit | 🟡 only `fast-uri` (existing, not fixed by decision) |
+| Security review | ✅ no new HTML sinks or network calls. `mirror_layout` is a strict model with no parameters. Language limited to `he/en/es`. `request` still strictly validated |
+
+- **Commit `8325022`** (merge, parents `18eac5d` + `076547d`), normal push. `dev` was re-fetched right before the push (unchanged).
+- **PR #54: MERGEABLE again**, waiting for the owner's review and merge.
