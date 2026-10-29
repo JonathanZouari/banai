@@ -12,6 +12,8 @@ import { createStore } from './state/store.js';
 import { browserStorage, clearDraft, draftToOffer, formatDraftTime, readDraft, watchDraft } from './state/draft.js';
 import { mountPanel } from './editor/panel.js';
 import { createViewer } from './viewer/viewer.js';
+import { createUnitPreference } from './units/displayUnits.js';
+import { createUnitSelector } from './units/unitSelector.js';
 import { renderSnapshot } from './viewer/snapshot.js';
 import { createChatModel } from './chat/chatModel.js';
 import { createLanguage } from './chat/i18n.js';
@@ -24,6 +26,8 @@ import { createExportDialog } from './export/exportDialog.js';
 import { createRenderDialog } from './render/renderDialog.js';
 import { createLogo } from './ui/logo.js';
 import { installRipple } from './ui/ripple.js';
+import { icon } from './ui/icons.js';
+import { createTour } from './ui/tour.js';
 
 function showError(message) {
   const banner = document.getElementById('error-banner');
@@ -87,6 +91,19 @@ function bindDialogs({ storage, onSave, link }) {
   document.getElementById('open-render').addEventListener('click', render.open);
 }
 
+// The "?" button replays the tour; its label follows the chat language like the tour itself.
+function bindTourButton(tour, language) {
+  const button = document.getElementById('open-tour');
+  button.append(icon('help'));
+  const label = () => {
+    button.setAttribute('aria-label', language.strings().tour.replay);
+    button.title = language.strings().tour.replay;
+  };
+  label();
+  language.subscribe(label);
+  button.addEventListener('click', () => tour.start());
+}
+
 async function boot() {
   document.getElementById('topbar-logo').append(createLogo({ size: 34, tagline: 'Wardrobe Designer' }));
   installRipple();
@@ -113,15 +130,17 @@ async function boot() {
     designId, loadedDesign: store.getState().design,
   });
   const draft = watchDraft(store, { storage, getDesignId: () => designId });
-  const viewer = createViewer(document.getElementById('viewer'), store);
+  const units = createUnitPreference();
+  const viewer = createViewer(document.getElementById('viewer'), store, { units });
+  createUnitSelector({ container: document.getElementById('unit-selector'), units });
   bindInteriorToggle(store);
   bindSkipLink();
   const exporter = createExportDialog({
     getDesign: () => store.getState().design,
     getLanguage: () => language.get(),
-    getSnapshot: (design) => renderSnapshot(design, store.getState().catalog),
+    getSnapshot: (design, options) => renderSnapshot(design, store.getState().catalog, options),
   });
-  mountPanel(document.getElementById('properties-content'), store, { onExport: exporter.open });
+  mountPanel(document.getElementById('properties-content'), store, { onExport: exporter.open, units });
   bindDialogs({
     storage: health?.data.storage === true,
     onSave: createSaver(store, language, session, (saved) => {
@@ -166,6 +185,8 @@ async function boot() {
   });
   // A manual edit changes the revision, which may turn a pending proposal stale.
   store.subscribe(() => chat.refresh());
+  const tour = createTour({ language });
+  bindTourButton(tour, language);
 
   if (import.meta.env.DEV) {
     window.__banai = Object.freeze({ store, viewer, chat: chatModel });
@@ -174,6 +195,7 @@ async function boot() {
   const restoreDraft = () => {
     store.replaceDesign(offer.design, store.getState().revision + 1);
     document.getElementById('properties-panel').focus();
+    tour.startIfNew();
   };
   const draftChoice = offer && {
     time: formatDraftTime(offer.savedAt),
@@ -182,7 +204,13 @@ async function boot() {
   };
 
   if (session) { // reopened from a link: straight into the editor
-    if (draftChoice) openDraftDialog(draftChoice);
+    // The tour waits for the draft question, so two modals never stack.
+    if (draftChoice) {
+      const prompt = openDraftDialog({ ...draftChoice, onDiscard: () => { draftChoice.onDiscard(); tour.startIfNew(); } });
+      prompt.element.addEventListener('close', () => tour.startIfNew()); // also Esc or the scrim
+    } else {
+      tour.startIfNew();
+    }
     return;
   }
   mountStartScreen({
@@ -192,6 +220,7 @@ async function boot() {
       // one the properties panel, so keyboard focus never falls out of the page when the modal closes.
       if (entry.focusesChat) chat.focus(entry.id);
       else document.getElementById('properties-panel').focus();
+      tour.startIfNew();
     },
   });
 }
