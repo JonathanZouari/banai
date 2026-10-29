@@ -270,3 +270,31 @@ Run on Nurit's request with **approval at every important step**. Rules: protect
 - The leftover temp worktrees were cleaned up (the git "Permission denied" warning is gone).
   - **Crowded top bar at 1280 px:** "לסיכום ושליחה", "התאמה לחדר" and "הצגת פנים הארון" wrap to two lines since the unit selector and "?" were added. Options: shorter labels, an icon for the tour, or a unit dropdown.
   - **One stall in the room view:** one screenshot timed out (30 s) right after moving the layer, then the page recovered. Moving doesn't re-render 3D, so the likely cause is machine load. Watch for it.
+
+### 2026-10-29 · Carpenter PDF: standards and drawing conventions (`feature/carpenter-pdf-standards`) — **PASSED**
+Option A (Nurit's decision): a better **design drawing**, never a manufacturing spec, and no orders.
+- **Title block (ISO 7200 fields):**
+  - Drawing number `BA-XXXXXXXX`: SHA-256 of the canonical design, so the same design always gets the same number. It never uses the share link, id or token.
+  - A "שרטוט עיצוב, לא לייצור" (design drawing, not for production) status on every sheet.
+- **"תקנים ואחריות" (standards and responsibility)**, added after the notes for the carpenter:
+  - SI 5555 applies to a finished domestic storage unit.
+  - The drawing does not certify compliance and is not a production approval. Materials, joints, hardware and compliance are the carpenter's responsibility.
+  - Stability and wall fixing are decided by the carpenter. Wall fixing is outside the standard.
+  - The drawing number is explained.
+- **"פנים הארון לפי תא" (interior by compartment) sheet:** shelves, drawers with their fronts, and rails with heights. It paginates; the worst case (20 compartments, 300 items) is tested.
+- **Build steps:** a heading moves to the next column instead of ending one.
+- **Visual check** (rendered pages in he/en/es):
+  - Hebrew table: "ב-400" broke the word order, so it now uses "בגובה 400" and "מ-0 עד 200", as in the build steps.
+  - en/es headers capitalized.
+  - Title block widths retuned for Spanish.
+
+| Check | Result |
+|---|---|
+| pytest | ✅ 315 passed (6 new in `tests/export/test_standards.py`) |
+| vitest | ✅ 325 passed |
+| Playwright (full) | ✅ 123/123 |
+| Build / secrets / hidden characters | ✅ |
+| npm audit | 🟡 only `fast-uri` |
+| Security review | ✅ no new inputs or API change; the hash covers only the validated design |
+
+- Commit `45677c1`, pushed as a new branch, no PR yet. Open items: confirm SI 5555 is current, and the PR to `dev` after #54.
