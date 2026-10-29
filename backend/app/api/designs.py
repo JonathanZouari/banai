@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.agent.language import LANGUAGES, Language
 from app.api.agent import error
+from app.api.customer_request import CustomerRequest
 from app.api.export import read_capped
 from app.domain.apply import apply_ops
 from app.domain.catalog import load_catalog
@@ -55,6 +56,11 @@ class SaveRequest(BaseModel):
     design: dict
     name: Annotated[str, Field(min_length=1, max_length=60, pattern=SAFE_TEXT_PATTERN)] = DEFAULT_NAME
     language: Language = "he"
+    # Optional and additive (stage 5): notes and room measurements, never the room photo.
+    request: CustomerRequest | None = None
+
+    def customer(self) -> dict | None:
+        return self.request.to_json() if self.request is not None else None
 
 
 def _fail(status: int, code: str, language: str) -> JSONResponse:
@@ -108,7 +114,9 @@ async def create_design(request: Request):
         return parsed
     token = secrets.token_urlsafe(32)
     try:
-        design_id, revision = await run_in_threadpool(repository.create, _hash(token), parsed.name, parsed.design)
+        design_id, revision = await run_in_threadpool(
+            repository.create, _hash(token), parsed.name, parsed.design, parsed.customer(),
+        )
     except StorageError:
         logger.exception("Saving a new design failed")
         return _fail(503, "STORAGE_ERROR", parsed.language)
@@ -137,6 +145,11 @@ async def get_design(raw_id: str, request: Request, language: Language = "he"):
     except DomainError as exc:
         return error(422, exc.code, exc.message, exc.path)
     data = {"designId": design_id, "name": saved.name, "design": design, "revision": saved.revision}
+    if saved.customer is not None:
+        try:  # re-validated like the design: the stored row is untrusted too
+            data["request"] = CustomerRequest.model_validate(saved.customer).to_json()
+        except ValidationError:
+            logger.warning("A stored customer request no longer validates; it is left out")
     return JSONResponse(content={"success": True, "data": data}, headers=NO_STORE)
 
 
@@ -161,6 +174,7 @@ async def update_design(raw_id: str, request: Request):
             return _fail(404, "NOT_FOUND", parsed.language)
         revision = await run_in_threadpool(
             repository.update, design_id, saved.token_hash, int(expected), parsed.name, parsed.design,
+            parsed.customer(),
         )
     except StorageError:
         logger.exception("Saving a design failed")

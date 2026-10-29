@@ -1,32 +1,18 @@
-import { test, expect, openDesigner } from './fixtures.js';
+import { test, expect, openDesigner, openStep } from './fixtures.js';
 
-test.describe('start screen', () => {
-  test('is shown first with three entry points and the manufacturing disclaimer', async ({ page }) => {
-    await page.goto('/');
-    await expect(page.getByTestId('start-screen')).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Design your wardrobe' })).toBeVisible();
-    for (const id of ['guided', 'freeText', 'basic']) await expect(page.getByTestId(`entry-${id}`)).toBeVisible();
-    await expect(page.getByText('not manufacturing drawings')).toBeVisible();
-  });
-
-  test('Escape does not dismiss it (a choice is required)', async ({ page }) => {
-    await page.goto('/');
-    await page.getByTestId('start-screen').waitFor();
-    await page.keyboard.press('Escape');
-    await expect(page.getByTestId('start-screen')).toBeVisible();
-  });
-
-  test('"Start from a basic wardrobe" opens the editor with the default wardrobe', async ({ page }) => {
+test.describe('homepage entry', () => {
+  test('"start from a basic wardrobe" opens the editor with the default wardrobe', async ({ page }) => {
     await openDesigner(page);
-    await expect(page.getByTestId('start-screen')).toHaveCount(0);
-    await expect(page.getByText('W 200.0 cm', { exact: true })).toBeVisible();
+    await expect(page.getByTestId('home')).toBeHidden();
+    await expect(page.getByText('רוחב 200.0 ס״מ', { exact: true })).toBeVisible();
   });
 
-  test('"Describe it" opens the same editor and focuses the chat composer', async ({ page }) => {
+  test('an empty AI field opens the designer with the guided conversation', async ({ page }) => {
     await page.goto('/');
-    await page.getByTestId('entry-freeText').click();
+    await page.getByTestId('home-design').click();
     await expect(page.getByTestId('chat-input')).toBeFocused();
-    await expect(page.getByTestId('chat-input')).toHaveAttribute('placeholder', /ברוחב 240/);
+    await expect(page.getByTestId('chat-input')).toHaveAttribute('placeholder', /רוחב והגובה/);
+    await expect(page.getByTestId('chat-messages').locator('.chat__bubble')).toHaveCount(0); // nothing was sent
     await page.waitForFunction(() => window.__banai?.viewer.meshOf('shf_l1'));
   });
 });
@@ -72,10 +58,12 @@ test.describe('AI chat panel (agent not connected yet)', () => {
 test.describe('look and feel', () => {
   test('shows the BanAI logo in the top bar and on the start screen', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByTestId('start-screen').getByRole('img', { name: 'BanAI' })).toBeVisible();
+    await expect(page.getByTestId('home').getByRole('img', { name: 'BanAI' })).toBeVisible();
     await page.getByTestId('entry-basic').click();
     await expect(page.locator('.topbar').getByRole('img', { name: 'BanAI' })).toBeVisible();
-    await expect(page.locator('.topbar .logo__word')).toHaveText('BanAI');
+    // The brand image actually loaded (not a broken image with alt text).
+    const width = await page.locator('.topbar .logo__img').evaluate((img) => img.complete && img.naturalWidth);
+    expect(width).toBeGreaterThan(0);
   });
 
   test('uses the display and body fonts', async ({ page }) => {
@@ -83,14 +71,14 @@ test.describe('look and feel', () => {
     const fonts = await page.evaluate(async () => {
       await document.fonts.ready;
       return {
-        logo: getComputedStyle(document.querySelector('.logo__word')).fontFamily,
+        display: getComputedStyle(document.querySelector('.panel__title')).fontFamily,
         body: getComputedStyle(document.body).fontFamily,
         loaded: [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family.replaceAll('"', '')),
       };
     });
-    expect(fonts.logo).toContain('Bricolage Grotesque');
-    expect(fonts.body).toContain('DM Sans');
-    expect(fonts.loaded).toEqual(expect.arrayContaining(['Bricolage Grotesque', 'DM Sans']));
+    expect(fonts.display).toContain('Rubik');
+    expect(fonts.body).toContain('Rubik');
+    expect(fonts.loaded).toEqual(expect.arrayContaining(['Rubik']));
   });
 
   test('dropdowns keep their text clear of the chevron', async ({ page }) => {
@@ -98,8 +86,15 @@ test.describe('look and feel', () => {
     await page.evaluate(() => window.__banai.store.select('shf_l1'));
     const select = page.locator('select.field__input').first();
     await expect(select).toBeVisible();
-    const padding = await select.evaluate((node) => parseFloat(getComputedStyle(node).paddingRight));
-    expect(padding).toBeGreaterThanOrEqual(40);
+    // The chevron sits at the end of the field: on the left in Hebrew (RTL), on the right in English.
+    const room = await select.evaluate((node) => {
+      const style = getComputedStyle(node);
+      const rtl = style.direction === 'rtl';
+      return { padding: parseFloat(rtl ? style.paddingLeft : style.paddingRight), chevronSide: style.backgroundPositionX, rtl };
+    });
+    expect(room.rtl).toBe(true);
+    expect(room.padding).toBeGreaterThanOrEqual(40);
+    expect(room.chevronSide).toBe('12px'); // 'left 12px' computes to 12px from the left edge
   });
 
   test('a starter prompt fills the composer but sends nothing', async ({ page }) => {
@@ -164,7 +159,7 @@ test.describe('render dialog (backend phase not built yet)', () => {
     await openDesigner(page);
     await page.getByTestId('open-render').click();
     const dialog = page.getByTestId('render-dialog');
-    await expect(dialog).toContainText('Illustrative image, not the accurate 3D model');
+    await expect(dialog).toContainText('תמונה להמחשה, לא מודל התלת-ממד המדויק');
     await expect(page.getByTestId('render-generate')).toBeDisabled();
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
@@ -179,7 +174,8 @@ test.describe('page layout', () => {
       return { overflow: root.scrollHeight - root.clientHeight, top: root.scrollTop };
     });
     expect(await pageScroll()).toEqual({ overflow: 0, top: 0 });
-    await page.getByRole('button', { name: 'Olive green', exact: true }).first().click();
+    await openStep(page, 'materials');
+    await page.getByRole('button', { name: 'ירוק זית', exact: true }).first().click();
     expect(await pageScroll()).toEqual({ overflow: 0, top: 0 });
   });
 });

@@ -7,7 +7,9 @@ reads it. Every number shown comes from the design or from app.export.layout.
 
 from __future__ import annotations
 
+import hashlib
 import io
+import json
 import math
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -31,6 +33,13 @@ X0, X1 = MARGIN + 12, PAGE_W - MARGIN - 12
 Y0, Y1 = MARGIN + TITLE_H + 10, PAGE_H - MARGIN - 12
 TOP = Y1 - 26  # below the sheet heading
 BLACK = color("#000000")
+
+
+def drawing_number(design: dict) -> str:
+    """A short number for this exact design (ISO 7200 "document identifier"): the same design always gets
+    the same number, any change gives a new one. Built from the design only, never from the share link."""
+    canonical = json.dumps(design, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return "BA-" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:8].upper()
 
 
 @dataclass
@@ -65,9 +74,11 @@ def place(area: tuple[float, float, float, float], size: tuple[float, float],
 
 
 class Document:
-    def __init__(self, design: dict, catalog: dict, language: str, today: date, snapshot: bytes | None = None):
+    def __init__(self, design: dict, catalog: dict, language: str, today: date, snapshot: bytes | None = None,
+                 request: dict | None = None):
         register_fonts()
         self.snapshot = snapshot  # a cleaned JPEG of the app's 3D view, or None
+        self.request = request  # the customer's notes and measured wall (validated), or None
         self.d = design
         self.catalog = catalog
         self.lang = language
@@ -80,6 +91,7 @@ class Document:
         self.W, self.H, self.D = (design["dimensions"][k] for k in ("width", "height", "depth"))
         self.T = design["carcass"]["panelThickness"]
         self.ranges = compartment_x_ranges(design)
+        self.number = drawing_number(design)
 
     # -- helpers -----------------------------------------------------------------------
     @property
@@ -122,6 +134,7 @@ class Document:
         self.c.setAuthor("BanAI")
         self.c.setSubject(f"{self.W} × {self.H} × {self.D} mm")
         self.c.setCreator("BanAI Wardrobe Designer")
+        self.c.setKeywords(self.number)
         pages = self.plan_pages()
         for number, page in enumerate(pages, start=1):
             self.frame(page, number, len(pages))
@@ -134,6 +147,8 @@ class Document:
         pages = [Page(self.s["sheetTitle"], self.s["asNoted"], self.page_sheet),
                  Page(self.s["illustration"], self.s["notToScale"], self.page_illustration),
                  Page(self.s["overview"], "—", self.page_summary)]
+        if self.request:
+            pages.append(Page(self.s["customerTitle"], "—", self.page_customer))
         if self.d["doors"]["type"] != "none":
             pages.append(self.page_front(doors=True))
         pages.append(self.page_front(doors=False))
@@ -141,6 +156,7 @@ class Document:
             pages.extend(self.page_detail(i) for i in range(len(self.d["compartments"])))
         pages.append(Page(self.s["planSection"], self.s["asNoted"], self.page_plan_section))
         pages.extend(self.pages_steps())
+        pages.extend(self.pages_interior())
         pages.extend(self.pages_schedule())
         return pages
 
@@ -155,10 +171,11 @@ class Document:
         pen.text(PAGE_W / 2, MARGIN + 5, self.s["disclaimer"], 6.5, fill=MUTED, align="center",
                  max_width=PAGE_W - 2 * MARGIN - 12)
         cells = [
-            ("", self.s["brand"], 1.5), ("", self.s["docTitle"], 2.8), (self.s["sheet"], page.title, 2.2),
-            (self.s["scale"], page.scale, 0.9), ("", self.s["units"], 0.9),
-            (self.s["date"], self.today.strftime("%d.%m.%Y"), 0.9),
-            (self.s["sheet"], f"{number} {self.s['of']} {total}", 0.9),
+            ("", self.s["brand"], 1.3), ("", self.s["docTitle"], 2.4), (self.s["sheet"], page.title, 1.9),
+            (self.s["drawingNo"], self.number, 1.0), (self.s["status"], self.s["statusValue"], 1.8),
+            (self.s["scale"], page.scale, 0.7), ("", self.s["units"], 0.8),
+            (self.s["date"], self.today.strftime("%d.%m.%Y"), 0.8),
+            (self.s["sheet"], f"{number} {self.s['of']} {total}", 0.7),
         ]
         if self.rtl:
             cells.reverse()
@@ -373,6 +390,45 @@ class Document:
                 self.pen.text(start + sign * 10, y, line, 7.6)
                 y -= 10.5
             y -= 4
+
+    def page_customer(self) -> None:
+        """What the customer asked for: their notes and the wall they measured, compared with the
+        wardrobe by size only. Stated as the customer's input, never as a site survey."""
+        s, request = self.s, self.request
+        room = request.get("room") or {}
+        half = (X1 - X0 - 30) / 2
+        first, second = (X1 - half, X0) if self.rtl else (X0, X0 + half + 30)
+        wardrobe = {"width": self.W, "height": self.H, "depth": self.D}
+        rows = []
+        for field, key in (("width", "roomWidth"), ("height", "roomHeight"), ("depth", "roomDepth")):
+            space = room.get(field)
+            if space is None:
+                rows.append((s[key], s["notMeasured"]))
+                continue
+            over = wardrobe[field] - space
+            compare = s["fitOver"].format(o=over) if over > 0 else s["fitOk"].format(w=wardrobe[field], r=space)
+            rows.append((s[key], f"{space} · {compare}"))
+        obstacles = [s[f"obstacle_{name}"] for name in room.get("obstacles", [])]
+        rows.append((s["obstacles"], " · ".join(obstacles) if obstacles else "—"))
+        for key, value in (("obstacleNotes", room.get("obstacleNotes", "")), ("roomStyle", room.get("style", ""))):
+            if value.strip():
+                rows.append((s[key], value.strip()))
+        self.key_values(first, half, TOP, s["room"], rows)
+        start = second + half if self.rtl else second
+        self.pen.text(start, TOP - 4, s["customerNotes"], 10, bold=True, fill=ACCENT)
+        y = TOP - 22
+        notes = (request.get("notes") or "").strip() or "—"
+        for paragraph in notes.split("\n"):
+            for line in self.pen.wrap(paragraph, half, 8.5) or [""]:
+                if y < Y0 + 60:
+                    break
+                self.pen.text(start, y, line, 8.5)
+                y -= 12
+            y -= 4
+        y = min(y, TOP - 22 - 17 * (len(rows) + 1)) - 10
+        for line in self.pen.wrap(s["customerDisclaimer"], X1 - X0, 7.6):
+            self.pen.text(self.start_x, y, line, 7.6, fill=MUTED)
+            y -= 10.5
 
     def key_values(self, x: float, width: float, top: float, heading: str, rows: list[tuple[str, str]]) -> None:
         pen = self.pen
@@ -617,6 +673,8 @@ class Document:
         blocks.append(("h", s["notes"]))
         blocks.extend(("bullet", s[f"note{n}"]) for n in range(1, 7))
         blocks.append(("bullet", s["disclaimer"]))
+        blocks.append(("h", s["standardsTitle"]))
+        blocks.extend(("bullet", s[f"std{n}"].format(number=self.number)) for n in range(1, 5))
         return blocks
 
     def pages_steps(self) -> list[Page]:
@@ -642,7 +700,22 @@ class Document:
         while lines and lines[0][0] == "gap":
             lines.pop(0)
         per_column = int((TOP - Y0) / lead)
-        columns = [lines[i:i + per_column] for i in range(0, len(lines), per_column)]
+        columns, column = [], []
+        for n, line in enumerate(lines):
+            room = per_column - len(column)
+            # Keep a heading with at least two lines of its section: never leave it alone at a column end.
+            if line[0] == "gap" and room <= 4 and any(k == "h" for k, *_ in lines[n:n + 2]):
+                columns.append(column)
+                column = []
+                continue
+            if room == 0:
+                columns.append(column)
+                column = []
+            if line[0] == "gap" and not column:
+                continue
+            column.append(line)
+        if column:
+            columns.append(column)
         pages = []
         for p in range(0, len(columns), 2):
             chunk = columns[p:p + 2]
@@ -667,6 +740,75 @@ class Document:
                                  fill=ACCENT if kind == "step" else MUTED)
                     pen.text(start + sign * indent, y, text, size, bold=kind == "step")
                 y -= lead if kind != "space" else lead * 0.35
+
+    # -- pages: interior by compartment (shelves, drawers, rails with their heights) -------
+    def interior_rows(self) -> list[list[str]]:
+        s, d = self.s, self.d
+        rows = []
+        for index, compartment in enumerate(d["compartments"]):
+            groups = {"shelf": [], "drawer": [], "rail": []}
+            for item in layout.compartment_items(d, index):
+                if item.kind == "shelf":
+                    groups["shelf"].append(s["atShelf"].format(code=item.code, y=item.y))
+                elif item.kind == "drawer":
+                    groups["drawer"].append(s["atDrawer"].format(code=item.code, y0=item.y, y1=item.y + item.size,
+                                                                  h=item.size))
+                else:
+                    groups["rail"].append(s["atRail"].format(code=item.code, y=item.y))
+            cell = lambda items: f"{len(items)}: {' · '.join(items)}" if items else "—"  # noqa: E731
+            rows.append([layout.letter(index), str(compartment["width"]),
+                         cell(groups["shelf"]), cell(groups["drawer"]), cell(groups["rail"])])
+        return rows
+
+    def pages_interior(self) -> list[Page]:
+        s = self.s
+        headers = [s["compartment"], s["clearWidth"], s["colShelves"], s["colDrawers"], s["colRails"]]
+        weights = [0.9, 1.0, 3.2, 4.2, 2.0]
+        unit = (X1 - X0) / sum(weights)
+        widths = [w * unit for w in weights]
+        size, lead, pad = 7.4, 9.6, 5
+        laid = []  # (lines per cell, row height)
+        for row in self.interior_rows():
+            cells = [self.pen.wrap(value, w - 8, size, col == 0) for col, (value, w) in enumerate(zip(row, widths))]
+            laid.append((cells, max(len(c) for c in cells) * lead + 2 * pad))
+        pages, chunk, used = [], [], 0.0
+        room = TOP - Y0 - 16 - 30  # header row and the note under the table
+        for cells, height in laid:
+            if chunk and used + height > room:
+                pages.append(chunk)
+                chunk, used = [], 0.0
+            chunk.append((cells, height))
+            used += height
+        pages.append(chunk)
+        return [Page(s["interiorTable"] + ("" if n == 0 else f" ({s['continued']})"), "—",
+                     lambda chunk=chunk: self.draw_interior(chunk, headers, widths, size, lead, pad))
+                for n, chunk in enumerate(pages)]
+
+    def draw_interior(self, rows: list, headers: list[str], widths: list[float], size: float, lead: float,
+                      pad: float) -> None:
+        pen, s = self.pen, self.s
+        edges, x = [], X1 if self.rtl else X0
+        for w in widths:
+            edges.append((x - w, x) if self.rtl else (x, x + w))
+            x = x - w if self.rtl else x + w
+        y, head_h = TOP, 16
+        pen.box(X0, y - head_h, X1, y, PANEL, None)
+        for (a, b), header in zip(edges, headers):
+            pen.text(b - 4 if self.rtl else a + 4, y - head_h + 5, header, 7, bold=True, max_width=b - a - 8)
+        y -= head_h
+        for n, (cells, height) in enumerate(rows):
+            if n % 2:
+                pen.box(X0, y - height, X1, y, mix(PANEL, WHITE, 0.7), None)
+            for col, ((a, b), lines) in enumerate(zip(edges, cells)):
+                for k, line in enumerate(lines):
+                    pen.text(b - 4 if self.rtl else a + 4, y - pad - (k + 1) * lead + 2.5, line, size,
+                             bold=col == 0, max_width=b - a - 8)
+            pen.line(X0, y - height, X1, y - height, HAIR, 0.25)
+            y -= height
+        pen.box(X0, y, X1, TOP, None, INK, 0.5)
+        for a, b in edges[1:]:
+            pen.line(b if self.rtl else a, y, b if self.rtl else a, TOP, HAIR, 0.3)
+        pen.text(self.start_x, y - 14, s["interiorNote"], 7, fill=MUTED, max_width=X1 - X0)
 
     # -- pages: component list ---------------------------------------------------------
     def schedule_rows(self) -> list[list[str]]:
@@ -742,7 +884,9 @@ class Document:
             pen.line(a, y, a, TOP, HAIR, 0.3)
 
 
-def render_pdf(design: dict, catalog: dict, language: str, today: date, snapshot: bytes | None = None) -> bytes:
+def render_pdf(design: dict, catalog: dict, language: str, today: date, snapshot: bytes | None = None,
+               request: dict | None = None) -> bytes:
     """The carpenter PDF for a canonical design (validate it first with the domain engine). `snapshot`
-    is a JPEG already cleaned by app.export.image.clean_snapshot."""
-    return Document(design, catalog, language, today, snapshot).build()
+    is a JPEG already cleaned by app.export.image.clean_snapshot; `request` is a validated
+    CustomerRequest as JSON (it adds a customer-requirements page when not empty)."""
+    return Document(design, catalog, language, today, snapshot, request).build()

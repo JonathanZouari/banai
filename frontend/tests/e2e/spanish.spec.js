@@ -1,4 +1,4 @@
-import { expect, openDesigner, test } from './fixtures.js';
+import { expect, openDesigner, openStep, test } from './fixtures.js';
 
 // Spanish as a third chat language. The agent is mocked at the network edge (as in agent.spec.js);
 // the PDF is rendered by the real E2E backend.
@@ -58,6 +58,7 @@ test.describe('Spanish', () => {
     await page.getByTestId('chat-language-es').click();
     await expect(page.locator('#chat-panel')).toHaveAttribute('lang', 'es');
 
+    await openStep(page, 'interior'); // the PDF button sits next to "+ Add compartment"
     await page.getByTestId('open-export').click();
     await expect(page.getByTestId('export-language')).toHaveValue('es'); // follows the chat language
     const request = page.waitForRequest('**/api/export/pdf');

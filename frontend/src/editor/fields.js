@@ -1,7 +1,8 @@
 // Small DOM builders for the properties panel. Text is always set via textContent or
 // input.value, never innerHTML, so design data (e.g. custom names) cannot inject markup.
-import { formatLength, parseLength } from '../units/displayUnits.js';
-import { friendlyError } from './opsFromForm.js';
+import { formatLength } from '../units/displayUnits.js';
+import { friendlyError, parseCm, parseInput, toCmText } from './opsFromForm.js';
+import { t } from '../ui/i18n.js';
 
 let fieldCounter = 0;
 const nextId = (prefix) => `${prefix}-${(fieldCounter += 1)}`;
@@ -54,9 +55,24 @@ function inputField({ label, value, testId, suffix, commit, inputMode = 'decimal
 /** A length field in the chosen display unit, backed by an integer-millimetre value. `onCommit(mm)` dispatches. */
 export function lengthField({ label, mm, testId, unit = 'cm', onCommit }) {
   return inputField({
-    label, testId, suffix: unit, value: formatLength(mm, unit),
+    label, testId, suffix: t().units[unit] ?? unit, value: formatLength(mm, unit),
     commit: (text) => {
-      const parsed = parseLength(text, unit);
+      const parsed = parseInput(text, unit);
+      return parsed.ok ? onCommit(parsed.mm) : parsed;
+    },
+  });
+}
+
+/**
+ * A centimetre field that may be left empty (e.g. a room measurement not taken yet).
+ * `onCommit(mm | null)` returns { ok } or { ok: false, message }.
+ */
+export function optionalCmField({ label, mm, testId, onCommit }) {
+  return inputField({
+    label, testId, suffix: t().units.cm, value: mm === null ? '' : toCmText(mm),
+    commit: (text) => {
+      if (!String(text).trim()) return onCommit(null);
+      const parsed = parseCm(text);
       return parsed.ok ? onCommit(parsed.mm) : parsed;
     },
   });
@@ -69,7 +85,7 @@ export const cmField = (options) => lengthField({ ...options, unit: 'cm' });
 export function countField({ label, value, testId, onCommit }) {
   return inputField({
     label, testId, value: String(value), inputMode: 'numeric',
-    commit: (text) => (/^\d{1,2}$/.test(text.trim()) ? onCommit(Number(text.trim())) : { ok: false, message: 'Enter a whole number' }),
+    commit: (text) => (/^\d{1,2}$/.test(text.trim()) ? onCommit(Number(text.trim())) : { ok: false, message: t().editor.wholeNumber }),
   });
 }
 

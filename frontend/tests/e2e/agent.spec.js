@@ -64,7 +64,7 @@ test.describe('AI designer (agent connected)', () => {
     expect(await depth(page)).toBe(550);
     expect(await revision(page)).toBe(2);
     expect(calls.apply[0].proposal.signature).toBe('b'.repeat(64)); // sent back unchanged
-    await expect(page.getByText('D 55.0 cm', { exact: true })).toBeVisible();
+    await expect(page.getByText('עומק 55.0 ס״מ', { exact: true })).toBeVisible();
   });
 
   test('switching to English localizes the chat and asks the agent for English', async ({ page }) => {

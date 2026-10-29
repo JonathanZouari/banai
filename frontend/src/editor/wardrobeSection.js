@@ -1,41 +1,69 @@
-// Always-visible wardrobe settings: overall dimensions, doors and main materials.
-// Inputs report their own errors inline; buttons/selects report under their section.
+// Wardrobe-wide settings, one group per panel step: overall dimensions, doors, main materials.
+// Inputs report their own errors inline; buttons/selects report under their group.
 import { appearanceControls } from './appearanceControls.js';
-import { actionResult, lengthField, countField, el, section, segmented } from './fields.js';
+import { actionResult, countField, el, lengthField, segmented } from './fields.js';
 import { dimensionOps, doorTypeOps } from './opsFromForm.js';
+import { rangeIn } from './steps.js';
+import { t } from '../ui/i18n.js';
 
-function dimensionsRow(design, run, unit) {
-  const { width, height, depth } = design.dimensions;
-  return el('div', { className: 'field-row field-row--3' }, [
-    lengthField({ unit, label: 'Width', mm: width, testId: 'dim-width', onCommit: (mm) => run(dimensionOps('width', mm)) }),
-    lengthField({ unit, label: 'Height', mm: height, testId: 'dim-height', onCommit: (mm) => run(dimensionOps('height', mm)) }),
-    lengthField({ unit, label: 'Depth', mm: depth, testId: 'dim-depth', onCommit: (mm) => run(dimensionOps('depth', mm)) }),
+/** Step 1: width, height, depth, with the allowed range shown up front and named in errors. */
+export function dimensionsGroup({ design, run, unit = 'cm' }) {
+  const s = t().editor;
+  const field = (name) => {
+    const [min, max] = rangeIn(name, unit);
+    return lengthField({
+      unit,
+      label: s[name],
+      mm: design.dimensions[name],
+      testId: `dim-${name}`,
+      onCommit: (mm) => {
+        const result = run(dimensionOps(name, mm));
+        if (result.ok) return result;
+        // Clearer than the generic messages: which field, and why.
+        const code = result.error?.code;
+        if (code === 'OUT_OF_RANGE') return { ok: false, message: s.rangeError(s[name], min, max, t().units[unit]) };
+        if (code === 'OUT_OF_BOUNDS' || code === 'OVERLAP') return { ok: false, message: s.dimensionBlocked(s[name]) };
+        return result;
+      },
+    });
+  };
+  const hint = el('p', { className: 'panel__note', text: s.rangeHint(rangeIn('width', unit), rangeIn('height', unit), rangeIn('depth', unit), t().units[unit]) });
+  hint.dataset.testid = 'dim-range';
+  return el('div', { className: 'prop-group' }, [
+    el('div', { className: 'field-row field-row--3' }, ['width', 'height', 'depth'].map(field)),
+    hint,
   ]);
 }
 
-export function wardrobeSection({ design, catalog, run, unit }) {
+/** Step 2: door type, and the number of panels for sliding doors. */
+export function doorsGroup({ design, run }) {
+  const s = t().editor;
   const { doors } = design;
-  const wardrobe = section('Wardrobe', [dimensionsRow(design, run, unit)]);
-  const runDoors = (ops) => actionResult(wardrobe, run(ops));
-  wardrobe.append(segmented({
-    label: 'Doors',
+  const group = el('div', { className: 'prop-group' });
+  group.append(segmented({
+    label: s.doors,
     testId: 'door-type',
     value: doors.type,
-    options: [{ value: 'hinged', label: 'Hinged' }, { value: 'sliding', label: 'Sliding' }, { value: 'none', label: 'None' }],
-    onChange: (type) => runDoors(doorTypeOps(type)),
+    options: ['hinged', 'sliding', 'none'].map((value) => ({ value, label: s.doorTypes[value] })),
+    onChange: (type) => actionResult(group, run(doorTypeOps(type))),
   }));
   if (doors.type === 'sliding') {
-    wardrobe.append(countField({
-      label: 'Sliding panels', value: doors.items.length, testId: 'sliding-count',
+    group.append(countField({
+      label: s.slidingPanels, value: doors.items.length, testId: 'sliding-count',
       onCommit: (count) => run(doorTypeOps('sliding', count)),
     }));
   }
+  return group;
+}
 
-  const materials = section('Materials', []);
-  const runMaterials = (ops) => actionResult(materials, run(ops));
-  materials.append(appearanceControls({ catalog, appearance: design.carcass.appearance, target: 'carcass', run: runMaterials, label: 'Carcass & interior' }));
-  if (doors.type !== 'none') {
-    materials.append(appearanceControls({ catalog, appearance: doors.appearance, target: 'doors', run: runMaterials, label: 'Doors' }));
+/** Step 4: carcass and door appearance (material, colour, finish). */
+export function materialsGroup({ design, catalog, run }) {
+  const s = t().editor;
+  const group = el('div', { className: 'prop-group' });
+  const runMaterials = (ops) => actionResult(group, run(ops));
+  group.append(appearanceControls({ catalog, appearance: design.carcass.appearance, target: 'carcass', run: runMaterials, label: s.carcassAppearance }));
+  if (design.doors.type !== 'none') {
+    group.append(appearanceControls({ catalog, appearance: design.doors.appearance, target: 'doors', run: runMaterials, label: s.doorsAppearance }));
   }
-  return [wardrobe, materials];
+  return group;
 }

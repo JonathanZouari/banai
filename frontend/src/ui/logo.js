@@ -1,49 +1,33 @@
-// BanAI logo: a wardrobe mark (two doors with pulls and an AI sparkle) plus a bold wordmark.
-// Built as inline SVG so it needs no image file and scales crisply (CSP: no external assets).
-const SVG_NS = 'http://www.w3.org/2000/svg';
-let instance = 0;
+// BanAI logo: the brand artwork (wardrobe mark + "BanAI" wordmark) as a bundled image.
+// Vite serves it from our own origin, so the CSP stays 'self'. The source file is
+// "BanAI logo.png" in the Obsidian vault; the web sizes in ../assets are cropped from it.
+import logoUrl from '../assets/banai-logo.png';
+import markUrl from '../assets/banai-mark.png';
 
-function svg(tag, attrs = {}, children = []) {
-  const node = document.createElementNS(SVG_NS, tag);
-  Object.entries(attrs).forEach(([name, value]) => node.setAttribute(name, String(value)));
-  node.append(...children);
-  return node;
+const LOGO_RATIO = 393 / 160; // width / height of banai-logo.png
+
+function image(src, { height, width, className }) {
+  const img = document.createElement('img');
+  img.src = src;
+  img.alt = 'BanAI';
+  img.className = className;
+  img.height = height;
+  img.width = width;
+  img.decoding = 'async';
+  return img;
 }
 
+/** The wardrobe mark alone (square). */
 export function createLogoMark({ size = 36 } = {}) {
-  instance += 1;
-  const gradientId = `logo-grad-${instance}`;
-  const mark = svg('svg', { viewBox: '0 0 40 40', width: size, height: size, role: 'img', 'aria-label': 'BanAI', class: 'logo__mark' }, [
-    svg('defs', {}, [
-      svg('linearGradient', { id: gradientId, x1: 0, y1: 0, x2: 1, y2: 1 }, [
-        svg('stop', { offset: '0%', 'stop-color': '#e9814d' }),
-        svg('stop', { offset: '55%', 'stop-color': '#b4532a' }),
-        svg('stop', { offset: '100%', 'stop-color': '#7d3010' }),
-      ]),
-    ]),
-    svg('rect', { x: 1, y: 1, width: 38, height: 38, rx: 11, fill: `url(#${gradientId})` }),
-    svg('rect', { x: 8, y: 9, width: 11, height: 23, rx: 2.5, fill: '#fff8f6' }),
-    svg('rect', { x: 21, y: 9, width: 11, height: 23, rx: 2.5, fill: '#fff8f6' }),
-    svg('rect', { x: 16, y: 18, width: 1.8, height: 6, rx: 0.9, fill: '#7d3010' }),
-    svg('rect', { x: 22.2, y: 18, width: 1.8, height: 6, rx: 0.9, fill: '#7d3010' }),
-    // AI sparkle, overlapping the top-right corner
-    svg('path', { d: 'M33 1.5l1.7 4.3 4.3 1.7-4.3 1.7L33 13.5l-1.7-4.3-4.3-1.7 4.3-1.7z', fill: '#ffd8c4', stroke: '#b4532a', 'stroke-width': 1, 'stroke-linejoin': 'round' }),
-  ]);
-  return mark;
+  return image(markUrl, { height: size, width: size, className: 'logo__mark' });
 }
 
-/** Mark + wordmark. `tagline` is optional secondary text next to the wordmark. */
+/** The full logo. `size` is the mark size it replaces; `tagline` is optional text next to it. */
 export function createLogo({ size = 36, tagline = '' } = {}) {
-  const word = document.createElement('span');
-  word.className = 'logo__word';
-  const ban = document.createTextNode('Ban');
-  const ai = document.createElement('span');
-  ai.className = 'logo__ai';
-  ai.textContent = 'AI';
-  word.append(ban, ai);
+  const height = Math.round(size * 1.25);
   const root = document.createElement('span');
   root.className = 'logo';
-  root.append(createLogoMark({ size }), word);
+  root.append(image(logoUrl, { height, width: Math.round(height * LOGO_RATIO), className: 'logo__img' }));
   if (tagline) {
     const note = document.createElement('span');
     note.className = 'logo__tagline';

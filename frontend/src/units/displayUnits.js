@@ -30,11 +30,12 @@ export const formatWithUnit = (mm, unit = DEFAULT_UNIT) => `${formatLength(mm, u
 /**
  * Typed text in `unit` to **integer millimetres**: `{ ok: true, mm }` or `{ ok: false, message }`.
  * `.` or `,` decimals; inches also accept fractions such as `78 3/4`.
+ * `messages` (optional) localizes the two errors: `{ format: (unit) => text, tooLarge: text }`.
  */
-export function parseLength(text, unit = DEFAULT_UNIT) {
+export function parseLength(text, unit = DEFAULT_UNIT, messages = null) {
   const code = isUnit(unit) ? unit : DEFAULT_UNIT;
   const { mmPer, example } = SPECS[code];
-  const invalid = { ok: false, message: `Enter a number in ${code}, e.g. ${example}` };
+  const invalid = { ok: false, message: messages ? messages.format(code) : `Enter a number in ${code}, e.g. ${example}` };
   const trimmed = String(text ?? '').trim();
   let value;
   if (DECIMAL.test(trimmed)) {
@@ -47,7 +48,7 @@ export function parseLength(text, unit = DEFAULT_UNIT) {
     return invalid;
   }
   const mm = Math.round(value * mmPer);
-  if (!Number.isFinite(mm) || Math.abs(mm) > MAX_ABS_MM) return { ok: false, message: 'That value is too large' };
+  if (!Number.isFinite(mm) || Math.abs(mm) > MAX_ABS_MM) return { ok: false, message: messages ? messages.tooLarge : 'That value is too large' };
   return { ok: true, mm: mm === 0 ? 0 : mm }; // never -0
 }
 
