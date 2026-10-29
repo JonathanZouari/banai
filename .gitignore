@@ -22,6 +22,9 @@ test-results/
 supabase/.temp/
 supabase/.branches/
 
+# Claude Code per-machine settings (local paths)
+.claude/settings.local.json
+
 # OS / editors
 .DS_Store
 Thumbs.db

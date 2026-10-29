@@ -11,6 +11,7 @@ import { createDimensions } from './dimensions.js';
 import { createHighlighter } from './highlight.js';
 import { createMaterials } from './materials.js';
 import { attachPicking } from './picking.js';
+import { getUiLanguage } from '../ui/i18n.js';
 
 const BACKGROUND = '#eceeec';
 
@@ -105,10 +106,10 @@ export function createViewer(container, store, { units } = {}) {
       if (dimsKey !== rendered.dimsKey) fitCamera(design);
       rendered = { ...rendered, design, doorsVisible: ui.doorsVisible, dimsKey };
     }
-    if (geometryChanged || selection !== rendered.selection) {
+    if (geometryChanged || selection !== rendered.selection || rendered.language !== getUiLanguage()) {
       highlighter.update(group, design, selection);
       dimensions.update(group, design, selection, units?.get());
-      rendered = { ...rendered, selection };
+      rendered = { ...rendered, selection, language: getUiLanguage() };
       focusSelection(design, selection);
     }
   };
@@ -151,6 +152,8 @@ export function createViewer(container, store, { units } = {}) {
     camera,
     controls,
     canvas: renderer.domElement,
+    /** Redraw the text labels (after a UI language change). */
+    refreshLabels: () => sync(store.getState()),
     meshOf: (componentId) => group?.children.find((mesh) => mesh.userData.componentId === componentId) ?? null,
     /** Client (page) coordinates of a component's centre, for tests and tooling. */
     screenPointOf(componentId) {

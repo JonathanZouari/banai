@@ -1,4 +1,4 @@
-import { expect, openDesigner, test } from './fixtures.js';
+import { expect, openDesigner, openStep, test } from './fixtures.js';
 
 // New catalog colours and material, from the editor and from the agent, down to the 3D view.
 
@@ -12,15 +12,18 @@ const carcassHex = (page) => page.evaluate(() => window.__banai.viewer.meshOf('c
 test.describe('catalog: olive green, terracotta, solid oak', () => {
   test('choosing olive green in the editor repaints the wardrobe in 3D', async ({ page }) => {
     await openDesigner(page);
-    for (const name of ['Olive green', 'Terracotta']) await expect(page.getByRole('button', { name, exact: true }).first()).toBeVisible();
-    await page.getByRole('button', { name: 'Olive green', exact: true }).first().click();
+    await openStep(page, 'materials');
+    for (const name of ['ירוק זית', 'טרקוטה']) await expect(page.getByRole('button', { name, exact: true }).first()).toBeVisible();
+    await page.getByRole('button', { name: 'ירוק זית', exact: true }).first().click();
     expect(await carcassColor(page)).toEqual({ catalogId: 'olive_green' });
     await expect.poll(() => carcassHex(page)).toBe(OLIVE);
   });
 
   test('solid oak is offered as a material and can be chosen', async ({ page }) => {
     await openDesigner(page);
-    const material = page.getByLabel('Material').first();
+    await openStep(page, 'materials');
+    const material = page.getByLabel('חומר', { exact: true }).first();
+    await expect(material.locator('option[value="solid_oak"]')).toHaveText('עץ אלון מלא');
     await material.selectOption('solid_oak');
     await expect.poll(() => page.evaluate(() => window.__banai.store.getState().design.carcass.appearance.material)).toEqual({ catalogId: 'solid_oak' });
   });

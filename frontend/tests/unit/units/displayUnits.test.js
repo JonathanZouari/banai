@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { setUiLanguage } from '../../../src/ui/i18n.js';
 import { createStore } from '../../../src/state/store.js';
 import { basicWardrobe } from '../../../src/domain/presets.js';
 import { dimensionOps } from '../../../src/editor/opsFromForm.js';
@@ -90,6 +91,9 @@ describe('integer millimetres are the only thing that leaves this module', () =>
 
 describe('selection labels follow the unit', () => {
   const design = basicWardrobe(loadCatalog());
+  // The app opens in Hebrew; these English expectations run with the English UI.
+  beforeEach(() => setUiLanguage('en'));
+  afterEach(() => setUiLanguage('he'));
   it('describes the wardrobe and a shelf in each unit', () => {
     expect(describeSelection(design, { id: 'carcass', kind: 'carcass' }, 'cm')).toBe('Wardrobe · 200.0 × 240.0 × 60.0 cm');
     expect(describeSelection(design, { id: 'carcass', kind: 'carcass' }, 'mm')).toBe('Wardrobe · 2000 × 2400 × 600 mm');
@@ -97,6 +101,13 @@ describe('selection labels follow the unit', () => {
     expect(describeSelection(design, { id: 'carcass', kind: 'carcass' })).toBe('Wardrobe · 200.0 × 240.0 × 60.0 cm'); // default
     const shelf = design.compartments[0].shelves[0];
     expect(describeSelection(design, { id: shelf.id, kind: 'shelf' }, 'mm')).toBe(`Shelf · ${shelf.y} mm from base · ${shelf.thickness} mm thick`);
+  });
+  it('uses the Hebrew unit names in the Hebrew UI', () => {
+    setUiLanguage('he');
+    const shelf = design.compartments[0].shelves[0];
+    expect(describeSelection(design, { id: 'carcass', kind: 'carcass' }, 'mm')).toMatch(/2000 × 2400 × 600.* מ״מ$/);
+    expect(describeSelection(design, { id: 'carcass', kind: 'carcass' }, 'in')).toMatch(/78\.74 × 94\.49 × 23\.62.* אינץ׳$/);
+    expect(describeSelection(design, { id: shelf.id, kind: 'shelf' }, 'cm')).toContain('ס״מ מהבסיס');
   });
 });
 

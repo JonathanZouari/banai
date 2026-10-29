@@ -13,7 +13,7 @@ test.describe('display units (cm / mm / in)', () => {
     await expect(page.getByTestId('unit-cm')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByTestId('unit-mm')).toHaveAttribute('aria-pressed', 'false');
     await expect(page.getByTestId('dim-width')).toHaveValue('200.0');
-    await expect(page.getByText('W 200.0 cm', { exact: true })).toBeVisible();
+    await expect(page.getByText('רוחב 200.0 ס״מ', { exact: true })).toBeVisible();
   });
 
   test('the unit buttons are touch-sized and sit in one frame, not two', async ({ page }) => {
@@ -49,7 +49,7 @@ test.describe('display units (cm / mm / in)', () => {
         cm: format.cm(643),
       };
     });
-    expect(result).toEqual({ value: '200.0', suffix: 'cm', cm: '64.3' });
+    expect(result).toEqual({ value: '200.0', suffix: 'ס״מ', cm: '64.3' }); // the app opens in Hebrew
   });
 
   test('switching to mm and inches updates fields, suffixes and the 3D labels', async ({ page }) => {
@@ -57,15 +57,15 @@ test.describe('display units (cm / mm / in)', () => {
     await expect(page.getByTestId('unit-mm')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByTestId('dim-width')).toHaveValue('2000');
     await expect(page.getByTestId('dim-height')).toHaveValue('2400');
-    await expect(page.locator('#properties-panel .field__suffix').first()).toHaveText('mm');
-    await expect(page.getByText('W 2000 mm', { exact: true })).toBeVisible();
-    await expect(page.getByText('D 600 mm', { exact: true })).toBeVisible();
+    await expect(page.locator('#properties-panel .field__suffix').first()).toHaveText('מ״מ');
+    await expect(page.getByText('רוחב 2000 מ״מ', { exact: true })).toBeVisible();
+    await expect(page.getByText('עומק 600 מ״מ', { exact: true })).toBeVisible();
 
     await page.getByTestId('unit-in').click();
     await expect(page.getByTestId('dim-width')).toHaveValue('78.74');
-    await expect(page.locator('#properties-panel .field__suffix').first()).toHaveText('in');
-    await expect(page.getByText('W 78.74 in', { exact: true })).toBeVisible();
-    await expect(page.getByText('H 94.49 in', { exact: true })).toBeVisible();
+    await expect(page.locator('#properties-panel .field__suffix').first()).toHaveText('אינץ׳');
+    await expect(page.getByText('רוחב 78.74 אינץ׳', { exact: true })).toBeVisible();
+    await expect(page.getByText('גובה 94.49 אינץ׳', { exact: true })).toBeVisible();
 
     await page.getByTestId('unit-cm').click();
     await expect(page.getByTestId('dim-width')).toHaveValue('200.0');
@@ -87,7 +87,7 @@ test.describe('display units (cm / mm / in)', () => {
     await input.press('Enter');
     expect(await width(page)).toBe(2083); // 82 in = 2082.8 mm, rounded to an integer
     await expect(input).toHaveValue('82.01'); // shown again in inches (2083 mm)
-    await expect(page.getByText('W 82.01 in', { exact: true })).toBeVisible();
+    await expect(page.getByText('רוחב 82.01 אינץ׳', { exact: true })).toBeVisible();
 
     await input.fill('78 3/4');
     await input.press('Enter');
@@ -103,16 +103,16 @@ test.describe('display units (cm / mm / in)', () => {
     expect(await width(page)).toBe(2100);
     await input.fill('abc');
     await input.press('Enter');
-    await expect(page.locator('#properties-panel .field__message').first()).toContainText('mm');
+    await expect(page.locator('#properties-panel .field__message').first()).toContainText('מ״מ');
     expect(await width(page)).toBe(2100);
   });
 
   test('the selection label follows the unit', async ({ page }) => {
     await page.evaluate(() => window.__banai.store.select('shf_l1'));
     await page.getByTestId('unit-mm').click();
-    await expect(page.locator('.dim-label--selected')).toContainText('mm from base');
+    await expect(page.locator('.dim-label--selected')).toContainText('מ״מ מהבסיס');
     await page.getByTestId('unit-in').click();
-    await expect(page.locator('.dim-label--selected')).toContainText(' in from base');
+    await expect(page.locator('.dim-label--selected')).toContainText('אינץ׳ מהבסיס');
   });
 
   test('the choice is remembered after a reload', async ({ page }) => {

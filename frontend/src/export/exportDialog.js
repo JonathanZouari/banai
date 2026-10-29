@@ -3,10 +3,7 @@
 import { el, button, selectField } from '../editor/fields.js';
 import { createDialog } from '../ui/dialog.js';
 import { exportPdf } from '../api/client.js';
-
-export const EXPORT_NOTE = 'Design drawing to explain the intent. Construction details are decided by the carpenter.';
-const FAILED = 'The PDF could not be created. Please try again.';
-const PICTURE_FAILED = 'The picture could not be created in this browser.';
+import { t } from '../ui/i18n.js';
 
 function saveBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
@@ -31,25 +28,29 @@ function dataUrlToBlob(dataUrl) {
   return new Blob([bytes], { type: /^data:([^;]+)/.exec(head)?.[1] ?? 'image/png' });
 }
 
-/** getSnapshot(design, options) returns the 3D picture as a data URL, or throws (the PDF then uses its own drawing). */
-export function createExportDialog({ getDesign, getLanguage, getSnapshot = null, exportImpl = exportPdf }) {
+/**
+ * getSnapshot(design, options) returns the 3D picture as a data URL, or throws (the PDF then uses its own drawing).
+ * getRequest() returns the customer's notes and measured wall (or null) for the requirements page.
+ */
+export function createExportDialog({ getDesign, getLanguage, getSnapshot = null, getRequest = () => null, exportImpl = exportPdf }) {
+  const s = t().dialogs.export;
   let language = getLanguage();
   let busy = false;
   const status = el('p', { className: 'dialog__status', attrs: { role: 'status' } });
   status.dataset.testid = 'export-status';
   const languageField = selectField({
-    label: 'Document language',
+    label: s.language,
     options: [{ label: 'עברית', value: 'he' }, { label: 'English', value: 'en' }, { label: 'Español', value: 'es' }],
     value: language,
     onChange: (value) => { language = value; },
     testId: 'export-language',
   });
   const select = languageField.querySelector('select');
-  const download = button('Download PDF', async () => {
+  const download = button(s.download, async () => {
     if (busy) return;
     busy = true;
     download.disabled = true;
-    status.textContent = 'Preparing your PDF…';
+    status.textContent = s.preparing;
     try {
       const design = getDesign();
       let image = null;
@@ -58,11 +59,11 @@ export function createExportDialog({ getDesign, getLanguage, getSnapshot = null,
       } catch {
         image = null; // no WebGL here: the PDF falls back to its drawn illustration
       }
-      const { blob, filename } = await exportImpl({ design, language, image });
+      const { blob, filename } = await exportImpl({ design, language, image, request: getRequest() });
       saveBlob(blob, filename);
-      status.textContent = 'Your PDF is downloading.';
+      status.textContent = s.downloading;
     } catch (error) {
-      status.textContent = error?.message || FAILED;
+      status.textContent = error?.message || s.failed;
     } finally {
       busy = false;
       download.disabled = false;
@@ -71,28 +72,28 @@ export function createExportDialog({ getDesign, getLanguage, getSnapshot = null,
 
   // The same studio picture that goes into the PDF, saved as a PNG. It is made and saved in the browser only.
   const picture = getSnapshot
-    ? button('Save picture', () => {
+    ? button(s.picture, () => {
       try {
         const design = getDesign();
         saveBlob(dataUrlToBlob(getSnapshot(design, { type: 'image/png' })), pictureFilename(design));
-        status.textContent = 'Your picture is saved on this device.';
+        status.textContent = s.pictureSaved;
       } catch {
-        status.textContent = PICTURE_FAILED;
+        status.textContent = s.pictureFailed;
       }
     }, { variant: 'secondary', testId: 'export-picture' })
     : null;
 
   const dialog = createDialog({
-    title: 'PDF for your carpenter',
+    title: s.title,
     labelId: 'export-dialog-title',
     testId: 'export-dialog',
     body: [
-      el('p', { className: 'dialog__text', text: 'Download a picture of your wardrobe with dimensioned drawings (front with doors, interior, side and top), build steps and a component list. All measurements are in mm.' }),
+      el('p', { className: 'dialog__text', text: s.intro }),
       languageField,
-      el('span', { className: 'chip', text: EXPORT_NOTE }),
+      el('span', { className: 'chip', text: s.note }),
       status,
     ],
-    actions: [download, ...(picture ? [picture] : []), button('Close', () => dialog.close(), { variant: 'ghost', testId: 'export-close' })],
+    actions: [download, ...(picture ? [picture] : []), button(t().dialogs.close, () => dialog.close(), { variant: 'ghost', testId: 'export-close' })],
   });
   return {
     ...dialog,

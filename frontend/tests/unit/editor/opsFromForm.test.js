@@ -1,10 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { applyOps } from '../../../src/domain/apply.js';
 import {
   addCompartmentOps, addItemOps, doorHingeOps, doorTypeOps, friendlyError, materialOps, parseCm, toCmText,
 } from '../../../src/editor/opsFromForm.js';
 import { DomainError } from '../../../src/domain/errors.js';
 import { loadCatalog, loadDesign } from '../domain/helpers.js';
+import { setUiLanguage } from '../../../src/ui/i18n.js';
 
 const catalog = loadCatalog();
 const basic = loadDesign('basic');
@@ -68,10 +69,35 @@ describe('structure ops produce valid designs', () => {
 });
 
 describe('friendlyError', () => {
-  it('turns domain errors into short user messages', () => {
+  afterEach(() => setUiLanguage('he'));
+
+  it('turns domain errors into short Hebrew messages by default', () => {
+    expect(friendlyError(new DomainError('OVERLAP', 'compartments[0].shelves[4]', 'x'))).toMatch(/יחפוף/);
+    expect(friendlyError(new DomainError('OUT_OF_BOUNDS', 'x', 'x'))).toMatch(/מחוץ לארון/);
+    expect(friendlyError(new DomainError('OUT_OF_RANGE', 'ops[0].width', 'x'))).toMatch(/מחוץ לטווח/);
+    expect(friendlyError(new DomainError('SOMETHING_NEW', 'x', 'x'))).toMatch(/לא ניתן היה להחיל/);
+  });
+
+  it('uses English messages when the UI is in English', () => {
+    setUiLanguage('en');
     expect(friendlyError(new DomainError('OVERLAP', 'compartments[0].shelves[4]', 'x'))).toMatch(/overlap/i);
     expect(friendlyError(new DomainError('OUT_OF_BOUNDS', 'x', 'x'))).toMatch(/inside the wardrobe/i);
     expect(friendlyError(new DomainError('OUT_OF_RANGE', 'ops[0].width', 'x'))).toMatch(/allowed range/i);
     expect(friendlyError(new DomainError('SOMETHING_NEW', 'x', 'x'))).toMatch(/could not be applied/i);
+  });
+
+  it('never echoes the error path or message', () => {
+    const message = friendlyError(new DomainError('OVERLAP', '<script>alert(1)</script>', '<img onerror=x>'));
+    expect(message).not.toMatch(/script|img|onerror/);
+  });
+});
+
+describe('parseCm messages', () => {
+  afterEach(() => setUiLanguage('he'));
+
+  it('explains the expected format in the UI language', () => {
+    expect(parseCm('abc').message).toMatch(/ס״מ/);
+    setUiLanguage('en');
+    expect(parseCm('abc').message).toMatch(/number in cm/);
   });
 });

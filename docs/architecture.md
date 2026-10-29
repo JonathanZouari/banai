@@ -108,9 +108,9 @@ Voice was originally an excluded feature. It was added on request, following Ope
 | POST | `/api/voice/transcribe` | raw audio (≤ 1 MB) → `{text}` |
 | POST | `/api/voice/speech` | `{text, language}` → `audio/mpeg` |
 | POST | `/api/designs/validate` | server validation of a manual design (used before save) |
-| POST | `/api/designs` | create → `{designId, accessToken, revision}` |
+| POST | `/api/designs` | create → `{designId, accessToken, revision}`. Optional `request {notes, room}` (stage 5), stored in the `customer` column; never a photo |
 | GET | `/api/designs/{id}` | header `Authorization: Bearer <token>` → design |
-| PUT | `/api/designs/{id}` | token + `If-Match: revision` → optimistic save (409 on conflict) |
+| PUT | `/api/designs/{id}` | token + `If-Match: revision` → optimistic save (409 on conflict). Optional `request` replaces the stored one; leaving it out keeps it. `GET` returns `request` when one was saved |
 | POST | `/api/render` | `{design, imagePngBase64}` → `{imageBase64, disclaimer}` (does not touch state) |
 
 CORS is restricted to the frontend origin for each environment. Rate limiting (slowapi) applies to `/chat` and `/render`.

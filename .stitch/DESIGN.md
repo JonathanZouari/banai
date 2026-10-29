@@ -56,3 +56,20 @@ Press ripples on buttons, chips, segmented options and swatches; hover lift on c
 - The AI agent is not connected until Phase 5: sending a message gets a clear "not connected" reply, and the design is never changed.
 - Save and Render open dialogs that say they are unavailable and show no fake link or image. Render is always labelled "Illustrative image, not the accurate 3D model".
 - The UI never claims a design is ready for manufacturing.
+
+## UX/UI MVP pass (2026-10-24, branch `uxui_nurit`)
+- **Stitch project:** "BanAI – UX/UI MVP (Hebrew RTL)" (`projects/12799220943582949685`), on Nurit's Stitch account. The earlier projects belong to another account.
+- **Design system:** "BanAI Atelier" (`assets/fb2b88817aaf4ee2b5b2448268c0f07c`). It's Hebrew RTL: Rubik, `#9C4520` as the accent, white and `#F7F7F8` surfaces, pill inputs and buttons, 20px cards.
+- **Screens:**
+  - "BanAI - דף הבית" (homepage, `2bc24c86553f42f9b8f5a0cd3c300acd`). This matches the plan: a central AI field, "עצב לי ארון" (design me a wardrobe) / "הזנת מידות ידנית" (enter dimensions manually), suggestion chips, and the disclaimer.
+  - "אשף הזנת מידות" (dimensions wizard, `2e7888a0146d4b15b7485c2d9401d916`). Stitch made a wizard, not the requested 3-column designer. Used **only** for its step bar.
+- **Not adopted from the wizard (outside the scope or invented):**
+  - a corner/L wardrobe, since the scope is straight wardrobes only
+  - a "leave 2–3 cm" clearance tip
+  - "standard" height and depth values
+  - AI extracting measurements from a photo
+- **The review screen was not generated.** The generation timed out and hadn't appeared after about 10 minutes of polling. Retry before Stage 5.
+- **Logo:** the brand artwork "BanAI logo.png" (Obsidian vault) replaces the inline SVG mark.
+  - The web sizes are `frontend/src/assets/banai-logo.png` (393×160) and `banai-mark.png` (128×128, also the favicon).
+  - They are cropped, with the outer background made transparent.
+  - The logo is navy and teal, while the UI accent is still terracotta. This needs a decision in Stage 1.
