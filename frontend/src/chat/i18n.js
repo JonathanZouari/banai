@@ -182,6 +182,8 @@ export const STRINGS = Object.freeze({
       'Armario alto con puertas correderas y una barra de colgar',
       'Cuatro estantes a la izquierda, barra en el centro y tres cajones a la derecha',
     ]),
+    quickPromptsLabel: 'Peticiones rápidas',
+    quickPrompts: Object.freeze(['Añadir cajones', 'Hazlo de 2,5 m de ancho', 'Puertas correderas', 'Añadir una barra de colgar']),
     conversation: 'Conversación',
     thinking: 'El diseñador está pensando',
     proposalHeading: 'Cambios propuestos',
