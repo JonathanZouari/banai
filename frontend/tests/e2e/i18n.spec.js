@@ -22,7 +22,12 @@ test.describe('Hebrew (default) and RTL', () => {
   test('catalog names, units and the selected-part label are Hebrew', async ({ page }) => {
     await openDesigner(page);
     await expect(page.getByRole('button', { name: 'לבן' }).first()).toBeVisible();
-    await expect(page.locator('.topbar__units')).toHaveText('ס״מ');
+    // The unit selector (from dev) replaced the fixed label: Hebrew names, centimetres on by default.
+    await expect(page.getByTestId('unit-cm')).toHaveText('ס״מ');
+    await expect(page.getByTestId('unit-cm')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('unit-mm')).toHaveText('מ״מ');
+    await expect(page.getByTestId('unit-in')).toHaveText('אינץ׳');
+    await expect(page.getByTestId('unit-selector')).toHaveAttribute('aria-label', 'יחידות מידה');
     await page.evaluate(() => window.__banai.store.select('shf_l1'));
     await expect(page.getByTestId('selected-section')).toContainText('נבחר · מדף');
     await expect(page.locator('.dim-label--selected')).toContainText('ס״מ מהבסיס');

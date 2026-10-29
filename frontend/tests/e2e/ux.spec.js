@@ -1,4 +1,4 @@
-import { test, expect, openDesigner } from './fixtures.js';
+import { test, expect, openDesigner, openStep } from './fixtures.js';
 
 test.describe('homepage entry', () => {
   test('"start from a basic wardrobe" opens the editor with the default wardrobe', async ({ page }) => {
@@ -163,5 +163,19 @@ test.describe('render dialog (backend phase not built yet)', () => {
     await expect(page.getByTestId('render-generate')).toBeDisabled();
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
+  });
+});
+
+test.describe('page layout', () => {
+  test('the page itself never scrolls: only the side panels do, even after an edit', async ({ page }) => {
+    await openDesigner(page);
+    const pageScroll = () => page.evaluate(() => {
+      const root = document.scrollingElement;
+      return { overflow: root.scrollHeight - root.clientHeight, top: root.scrollTop };
+    });
+    expect(await pageScroll()).toEqual({ overflow: 0, top: 0 });
+    await openStep(page, 'materials');
+    await page.getByRole('button', { name: 'ירוק זית', exact: true }).first().click();
+    expect(await pageScroll()).toEqual({ overflow: 0, top: 0 });
   });
 });

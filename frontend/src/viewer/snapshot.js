@@ -13,7 +13,7 @@ export const SNAPSHOT_SIZE = Object.freeze({ width: 1200, height: 1300 });
 const WALL = '#ebe7e0';
 const FLOOR = '#d8d1c6';
 // ASSUMPTION: which catalog entries read as wood in the picture (visual only).
-const WOOD_MATERIALS = new Set(['oak_veneer', 'birch_plywood']);
+const WOOD_MATERIALS = new Set(['oak_veneer', 'birch_plywood', 'solid_oak']);
 const WOOD_COLORS = new Set(['natural_oak', 'walnut']);
 
 /** Deterministic pseudo-random numbers, so the same design always gives the same picture. */
@@ -161,11 +161,12 @@ export function cutoutSize(design, long = 900) {
 }
 
 /**
- * Render the design to a JPEG data URL (smaller than PNG for a photo-like image), or with
- * `transparent: true` to a front-on PNG cut-out with a transparent background (the room overlay).
- * Throws when WebGL is unavailable; callers fall back to the PDF's own illustration.
+ * Render the design to a data URL: JPEG by default (smaller than PNG for the PDF), `type: 'image/png'`
+ * for a picture the customer saves, or `transparent: true` for a front-on PNG cut-out with a transparent
+ * background (the room overlay). Throws when WebGL is unavailable; callers fall back to the PDF's own
+ * illustration or say the picture is not available.
  */
-export function renderSnapshot(design, catalog, { width = SNAPSHOT_SIZE.width, height = SNAPSHOT_SIZE.height, transparent = false } = {}) {
+export function renderSnapshot(design, catalog, { width = SNAPSHOT_SIZE.width, height = SNAPSHOT_SIZE.height, transparent = false, type = 'image/jpeg' } = {}) {
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
@@ -196,7 +197,7 @@ export function renderSnapshot(design, catalog, { width = SNAPSHOT_SIZE.width, h
     const camera = new THREE.PerspectiveCamera(22, width / height, 0.05, 80);
     frameCamera(camera, design, { front: transparent });
     renderer.render(staged.scene, camera);
-    return transparent ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.9);
+    return transparent || type === 'image/png' ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.9);
   } finally {
     if (group) disposeWardrobe(group);
     if (staged) {

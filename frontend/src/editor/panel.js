@@ -34,7 +34,7 @@ function step({ id, index, summary, body, open, onToggle }) {
   return { details, toggle, value };
 }
 
-export function mountPanel(root, store, { onExport } = {}) {
+export function mountPanel(root, store, { onExport, units } = {}) {
   const run = (ops) => {
     try {
       return store.dispatch(ops);
@@ -44,7 +44,7 @@ export function mountPanel(root, store, { onExport } = {}) {
   };
   const select = (id) => store.select(id);
   const openSteps = new Set(DEFAULT_OPEN); // survives re-renders
-  let rendered = { design: null, selection: undefined, language: null };
+  let rendered = { design: null, selection: undefined, language: null, unit: undefined };
   let views = {};
 
   const onToggle = (id, open) => {
@@ -54,10 +54,11 @@ export function mountPanel(root, store, { onExport } = {}) {
 
   const render = (state) => {
     const language = getUiLanguage();
-    if (state.design === rendered.design && state.selection === rendered.selection && language === rendered.language) return;
-    rendered = { design: state.design, selection: state.selection, language };
-    const context = { design: state.design, catalog: state.catalog, selection: state.selection, run, select, onExport };
-    const summaries = stepSummaries(state.design, state.catalog, state.request.notes);
+    const unit = units?.get() ?? 'cm';
+    if (state.design === rendered.design && state.selection === rendered.selection && language === rendered.language && unit === rendered.unit) return;
+    rendered = { design: state.design, selection: state.selection, language, unit };
+    const context = { design: state.design, catalog: state.catalog, selection: state.selection, run, select, onExport, unit };
+    const summaries = stepSummaries(state.design, state.catalog, state.request.notes, unit);
     const bodies = {
       dimensions: () => dimensionsGroup(context),
       doors: () => doorsGroup(context),
@@ -67,7 +68,7 @@ export function mountPanel(root, store, { onExport } = {}) {
         getNotes: () => store.getState().request.notes,
         setNotes: (text) => store.setNotes(text),
         onChange: (notes) => {
-          const summary = stepSummaries(store.getState().design, store.getState().catalog, notes).notes;
+          const summary = stepSummaries(store.getState().design, store.getState().catalog, notes, unit).notes;
           views.notes.value.textContent = summary;
           views.notes.toggle.setAttribute('aria-label', `${t().editor.stepNumber(5)}: ${t().editor.steps.notes}, ${summary}`);
         },
@@ -87,9 +88,10 @@ export function mountPanel(root, store, { onExport } = {}) {
   };
 
   const unsubscribe = store.subscribe(render);
+  const unsubscribeUnits = units?.subscribe(() => render(store.getState()));
   render(store.getState());
   return {
-    unsubscribe,
+    unsubscribe: () => { unsubscribe(); unsubscribeUnits?.(); },
     /** Re-render with the current UI language (the store did not change). */
     refresh: () => {
       rendered = { ...rendered, language: null };

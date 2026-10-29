@@ -11,6 +11,8 @@ import { canRecord } from './chat/voice.js';
 import { createStore } from './state/store.js';
 import { mountPanel } from './editor/panel.js';
 import { createViewer } from './viewer/viewer.js';
+import { createUnitPreference } from './units/displayUnits.js';
+import { createUnitSelector } from './units/unitSelector.js';
 import { renderSnapshot } from './viewer/snapshot.js';
 import { createChatModel } from './chat/chatModel.js';
 import { createLanguage } from './chat/i18n.js';
@@ -30,6 +32,8 @@ import { mountRoomPanel } from './room/roomPanel.js';
 import { mountRoomStage } from './room/roomStage.js';
 import { mountReview } from './review/reviewScreen.js';
 import { isEmptyRequest } from './state/request.js';
+import { icon } from './ui/icons.js';
+import { createTour } from './ui/tour.js';
 
 function showError(message) {
   const banner = document.getElementById('error-banner');
@@ -143,6 +147,19 @@ function setWorkspaceInert(inert, { keepTopbar = false } = {}) {
   });
 }
 
+// The "?" button replays the tour; its label follows the chat language like the tour itself.
+function bindTourButton(tour, language) {
+  const button = document.getElementById('open-tour');
+  button.append(icon('help'));
+  const label = () => {
+    button.setAttribute('aria-label', language.strings().tour.replay);
+    button.title = language.strings().tour.replay;
+  };
+  label();
+  language.subscribe(label);
+  button.addEventListener('click', () => tour.start());
+}
+
 async function boot() {
   const uiLanguage = createUiLanguage();
   applyDocumentLanguage();
@@ -171,17 +188,19 @@ async function boot() {
     store.setNotes(savedRequest.notes ?? '');
     store.setRoom(savedRequest.room ?? {});
   }
-  const viewer = createViewer(document.getElementById('viewer'), store);
+  const units = createUnitPreference();
+  const viewer = createViewer(document.getElementById('viewer'), store, { units });
+  const unitSelector = createUnitSelector({ container: document.getElementById('unit-selector'), units, label: () => t().app.unitsLabel, names: () => t().units });
   bindInteriorToggle(store);
   bindSkipLink();
   const exporter = lazyDialog(() => createExportDialog({
     getDesign: () => store.getState().design,
     getLanguage: () => language.get(),
-    getSnapshot: (design) => renderSnapshot(design, store.getState().catalog),
+    getSnapshot: (design, options) => renderSnapshot(design, store.getState().catalog, options),
     // Only when the customer entered something: an empty request is not sent (data minimisation).
     getRequest: () => (isEmptyRequest(store.getState().request) ? null : store.getState().request),
   }));
-  const panel = mountPanel(document.getElementById('properties-content'), store, { onExport: exporter.open });
+  const panel = mountPanel(document.getElementById('properties-content'), store, { onExport: exporter.open, units });
   const saver = createSaver(store, language, session);
   const storage = health?.data.storage === true;
   bindDialogs({ storage, onSave: saver });
@@ -224,6 +243,7 @@ async function boot() {
     roomStage.refresh();
     review.refresh();
     viewSwitch.refresh();
+    unitSelector.refresh();
     viewer.refreshLabels();
     language.set(code);
   });
@@ -263,6 +283,8 @@ async function boot() {
   });
   // A manual edit changes the revision, which may turn a pending proposal stale.
   store.subscribe(() => chat.refresh());
+  const tour = createTour({ language });
+  bindTourButton(tour, language);
 
   if (import.meta.env.DEV) {
     window.__banai = Object.freeze({ store, viewer, chat: chatModel });
@@ -310,10 +332,16 @@ async function boot() {
       viewSwitch.set(view);
       if (room) roomStage.show();
       else roomStage.hide();
-      if (initial) return;
+      // First visit: introduce the designer (never over the homepage or the room view). The tour starts
+      // after focus has moved, so closing it gives focus back to where the chosen entry put it.
+      if (initial) {
+        if (!room) tour.startIfNew();
+        return;
+      }
       const focusDefault = () => document.getElementById(room ? 'room-panel' : 'properties-panel').focus();
       (room ? focusDefault : afterShow ?? focusDefault)();
       afterShow = null;
+      if (!room) tour.startIfNew();
     },
   });
   function enterDesigner(focus) {

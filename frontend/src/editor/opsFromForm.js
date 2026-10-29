@@ -2,23 +2,21 @@
 // unit-tested. The domain engine remains the single authority on validity.
 import { interiorHeight } from '../domain/geometry.js';
 import { t } from '../ui/i18n.js';
-
-const MAX_ABS_CM = 100_000;
-const CM_PATTERN = /^-?\d+([.,]\d+)?$/;
+import { formatLength, parseLength } from '../units/displayUnits.js';
 
 // ASSUMPTION: prototype defaults for newly added items (not business rules).
 export const NEW_ITEM = Object.freeze({ shelfThickness: 18, drawerHeight: 200, railBelowTop: 100 });
 
 /** Parse a centimetre input (`.` or `,` decimal) to integer millimetres. */
-export function parseCm(text) {
-  const trimmed = String(text ?? '').trim();
-  if (!CM_PATTERN.test(trimmed)) return { ok: false, message: t().editor.cmFormat };
-  const cm = Number(trimmed.replace(',', '.'));
-  if (!Number.isFinite(cm) || Math.abs(cm) > MAX_ABS_CM) return { ok: false, message: t().editor.tooLarge };
-  return { ok: true, mm: Math.round(cm * 10) };
+export const parseCm = (text) => parseInput(text, 'cm');
+
+/** Typed text in `unit` to integer millimetres, with errors in the UI language. */
+export function parseInput(text, unit = 'cm') {
+  const s = t().editor;
+  return parseLength(text, unit, { format: (code) => s.numberFormat(t().units[code], s.unitExample[code]), tooLarge: s.tooLarge });
 }
 
-export const toCmText = (mm) => (mm / 10).toFixed(1);
+export const toCmText = (mm) => formatLength(mm, 'cm');
 
 export const dimensionOps = (field, mm) => [{ op: 'update_dimensions', [field]: mm }];
 

@@ -94,8 +94,8 @@ function pdfFilename(disposition) {
 }
 
 /**
- * The carpenter PDF: { design, language: 'he'|'en', image?, request? } -> { blob, filename }. `image` is
- * the app's own 3D snapshot (a JPEG/PNG data URL); without it the PDF uses its drawn illustration.
+ * The carpenter PDF: { design, language: 'he'|'en'|'es', image?, request? } -> { blob, filename }. `image`
+ * is the app's own 3D snapshot (a JPEG/PNG data URL); without it the PDF uses its drawn illustration.
  * `request` (notes + the measured wall, never the room photo) adds a customer-requirements page.
  */
 export async function exportPdf({ design, language, image = null, request = null }, fetchImpl = fetch) {

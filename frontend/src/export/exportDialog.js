@@ -15,8 +15,21 @@ function saveBlob(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+/** "banai-200x240x60.png": the design's width x height x depth in cm (dimensions are whole mm). */
+export function pictureFilename({ dimensions: { width, height, depth } }) {
+  const cm = (mm) => String(Math.round(mm) / 10);
+  return `banai-${cm(width)}x${cm(height)}x${cm(depth)}.png`;
+}
+
+/** A base64 data URL as a Blob, decoded here in the browser (no request is made). */
+function dataUrlToBlob(dataUrl) {
+  const [head, data] = dataUrl.split(',');
+  const bytes = Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
+  return new Blob([bytes], { type: /^data:([^;]+)/.exec(head)?.[1] ?? 'image/png' });
+}
+
 /**
- * getSnapshot() returns the 3D picture as a data URL, or throws (the PDF then uses its own drawing).
+ * getSnapshot(design, options) returns the 3D picture as a data URL, or throws (the PDF then uses its own drawing).
  * getRequest() returns the customer's notes and measured wall (or null) for the requirements page.
  */
 export function createExportDialog({ getDesign, getLanguage, getSnapshot = null, getRequest = () => null, exportImpl = exportPdf }) {
@@ -27,7 +40,7 @@ export function createExportDialog({ getDesign, getLanguage, getSnapshot = null,
   status.dataset.testid = 'export-status';
   const languageField = selectField({
     label: s.language,
-    options: [{ label: 'עברית', value: 'he' }, { label: 'English', value: 'en' }],
+    options: [{ label: 'עברית', value: 'he' }, { label: 'English', value: 'en' }, { label: 'Español', value: 'es' }],
     value: language,
     onChange: (value) => { language = value; },
     testId: 'export-language',
@@ -57,6 +70,19 @@ export function createExportDialog({ getDesign, getLanguage, getSnapshot = null,
     }
   }, { variant: 'primary', testId: 'export-download' });
 
+  // The same studio picture that goes into the PDF, saved as a PNG. It is made and saved in the browser only.
+  const picture = getSnapshot
+    ? button(s.picture, () => {
+      try {
+        const design = getDesign();
+        saveBlob(dataUrlToBlob(getSnapshot(design, { type: 'image/png' })), pictureFilename(design));
+        status.textContent = s.pictureSaved;
+      } catch {
+        status.textContent = s.pictureFailed;
+      }
+    }, { variant: 'secondary', testId: 'export-picture' })
+    : null;
+
   const dialog = createDialog({
     title: s.title,
     labelId: 'export-dialog-title',
@@ -67,7 +93,7 @@ export function createExportDialog({ getDesign, getLanguage, getSnapshot = null,
       el('span', { className: 'chip', text: s.note }),
       status,
     ],
-    actions: [download, button(t().dialogs.close, () => dialog.close(), { variant: 'ghost', testId: 'export-close' })],
+    actions: [download, ...(picture ? [picture] : []), button(t().dialogs.close, () => dialog.close(), { variant: 'ghost', testId: 'export-close' })],
   });
   return {
     ...dialog,

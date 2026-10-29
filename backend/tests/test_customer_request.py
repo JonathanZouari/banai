@@ -183,6 +183,17 @@ def test_the_hebrew_customer_page_renders():
     assert "חלון" in text or "ןולח" in text  # pypdf may return visual (reversed) order for RTL text
 
 
+def test_the_spanish_customer_page_renders():
+    # Spanish PDFs (from dev) meet the customer page (this branch): every text must exist in both.
+    response = export("es", {"notes": "Tiradores negros", "room": {"width": 1800, "height": 2600, "obstacles": ["window", "beam"]}})
+    assert response.status_code == 200
+    text = pdf_text(response.content)
+    assert "Requisitos del cliente" in text
+    assert "Tiradores negros" in text
+    assert "Ventana" in text
+    assert "no se comprobaron en obra" in text
+
+
 def test_an_invalid_request_is_rejected_before_rendering():
     response = export("en", {"notes": f"x{HIDDEN}"})
     assert response.status_code == 422

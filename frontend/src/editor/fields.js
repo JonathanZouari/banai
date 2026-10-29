@@ -1,6 +1,7 @@
 // Small DOM builders for the properties panel. Text is always set via textContent or
 // input.value, never innerHTML, so design data (e.g. custom names) cannot inject markup.
-import { friendlyError, parseCm, toCmText } from './opsFromForm.js';
+import { formatLength } from '../units/displayUnits.js';
+import { friendlyError, parseCm, parseInput, toCmText } from './opsFromForm.js';
 import { t } from '../ui/i18n.js';
 
 let fieldCounter = 0;
@@ -51,12 +52,12 @@ function inputField({ label, value, testId, suffix, commit, inputMode = 'decimal
   return el('div', { className: 'field' }, [el('label', { className: 'field__label', text: label, attrs: { for: id } }), control, message]);
 }
 
-/** A centimetre field backed by an integer-millimetre value. `onCommit(mm)` dispatches. */
-export function cmField({ label, mm, testId, onCommit }) {
+/** A length field in the chosen display unit, backed by an integer-millimetre value. `onCommit(mm)` dispatches. */
+export function lengthField({ label, mm, testId, unit = 'cm', onCommit }) {
   return inputField({
-    label, testId, suffix: t().units.cm, value: toCmText(mm),
+    label, testId, suffix: t().units[unit] ?? unit, value: formatLength(mm, unit),
     commit: (text) => {
-      const parsed = parseCm(text);
+      const parsed = parseInput(text, unit);
       return parsed.ok ? onCommit(parsed.mm) : parsed;
     },
   });
@@ -76,6 +77,9 @@ export function optionalCmField({ label, mm, testId, onCommit }) {
     },
   });
 }
+
+/** Backwards-compatible alias: a centimetre field (use `lengthField` for other units). */
+export const cmField = (options) => lengthField({ ...options, unit: 'cm' });
 
 /** A whole-number field (counts). */
 export function countField({ label, value, testId, onCommit }) {

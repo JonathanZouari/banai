@@ -2,16 +2,16 @@
 // summary of its current choices, so the panel doubles as a live design summary. Pure: no DOM.
 import { LIMITS } from '../domain/defaults.js';
 import { catalogName, t } from '../ui/i18n.js';
-import { toCmText } from './opsFromForm.js';
+import { formatLength } from '../units/displayUnits.js';
 import { ltr } from '../ui/bidi.js';
 
 export const STEPS = Object.freeze(['dimensions', 'doors', 'interior', 'materials', 'notes']);
 
-/** Whole centimetres for range text (limits are whole cm). */
-const cm = (mm) => String(Math.round(mm / 10));
+/** [min, max] text in the display unit for an overall dimension ('width' | 'height' | 'depth'), no trailing zeros. */
+export const rangeIn = (field, unit = 'cm') => LIMITS[field].map((mm) => String(Number(formatLength(mm, unit))));
 
-/** [min, max] in cm text for an overall dimension ('width' | 'height' | 'depth'). */
-export const rangeCm = (field) => LIMITS[field].map(cm);
+/** [min, max] in whole centimetres (limits are whole cm). */
+export const rangeCm = (field) => rangeIn(field, 'cm');
 
 function refName(ref, list) {
   if (!ref) return '';
@@ -21,7 +21,7 @@ function refName(ref, list) {
 }
 
 /** One summary line per step, in the current UI language. */
-export function stepSummaries(design, catalog, notes = '') {
+export function stepSummaries(design, catalog, notes = '', unit = 'cm') {
   const s = t().editor;
   const { width, height, depth } = design.dimensions;
   const count = (kind) => design.compartments.reduce((total, compartment) => total + compartment[kind].length, 0);
@@ -44,7 +44,7 @@ export function stepSummaries(design, catalog, notes = '') {
   ].filter(Boolean).join(' · ');
   const trimmed = notes.trim().replace(/\s+/g, ' ');
   return {
-    dimensions: `${ltr(`${toCmText(width)} × ${toCmText(height)} × ${toCmText(depth)}`)} ${t().units.cm}`,
+    dimensions: `${ltr(`${formatLength(width, unit)} × ${formatLength(height, unit)} × ${formatLength(depth, unit)}`)} ${t().units[unit]}`,
     doors,
     interior,
     materials,

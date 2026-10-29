@@ -21,7 +21,7 @@ test.describe('accessibility (axe, WCAG 2.2 AA)', () => {
     await expectNoViolations(page);
   });
 
-  for (const id of ['open-save', 'open-render', 'open-export']) {
+  for (const id of ['open-save', 'open-render', 'open-export', 'open-tour']) {
     test(`dialog ${id}`, async ({ page }) => {
       await openDesigner(page);
       if (id === 'open-export') await openStep(page, 'interior'); // it sits next to "+ Add compartment"

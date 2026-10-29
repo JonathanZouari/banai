@@ -26,12 +26,22 @@ export function createSaveDialog({ available, onSave, link = '' }) {
     }
   }, { variant: 'secondary', testId: 'copy-link', disabled: !link });
 
+  // The system share sheet; browsers without navigator.share never see the button.
+  const share = typeof navigator.share === 'function' ? button(s.share, async () => {
+    try {
+      await navigator.share({ title: s.shareTitle, url: linkField.value });
+    } catch (error) {
+      if (error?.name !== 'AbortError') status.textContent = s.shareFailed;
+    }
+  }, { variant: 'secondary', testId: 'share-link-native', disabled: !link }) : null;
+
   const save = button(s.confirm, async () => {
     save.disabled = true;
     status.textContent = s.saving;
     try {
       linkField.value = await onSave();
       copy.disabled = false;
+      if (share) share.disabled = false;
       status.textContent = s.saved;
     } catch (error) {
       status.textContent = error?.message || s.failed;
@@ -53,7 +63,7 @@ export function createSaveDialog({ available, onSave, link = '' }) {
       el('p', { className: 'dialog__note', text: s.note }),
       status,
     ],
-    actions: [copy, save, button(t().dialogs.close, () => dialog.close(), { variant: 'ghost', testId: 'save-close' })],
+    actions: [copy, ...(share ? [share] : []), save, button(t().dialogs.close, () => dialog.close(), { variant: 'ghost', testId: 'save-close' })],
   });
   return dialog;
 }
