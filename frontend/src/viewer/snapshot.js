@@ -13,8 +13,8 @@ export const SNAPSHOT_SIZE = Object.freeze({ width: 1200, height: 1300 });
 const WALL = '#ebe7e0';
 const FLOOR = '#d8d1c6';
 // ASSUMPTION: which catalog entries read as wood in the picture (visual only).
-const WOOD_MATERIALS = new Set(['oak_veneer', 'birch_plywood']);
-const WOOD_COLORS = new Set(['natural_oak', 'walnut']);
+const WOOD_MATERIALS = new Set(['oak_veneer', 'walnut_veneer', 'birch_plywood']);
+const WOOD_COLORS = new Set(['natural_oak', 'whitewashed_oak', 'smoked_oak', 'walnut']);
 
 /** Deterministic pseudo-random numbers, so the same design always gives the same picture. */
 function seeded(seed) {
@@ -55,7 +55,7 @@ function woodTexture(hex) {
 }
 
 /** The viewer's materials, upgraded for the picture: physical shading, clearcoat on gloss, wood grain. */
-function snapshotMaterials(catalog) {
+export function snapshotMaterials(catalog) {
   const base = createMaterials(catalog);
   const cache = new Map();
   const textures = [];

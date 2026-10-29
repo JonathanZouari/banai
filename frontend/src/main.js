@@ -26,6 +26,7 @@ import { renderSnapshot } from './viewer/snapshot.js';
 import { createChatModel } from './chat/chatModel.js';
 import { mountChat } from './chat/chatPanel.js';
 import { mountStartScreen } from './entry/startScreen.js';
+import { styleOps } from './entry/landing/wardrobe.js';
 import { createLocalArchive } from './archive/localArchive.js';
 import { createArchiveRecorder } from './archive/recorder.js';
 import { createArchiveDialog } from './archive/archiveDialog.js';
@@ -312,6 +313,14 @@ async function boot() {
   start = mountStartScreen({
     archive,
     archiveDialog,
+    catalog,
+    // "Build this wardrobe" in the landing studio: the editor opens in that look, as one undoable edit.
+    onBuild: (style) => {
+      recorder.startNew();
+      const ops = styleOps(style);
+      if (!store.dispatch(ops).ok) store.dispatch(ops.filter((op) => op.target !== 'doors')); // a design without doors
+      document.getElementById('properties-panel').focus();
+    },
     onChoose: (entry) => {
       recorder.startNew();
       // All three entry points open the same editor; the chat ones focus the composer, the manual
