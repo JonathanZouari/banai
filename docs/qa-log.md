@@ -270,3 +270,28 @@ Run on Nurit's request with **approval at every important step**. Rules: protect
 - The leftover temp worktrees were cleaned up (the git "Permission denied" warning is gone).
   - **Crowded top bar at 1280 px:** "לסיכום ושליחה", "התאמה לחדר" and "הצגת פנים הארון" wrap to two lines since the unit selector and "?" were added. Options: shorter labels, an icon for the tour, or a unit dropdown.
   - **One stall in the room view:** one screenshot timed out (30 s) right after moving the layer, then the page recovered. Moving doesn't re-render 3D, so the likely cause is machine load. Watch for it.
+
+### 2026-11-07 · Catalog: khaki, mahogany, dusty rose and HPL (`feature/catalog-colors`) — **PASSED**
+- **Branch:** `feature/catalog-colors`, cut from `uxui_nurit` (`963066e`).
+- **Changes:**
+  - `catalog.json`: 3 colours and 1 material.
+  - `export/strings.py`: he and es PDF names (en comes from the catalog).
+  - `ui/strings.js`: Hebrew editor names.
+  - `viewer/snapshot.js`: mahogany drawn with wood grain.
+- **Decision:** beige already existed (sand beige `#d9c8ad`), so dusty rose was added instead (approved).
+- **Tests added:**
+  - pytest: served with the exact hex and no duplicate hex; he/es names; applies and shows in the PDF in he/en/es. The Hebrew HPL name is checked in two parts, because text extraction returns mixed Hebrew and Latin in visual order. The rendered PDF itself reads correctly.
+  - vitest: the 3D colour for each new colour, and HPL.
+  - Playwright: editor → 3D hex → HPL option → PDF request.
+
+| Check | Result |
+|---|---|
+| pytest | ✅ 312 passed |
+| vitest | ✅ 329 passed |
+| Playwright (full) | ✅ 124/124 |
+| Build / secrets / hidden characters | ✅ |
+| npm audit | 🟡 only `fast-uri` |
+| Visual (PDF he/en/es, rendered) | ✅ "למינציה בלחץ גבוה (HPL) · חאקי · מט" reads correctly; the swatches match |
+| Claude in Chrome | ✅ live in the editor, 3D and PDF, 0 console errors, GIF `banai_catalog_colors_khaki_mahogany_rose_hpl.gif` |
+
+- Security: data only (catalog values and static names). No new input path, and the domain engine still validates every catalog id.

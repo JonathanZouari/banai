@@ -62,3 +62,31 @@ test.describe('catalog: olive green, terracotta, solid oak', () => {
     await expect.poll(() => carcassHex(page)).toBe(OLIVE);
   });
 });
+
+test.describe('catalog: khaki, mahogany, dusty rose, HPL (feature/catalog-colors)', () => {
+  test('each colour repaints the 3D wardrobe, HPL is offered, and both reach the PDF request', async ({ page }) => {
+    await openDesigner(page);
+    await openStep(page, 'materials');
+    for (const [name, id, hex] of [['חאקי', 'khaki', 'b8a77a'], ['מהגוני', 'mahogany', '6e2f24'], ['ורוד עתיק', 'dusty_rose', 'c9a19b']]) {
+      await page.getByRole('button', { name, exact: true }).first().click();
+      await expect.poll(() => carcassColor(page)).toEqual({ catalogId: id });
+      await expect.poll(() => carcassHex(page)).toBe(hex);
+    }
+    const material = page.getByLabel('חומר', { exact: true }).first();
+    await expect(material.locator('option[value="hpl_laminate"]')).toHaveText('למינציה בלחץ גבוה (HPL)');
+    await material.selectOption('hpl_laminate');
+    await expect.poll(() => page.evaluate(() => window.__banai.store.getState().design.carcass.appearance.material))
+      .toEqual({ catalogId: 'hpl_laminate' });
+
+    await openStep(page, 'interior'); // the PDF button sits next to "+ Add compartment"
+    await page.getByTestId('open-export').click();
+    const request = page.waitForRequest('**/api/export/pdf');
+    const download = page.waitForEvent('download');
+    await page.getByTestId('export-download').click();
+    const { design } = (await request).postDataJSON();
+    expect(design.carcass.appearance.material).toEqual({ catalogId: 'hpl_laminate' });
+    expect(design.carcass.appearance.color).toEqual({ catalogId: 'dusty_rose' });
+    expect((await download).suggestedFilename()).toMatch(/\.pdf$/);
+  });
+});
+

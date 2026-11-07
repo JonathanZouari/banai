@@ -571,6 +571,7 @@ export const CATALOG_NAMES = Object.freeze({
     // Catalog entries added on dev (5ffbe83); same Hebrew names as the carpenter PDF.
     birch_plywood: 'דיקט ליבנה', sage_green: 'ירוק מרווה', navy_blue: 'כחול נייבי', sand_beige: "בז' חול",
     solid_oak: 'עץ אלון מלא', olive_green: 'ירוק זית', terracotta: 'טרקוטה',
+    hpl_laminate: 'למינציה בלחץ גבוה (HPL)', khaki: 'חאקי', mahogany: 'מהגוני', dusty_rose: 'ורוד עתיק',
   },
   en: {},
 });
