@@ -15,6 +15,9 @@ describe('createMaterials', () => {
     ['sand_beige', 'd9c8ad'],
     ['olive_green', '6b6f45'],
     ['terracotta', 'b5654a'],
+    ['khaki', 'b8a77a'],
+    ['mahogany', '6e2f24'],
+    ['dusty_rose', 'c9a19b'],
   ])('renders the catalog colour %s from its hex', (id, hex) => {
     const material = createMaterials(loadCatalog()).forAppearance(appearance(id, 'birch_plywood'));
     expect(material.color.getHexString()).toBe(hex);
@@ -22,5 +25,11 @@ describe('createMaterials', () => {
 
   it('offers solid oak as a material', () => {
     expect(loadCatalog().materials.map((m) => m.id)).toContain('solid_oak');
+  });
+
+  it('offers HPL laminate, and it carries the colour on top of it', () => {
+    expect(loadCatalog().materials.map((m) => m.id)).toContain('hpl_laminate');
+    const material = createMaterials(loadCatalog()).forAppearance(appearance('khaki', 'hpl_laminate'));
+    expect(material.color.getHexString()).toBe('b8a77a');
   });
 });

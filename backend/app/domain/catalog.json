@@ -5,7 +5,8 @@
     { "id": "oak_veneer", "name": "Oak veneer" },
     { "id": "lacquered_mdf", "name": "Lacquered MDF" },
     { "id": "birch_plywood", "name": "Birch plywood" },
-    { "id": "solid_oak", "name": "Solid oak" }
+    { "id": "solid_oak", "name": "Solid oak" },
+    { "id": "hpl_laminate", "name": "High-pressure laminate (HPL)" }
   ],
   "colors": [
     { "id": "white", "name": "White", "hex": "#f2f1ed" },
@@ -18,7 +19,10 @@
     { "id": "navy_blue", "name": "Navy blue", "hex": "#2b3a52" },
     { "id": "sand_beige", "name": "Sand beige", "hex": "#d9c8ad" },
     { "id": "olive_green", "name": "Olive green", "hex": "#6b6f45" },
-    { "id": "terracotta", "name": "Terracotta", "hex": "#b5654a" }
+    { "id": "terracotta", "name": "Terracotta", "hex": "#b5654a" },
+    { "id": "khaki", "name": "Khaki", "hex": "#b8a77a" },
+    { "id": "mahogany", "name": "Mahogany", "hex": "#6e2f24" },
+    { "id": "dusty_rose", "name": "Dusty rose", "hex": "#c9a19b" }
   ],
   "finishes": [
     { "id": "matte", "name": "Matte" },

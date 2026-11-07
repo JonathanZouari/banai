@@ -1,4 +1,4 @@
-import { expect, openDesigner, test } from './fixtures.js';
+import { expect, openDesigner, openStep, test } from './fixtures.js';
 
 // New catalog colours and material, from the editor and from the agent, down to the 3D view.
 
@@ -12,15 +12,18 @@ const carcassHex = (page) => page.evaluate(() => window.__banai.viewer.meshOf('c
 test.describe('catalog: olive green, terracotta, solid oak', () => {
   test('choosing olive green in the editor repaints the wardrobe in 3D', async ({ page }) => {
     await openDesigner(page);
-    for (const name of ['Olive green', 'Terracotta']) await expect(page.getByRole('button', { name, exact: true }).first()).toBeVisible();
-    await page.getByRole('button', { name: 'Olive green', exact: true }).first().click();
+    await openStep(page, 'materials');
+    for (const name of ['ירוק זית', 'טרקוטה']) await expect(page.getByRole('button', { name, exact: true }).first()).toBeVisible();
+    await page.getByRole('button', { name: 'ירוק זית', exact: true }).first().click();
     expect(await carcassColor(page)).toEqual({ catalogId: 'olive_green' });
     await expect.poll(() => carcassHex(page)).toBe(OLIVE);
   });
 
   test('solid oak is offered as a material and can be chosen', async ({ page }) => {
     await openDesigner(page);
-    const material = page.getByLabel('Material').first();
+    await openStep(page, 'materials');
+    const material = page.getByLabel('חומר', { exact: true }).first();
+    await expect(material.locator('option[value="solid_oak"]')).toHaveText('עץ אלון מלא');
     await material.selectOption('solid_oak');
     await expect.poll(() => page.evaluate(() => window.__banai.store.getState().design.carcass.appearance.material)).toEqual({ catalogId: 'solid_oak' });
   });
@@ -59,3 +62,31 @@ test.describe('catalog: olive green, terracotta, solid oak', () => {
     await expect.poll(() => carcassHex(page)).toBe(OLIVE);
   });
 });
+
+test.describe('catalog: khaki, mahogany, dusty rose, HPL (feature/catalog-colors)', () => {
+  test('each colour repaints the 3D wardrobe, HPL is offered, and both reach the PDF request', async ({ page }) => {
+    await openDesigner(page);
+    await openStep(page, 'materials');
+    for (const [name, id, hex] of [['חאקי', 'khaki', 'b8a77a'], ['מהגוני', 'mahogany', '6e2f24'], ['ורוד עתיק', 'dusty_rose', 'c9a19b']]) {
+      await page.getByRole('button', { name, exact: true }).first().click();
+      await expect.poll(() => carcassColor(page)).toEqual({ catalogId: id });
+      await expect.poll(() => carcassHex(page)).toBe(hex);
+    }
+    const material = page.getByLabel('חומר', { exact: true }).first();
+    await expect(material.locator('option[value="hpl_laminate"]')).toHaveText('למינציה בלחץ גבוה (HPL)');
+    await material.selectOption('hpl_laminate');
+    await expect.poll(() => page.evaluate(() => window.__banai.store.getState().design.carcass.appearance.material))
+      .toEqual({ catalogId: 'hpl_laminate' });
+
+    await openStep(page, 'interior'); // the PDF button sits next to "+ Add compartment"
+    await page.getByTestId('open-export').click();
+    const request = page.waitForRequest('**/api/export/pdf');
+    const download = page.waitForEvent('download');
+    await page.getByTestId('export-download').click();
+    const { design } = (await request).postDataJSON();
+    expect(design.carcass.appearance.material).toEqual({ catalogId: 'hpl_laminate' });
+    expect(design.carcass.appearance.color).toEqual({ catalogId: 'dusty_rose' });
+    expect((await download).suggestedFilename()).toMatch(/\.pdf$/);
+  });
+});
+

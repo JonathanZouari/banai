@@ -24,15 +24,18 @@ class SavedDesign:
     name: str
     design: dict
     revision: int
+    customer: dict | None = None  # the customer's request (notes, room); never the room photo
 
 
 class DesignRepository(Protocol):
-    def create(self, token_hash: str, name: str, design: dict) -> tuple[str, int]: ...
+    def create(self, token_hash: str, name: str, design: dict, customer: dict | None = None) -> tuple[str, int]: ...
 
     def get(self, design_id: str) -> SavedDesign | None: ...
 
-    def update(self, design_id: str, token_hash: str, expected_revision: int, name: str, design: dict) -> int | None:
-        """The new revision, or None when the row is gone or no longer at expected_revision."""
+    def update(self, design_id: str, token_hash: str, expected_revision: int, name: str, design: dict,
+               customer: dict | None = None) -> int | None:
+        """The new revision, or None when the row is gone or no longer at expected_revision.
+        `customer=None` leaves the stored request as it is."""
         ...
 
 
@@ -41,21 +44,23 @@ class InMemoryRepository:
         self._rows: dict[str, SavedDesign] = {}
         self._lock = threading.Lock()
 
-    def create(self, token_hash: str, name: str, design: dict) -> tuple[str, int]:
+    def create(self, token_hash: str, name: str, design: dict, customer: dict | None = None) -> tuple[str, int]:
         design_id = str(uuid.uuid4())
         with self._lock:
-            self._rows = {**self._rows, design_id: SavedDesign(token_hash, name, design, 1)}
+            self._rows = {**self._rows, design_id: SavedDesign(token_hash, name, design, 1, customer)}
         return design_id, 1
 
     def get(self, design_id: str) -> SavedDesign | None:
         return self._rows.get(design_id)
 
-    def update(self, design_id: str, token_hash: str, expected_revision: int, name: str, design: dict) -> int | None:
+    def update(self, design_id: str, token_hash: str, expected_revision: int, name: str, design: dict,
+               customer: dict | None = None) -> int | None:
         with self._lock:
             row = self._rows.get(design_id)
             if row is None or row.token_hash != token_hash or row.revision != expected_revision:
                 return None
-            self._rows = {**self._rows, design_id: SavedDesign(token_hash, name, design, expected_revision + 1)}
+            kept = row.customer if customer is None else customer
+            self._rows = {**self._rows, design_id: SavedDesign(token_hash, name, design, expected_revision + 1, kept)}
         return expected_revision + 1
 
 
@@ -82,34 +87,44 @@ class SupabaseRepository:
             raise StorageError("Supabase returned an unexpected body")
         return rows
 
-    def create(self, token_hash: str, name: str, design: dict) -> tuple[str, int]:
-        return _fields(self._create, token_hash, name, design)
+    def create(self, token_hash: str, name: str, design: dict, customer: dict | None = None) -> tuple[str, int]:
+        return _fields(self._create, token_hash, name, design, customer)
 
     def get(self, design_id: str) -> SavedDesign | None:
         return _fields(self._get, design_id)
 
-    def update(self, design_id: str, token_hash: str, expected_revision: int, name: str, design: dict) -> int | None:
-        return _fields(self._update, design_id, token_hash, expected_revision, name, design)
+    def update(self, design_id: str, token_hash: str, expected_revision: int, name: str, design: dict,
+               customer: dict | None = None) -> int | None:
+        return _fields(self._update, design_id, token_hash, expected_revision, name, design, customer)
 
-    def _create(self, token_hash: str, name: str, design: dict) -> tuple[str, int]:
-        rows = self._send("POST", {"select": "id,revision"}, {"token_hash": token_hash, "name": name, "design": design})
+    def _create(self, token_hash: str, name: str, design: dict, customer: dict | None) -> tuple[str, int]:
+        row = {"token_hash": token_hash, "name": name, "design": design}
+        if customer is not None:
+            row["customer"] = customer  # the existing jsonb column (supabase/migrations)
+        rows = self._send("POST", {"select": "id,revision"}, row)
         if len(rows) != 1:
             raise StorageError("Supabase did not return the new row")
         return rows[0]["id"], rows[0]["revision"]
 
     def _get(self, design_id: str) -> SavedDesign | None:
-        rows = self._send("GET", {"id": f"eq.{design_id}", "select": "token_hash,name,design,revision"})
+        rows = self._send("GET", {"id": f"eq.{design_id}", "select": "token_hash,name,design,revision,customer"})
         if not rows:
             return None
         row = rows[0]
-        return SavedDesign(row["token_hash"], row["name"], row["design"], row["revision"])
+        customer = row.get("customer")
+        return SavedDesign(row["token_hash"], row["name"], row["design"], row["revision"],
+                           customer if isinstance(customer, dict) else None)
 
-    def _update(self, design_id: str, token_hash: str, expected_revision: int, name: str, design: dict) -> int | None:
+    def _update(self, design_id: str, token_hash: str, expected_revision: int, name: str, design: dict,
+                customer: dict | None) -> int | None:
         # The filter is the optimistic lock: zero matching rows means someone saved first (or the link is wrong).
         params = {"id": f"eq.{design_id}", "token_hash": f"eq.{token_hash}",
                   "revision": f"eq.{expected_revision}", "select": "revision"}
-        rows = self._send("PATCH", params, {"name": name, "design": design, "revision": expected_revision + 1,
-                                            "updated_at": "now"})  # Postgres reads 'now' as the current time
+        changes = {"name": name, "design": design, "revision": expected_revision + 1,
+                   "updated_at": "now"}  # Postgres reads 'now' as the current time
+        if customer is not None:
+            changes["customer"] = customer
+        rows = self._send("PATCH", params, changes)
         return rows[0]["revision"] if rows else None
 
 

@@ -48,14 +48,18 @@ test.describe('first-visit introduction tour', () => {
   test('the bubble sits beside its target and the ring outlines it', async ({ page }) => {
     await openDesigner(page);
     const box = async (locator) => locator.boundingBox();
+    // The panels mirror with the page direction (Hebrew by default): the bubble sits on the open side.
+    const rtl = (await page.evaluate(() => document.documentElement.dir)) === 'rtl';
     const chat = await box(page.locator('#chat-panel'));
     const bubble = await box(page.locator('.tour__bubble'));
-    expect(bubble.x).toBeGreaterThanOrEqual(chat.x + chat.width); // right of the chat panel
+    if (rtl) expect(bubble.x + bubble.width).toBeLessThanOrEqual(chat.x); // left of the chat panel (on the right in RTL)
+    else expect(bubble.x).toBeGreaterThanOrEqual(chat.x + chat.width); // right of the chat panel
     await page.getByTestId('tour-next').click();
     const editor = await box(page.locator('#properties-panel'));
     await expect.poll(async () => (await box(page.locator('.tour__ring'))).x).toBeCloseTo(editor.x - 4, 0);
     const editorBubble = await box(page.locator('.tour__bubble'));
-    expect(editorBubble.x + editorBubble.width).toBeLessThanOrEqual(editor.x); // left of the editor
+    if (rtl) expect(editorBubble.x).toBeGreaterThanOrEqual(editor.x + editor.width); // right of the editor (on the left in RTL)
+    else expect(editorBubble.x + editorBubble.width).toBeLessThanOrEqual(editor.x); // left of the editor
   });
 
   test('Skip and Esc close it, remember it, and keep focus in the page', async ({ page }) => {
@@ -67,12 +71,12 @@ test.describe('first-visit introduction tour', () => {
 
     await page.evaluate(() => window.localStorage.removeItem('banai.tour.seen'));
     await page.reload();
-    await page.getByTestId('entry-freeText').click();
+    await page.getByTestId('home-design').click(); // "עצב לי ארון" with an empty field: the guided chat
     await expect(tour(page)).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(tour(page)).toBeHidden();
     expect(await seen(page)).toBe('1');
-    await expect(page.getByTestId('chat-input')).toBeFocused(); // "Describe it" put focus in the composer
+    await expect(page.getByTestId('chat-input')).toBeFocused(); // "עצב לי ארון" put focus in the composer
   });
 
   test('the "?" button replays it in the chat language, and focus returns to the button', async ({ page }) => {
@@ -97,7 +101,7 @@ test.describe('first-visit introduction tour', () => {
     await openDesigner(page);
     const before = await page.evaluate(() => JSON.stringify(window.__banai.store.getState().design));
     await page.getByTestId('tour-skip').click();
-    await page.getByLabel('Show interior').check();
+    await page.getByLabel('הצגת פנים הארון').check();
     await clickComponent(page, 'shf_l2');
     expect(await selection(page)).toEqual({ id: 'shf_l2', kind: 'shelf' });
     expect(await page.evaluate(() => JSON.stringify(window.__banai.store.getState().design))).toBe(before);

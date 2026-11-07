@@ -3,6 +3,8 @@
 body {
   margin: 0;
   height: 100vh;
+  /* The designer is a fixed-height app: only the panels scroll, never the page itself. */
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   font: var(--md-sys-typescale-body-medium);
@@ -54,10 +56,11 @@ body {
   min-height: 0;
   padding: var(--space-4);
   overflow-y: auto;
+  position: relative; /* absolutely placed children (e.g. the hidden file input) stay inside the panel */
   background: var(--md-sys-color-surface-container-lowest);
 }
-.panel:first-child { border-right: 1px solid var(--md-sys-color-outline-variant); }
-.panel--properties { border-left: 1px solid var(--md-sys-color-outline-variant); }
+.panel:first-child { border-inline-end: 1px solid var(--md-sys-color-outline-variant); }
+.panel--properties { border-inline-start: 1px solid var(--md-sys-color-outline-variant); }
 .panel__title { margin: 0 0 var(--space-2); font: var(--md-sys-typescale-title-medium); }
 .panel__hint, .panel__note { margin: 0 0 var(--space-3); color: var(--md-sys-color-on-surface-variant); font: var(--md-sys-typescale-body-small); }
 
@@ -73,7 +76,10 @@ body {
 
 .viewer { position: relative; min-width: 0; overflow: hidden; background: var(--md-sys-color-viewer); }
 .viewer canvas { display: block; }
-.viewer-labels { position: absolute; inset: 0; pointer-events: none; }
+/* CSS2DRenderer positions labels from the left edge, so the layer stays LTR even on an RTL page;
+   the label text itself follows the page direction. */
+.viewer-labels { position: absolute; inset: 0; pointer-events: none; direction: ltr; }
+[dir="rtl"] .dim-label { direction: rtl; }
 
 .dim-label {
   padding: 2px var(--space-2);
@@ -92,7 +98,7 @@ body {
 }
 
 /* Accessibility statement page (accessibility.html) */
-body.statement { height: auto; min-height: 100vh; display: block; }
+body.statement { height: auto; min-height: 100vh; display: block; overflow: visible; }
 .statement main { max-width: 760px; margin: 0 auto; padding: var(--space-6, 32px) 16px; line-height: 1.7; }
 .statement h1 { margin-top: 0; }
 .statement a { color: var(--md-sys-color-primary); }

@@ -197,6 +197,28 @@ export const STRINGS = Object.freeze({
       guided: 'Háblame del espacio: ¿qué ancho y alto debe tener el armario?',
       freeText: 'p. ej. 240 cm de ancho, 260 cm de alto, blanco, tres compartimentos',
     }),
+    tour: Object.freeze({
+      replay: 'Ver la visita guiada',
+      progress: (n, total) => `${n} de ${total}`,
+      next: 'Siguiente',
+      back: 'Atrás',
+      skip: 'Omitir',
+      done: 'Listo',
+      steps: Object.freeze({
+        chat: Object.freeze({
+          title: 'Habla aquí con el diseñador',
+          body: 'Describe con tus propias palabras lo que quieres y el diseñador propone cambios. No cambia nada hasta que pulses Confirmar.',
+        }),
+        editor: Object.freeze({
+          title: 'Edita a mano aquí',
+          body: 'Cambia medidas, compartimentos, estantes, cajones y materiales. Cada cambio aparece en 3D al instante.',
+        }),
+        viewer: Object.freeze({
+          title: 'Gira el armario aquí',
+          body: 'Arrastra para girar, usa la rueda para acercar y haz clic en una pieza para seleccionarla.',
+        }),
+      }),
+    }),
   }),
 });
 
@@ -234,18 +256,18 @@ export function detectLanguage(text, chosen = null) {
   return chosen === 'en' || chosen === 'es' ? chosen : 'en';
 }
 
-function readStored(storage) {
+function readStored(storage, key) {
   try {
-    const value = storage?.getItem(STORAGE_KEY);
+    const value = storage?.getItem(key);
     return LANGUAGES.includes(value) ? value : null;
   } catch {
     return null; // private mode / blocked storage: just use the default
   }
 }
 
-/** The chosen chat language, remembered per browser (best effort). */
-export function createLanguage({ storage = globalThis.localStorage, initial } = {}) {
-  let language = LANGUAGES.includes(initial) ? initial : readStored(storage) ?? DEFAULT_LANGUAGE;
+/** A chosen language, remembered per browser (best effort). The chat and the app UI each keep one. */
+export function createLanguage({ storage = globalThis.localStorage, initial, storageKey = STORAGE_KEY } = {}) {
+  let language = LANGUAGES.includes(initial) ? initial : readStored(storage, storageKey) ?? DEFAULT_LANGUAGE;
   const listeners = new Set();
   return {
     get: () => language,
@@ -254,7 +276,7 @@ export function createLanguage({ storage = globalThis.localStorage, initial } = 
       if (!LANGUAGES.includes(next) || next === language) return;
       language = next;
       try {
-        storage?.setItem(STORAGE_KEY, next);
+        storage?.setItem(storageKey, next);
       } catch {
         // not persisted; the choice still applies for this visit
       }

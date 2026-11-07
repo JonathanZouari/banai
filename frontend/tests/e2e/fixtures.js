@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { test as base, expect } from '@playwright/test';
 
 // Every E2E test fails on uncaught page errors or console errors. A test that provokes an
@@ -21,6 +22,18 @@ export const test = base.extend({
 });
 
 export { expect };
+
+// IS 5568 part 1 adopts WCAG at level AA; the UX/UI plan targets WCAG 2.2 AA.
+const AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
+
+export async function expectNoViolations(page) {
+  // Let entrance animations (fades) finish, or axe measures half-transparent text.
+  await page.evaluate(() => Promise.all(document.getAnimations()
+    .filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => {})))); // a cancelled animation rejects; that is fine
+  const { violations } = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
+  const summary = violations.map((v) => `${v.id}: ${v.nodes.map((n) => `${n.target.join(' ')} ${n.any[0]?.message ?? ''}`).join(', ')}`);
+  expect(summary, summary.join('\n')).toEqual([]);
+}
 
 export async function openDesigner(page) {
   await page.goto('/');
@@ -58,3 +71,10 @@ export const paintedRatio = (page) => page.evaluate(() => {
   }
   return painted / (data.length / 4);
 });
+
+/** Open a properties-panel step ('dimensions' | 'doors' | 'interior' | 'materials' | 'notes'). */
+export async function openStep(page, id) {
+  const step = page.getByTestId(`step-${id}`);
+  if (!(await step.evaluate((details) => details.open))) await page.getByTestId(`step-${id}-toggle`).click();
+  await expect(step).toHaveJSProperty('open', true);
+}

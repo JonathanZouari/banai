@@ -1,4 +1,5 @@
-/* Material Design 3 tokens for BanAI (light scheme, seed #B4532A).
+/* Material Design 3 tokens for BanAI (light scheme, seed #B4532A). UX/UI MVP (2026-10-24): neutral
+   white/grey surfaces with the terracotta accent kept, and Rubik for Hebrew + Latin (Stitch "BanAI Atelier").
    Source: Stitch project "BanAI Wardrobe Designer – M3" (projects/3661595013505240058),
    design system "BanAI Material 3". See /.stitch/DESIGN.md. */
 :root {
@@ -18,16 +19,16 @@
   --md-sys-color-error-container: #ffdad6;
   --md-sys-color-on-error-container: #410002;
   --md-sys-color-success: #4f7a5a;
-  --md-sys-color-surface: #fff8f6;
-  --md-sys-color-on-surface: #231917;
+  --md-sys-color-surface: #ffffff;
+  --md-sys-color-on-surface: #1c1b1f;
   --md-sys-color-on-surface-variant: #53433e;
   --md-sys-color-surface-container-lowest: #ffffff;
-  --md-sys-color-surface-container-low: #fff1ed;
-  --md-sys-color-surface-container: #fceae4;
-  --md-sys-color-surface-container-high: #f6e4de;
-  --md-sys-color-surface-container-highest: #f0deD8;
-  --md-sys-color-outline: #85736d;
-  --md-sys-color-outline-variant: #d8c2bb;
+  --md-sys-color-surface-container-low: #f7f7f8;
+  --md-sys-color-surface-container: #f1f1f3;
+  --md-sys-color-surface-container-high: #ebebee;
+  --md-sys-color-surface-container-highest: #e5e5e8;
+  --md-sys-color-outline: #79747e;
+  --md-sys-color-outline-variant: #e2e0e4;
   --md-sys-color-scrim: rgba(0, 0, 0, 0.32);
   --md-sys-color-viewer: #eceeec;
 
@@ -36,9 +37,9 @@
   --md-sys-state-focus: 0.1;
   --md-sys-state-pressed: 0.1;
 
-  /* Type: Bricolage Grotesque for display (headings, wordmark), DM Sans for UI and body. */
-  --md-ref-typeface-display: 'Bricolage Grotesque', 'DM Sans', system-ui, sans-serif;
-  --md-ref-typeface-body: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Type: Rubik for everything (Hebrew + Latin, self-hosted via @fontsource). */
+  --md-ref-typeface-display: 'Rubik', system-ui, 'Segoe UI', sans-serif;
+  --md-ref-typeface-body: 'Rubik', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --md-ref-typeface: var(--md-ref-typeface-body);
   --md-sys-typescale-headline-small: 700 24px/32px var(--md-ref-typeface-display);
   --md-sys-typescale-headline-medium: 700 28px/36px var(--md-ref-typeface-display);

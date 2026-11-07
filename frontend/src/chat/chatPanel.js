@@ -297,6 +297,13 @@ export function mountChat(container, {
       view.input.placeholder = (hintKey && view.t.composerHints[hintKey]) || view.t.placeholder;
       view.input.focus();
     },
+    /** Send a message through the normal path (language detection, then the agent), e.g. from the homepage. */
+    send: (text) => {
+      view.input.value = text;
+      draft = text;
+      view.submit();
+      view.input.focus();
+    },
     /** Re-render, e.g. after the design revision changed (a pending proposal may now be stale). */
     refresh: render,
   };
