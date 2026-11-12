@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-  ApiError, applyProposal, createSavedDesign, exportPdf, getCatalog, getDefaultDesign, getHealth, getSavedDesign, sendChat,
+  ApiError, applyProposal, createSavedDesign, exportPdf, getCatalog, getDefaultDesign, getHealth, getSavedDesign, requestRender, sendChat,
   updateSavedDesign,
 } from '../../src/api/client.js';
 
@@ -48,6 +48,27 @@ describe('agent api', () => {
   it('reports network failures as status 0', async () => {
     const error = await sendChat({}, vi.fn().mockRejectedValue(new TypeError('offline'))).catch((e) => e);
     expect(error).toMatchObject({ status: 0, code: 'NETWORK_ERROR' });
+  });
+});
+
+describe('requestRender', () => {
+  it('posts the design, snapshot and language and returns the image', async () => {
+    const data = { image: 'data:image/jpeg;base64,AAAA', disclaimer: 'Illustrative image' };
+    const fetchImpl = okResponse({ success: true, data });
+    const payload = { design: { dimensions: {} }, image: 'data:image/jpeg;base64,BBBB', language: 'en' };
+    await expect(requestRender(payload, fetchImpl)).resolves.toEqual(data);
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url).toBe('http://localhost:8000/api/render');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body)).toEqual(payload);
+  });
+
+  it('surfaces a rate limit as an ApiError with the server message', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: false, status: 429, json: async () => ({ success: false, error: { code: 'RATE_LIMITED', message: 'Too many renders' } }),
+    });
+    const error = await requestRender({}, fetchImpl).catch((e) => e);
+    expect(error).toMatchObject({ status: 429, code: 'RATE_LIMITED', message: 'Too many renders' });
   });
 });
 

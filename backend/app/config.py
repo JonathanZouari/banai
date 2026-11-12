@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     openai_transcribe_model: str = ""
     openai_tts_model: str = ""
     openai_tts_voice: str = ""
+    # ASSUMPTION: configurable AI render defaults (empty = the defaults in app/api/render.py).
+    openai_image_model: str = ""
+    openai_image_quality: str = ""
     # Saved designs (Phase 7). Only the backend holds the secret key; the browser never talks to Supabase.
     supabase_url: str = ""
     supabase_secret_key: str = ""

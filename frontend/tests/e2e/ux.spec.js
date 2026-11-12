@@ -159,13 +159,14 @@ test.describe('door configurations render with hardware', () => {
   });
 });
 
-test.describe('render dialog (backend phase not built yet)', () => {
+test.describe('render dialog without an image service', () => {
   test('Render opens a dialog labelled as illustrative, with generation disabled', async ({ page }) => {
     await openDesigner(page);
     await page.getByTestId('open-render').click();
     const dialog = page.getByTestId('render-dialog');
     await expect(dialog).toContainText('Illustrative image, not the accurate 3D model');
     await expect(page.getByTestId('render-generate')).toBeDisabled();
+    await expect(page.getByTestId('render-status')).toHaveText('Rendering is not available on this server.');
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
   });
